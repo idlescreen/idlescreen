@@ -5,7 +5,7 @@ use crate::idle::query_logind_idle;
 use trance_runner::launcher::{launch_screensaver, LaunchMode, ALLOWED_SAVERS};
 use std::fs;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 static RUNNING: AtomicBool = AtomicBool::new(true);
 
@@ -39,6 +39,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = DaemonConfig::load();
     let mut active_child: Option<trance_runner::launcher::ScreensaverProcess> = None;
     let mut tick_counter = 0;
+    let mut last_headless_warn: Option<Instant> = None;
 
     while RUNNING.load(Ordering::Relaxed) {
         std::thread::sleep(Duration::from_millis(1000));
@@ -63,28 +64,41 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
 
                     if elapsed_sec >= target_timeout_sec {
                         if active_child.is_none() {
-                            // Choose a screensaver: active_saver if set, else random from allowlist
-                            let name = if let Some(ref active) = config.active_saver {
-                                active.clone()
-                            } else {
-                                let mut seed = current_time_micros;
-                                seed = seed
-                                    .wrapping_mul(6364136223846793005)
-                                    .wrapping_add(1442695040888963407);
-                                let rand_idx = (seed % ALLOWED_SAVERS.len() as u64) as usize;
-                                ALLOWED_SAVERS[rand_idx].to_string()
-                            };
+                            let has_display = std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok();
+                            if has_display {
+                                // Choose a screensaver: active_saver if set, else random from allowlist
+                                let name = if let Some(ref active) = config.active_saver {
+                                    active.clone()
+                                } else {
+                                    let mut seed = current_time_micros;
+                                    seed = seed
+                                        .wrapping_mul(6364136223846793005)
+                                        .wrapping_add(1442695040888963407);
+                                    let rand_idx = (seed % ALLOWED_SAVERS.len() as u64) as usize;
+                                    ALLOWED_SAVERS[rand_idx].to_string()
+                                };
 
-                            println!(
-                                "system idle ({}s >= {}s). launching screensaver '{}'...",
-                                elapsed_sec, target_timeout_sec, name
-                            );
-                            match launch_screensaver(&name, LaunchMode::Daemon) {
-                                Ok(child) => {
-                                    active_child = Some(child);
+                                println!(
+                                    "system idle ({}s >= {}s). launching screensaver '{}'...",
+                                    elapsed_sec, target_timeout_sec, name
+                                );
+                                match launch_screensaver(&name, LaunchMode::Daemon) {
+                                    Ok(child) => {
+                                        active_child = Some(child);
+                                    }
+                                    Err(e) => {
+                                        eprintln!("daemon failed to launch screensaver: {}", e);
+                                    }
                                 }
-                                Err(e) => {
-                                    eprintln!("daemon failed to launch screensaver: {}", e);
+                            } else {
+                                let now = Instant::now();
+                                let should_warn = match last_headless_warn {
+                                    Some(last) => now.duration_since(last).as_secs() > 60,
+                                    None => true,
+                                };
+                                if should_warn {
+                                    eprintln!("daemon warning: system is idle but no graphical display (DISPLAY or WAYLAND_DISPLAY) was detected. skipping screensaver launch.");
+                                    last_headless_warn = Some(now);
                                 }
                             }
                         } else {
