@@ -2,7 +2,7 @@
 name = "trance-daemon"
 version = "0.1.4"
 edition = "2021"
-description = "trance-daemon - Background idle monitoring service for trance screensavers"
+description = "Background idle daemon and core package for trance screensavers"
 license = "MIT"
 
 [[bin]]
@@ -34,7 +34,7 @@ name = "trance"
 version = "0.1.4"
 release = "1"
 arch = "x86_64"
-summary = "trance - Background idle monitoring service for trance screensavers"
+summary = "Background idle daemon and core package for trance screensavers"
 description = "Background idle monitoring service for trance screensavers."
 license = "MIT"
 assets = [

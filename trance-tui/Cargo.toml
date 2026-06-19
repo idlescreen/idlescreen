@@ -2,7 +2,7 @@
 name = "trance-tui"
 version = "0.1.4"
 edition = "2021"
-description = "trance-tui - Interactive TUI configuration manager for trance screensavers"
+description = "Interactive TUI configuration manager for trance screensavers"
 license = "MIT"
 
 [[bin]]
@@ -35,7 +35,7 @@ name = "trance-tui"
 version = "0.1.4"
 release = "1"
 arch = "x86_64"
-summary = "trance-tui - Interactive TUI configuration manager and idle background daemon for trance screensavers"
+summary = "Interactive TUI configuration manager for trance screensavers"
 description = "Interactive TUI configuration manager and idle background daemon for trance screensavers."
 license = "MIT"
 assets = [

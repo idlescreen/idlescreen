@@ -3,7 +3,7 @@ name = "trance-applet"
 version = "0.1.4"
 edition = "2024"
 license = "MIT"
-description = "trance-applet - Native System76 COSMIC Desktop panel applet for the trance screensaver daemon"
+description = "COSMIC Desktop panel applet for the trance screensaver"
 repository = "https://github.com/local76/trance"
 
 [dependencies]
@@ -61,7 +61,7 @@ name = "trance-applet"
 version = "0.1.4"
 release = "1"
 arch = "x86_64"
-summary = "trance-applet - Native System76 COSMIC Desktop panel applet for the trance screensaver daemon"
+summary = "COSMIC Desktop panel applet for the trance screensaver"
 description = "Native System76 COSMIC Desktop panel applet for the trance screensaver daemon."
 license = "MIT"
 assets = [
