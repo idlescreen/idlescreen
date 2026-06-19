@@ -39,7 +39,6 @@ pub enum Message {
     UpdateConfig(crate::config::Config),
     ToggleIdleEnabled(bool),
     ActiveSaverSelected(String),
-    LockNow,
     ToggleDaemon(bool),
     DecreaseTimeout,
     IncreaseTimeout,
@@ -68,24 +67,7 @@ impl AppModel {
         self.daemon_running = false;
     }
 
-    fn get_saver_to_run(&self) -> Option<String> {
-        if let Some(ref active) = self.local_config.active_saver {
-            Some(active.clone())
-        } else {
-            // Pick a random screensaver from the list
-            if self.screensavers.is_empty() {
-                None
-            } else {
-                use std::time::{SystemTime, UNIX_EPOCH};
-                let micros = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_micros() as usize;
-                let idx = micros % self.screensavers.len();
-                Some(self.screensavers[idx].clone())
-            }
-        }
-    }
+
 }
 
 /// Create a COSMIC application from the app model
@@ -191,16 +173,7 @@ impl cosmic::Application for AppModel {
             grid = grid.push(row);
         }
 
-        let daemon_status = if self.daemon_running {
-            "Daemon: Active"
-        } else {
-            "Daemon: Inactive"
-        };
-
-        let header = cosmic::iced::widget::Column::new()
-            .spacing(4)
-            .push(widget::text("Trance Screensaver").size(16))
-            .push(widget::text(daemon_status).size(12));
+        let header = widget::text("Trance Screensaver").size(16);
 
         let decrease_btn = widget::button::standard("-").on_press(Message::DecreaseTimeout);
         let increase_btn = widget::button::standard("+").on_press(Message::IncreaseTimeout);
@@ -213,15 +186,9 @@ impl cosmic::Application for AppModel {
             .push(timeout_val)
             .push(increase_btn);
 
-        let actions = cosmic::iced::widget::Row::new()
-            .spacing(8)
+        let actions = widget::button::standard("Power Settings")
             .width(cosmic::iced::Length::Fill)
-            .push(widget::button::suggested("Run Screensaver")
-                .width(cosmic::iced::Length::Fill)
-                .on_press(Message::LockNow))
-            .push(widget::button::standard("Power Settings")
-                .width(cosmic::iced::Length::Fill)
-                .on_press(Message::OpenPowerSettings));
+            .on_press(Message::OpenPowerSettings);
 
         let content_list = widget::list_column()
             .add(header)
@@ -237,7 +204,6 @@ impl cosmic::Application for AppModel {
                 "Idle Timeout",
                 timeout_adjuster,
             ))
-            .add(widget::text("Active Screensaver").size(14))
             .add(grid)
             .add(actions);
 
@@ -320,14 +286,7 @@ impl cosmic::Application for AppModel {
                 }
                 let _ = self.local_config.save();
             }
-            Message::LockNow => {
-                let target_saver = self.get_saver_to_run();
-                if let Some(saver) = target_saver {
-                    let _ = std::process::Command::new("trance")
-                        .args(["start", &saver])
-                        .spawn();
-                }
-            }
+
             Message::DecreaseTimeout => {
                 if self.local_config.idle_timeout_mins > 1 {
                     self.local_config.idle_timeout_mins -= 1;
