@@ -40,7 +40,7 @@ impl Local76Config {
             accent_color: "#00BFFF".to_string(),
             idle_timeout_mins: 5,
             theme_idx: 0,
-            active_saver: None,
+            active_saver: Some("beams".to_string()),
             idle_enabled: true,
         };
 

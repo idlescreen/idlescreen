@@ -18,11 +18,10 @@ libc = "0.2"
 directories = "5"
 
 [package.metadata.deb]
-name = "trance"
+name = "trance-tui"
 maintainer = "Screensavers Developer <dev@local76.org>"
 extended-description = "Interactive TUI configuration manager and idle background daemon for trance screensavers."
-depends = "libc6, xterm, trance-daemon"
-recommends = "trance-applet, trance-plugin-beams, trance-plugin-bursts, trance-plugin-chaos, trance-plugin-cosmos, trance-plugin-glyphs, trance-plugin-gnats, trance-plugin-storm"
+depends = "libc6, xterm, trance"
 section = "utils"
 priority = "optional"
 assets = [
@@ -32,11 +31,11 @@ assets = [
 ]
 
 [package.metadata.generate-rpm]
-name = "trance"
+name = "trance-tui"
 version = "0.1.3"
 release = "1"
 arch = "x86_64"
-summary = "trance - Interactive TUI configuration manager and idle background daemon for trance screensavers"
+summary = "trance-tui - Interactive TUI configuration manager and idle background daemon for trance screensavers"
 description = "Interactive TUI configuration manager and idle background daemon for trance screensavers."
 license = "MIT"
 assets = [

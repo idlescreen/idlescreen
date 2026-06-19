@@ -17,10 +17,10 @@ wayland-client = "0.31"
 wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 
 [package.metadata.deb]
-name = "trance-daemon"
+name = "trance"
 maintainer = "Screensavers Developer <dev@local76.org>"
 extended-description = "Background idle monitoring service for trance screensavers."
-depends = "libc6"
+depends = "libc6, trance-plugin-beams, trance-plugin-bursts, trance-plugin-chaos, trance-plugin-cosmos, trance-plugin-glyphs, trance-plugin-gnats, trance-plugin-storm"
 section = "utils"
 priority = "optional"
 assets = [
@@ -30,11 +30,11 @@ assets = [
 ]
 
 [package.metadata.generate-rpm]
-name = "trance-daemon"
+name = "trance"
 version = "0.1.3"
 release = "1"
 arch = "x86_64"
-summary = "trance-daemon - Background idle monitoring service for trance screensavers"
+summary = "trance - Background idle monitoring service for trance screensavers"
 description = "Background idle monitoring service for trance screensavers."
 license = "MIT"
 assets = [

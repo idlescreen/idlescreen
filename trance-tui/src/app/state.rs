@@ -62,7 +62,7 @@ impl AppState {
             selection_pending_copy: false,
             copied_toast: None,
             copied_toast_until: None,
-            active_saver: None,
+            active_saver: Some("beams".to_string()),
             idle_enabled: true,
         };
 

@@ -34,9 +34,9 @@ for crate in "${CRATES[@]}"; do
     echo "Building Debian package for $crate..."
     cargo deb --no-build -p "$crate"
     
-    # Map workspace crate names to output package names (trance-tui outputs as trance)
+    # Map workspace crate names to output package names (trance-daemon outputs as trance)
     pkg_name="$crate"
-    if [ "$crate" = "trance-tui" ]; then
+    if [ "$crate" = "trance-daemon" ]; then
         pkg_name="trance"
     fi
 

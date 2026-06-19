@@ -45,7 +45,7 @@ pub fn run_diagnostics(do_fix: bool) -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(parent) = path.parent() {
                     let _ = std::fs::create_dir_all(parent);
                 }
-                let default_cfg = "idle_enabled: true\nidle_timeout_mins: 5\nactive_saver: none\n";
+                let default_cfg = "idle_enabled: true\nidle_timeout_mins: 5\nactive_saver: \"beams\"\n";
                 if std::fs::write(path, default_cfg).is_ok() {
                     println!("  -> [FIX] Created default config at theme.yaml");
                 }

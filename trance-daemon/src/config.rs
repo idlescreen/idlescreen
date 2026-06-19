@@ -13,7 +13,7 @@ pub struct DaemonConfig {
 impl Default for DaemonConfig {
     fn default() -> Self {
         Self {
-            active_saver: None,
+            active_saver: Some("beams".to_string()),
             idle_enabled: true,
             idle_timeout_mins: 5,
         }
