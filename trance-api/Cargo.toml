@@ -1,6 +1,6 @@
 [package]
 name = "trance-api"
-version = "2026.6.14-2"
+version = "2026.6.20-1"
 edition = "2024"
 description = "Lightweight shared API definitions, traits, and math utilities for terminal screensaver plugins."
 license = "MIT"

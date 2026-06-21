@@ -1,6 +1,6 @@
 [package]
 name = "trance-daemon"
-version = "0.1.15"
+version = "0.2.0"
 edition = "2024"
 description = "Background idle daemon and core package for trance screensavers"
 license = "MIT"
@@ -12,16 +12,22 @@ path = "src/main.rs"
 [dependencies]
 trance-runner = { path = "../trance-runner" }
 trance-api = { path = "../trance-api" }
+trance-dbus = { path = "../crates/trance-dbus" }
+trance-gpu = { path = "../crates/trance-gpu" }
+wayland-idle = { path = "../crates/wayland-idle" }
+wayland-present = { path = "../crates/wayland-present" }
 libc = "0.2"
-wayland-client = "0.31"
-wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 signal-hook = "0.3"
+zbus = { version = "5.12", default-features = false, features = ["tokio"] }
+futures-lite = "2.6"
+tokio = { version = "1.52", features = ["rt-multi-thread", "time", "sync"] }
 
 [package.metadata.deb]
 name = "trance"
 maintainer = "Screensavers Developer <dev@local76.org>"
 extended-description = "Background idle monitoring service for trance screensavers."
-depends = "libc6, trance-plugin-beams, trance-plugin-bursts, trance-plugin-chaos, trance-plugin-cosmos, trance-plugin-glyphs, trance-plugin-gnats, trance-plugin-storm"
+depends = "libc6, fonts-dejavu-core, trance-plugin-beams, dbus, libvulkan1 | libgl1"
+recommends = "trance-plugins-all, trance-applet"
 section = "utils"
 priority = "optional"
 maintainer-scripts = "debian"
@@ -33,7 +39,7 @@ assets = [
 
 [package.metadata.generate-rpm]
 name = "trance"
-version = "0.1.15"
+version = "0.2.0"
 release = "1"
 arch = "x86_64"
 summary = "Background idle daemon and core package for trance screensavers"

@@ -8,6 +8,8 @@ Type=simple
 ExecStart=/usr/bin/trance-daemon daemon
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=10
+KillMode=mixed
 
 [Install]
 WantedBy=graphical-session.target

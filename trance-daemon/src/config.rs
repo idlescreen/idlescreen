@@ -3,11 +3,17 @@
 use std::fs;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DaemonConfig {
     pub active_saver: Option<String>,
     pub idle_enabled: bool,
     pub idle_timeout_mins: u32,
+    pub gpu_enabled: bool,
+    pub show_fps_overlay: bool,
+    /// `primary`, `mirror`, or `expand` (see `trance_runner::plugin_meta::parse_display_mode`).
+    pub display_mode: String,
+    /// Simulation grid scale override in `(0.25, 1.0]`; `None` uses GPU/CPU defaults.
+    pub render_scale: Option<f32>,
 }
 
 impl Default for DaemonConfig {
@@ -16,6 +22,10 @@ impl Default for DaemonConfig {
             active_saver: Some("beams".to_string()),
             idle_enabled: true,
             idle_timeout_mins: 5,
+            gpu_enabled: true,
+            show_fps_overlay: false,
+            display_mode: "primary".to_string(),
+            render_scale: None,
         }
     }
 }
@@ -66,6 +76,28 @@ impl DaemonConfig {
                                     config.idle_enabled = b;
                                 }
                             }
+                            "gpu_enabled" => {
+                                if let Ok(b) = val.parse::<bool>() {
+                                    config.gpu_enabled = b;
+                                }
+                            }
+                            "show_fps_overlay" => {
+                                if let Ok(b) = val.parse::<bool>() {
+                                    config.show_fps_overlay = b;
+                                }
+                            }
+                            "display_mode" => {
+                                if !val.is_empty() {
+                                    config.display_mode = val.to_string();
+                                }
+                            }
+                            "render_scale" => {
+                                if val.is_empty() || val.eq_ignore_ascii_case("null") {
+                                    config.render_scale = None;
+                                } else if let Ok(scale) = val.parse::<f32>() {
+                                    config.render_scale = Some(scale.clamp(0.25, 1.0));
+                                }
+                            }
                             _ => {}
                         }
                     }
@@ -73,5 +105,38 @@ impl DaemonConfig {
             }
         }
         config
+    }
+
+    pub fn save(&self) -> std::io::Result<()> {
+        let Some(path) = Self::get_config_path() else {
+            return Ok(());
+        };
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let active_str = self.active_saver.as_deref().unwrap_or("none");
+        let content = format!(
+            "# local76 themes and settings\n\
+             accent_color: \"#00BFFF\"\n\
+             # dark_mode is auto-detected from system\n\
+             idle_timeout_mins: {}\n\
+             theme_idx: 0\n\
+             active_saver: \"{}\"\n\
+             idle_enabled: {}\n\
+             gpu_enabled: {}\n\
+             show_fps_overlay: {}\n\
+             display_mode: \"{}\"\n\
+             render_scale: {}\n",
+            self.idle_timeout_mins,
+            active_str,
+            self.idle_enabled,
+            self.gpu_enabled,
+            self.show_fps_overlay,
+            self.display_mode,
+            self.render_scale
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "null".to_string())
+        );
+        fs::write(path, content)
     }
 }

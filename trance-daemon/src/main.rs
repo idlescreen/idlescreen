@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 
 mod config;
+mod controller;
 mod daemon;
-mod idle;
+mod dbus_server;
+mod inhibit;
+mod lock_monitor;
+mod presentation;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Register visual theme and system query callbacks for dynamically loaded screensaver plugins

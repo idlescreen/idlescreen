@@ -334,7 +334,12 @@ impl<T: Screensaver + ?Sized> ScreensaverState for T {
     fn set_focused(&mut self, _focused: bool) {}
 }
 
+pub mod caption;
+pub mod layout;
 pub mod logo_block;
+
+pub use caption::{caption_text, clear_caption, publish_caption};
+pub use layout::{is_span_layout, place_centered_logo, span_reach_scale, CenteredLogo};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MonitorCellBounds {
@@ -372,6 +377,9 @@ pub static MONITOR_BOUNDS_CALLBACK: OnceLock<fn(usize, usize) -> MonitorCellBoun
 pub static IS_SECONDARY_MONITOR_CALLBACK: OnceLock<fn() -> bool> = OnceLock::new();
 
 pub fn get_primary_monitor_bounds(cols: usize, rows: usize) -> MonitorCellBounds {
+    if let Some(bounds) = read_primary_bounds_from_env() {
+        return bounds;
+    }
     if let Some(callback) = MONITOR_BOUNDS_CALLBACK.get() {
         callback(cols, rows)
     } else {
@@ -382,6 +390,38 @@ pub fn get_primary_monitor_bounds(cols: usize, rows: usize) -> MonitorCellBounds
             end_row: rows,
             is_primary: true,
         }
+    }
+}
+
+fn read_primary_bounds_from_env() -> Option<MonitorCellBounds> {
+    let start_col = std::env::var("TRANCE_PRIMARY_START_COL").ok()?.parse().ok()?;
+    let end_col = std::env::var("TRANCE_PRIMARY_END_COL").ok()?.parse().ok()?;
+    let start_row = std::env::var("TRANCE_PRIMARY_START_ROW").ok()?.parse().ok()?;
+    let end_row = std::env::var("TRANCE_PRIMARY_END_ROW").ok()?.parse().ok()?;
+    Some(MonitorCellBounds {
+        start_col,
+        end_col,
+        start_row,
+        end_row,
+        is_primary: true,
+    })
+}
+
+pub fn publish_primary_bounds(bounds: MonitorCellBounds) {
+    unsafe {
+        std::env::set_var("TRANCE_PRIMARY_START_COL", bounds.start_col.to_string());
+        std::env::set_var("TRANCE_PRIMARY_END_COL", bounds.end_col.to_string());
+        std::env::set_var("TRANCE_PRIMARY_START_ROW", bounds.start_row.to_string());
+        std::env::set_var("TRANCE_PRIMARY_END_ROW", bounds.end_row.to_string());
+    }
+}
+
+pub fn clear_primary_bounds() {
+    unsafe {
+        std::env::remove_var("TRANCE_PRIMARY_START_COL");
+        std::env::remove_var("TRANCE_PRIMARY_END_COL");
+        std::env::remove_var("TRANCE_PRIMARY_START_ROW");
+        std::env::remove_var("TRANCE_PRIMARY_END_ROW");
     }
 }
 
@@ -410,8 +450,9 @@ pub mod core {
 pub mod toolkit {
     pub mod sys_info {
         pub use crate::{
-            get_primary_monitor_bounds, get_system_info, is_secondary_monitor,
-            query_current_palette, MonitorCellBounds, SystemInfo,
+            caption_text, clear_caption, get_primary_monitor_bounds, get_system_info,
+            is_secondary_monitor, is_span_layout, place_centered_logo, publish_caption,
+            query_current_palette, span_reach_scale, CenteredLogo, MonitorCellBounds, SystemInfo,
         };
     }
 }

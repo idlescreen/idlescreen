@@ -1,11 +1,16 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/wayland-idle",
+    "crates/wayland-present",
+    "crates/trance-dbus",
+    "crates/trance-gpu",
     "trance-api",
     "trance-runner",
-    "trance-tui",
     "trance-daemon",
+    "trance-cli",
     "trance-applet",
+    "trance-plugins-all",
 ]
 
 [profile.release]

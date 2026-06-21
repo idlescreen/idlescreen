@@ -15,6 +15,9 @@ pub struct AppModel {
     local_config: Local76Config,
     screensavers: Vec<String>,
     daemon_running: bool,
+    gpu_enabled: bool,
+    show_fps_overlay: bool,
+    display_mode: String,
 }
 
 impl Default for AppModel {
@@ -26,6 +29,9 @@ impl Default for AppModel {
             local_config: Local76Config::default(),
             screensavers: Vec::new(),
             daemon_running: false,
+            gpu_enabled: true,
+            show_fps_overlay: false,
+            display_mode: "primary".to_string(),
         }
     }
 }
@@ -40,31 +46,43 @@ pub enum Message {
     ToggleIdleEnabled(bool),
     ActiveSaverSelected(String),
     ToggleDaemon(bool),
+    ToggleGpuEnabled(bool),
+    ToggleFpsOverlay(bool),
     DecreaseTimeout,
     IncreaseTimeout,
     OpenPowerSettings,
+    DisplayModeSelected(String),
 }
 
 impl AppModel {
-    fn check_daemon(&mut self) {
-        let pid_path = if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
-            std::path::PathBuf::from(runtime_dir).join("trance-daemon.pid")
-        } else {
-            std::env::temp_dir().join("trance-daemon.pid")
-        };
-        if pid_path.exists() {
-            if let Ok(pid_str) = std::fs::read_to_string(&pid_path) {
-                if let Ok(pid) = pid_str.trim().parse::<i32>() {
-                    unsafe {
-                        if libc::kill(pid, 0) == 0 {
-                            self.daemon_running = true;
-                            return;
-                        }
-                    }
-                }
+    fn refresh_daemon_state(&mut self) {
+        self.daemon_running = crate::daemon_client::is_running();
+        if self.daemon_running {
+            if let Some(status) = crate::daemon_client::fetch_status() {
+                self.local_config.idle_enabled = status.idle_enabled;
+                self.local_config.idle_timeout_mins = status.idle_timeout_mins;
+                self.local_config.active_saver = if status.active_saver.is_empty() {
+                    None
+                } else {
+                    Some(status.active_saver)
+                };
+                self.gpu_enabled = status.gpu_enabled;
+                self.show_fps_overlay = status.show_fps_overlay;
+                self.display_mode = if status.display_mode.is_empty() {
+                    "primary".to_string()
+                } else {
+                    status.display_mode
+                };
             }
+            if let Ok(savers) = crate::daemon_client::list_savers() {
+                self.screensavers = savers;
+            }
+        } else {
+            self.local_config = Local76Config::load();
+            self.screensavers = trance_runner::discovery::detect_screensavers();
+            self.gpu_enabled = self.local_config.gpu_enabled;
+            self.show_fps_overlay = self.local_config.show_fps_overlay;
         }
-        self.daemon_running = false;
     }
 }
 
@@ -106,9 +124,12 @@ impl cosmic::Application for AppModel {
             local_config: Local76Config::load(),
             screensavers: trance_runner::discovery::detect_screensavers(),
             daemon_running: false,
+            gpu_enabled: true,
+            show_fps_overlay: false,
+            display_mode: "primary".to_string(),
             popup: None,
         };
-        app.check_daemon();
+        app.refresh_daemon_state();
 
         (app, Task::none())
     }
@@ -205,6 +226,35 @@ impl cosmic::Application for AppModel {
                 widget::toggler(self.local_config.idle_enabled)
                     .on_toggle(Message::ToggleIdleEnabled),
             ))
+            .add(widget::settings::item(
+                "GPU Upscaling",
+                widget::toggler(self.gpu_enabled).on_toggle(Message::ToggleGpuEnabled),
+            ))
+            .add(widget::settings::item(
+                "FPS Overlay",
+                widget::toggler(self.show_fps_overlay).on_toggle(Message::ToggleFpsOverlay),
+            ))
+            .add(widget::settings::item(
+                "Display Mode",
+                cosmic::iced::widget::Row::new()
+                    .spacing(6)
+                    .push(
+                        widget::button::standard("Primary")
+                            .on_press(Message::DisplayModeSelected("primary".into())),
+                    )
+                    .push(
+                        widget::button::standard("Mirror")
+                            .on_press(Message::DisplayModeSelected("mirror".into())),
+                    )
+                    .push(
+                        widget::button::standard("Expand")
+                            .on_press(Message::DisplayModeSelected("expand".into())),
+                    ),
+            ))
+            .add(widget::settings::item(
+                "Active Layout",
+                widget::text(self.display_mode.clone()),
+            ))
             .add(widget::settings::item("Idle Timeout", timeout_adjuster))
             .add(grid)
             .add(actions);
@@ -279,7 +329,38 @@ impl cosmic::Application for AppModel {
             }
             Message::ToggleIdleEnabled(toggled) => {
                 self.local_config.idle_enabled = toggled;
-                let _ = self.local_config.save();
+                if crate::daemon_client::is_running() {
+                    let _ = crate::daemon_client::set_idle_enabled(toggled);
+                } else {
+                    let _ = self.local_config.save();
+                }
+            }
+            Message::ToggleGpuEnabled(toggled) => {
+                self.gpu_enabled = toggled;
+                if crate::daemon_client::is_running() {
+                    let _ = crate::daemon_client::set_gpu_enabled(toggled);
+                } else {
+                    self.local_config.gpu_enabled = toggled;
+                    let _ = self.local_config.save();
+                }
+            }
+            Message::ToggleFpsOverlay(toggled) => {
+                self.show_fps_overlay = toggled;
+                if crate::daemon_client::is_running() {
+                    let _ = crate::daemon_client::set_show_fps_overlay(toggled);
+                } else {
+                    self.local_config.show_fps_overlay = toggled;
+                    let _ = self.local_config.save();
+                }
+            }
+            Message::DisplayModeSelected(mode) => {
+                self.display_mode = mode.clone();
+                self.local_config.display_mode = mode.clone();
+                if crate::daemon_client::is_running() {
+                    let _ = crate::daemon_client::set_display_mode(&mode);
+                } else {
+                    let _ = self.local_config.save();
+                }
             }
             Message::ActiveSaverSelected(saver) => {
                 if saver == "Random" {
@@ -287,28 +368,44 @@ impl cosmic::Application for AppModel {
                 } else {
                     self.local_config.active_saver = Some(saver);
                 }
-                let _ = self.local_config.save();
+                if crate::daemon_client::is_running() {
+                    let _ = crate::daemon_client::set_active_saver(
+                        self.local_config.active_saver.as_deref(),
+                    );
+                } else {
+                    let _ = self.local_config.save();
+                }
             }
 
             Message::DecreaseTimeout => {
                 if self.local_config.idle_timeout_mins > 1 {
                     self.local_config.idle_timeout_mins -= 1;
-                    let _ = self.local_config.save();
+                    if crate::daemon_client::is_running() {
+                        let _ = crate::daemon_client::set_timeout(
+                            self.local_config.idle_timeout_mins,
+                        );
+                    } else {
+                        let _ = self.local_config.save();
+                    }
                 }
             }
             Message::IncreaseTimeout => {
                 if self.local_config.idle_timeout_mins < 120 {
                     self.local_config.idle_timeout_mins += 1;
-                    let _ = self.local_config.save();
+                    if crate::daemon_client::is_running() {
+                        let _ = crate::daemon_client::set_timeout(
+                            self.local_config.idle_timeout_mins,
+                        );
+                    } else {
+                        let _ = self.local_config.save();
+                    }
                 }
             }
             Message::TogglePopup => {
                 return if let Some(p) = self.popup.take() {
                     destroy_popup(p)
                 } else {
-                    self.local_config = Local76Config::load();
-                    self.screensavers = trance_runner::discovery::detect_screensavers();
-                    self.check_daemon();
+                    self.refresh_daemon_state();
 
                     let new_id = Id::unique();
                     self.popup.replace(new_id);

@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT
+
+use std::collections::HashMap;
+
+use zbus::zvariant::{OwnedValue, Value};
+
+/// Live daemon state exposed over D-Bus.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DaemonStatus {
+    pub running: bool,
+    pub idle_enabled: bool,
+    pub idle_timeout_mins: u32,
+    /// Empty string means random rotation.
+    pub active_saver: String,
+    pub presentation_active: bool,
+    pub preview_active: bool,
+    pub system_idle: bool,
+    pub session_locked: bool,
+    pub inhibited: bool,
+    pub current_saver: String,
+    pub gpu_enabled: bool,
+    pub show_fps_overlay: bool,
+    pub display_mode: String,
+    pub render_scale: String,
+}
+
+impl DaemonStatus {
+    pub fn to_map(&self) -> HashMap<String, OwnedValue> {
+        let mut map = HashMap::new();
+        map.insert("running".into(), owned(self.running));
+        map.insert("idle_enabled".into(), owned(self.idle_enabled));
+        map.insert("idle_timeout_mins".into(), owned(self.idle_timeout_mins));
+        map.insert("active_saver".into(), owned(self.active_saver.clone()));
+        map.insert("presentation_active".into(), owned(self.presentation_active));
+        map.insert("preview_active".into(), owned(self.preview_active));
+        map.insert("system_idle".into(), owned(self.system_idle));
+        map.insert("session_locked".into(), owned(self.session_locked));
+        map.insert("inhibited".into(), owned(self.inhibited));
+        map.insert("current_saver".into(), owned(self.current_saver.clone()));
+        map.insert("gpu_enabled".into(), owned(self.gpu_enabled));
+        map.insert("show_fps_overlay".into(), owned(self.show_fps_overlay));
+        map.insert("display_mode".into(), owned(self.display_mode.clone()));
+        map.insert("render_scale".into(), owned(self.render_scale.clone()));
+        map
+    }
+}
+
+fn owned<T>(value: T) -> OwnedValue
+where
+    T: Into<Value<'static>>,
+{
+    value.into().try_into().expect("value converts to OwnedValue")
+}

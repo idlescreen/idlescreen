@@ -1,28 +1,46 @@
 // SPDX-License-Identifier: MIT
 
 use crate::config::DaemonConfig;
-use crate::idle::query_logind_idle;
+use crate::controller::{DaemonCommand, DaemonController, MAIN_LOOP_INTERVAL};
+use crate::presentation::{PluginPresentation, PresentationOptions};
 use std::fs;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use trance_runner::launcher::{launch_screensaver, LaunchMode, ALLOWED_SAVERS};
+use std::time::{SystemTime, UNIX_EPOCH};
+use trance_runner::launcher::ALLOWED_SAVERS;
+use wayland_idle::IdleMonitor;
+use wayland_present::OverlayPresenter;
+
+enum ActivePresentation {
+    None,
+    Plugin(PluginPresentation),
+}
+
+impl ActivePresentation {
+    fn is_active(&self) -> bool {
+        matches!(self, Self::Plugin(_))
+    }
+}
 
 pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
-    // Write PID file for process tracking
+    if std::env::var("WAYLAND_DISPLAY").is_err() {
+        return Err(
+            "WAYLAND_DISPLAY is not set; trance requires a Wayland session".into(),
+        );
+    }
+
     let pid_path = if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
         std::path::PathBuf::from(runtime_dir).join("trance-daemon.pid")
     } else {
         std::env::temp_dir().join("trance-daemon.pid")
     };
 
-    // Check if another instance is already running
     if pid_path.exists() {
         if let Ok(pid_str) = fs::read_to_string(&pid_path) {
             if let Ok(pid) = pid_str.trim().parse::<i32>() {
                 unsafe {
                     if libc::kill(pid, 0) == 0 && pid != std::process::id() as i32 {
-                        eprintln!("trance-daemon is already running (pid {}). Exiting.", pid);
+                        eprintln!("trance-daemon is already running (pid {pid}). Exiting.");
                         return Ok(());
                     }
                 }
@@ -32,133 +50,213 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
 
     fs::write(&pid_path, std::process::id().to_string())?;
 
-    // Setup signal handler for graceful shutdown
-    let running = Arc::new(AtomicBool::new(true));
-    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&running))?;
-    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&running))?;
+    let initial_config = DaemonConfig::load();
+    let controller = Arc::new(DaemonController::new(initial_config));
+
+    signal_hook::flag::register(
+        signal_hook::consts::SIGINT,
+        Arc::clone(&controller.shutdown),
+    )?;
+    signal_hook::flag::register(
+        signal_hook::consts::SIGTERM,
+        Arc::clone(&controller.shutdown),
+    )?;
 
     println!("trance-daemon running (pid {})...", std::process::id());
-
-    let mut config = DaemonConfig::load();
-    let wayland_monitor = crate::idle::WaylandIdleMonitor::new(config.idle_timeout_mins);
-    if wayland_monitor.is_some() {
-        println!("trance-daemon using native Wayland idle notifier");
-    } else {
-        println!("trance-daemon falling back to logind idle monitoring");
+    if cfg!(debug_assertions) {
+        eprintln!(
+            "trance-daemon: WARNING — debug build is very slow (~1 FPS). \
+             Use target/release/trance-daemon for real performance."
+        );
     }
 
-    let mut active_child: Option<trance_runner::launcher::ScreensaverProcess> = None;
-    let mut tick_counter = 0;
-    let mut last_headless_warn: Option<Instant> = None;
+    let dbus_controller = Arc::clone(&controller);
+    let dbus_thread = std::thread::spawn(move || {
+        if let Err(error) = crate::dbus_server::run(dbus_controller) {
+            eprintln!("trance-daemon: D-Bus server stopped: {error}");
+        }
+    });
 
-    while running.load(Ordering::Relaxed) {
-        std::thread::sleep(Duration::from_millis(1000));
-        tick_counter += 1;
+    let idle_timeout = controller.config.lock().unwrap().idle_timeout_mins;
+    let idle_monitor = IdleMonitor::new(idle_timeout).ok_or(
+        "Wayland idle monitoring is unavailable; ensure ext-idle-notify-v1 is supported",
+    )?;
+    println!("trance-daemon using native Wayland idle notifier");
 
-        // Reload config every 10 seconds to detect timeout adjustments in TUI
-        if tick_counter % 10 == 0 {
-            let old_timeout = config.idle_timeout_mins;
-            config = DaemonConfig::load();
-            if config.idle_timeout_mins != old_timeout {
-                if let Some(ref monitor) = wayland_monitor {
-                    monitor.set_timeout(config.idle_timeout_mins);
+    if !trance_runner::cell_renderer::font_available() {
+        return Err(
+            "no monospace font found; install fonts-dejavu-core before running trance".into(),
+        );
+    }
+    if let Some(path) = trance_runner::cell_renderer::resolve_font_path() {
+        println!("trance-daemon using monospace font: {path}");
+    }
+
+    let overlay_presenter = OverlayPresenter::new()
+        .map(Arc::new)
+        .ok_or("Wayland layer-shell presenter is unavailable on this compositor")?;
+    println!("trance-daemon using Wayland layer-shell presenter");
+
+    let mut presentation = ActivePresentation::None;
+    let mut preview_name: Option<String> = None;
+    let mut current_saver = String::new();
+    let mut tick_counter = 0u32;
+
+    while !controller.shutdown.load(Ordering::Relaxed) {
+        std::thread::sleep(MAIN_LOOP_INTERVAL);
+        tick_counter = tick_counter.saturating_add(1);
+
+        for command in controller.drain_commands() {
+            match command {
+                DaemonCommand::Preview(name) => {
+                    preview_name = Some(name);
+                }
+                DaemonCommand::StopPresentation => {
+                    preview_name = None;
+                    stop_presentation(Some(&overlay_presenter), &mut presentation);
+                    current_saver.clear();
+                }
+                DaemonCommand::Enable
+                | DaemonCommand::Disable
+                | DaemonCommand::SetTimeout(_)
+                | DaemonCommand::SetSaver(_)
+                | DaemonCommand::SetGpuEnabled(_)
+                | DaemonCommand::SetShowFpsOverlay(_)
+                | DaemonCommand::SetDisplayMode(_)
+                | DaemonCommand::SetRenderScale(_) => {
+                    let _ = controller.apply_command(command);
                 }
             }
         }
 
-        let current_time_micros = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(d) => d.as_micros() as u64,
-            Err(_) => 0,
-        };
-
-        if config.idle_enabled {
-            let is_system_idle = if let Some(ref monitor) = wayland_monitor {
-                monitor.is_idle()
-            } else {
-                if let Some(idle) = query_logind_idle() {
-                    if idle.is_idle && idle.idle_since_micros > 0 {
-                        let elapsed_sec =
-                            current_time_micros.saturating_sub(idle.idle_since_micros) / 1_000_000;
-                        let target_timeout_sec = (config.idle_timeout_mins * 60) as u64;
-                        elapsed_sec >= target_timeout_sec
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                }
-            };
-
-            if is_system_idle {
-                if active_child.is_none() {
-                    let has_display = std::env::var("DISPLAY").is_ok()
-                        || std::env::var("WAYLAND_DISPLAY").is_ok();
-                    if has_display {
-                        // Choose a screensaver: active_saver if set, else random from allowlist
-                        let name = if let Some(ref active) = config.active_saver {
-                            active.clone()
-                        } else {
-                            let mut seed = current_time_micros;
-                            seed = seed
-                                .wrapping_mul(6364136223846793005)
-                                .wrapping_add(1442695040888963407);
-                            let rand_idx = (seed % ALLOWED_SAVERS.len() as u64) as usize;
-                            ALLOWED_SAVERS[rand_idx].to_string()
-                        };
-
-                        println!("system idle. launching screensaver '{}'...", name);
-                        match launch_screensaver(&name, LaunchMode::Daemon) {
-                            Ok(child) => {
-                                active_child = Some(child);
-                            }
-                            Err(e) => {
-                                eprintln!("daemon failed to launch screensaver: {}", e);
-                            }
-                        }
-                    } else {
-                        let now = Instant::now();
-                        let should_warn = match last_headless_warn {
-                            Some(last) => now.duration_since(last).as_secs() > 60,
-                            None => true,
-                        };
-                        if should_warn {
-                            eprintln!("daemon warning: system is idle but no graphical display (DISPLAY or WAYLAND_DISPLAY) was detected. skipping screensaver launch.");
-                            last_headless_warn = Some(now);
-                        }
-                    }
-                } else {
-                    // If running, verify it hasn't exited
-                    if let Some(ref mut child) = active_child {
-                        if let Ok(Some(status)) = child.try_wait() {
-                            println!(
-                                "screensaver process exited (status: {}). resetting child.",
-                                status
-                            );
-                            active_child = None;
-                        }
-                    }
-                }
-            } else {
-                // Active session (not idle)
-                if let Some(mut child) = active_child.take() {
-                    println!("system activity detected. killing screensaver...");
-                    let _ = child.kill();
-                }
-            }
-        } else {
-            // Idle activation disabled: make sure screensaver is not running!
-            if let Some(mut child) = active_child.take() {
-                println!("idle activation disabled by user config. killing screensaver...");
-                let _ = child.kill();
-            }
+        if let Some(timeout) = controller.reload_config_if_due(tick_counter) {
+            idle_monitor.set_timeout(timeout);
         }
+
+        let config = controller.config.lock().unwrap().clone();
+        let system_idle = idle_monitor.is_idle();
+        let session_locked = controller.session_locked.load(Ordering::Relaxed);
+        let inhibited = controller.inhibitors.is_inhibited();
+
+        if presentation.is_active() && !overlay_presenter.is_visible() {
+            stop_presentation(Some(&overlay_presenter), &mut presentation);
+            current_saver.clear();
+            preview_name = None;
+        }
+
+        if session_locked || inhibited {
+            if presentation.is_active() {
+                stop_presentation(Some(&overlay_presenter), &mut presentation);
+                current_saver.clear();
+            }
+            preview_name = None;
+        } else if let Some(name) = preview_name.clone() {
+            if !presentation.is_active() {
+                start_presentation(
+                    &overlay_presenter,
+                    &mut presentation,
+                    &mut current_saver,
+                    name,
+                    "preview",
+                    &config,
+                );
+            }
+        } else if config.idle_enabled && system_idle && !presentation.is_active() {
+            let seed_micros = current_time_micros();
+            let saver_name = pick_saver_name(&config, seed_micros);
+            start_presentation(
+                &overlay_presenter,
+                &mut presentation,
+                &mut current_saver,
+                saver_name,
+                "idle",
+                &config,
+            );
+        } else if presentation.is_active() && !system_idle && preview_name.is_none() {
+            stop_presentation(Some(&overlay_presenter), &mut presentation);
+            current_saver.clear();
+            println!("system activity detected. presentation stopped.");
+        } else if !config.idle_enabled && presentation.is_active() {
+            stop_presentation(Some(&overlay_presenter), &mut presentation);
+            current_saver.clear();
+        }
+
+        controller.update_live_state(
+            system_idle,
+            presentation.is_active(),
+            preview_name.is_some(),
+            &current_saver,
+        );
+        controller.publish_status_if_dirty();
     }
 
-    // Cleanup on exit
-    if let Some(mut child) = active_child {
-        let _ = child.kill();
-    }
+    controller.shutdown.store(true, Ordering::Relaxed);
+    stop_presentation(Some(&overlay_presenter), &mut presentation);
     let _ = fs::remove_file(pid_path);
+    let _ = dbus_thread.join();
     println!("daemon shutdown complete.");
     Ok(())
+}
+
+fn start_presentation(
+    overlay_presenter: &Arc<OverlayPresenter>,
+    presentation: &mut ActivePresentation,
+    current_saver: &mut String,
+    saver_name: String,
+    reason: &str,
+    config: &DaemonConfig,
+) {
+    println!("starting Wayland screensaver '{saver_name}' ({reason})...");
+    let launch_mode = if reason == "preview" {
+        trance_runner::launcher::LaunchMode::Preview
+    } else {
+        trance_runner::launcher::LaunchMode::Daemon
+    };
+    let options = PresentationOptions {
+        gpu_enabled: config.gpu_enabled,
+        show_fps_overlay: config.show_fps_overlay,
+        display_mode: trance_runner::plugin_meta::parse_display_mode(&config.display_mode)
+            .unwrap_or(trance_runner::plugin_meta::DisplayMode::PrimaryOnly),
+        render_scale: config.render_scale,
+        launch_mode,
+    };
+    match PluginPresentation::start(overlay_presenter.clone(), saver_name.clone(), options) {
+        Ok(plugin) => {
+            *current_saver = saver_name;
+            *presentation = ActivePresentation::Plugin(plugin);
+        }
+        Err(error) => eprintln!("trance-daemon: failed to start screensaver: {error}"),
+    }
+}
+
+fn current_time_micros() -> u64 {
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(duration) => duration.as_micros() as u64,
+        Err(_) => 0,
+    }
+}
+
+fn pick_saver_name(config: &DaemonConfig, seed_micros: u64) -> String {
+    if let Some(ref active) = config.active_saver {
+        return active.clone();
+    }
+
+    let mut seed = seed_micros;
+    seed = seed
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
+    let index = (seed % ALLOWED_SAVERS.len() as u64) as usize;
+    ALLOWED_SAVERS[index].to_string()
+}
+
+fn stop_presentation(
+    overlay_presenter: Option<&Arc<OverlayPresenter>>,
+    presentation: &mut ActivePresentation,
+) {
+    if let ActivePresentation::Plugin(plugin) = presentation {
+        if let Some(presenter) = overlay_presenter {
+            plugin.stop(presenter);
+        }
+        *presentation = ActivePresentation::None;
+    }
 }

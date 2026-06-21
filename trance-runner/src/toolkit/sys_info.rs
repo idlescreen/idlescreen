@@ -270,6 +270,10 @@ pub fn get_monitor_layouts(cols: usize, rows: usize) -> Vec<MonitorCellBounds> {
 }
 
 pub fn get_primary_monitor_bounds(cols: usize, rows: usize) -> MonitorCellBounds {
+    if trance_api::MONITOR_BOUNDS_CALLBACK.get().is_some() {
+        return trance_api::get_primary_monitor_bounds(cols, rows);
+    }
+
     let layouts = get_monitor_layouts(cols, rows);
     layouts
         .into_iter()

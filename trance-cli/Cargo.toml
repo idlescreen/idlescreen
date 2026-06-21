@@ -1,0 +1,24 @@
+[package]
+name = "trance-cli"
+version = "0.2.0"
+edition = "2024"
+description = "Command-line interface for the trance screensaver daemon"
+license = "MIT"
+
+[[bin]]
+name = "trance"
+path = "src/main.rs"
+
+[dependencies]
+trance-dbus = { path = "../crates/trance-dbus" }
+
+[package.metadata.deb]
+name = "trance-cli"
+maintainer = "Screensavers Developer <dev@local76.org>"
+extended-description = "Thin CLI for controlling the trance screensaver daemon over D-Bus."
+depends = "libc6, trance"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/trance", "usr/bin/trance", "755"],
+]

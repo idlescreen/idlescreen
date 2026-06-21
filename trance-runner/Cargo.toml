@@ -1,6 +1,6 @@
 [package]
 name = "trance-runner"
-version = "2026.6.14-2"
+version = "2026.6.20-1"
 edition = "2024"
 description = "Shared runner logic for the terminal screensavers"
 license = "MIT"
@@ -11,3 +11,5 @@ trance-api = { path = "../trance-api" }
 libloading = "0.8"
 crossterm = "0.28"
 sysinfo = "0.30"
+fontdue = "0.9"
+trance-gpu = { path = "../crates/trance-gpu" }

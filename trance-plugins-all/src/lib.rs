@@ -1,0 +1,1 @@
+//! Packaging-only crate for the `trance-plugins-all` Debian meta package.

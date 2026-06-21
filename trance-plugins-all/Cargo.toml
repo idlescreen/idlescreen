@@ -1,0 +1,30 @@
+[package]
+name = "trance-plugins-all"
+version = "0.2.0"
+edition = "2024"
+description = "Meta package that recommends all official trance screensaver plugins"
+license = "MIT"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["rlib"]
+
+[package.metadata.deb]
+name = "trance-plugins-all"
+maintainer = "Screensavers Developer <dev@local76.org>"
+extended-description = "Convenience meta package that recommends the optional trance screensaver plugins. The stock beams effect ships with the core trance package."
+depends = "trance"
+recommends = "trance-plugin-bursts, trance-plugin-chaos, trance-plugin-cosmos, trance-plugin-glyphs, trance-plugin-gnats, trance-plugin-storm"
+section = "utils"
+priority = "optional"
+assets = []
+
+[package.metadata.generate-rpm]
+name = "trance-plugins-all"
+version = "0.2.0"
+release = "1"
+arch = "noarch"
+summary = "Meta package recommending all official trance screensaver plugins"
+description = "Convenience meta package that recommends all official trance screensaver plugins."
+license = "MIT"
+assets = []

@@ -1,0 +1,11 @@
+[package]
+name = "trance-gpu"
+version = "0.2.0"
+edition = "2024"
+description = "GPU upscaling for trance screensaver frames (wgpu/Vulkan/OpenGL)"
+license = "MIT"
+
+[dependencies]
+pollster = "0.4"
+wgpu = { version = "24", default-features = true }
+bytemuck = { version = "1.21", features = ["derive"] }
