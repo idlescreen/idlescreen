@@ -37,21 +37,21 @@ pub fn parse_display_mode(value: &str) -> Option<DisplayMode> {
 
 /// Effective display mode for a screensaver.
 ///
-/// Priority: `TRANCE_DISPLAY_MODE` env → saver-specific layout default → global config → expand.
-/// Cosmos always spans unless overridden by env (multi-monitor layout is required).
+/// Priority: `TRANCE_DISPLAY_MODE` env → saver-specific layout default → global config → primary.
+/// Cosmos and beams always span unless overridden by env (multi-monitor layout is required).
 pub fn display_mode_for(saver_name: &str, configured: Option<DisplayMode>) -> DisplayMode {
     if let Ok(mode) = std::env::var("TRANCE_DISPLAY_MODE") {
         if let Some(parsed) = parse_display_mode(&mode) {
             return parsed;
         }
     }
-    if saver_name == "cosmos" {
+    if saver_name == "cosmos" || saver_name == "beams" {
         return DisplayMode::Span;
     }
     if let Some(mode) = configured {
         return mode;
     }
-    DisplayMode::Expand
+    DisplayMode::PrimaryOnly
 }
 
 #[cfg(test)]
@@ -69,7 +69,15 @@ mod tests {
             DisplayMode::Span
         );
         assert_eq!(
+            display_mode_for("beams", Some(DisplayMode::PrimaryOnly)),
+            DisplayMode::Span
+        );
+        assert_eq!(
             display_mode_for("storm", Some(DisplayMode::PrimaryOnly)),
+            DisplayMode::PrimaryOnly
+        );
+        assert_eq!(
+            display_mode_for("storm", None),
             DisplayMode::PrimaryOnly
         );
 
