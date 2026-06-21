@@ -9,8 +9,11 @@ license = "MIT"
 name = "trance"
 path = "src/main.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
-trance-dbus = { path = "../crates/trance-dbus" }
+trance-dbus = { workspace = true }
 
 [package.metadata.deb]
 name = "trance-cli"

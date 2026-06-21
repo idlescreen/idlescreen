@@ -5,5 +5,8 @@ edition = "2024"
 description = "D-Bus API definitions and client for the trance screensaver daemon"
 license = "MIT"
 
+[lints]
+workspace = true
+
 [dependencies]
-zbus = { version = "5.12", default-features = false, features = ["tokio", "blocking-api"] }
+zbus = { workspace = true, features = ["blocking-api"] }

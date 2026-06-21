@@ -5,7 +5,10 @@ edition = "2024"
 description = "Wayland layer-shell overlay presenter for fullscreen idle surfaces"
 license = "MIT"
 
+[lints]
+workspace = true
+
 [dependencies]
-libc = "0.2"
+libc = { workspace = true }
 wayland-client = "0.31"
 wayland-protocols-wlr = { version = "0.3.12", features = ["client"] }

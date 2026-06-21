@@ -6,13 +6,16 @@ license = "MIT"
 description = "COSMIC Desktop panel applet for the trance screensavers"
 repository = "https://github.com/local76/trance"
 
+[lints]
+workspace = true
+
 [dependencies]
 i18n-embed-fl = "0.10"
 rust-embed = "8.11"
-tokio = { version = "1.52.0", features = ["full"] }
-libc = "0.2"
-trance-dbus = { path = "../crates/trance-dbus" }
-trance-runner = { path = "../trance-runner" }
+tokio = { workspace = true }
+libc = { workspace = true }
+trance-dbus = { workspace = true }
+trance-runner = { workspace = true }
 
 [dependencies.i18n-embed]
 version = "0.16"

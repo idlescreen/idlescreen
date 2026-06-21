@@ -9,18 +9,21 @@ license = "MIT"
 name = "trance-daemon"
 path = "src/main.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
-trance-runner = { path = "../trance-runner" }
-trance-api = { path = "../trance-api" }
-trance-dbus = { path = "../crates/trance-dbus" }
-trance-gpu = { path = "../crates/trance-gpu" }
-wayland-idle = { path = "../crates/wayland-idle" }
-wayland-present = { path = "../crates/wayland-present" }
-libc = "0.2"
+trance-runner = { workspace = true }
+trance-api = { workspace = true }
+trance-dbus = { workspace = true }
+trance-gpu = { workspace = true }
+wayland-idle = { workspace = true }
+wayland-present = { workspace = true }
+libc = { workspace = true }
 signal-hook = "0.3"
-zbus = { version = "5.12", default-features = false, features = ["tokio"] }
+zbus = { workspace = true }
 futures-lite = "2.6"
-tokio = { version = "1.52", features = ["rt-multi-thread", "time", "sync"] }
+tokio = { workspace = true }
 
 [package.metadata.deb]
 name = "trance"

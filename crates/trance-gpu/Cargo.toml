@@ -5,6 +5,9 @@ edition = "2024"
 description = "GPU upscaling for trance screensaver frames (wgpu/Vulkan/OpenGL)"
 license = "MIT"
 
+[lints]
+workspace = true
+
 [dependencies]
 pollster = "0.4"
 wgpu = { version = "24", default-features = true }

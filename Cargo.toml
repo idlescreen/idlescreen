@@ -19,3 +19,18 @@ lto = true               # Enable Link Time Optimization
 codegen-units = 1        # Reduce codegen units to maximize size reduction
 panic = "abort"          # Remove panic unwinding code
 strip = true             # Strip symbols and debuginfo
+
+[workspace.dependencies]
+tokio = { version = "1.52", features = ["full"] }
+libc = "0.2"
+zbus = { version = "5.12", default-features = false, features = ["tokio"] }
+trance-api = { path = "trance-api" }
+trance-dbus = { path = "crates/trance-dbus" }
+trance-runner = { path = "trance-runner" }
+trance-gpu = { path = "crates/trance-gpu" }
+wayland-idle = { path = "crates/wayland-idle" }
+wayland-present = { path = "crates/wayland-present" }
+
+[workspace.lints.rust]
+unused_must_use = "warn"
+dead_code = "warn"
