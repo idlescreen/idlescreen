@@ -51,7 +51,7 @@ pub fn resolve_render_scale(use_gpu: bool, configured: Option<f32>) -> f32 {
     if let Some(scale) = configured {
         return scale.clamp(0.25, 1.0);
     }
-    if use_gpu { 0.75 } else { 0.5 }
+    if use_gpu { 1.0 } else { 0.5 }
 }
 
 /// Presentation frame-rate cap. `0` means match the detected monitor refresh rate.
