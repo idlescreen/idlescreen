@@ -1,6 +1,6 @@
 [package]
 name = "trance-plugins-all"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 description = "Meta package that recommends all official trance screensaver plugins"
 license = "MIT"
@@ -23,7 +23,7 @@ assets = []
 
 [package.metadata.generate-rpm]
 name = "trance-plugins-all"
-version = "0.3.2"
+version = "0.3.3"
 release = "1"
 arch = "noarch"
 summary = "Meta package recommending all official trance screensaver plugins"

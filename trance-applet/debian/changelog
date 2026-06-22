@@ -1,3 +1,10 @@
+trance-applet (0.3.3-1) flux; urgency=medium
+
+  * Upgrade to 0.3.3 version.
+  * Fix D-Bus AccessDenied errors under systemd sandboxing.
+
+ -- Screensavers Developer <dev@local76.org>  Sun, 21 Jun 2026 17:15:00 -1000
+
 trance-applet (0.3.2-1) flux; urgency=medium
 
   * Upgrade to 0.3.2 version.
