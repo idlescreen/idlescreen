@@ -1,4 +1,4 @@
-# Trance Screensaver Suite
+# Trance Screensaver Suite <img src="assets/icon.jpg" width="48" height="48" alt="trance logo" align="right">
 
 Trance is a modular Wayland-native screensaver system for modern Linux desktops, with first-class integration for Pop!_OS and the COSMIC Desktop environment.
 
