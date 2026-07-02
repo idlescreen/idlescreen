@@ -19,8 +19,8 @@ libc = { workspace = true }
 [package.metadata.deb]
 name = "trance-cli"
 changelog = "debian/changelog"
-copyright = "2026 UberMetroid <admin@ubermetroid.com>"
-maintainer = "UberMetroid <admin@ubermetroid.com>"
+copyright = "2026 UberMetroid"
+maintainer = "UberMetroid <jerydleuck@gmail.com>"
 extended-description = "Thin CLI for controlling the trance screensaver daemon over D-Bus."
 depends = "libc6, trance"
 section = "utils"

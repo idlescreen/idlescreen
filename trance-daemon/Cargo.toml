@@ -31,8 +31,8 @@ tracing-journald = "0.3.2"
 [package.metadata.deb]
 name = "trance"
 changelog = "debian/changelog"
-copyright = "2026 UberMetroid <admin@ubermetroid.com>"
-maintainer = "UberMetroid <admin@ubermetroid.com>"
+copyright = "2026 UberMetroid"
+maintainer = "UberMetroid <jerydleuck@gmail.com>"
 extended-description = "Background idle monitoring service for trance screensavers."
 # NOTE (2026): `libvulkan1`/`libgl1` dependency removed — the previous
 # GPU upscaler was renamed to `trance-upscaler` and is now pure CPU code,
