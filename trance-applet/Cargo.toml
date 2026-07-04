@@ -77,3 +77,6 @@ assets = [
     { source = "resources/icon.png", dest = "/usr/share/pixmaps/com.system76.CosmicApplet.Trance.png", mode = "644" },
     { source = "trance-applet.1", dest = "/usr/share/man/man1/trance-applet.1", mode = "644" }
 ]
+
+[package.metadata.generate-rpm.requires]
+trance = "*"

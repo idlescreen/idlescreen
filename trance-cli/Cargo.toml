@@ -35,3 +35,6 @@ assets = [
     { source = "target/release/trance", dest = "/usr/bin/trance", mode = "755" },
     { source = "trance.1", dest = "/usr/share/man/man1/trance.1", mode = "644" }
 ]
+
+[package.metadata.generate-rpm.requires]
+trance = "*"

@@ -29,3 +29,14 @@ summary = "Meta package recommending all official trance screensaver plugins"
 description = "Convenience meta package that recommends all official trance screensaver plugins."
 license = "MIT"
 assets = []
+
+[package.metadata.generate-rpm.requires]
+trance = "*"
+
+[package.metadata.generate-rpm.recommends]
+trance-plugin-bursts = "*"
+trance-plugin-chaos = "*"
+trance-plugin-cosmos = "*"
+trance-plugin-glyphs = "*"
+trance-plugin-gnats = "*"
+trance-plugin-storm = "*"

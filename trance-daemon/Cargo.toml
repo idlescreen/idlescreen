@@ -65,3 +65,11 @@ assets = [
     { source = "assets/com.local76.Trance.service", dest = "/usr/share/dbus-1/services/com.local76.Trance.service", mode = "644" },
     { source = "assets/trance-daemon.1", dest = "/usr/share/man/man1/trance-daemon.1", mode = "644" }
 ]
+
+[package.metadata.generate-rpm.requires]
+dejavu-sans-mono-fonts = "*"
+
+[package.metadata.generate-rpm.recommends]
+trance-plugins-all = "*"
+trance-applet = "*"
+trance-cli = "*"
