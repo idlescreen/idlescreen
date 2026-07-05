@@ -1,3 +1,9 @@
+trance-plugins-all (0.3.15-1) flux; urgency=medium
+
+  * Upgrade to 0.3.15 version.
+
+ -- Screensavers Developer <dev@ubermetroid.org>  Sat, 04 Jul 2026 20:00:00 -1000
+
 trance-plugins-all (0.3.14-1) flux; urgency=medium
 
   * Upgrade to 0.3.14 version.

@@ -39,13 +39,13 @@ impl DaemonConfig {
             .ok()
             .filter(|s| !s.is_empty())
         {
-            return Some(PathBuf::from(xdg_config).join("ubermetroid").join("theme.yaml"));
+            return Some(PathBuf::from(xdg_config).join("trance").join("theme.yaml"));
         }
         let home = std::env::var("HOME").ok()?;
         Some(
             PathBuf::from(home)
                 .join(".config")
-                .join("ubermetroid")
+                .join("trance")
                 .join("theme.yaml"),
         )
     }
@@ -125,7 +125,7 @@ impl DaemonConfig {
         }
         let active_str = self.active_saver.as_deref().unwrap_or("none");
         let content = format!(
-            "# ubermetroid themes and settings\n\
+            "# trance themes and settings\n\
              accent_color: \"#00BFFF\"\n\
              # dark_mode is auto-detected from system\n\
              idle_timeout_mins: {}\n\

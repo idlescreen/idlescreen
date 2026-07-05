@@ -81,13 +81,13 @@ fn get_config_path() -> Option<PathBuf> {
         .ok()
         .filter(|s| !s.is_empty())
     {
-        return Some(PathBuf::from(xdg_config).join("ubermetroid").join("theme.yaml"));
+        return Some(PathBuf::from(xdg_config).join("trance").join("theme.yaml"));
     }
     let home = std::env::var("HOME").ok()?;
     Some(
         PathBuf::from(home)
             .join(".config")
-            .join("ubermetroid")
+            .join("trance")
             .join("theme.yaml"),
     )
 }

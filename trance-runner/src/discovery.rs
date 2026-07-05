@@ -39,8 +39,6 @@ pub fn get_screensaver_dirs() -> Vec<PathBuf> {
     }
 
     // 3. System canonical/historical paths
-    dirs.push(PathBuf::from("/usr/libexec/ubermetroid/screensavers"));
-    dirs.push(PathBuf::from("/usr/local/libexec/ubermetroid/screensavers"));
     dirs.push(PathBuf::from("/usr/libexec/trance/screensavers"));
     dirs.push(PathBuf::from("/usr/local/libexec/trance/screensavers"));
 

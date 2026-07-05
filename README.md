@@ -51,7 +51,7 @@ sudo dnf check-update && sudo dnf install trance
 * **Default Active Screensaver**: `beams`
 
 Configuration file:
-`~/.config/ubermetroid/theme.yaml`
+`~/.config/trance/theme.yaml`
 
 ---
 

@@ -14,7 +14,7 @@ fn get_global_theme_path() -> Option<std::path::PathBuf> {
                 .ok()
                 .map(|home| std::path::PathBuf::from(home).join(".config"))
         })
-        .map(|b| b.join("ubermetroid").join("theme.yaml"))
+        .map(|b| b.join("trance").join("theme.yaml"))
 }
 type ThemeSettings = (Option<(u8, u8, u8)>, Option<bool>);
 type CacheEntry = (Option<ThemeSettings>, Instant);
