@@ -6,7 +6,7 @@ PartOf=graphical-session.target
 
 [Service]
 Type=dbus
-BusName=com.local76.Trance
+BusName=com.ubermetroid.Trance
 ExecStart=/usr/bin/trance-daemon daemon
 Restart=on-failure
 RestartSec=5

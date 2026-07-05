@@ -51,7 +51,7 @@ sudo dnf check-update && sudo dnf install trance
 * **Default Active Screensaver**: `beams`
 
 Configuration file:
-`~/.config/local76/theme.yaml`
+`~/.config/ubermetroid/theme.yaml` (falls back to `~/.config/local76/theme.yaml` if it exists)
 
 ---
 
@@ -92,7 +92,7 @@ Trance provides a unified command-line tool `trance` (built from `trance-cli`) t
 
 ## D-Bus API
 
-The daemon exports `com.local76.Trance` on the session bus at `/com/local76/Trance`.
+The daemon exports `com.ubermetroid.Trance` on the session bus at `/com/ubermetroid/Trance` (and maintains backward compatibility by exporting `com.local76.Trance` at `/com/local76/Trance` for legacy clients).
 
 | Method | Description |
 |---|---|
@@ -112,27 +112,16 @@ Lock-screen coordination uses logind `LockedHint` — presentations stop when th
 
 ---
 
-## GPU Upscaling
+## Resolution Upscaling
 
-Trance renders screensaver plugins at a reduced simulation grid, then **GPU-upscales** frames to your monitor resolution. This makes effects chunkier and smoother at high resolutions without rewriting the plugins.
+Trance renders screensaver plugins at a reduced simulation grid, then upscales the frames to your monitor resolution on the CPU (supporting nearest-neighbor and bilinear filtering). This makes effects chunkier and smoother at high resolutions without rewriting the plugins.
 
-**Unified API:** [wgpu](https://wgpu.rs/) over **Vulkan** (fully open source). Works with:
-
-| Vendor | Linux driver |
-|---|---|
-| AMD | Mesa RADV |
-| Intel | Mesa ANV |
-| NVIDIA | Proprietary Vulkan driver or Nouveau |
-
-No closed-source NVIDIA CUDA/RTX SDK is required. If Vulkan is unavailable, trance falls back to CPU bilinear upscale automatically.
-
-**Ray tracing:** Not used today. These effects are terminal-cell simulations, not 3D scenes. Hardware RT would not map cleanly onto the plugin model and is not exposed in a portable way through wgpu on Linux. A future native-GPU plugin API could add stylized lighting, but that is a separate project.
+The previous `trance-gpu` crate was renamed to `trance-upscaler` in 2026. The upscaler is fully CPU-based to reduce system dependencies (removing Vulkan/OpenGL requirements) and power consumption.
 
 ### Environment variables
 
 | Variable | Default | Description |
 |---|---|---|
-| `TRANCE_GPU` | on | Set to `0` to force CPU upscale |
 | `TRANCE_RENDER_SCALE` | `0.75` | Simulation grid scale (`0.25`–`1.0`). Lower = chunkier effect, more upscale |
 | `TRANCE_GPU_FILTER` | `linear` | `linear` or `nearest` upscale filter |
 | `TRANCE_MAX_FPS` | `0` (auto) | Cap frame rate. `0` uses detected monitor refresh (e.g. 144 Hz) |

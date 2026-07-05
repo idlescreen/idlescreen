@@ -1,3 +1,12 @@
+trance (0.3.9-1) flux; urgency=medium
+
+  * Upgrade to 0.3.9 version.
+  * Implement unified Org-Rename D-Bus namespace (com.ubermetroid.Trance) with backward-compatibility layer.
+  * Support new ubermetroid config paths with fallback to local76 paths.
+  * Synchronize README.md with the CPU-based upscaler architecture.
+
+ -- Screensavers Developer <dev@local76.org>  Sat, 04 Jul 2026 19:10:00 -1000
+
 trance (0.3.8-1) flux; urgency=medium
 
   * Upgrade to 0.3.8 version.

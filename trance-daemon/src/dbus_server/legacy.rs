@@ -10,12 +10,12 @@ use zbus::zvariant::OwnedValue;
 use super::auth::require_control_peer;
 use crate::controller::{DaemonCommand, DaemonController};
 
-pub struct TranceService {
+pub struct TranceLegacyService {
     pub controller: Arc<DaemonController>,
 }
 
-#[zbus::interface(name = "com.ubermetroid.Trance")]
-impl TranceService {
+#[zbus::interface(name = "com.local76.Trance")]
+impl TranceLegacyService {
     async fn get_status(&self) -> zbus::fdo::Result<HashMap<String, OwnedValue>> {
         Ok(self.live_status().to_map())
     }
@@ -158,12 +158,6 @@ impl TranceService {
         Ok(())
     }
 
-    /// DEPRECATED (2026) — no-op.
-    ///
-    /// The previous `trance-gpu` crate was renamed to `trance-upscaler`
-    /// and is now pure CPU code. We keep the D-Bus method to avoid
-    /// breaking existing clients (`trance config set gpu ...`,
-    /// `trance-applet` UI), but the parameter is ignored.
     async fn set_gpu_enabled(
         &self,
         _enabled: bool,
@@ -206,7 +200,7 @@ impl TranceService {
     ) -> zbus::Result<()>;
 }
 
-impl TranceService {
+impl TranceLegacyService {
     async fn authorize_control(&self, header: &zbus::message::Header<'_>) -> zbus::fdo::Result<()> {
         require_control_peer(
             &self

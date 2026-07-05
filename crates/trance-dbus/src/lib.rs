@@ -35,8 +35,12 @@ pub mod status;
 pub use client::{TranceClient, daemon_available};
 pub use status::DaemonStatus;
 
-pub const SERVICE_NAME: &str = "com.local76.Trance";
-pub const OBJECT_PATH: &str = "/com/local76/Trance";
-pub const INTERFACE_NAME: &str = "com.local76.Trance";
+pub const SERVICE_NAME: &str = "com.ubermetroid.Trance";
+pub const OBJECT_PATH: &str = "/com/ubermetroid/Trance";
+pub const INTERFACE_NAME: &str = "com.ubermetroid.Trance";
+
+pub const LEGACY_SERVICE_NAME: &str = "com.local76.Trance";
+pub const LEGACY_OBJECT_PATH: &str = "/com/local76/Trance";
+pub const LEGACY_INTERFACE_NAME: &str = "com.local76.Trance";
 
 // Status signals use HashMap payloads for forward-compatible applet parsing.

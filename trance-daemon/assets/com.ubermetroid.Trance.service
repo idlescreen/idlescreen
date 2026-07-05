@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=com.ubermetroid.Trance
+Exec=/usr/bin/trance-daemon daemon
+SystemdService=trance-daemon.service

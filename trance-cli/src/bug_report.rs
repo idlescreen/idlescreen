@@ -77,17 +77,33 @@ pub fn handle_bug_report() -> Result<(), String> {
 }
 
 fn get_config_path() -> Option<PathBuf> {
-    if let Some(xdg_config) = std::env::var("XDG_CONFIG_HOME")
-        .ok()
-        .filter(|s| !s.is_empty())
-    {
-        return Some(PathBuf::from(xdg_config).join("local76").join("theme.yaml"));
+    let get_path_for_org = |org: &str| -> Option<PathBuf> {
+        if let Some(xdg_config) = std::env::var("XDG_CONFIG_HOME")
+            .ok()
+            .filter(|s| !s.is_empty())
+        {
+            return Some(PathBuf::from(xdg_config).join(org).join("theme.yaml"));
+        }
+        let home = std::env::var("HOME").ok()?;
+        Some(
+            PathBuf::from(home)
+                .join(".config")
+                .join(org)
+                .join("theme.yaml"),
+        )
+    };
+
+    let new_path = get_path_for_org("ubermetroid");
+    if let Some(ref path) = new_path {
+        if path.is_file() {
+            return new_path;
+        }
     }
-    let home = std::env::var("HOME").ok()?;
-    Some(
-        PathBuf::from(home)
-            .join(".config")
-            .join("local76")
-            .join("theme.yaml"),
-    )
+    let legacy_path = get_path_for_org("local76");
+    if let Some(ref path) = legacy_path {
+        if path.is_file() {
+            return legacy_path;
+        }
+    }
+    new_path
 }

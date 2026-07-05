@@ -8,9 +8,9 @@ use crate::SERVICE_NAME;
 use crate::status::DaemonStatus;
 
 #[zbus::proxy(
-    interface = "com.local76.Trance",
-    default_service = "com.local76.Trance",
-    default_path = "/com/local76/Trance",
+    interface = "com.ubermetroid.Trance",
+    default_service = "com.ubermetroid.Trance",
+    default_path = "/com/ubermetroid/Trance",
     gen_blocking = true
 )]
 trait Trance {
@@ -105,7 +105,21 @@ impl TranceClient {
     }
 
     fn proxy(&self) -> zbus::Result<TranceProxyBlocking<'_>> {
-        TranceProxyBlocking::new(&self.connection)
+        let dbus = zbus::blocking::fdo::DBusProxy::new(&self.connection)?;
+        let use_legacy = if let Ok(name) = zbus::names::BusName::try_from(SERVICE_NAME) {
+            !dbus.name_has_owner(name).unwrap_or(false)
+        } else {
+            true
+        };
+
+        if use_legacy {
+            TranceProxyBlocking::builder(&self.connection)
+                .destination(crate::LEGACY_SERVICE_NAME)?
+                .path(crate::LEGACY_OBJECT_PATH)?
+                .build()
+        } else {
+            TranceProxyBlocking::new(&self.connection)
+        }
     }
 }
 
@@ -155,9 +169,16 @@ pub fn daemon_available() -> bool {
         Ok(dbus) => dbus,
         Err(_) => return false,
     };
-    let name = match zbus::names::BusName::try_from(SERVICE_NAME) {
-        Ok(name) => name,
-        Err(_) => return false,
-    };
-    dbus.name_has_owner(name).unwrap_or(false)
+    
+    if let Ok(name) = zbus::names::BusName::try_from(SERVICE_NAME) {
+        if dbus.name_has_owner(name).unwrap_or(false) {
+            return true;
+        }
+    }
+    if let Ok(name) = zbus::names::BusName::try_from(crate::LEGACY_SERVICE_NAME) {
+        if dbus.name_has_owner(name).unwrap_or(false) {
+            return true;
+        }
+    }
+    false
 }
