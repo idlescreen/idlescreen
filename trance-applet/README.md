@@ -1,31 +1,28 @@
-# COSMIC Applet Template
+# trance-applet
 
-A template for developing applets for the COSMIC™ desktop environment using [libcosmic][libcosmic].
+A native COSMIC Desktop panel applet for the [Trance screensaver suite](https://github.com/UberMetroid/trance).
 
-## Getting Started
+## What it does
 
-To create an applet with this template, [install `cargo generate`][cargo-generate] and run:
+- Toggle screensaver idle activation on/off
+- Adjust idle timeout
+- Select active screensaver
+- Quick preview of any installed saver
+- Falls back to direct config file when the daemon is offline
 
-```sh
-cargo generate gh:pop-os/cosmic-applet-template
+## Build
+
+```
+cargo build --release -p trance-applet
 ```
 
-A [justfile](./justfile) is included by default with common recipes used by other COSMIC projects. Install from [casey/just][just]
+The binary is installed at `/usr/bin/trance-applet` by the deb/rpm packages.
 
-- `just` builds the applet with the default `just build-release` recipe
-- `just run` builds and runs the applet
-- `just install` installs the project into the system
-- `just vendor` creates a vendored tarball
-- `just build-vendored` compiles with vendored dependencies from that tarball
-- `just check` runs clippy on the project to check for linter warnings
-- `just check-json` can be used by IDEs that support LSP
+## Configuration
 
-## Documentation
+`~/.config/ubermetroid/theme.yaml` (shared with the daemon).
 
-Refer to the [libcosmic API documentation][api-docs] and [book][book] for help with building applets with [libcosmic][libcosmic].
+## See also
 
-[api-docs]: https://pop-os.github.io/libcosmic/cosmic/
-[book]: https://pop-os.github.io/libcosmic-book/
-[cargo-generate]: https://cargo-generate.github.io/cargo-generate/installation.html
-[libcosmic]: https://github.com/pop-os/libcosmic/
-[just]: https://github.com/casey/just
+- [Main README](https://github.com/UberMetroid/trance)
+- [D-Bus API](https://github.com/UberMetroid/trance#d-bus-api)

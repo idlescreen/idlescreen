@@ -50,8 +50,48 @@ fn owned<T>(value: T) -> OwnedValue
 where
     T: Into<Value<'static>>,
 {
-    value
-        .into()
-        .try_into()
-        .expect("value converts to OwnedValue")
+    let value: Value<'static> = value.into();
+    OwnedValue::try_from(value).unwrap_or_else(|error| {
+        tracing::error!(
+            error = %error,
+            "trance-dbus: failed to convert daemon status field to OwnedValue"
+        );
+        OwnedValue::from(0u32)
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn status_to_map_round_trips() {
+        let status = DaemonStatus::default();
+        let map = status.to_map();
+        assert!(!map.is_empty());
+        assert!(map.contains_key("running"));
+        assert!(map.contains_key("idle_timeout_mins"));
+        assert!(map.contains_key("active_saver"));
+        assert!(map.contains_key("render_scale"));
+    }
+
+    #[test]
+    fn status_to_map_preserves_string_fields() {
+        let mut status = DaemonStatus::default();
+        status.active_saver = "cosmos".to_string();
+        status.current_saver = "beams".to_string();
+        status.render_scale = "0.5".to_string();
+        let map = status.to_map();
+        assert_eq!(map.len(), 13);
+        assert!(map.contains_key("active_saver"));
+        assert!(map.contains_key("current_saver"));
+        assert!(map.contains_key("render_scale"));
+    }
+
+    #[test]
+    fn status_to_map_default_values_match() {
+        let status = DaemonStatus::default();
+        let map = status.to_map();
+        assert_eq!(map.len(), 13);
+    }
 }

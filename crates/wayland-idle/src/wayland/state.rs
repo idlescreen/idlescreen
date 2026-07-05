@@ -28,7 +28,7 @@ impl SessionState {
         self.is_idle.store(false, Ordering::SeqCst);
 
         let (Some(notifier), Some(seat)) = (&self.notifier, &self.seat) else {
-            eprintln!("wayland-idle: compositor missing seat or idle notifier global");
+            tracing::warn!("wayland-idle: compositor missing seat or idle notifier global");
             return;
         };
 
@@ -36,7 +36,7 @@ impl SessionState {
         let notification = notifier.get_idle_notification(timeout_ms, seat, &self.queue, ());
         self.notification = Some(notification);
 
-        println!(
+        tracing::info!(
             "wayland-idle: registered idle notification (timeout {}s)",
             self.timeout_mins.saturating_mul(60)
         );
@@ -44,11 +44,11 @@ impl SessionState {
 
     pub fn mark_idle(&self) {
         self.is_idle.store(true, Ordering::SeqCst);
-        println!("wayland-idle: system went idle");
+        tracing::info!("wayland-idle: system went idle");
     }
 
     pub fn mark_active(&self) {
         self.is_idle.store(false, Ordering::SeqCst);
-        println!("wayland-idle: user activity resumed");
+        tracing::info!("wayland-idle: user activity resumed");
     }
 }

@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 UberMetroid
 
 //! CPU upscaling for trance screensaver frames.
 //!
@@ -63,6 +64,7 @@ pub fn render_scale_for_gpu(use_gpu: bool) -> f32 {
 }
 
 /// Effective simulation grid scale: env `TRANCE_RENDER_SCALE`, then config, then defaults.
+#[tracing::instrument(skip_all, fields(use_gpu, configured))]
 pub fn resolve_render_scale(use_gpu: bool, configured: Option<f32>) -> f32 {
     if let Some(scale) = std::env::var("TRANCE_RENDER_SCALE")
         .ok()
@@ -208,3 +210,7 @@ impl FrameUpscaler {
         out.copy_from_slice(&self.stretch_buf);
     }
 }
+
+#[cfg(test)]
+#[path = "lib_tests.rs"]
+mod tests;

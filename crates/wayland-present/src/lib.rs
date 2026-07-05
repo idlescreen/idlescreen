@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 UberMetroid
 
 //! Fullscreen Wayland overlays using [`zwlr_layer_shell_v1`].
 //!

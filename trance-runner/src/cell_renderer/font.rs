@@ -28,3 +28,37 @@ pub(crate) fn load_monospace_font() -> Result<Vec<u8>, String> {
     })?;
     fs::read(path).map_err(|error| format!("failed to read {path}: {error}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn font_candidates_list_nonempty() {
+        assert!(!FONT_CANDIDATES.is_empty());
+    }
+
+    #[test]
+    fn font_candidates_all_absolute_paths() {
+        for path in FONT_CANDIDATES {
+            assert!(
+                Path::new(path).is_absolute(),
+                "candidate {path} is not absolute"
+            );
+            assert!(
+                path.ends_with(".ttf"),
+                "candidate {path} is not a .ttf file"
+            );
+        }
+    }
+
+    #[test]
+    fn font_available_returns_bool() {
+        let _ = font_available();
+    }
+
+    #[test]
+    fn resolve_font_path_matches_availability() {
+        assert_eq!(resolve_font_path().is_some(), font_available());
+    }
+}

@@ -26,7 +26,11 @@ impl ThemeConfig {
         if let Ok(xdg_config) = std::env::var("XDG_CONFIG_HOME")
             && !xdg_config.is_empty()
         {
-            return Some(PathBuf::from(xdg_config).join("ubermetroid").join("theme.yaml"));
+            return Some(
+                PathBuf::from(xdg_config)
+                    .join("ubermetroid")
+                    .join("theme.yaml"),
+            );
         }
         let home = std::env::var("HOME").ok()?;
         Some(

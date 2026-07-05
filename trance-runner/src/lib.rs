@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 UberMetroid
+
 //! Vendored subset of the `library` crate, scoped to what screensaver-security
 //! actually uses. See `LIBRARY_VENDORED.md` for the full list of source
 //! provenance and what was deliberately omitted.
@@ -26,3 +29,5 @@ pub mod launcher;
 pub mod plugin_session;
 pub mod toolkit;
 pub mod trance_runner;
+
+// Tests can run with `cargo test -- --nocapture` to see tracing output.

@@ -45,12 +45,13 @@ pub fn spawn_event_thread(
             outputs,
             supports_scaling,
         ) {
-            eprintln!("wayland-present: {message}");
+            tracing::warn!("wayland-present: {message}");
         }
         is_alive.store(false, Ordering::SeqCst);
     });
 }
 
+#[tracing::instrument(skip_all)]
 fn run_event_loop(
     ready_tx: Sender<Result<(), &'static str>>,
     command_rx: Receiver<PresenterCommand>,
@@ -123,6 +124,7 @@ fn run_event_loop(
     Ok(())
 }
 
+#[tracing::instrument(skip_all)]
 fn dispatch_pending_events(
     connection: &Connection,
     event_queue: &mut wayland_client::EventQueue<SessionState>,

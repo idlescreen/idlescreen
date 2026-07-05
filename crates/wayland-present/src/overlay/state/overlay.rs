@@ -16,7 +16,7 @@ impl SessionState {
         }
 
         let (Some(compositor), Some(layer_shell)) = (&self.compositor, &self.layer_shell) else {
-            eprintln!("wayland-present: missing compositor or layer shell");
+            tracing::warn!("wayland-present: missing compositor or layer shell");
             return;
         };
 
@@ -162,10 +162,13 @@ impl SessionState {
             height,
             &pixels,
         ) {
-            let buffer = overlay
-                .buffer
-                .as_ref()
-                .expect("frame buffer exists after ensure");
+            let Some(buffer) = overlay.buffer.as_ref() else {
+                tracing::error!(
+                    output_id,
+                    "wayland-present: frame buffer missing after ensure; skipping frame"
+                );
+                return;
+            };
 
             let dst_w = if overlay.width > 0 {
                 overlay.width

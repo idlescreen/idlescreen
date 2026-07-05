@@ -26,6 +26,23 @@ impl MonitorCellBounds {
         self.start_row + self.height() / 2
     }
 
+    /// Returns true if `(col, row)` is inside this bounds (half-open: `end_col`/`end_row` excluded).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use trance_api::MonitorCellBounds;
+    /// let b = MonitorCellBounds {
+    ///     start_col: 0,
+    ///     end_col: 10,
+    ///     start_row: 0,
+    ///     end_row: 5,
+    ///     is_primary: true,
+    /// };
+    /// assert!(b.contains(5, 3));
+    /// assert!(!b.contains(11, 3));
+    /// assert!(!b.contains(10, 0)); // end_col is exclusive
+    /// ```
     pub fn contains(&self, col: usize, row: usize) -> bool {
         col >= self.start_col && col < self.end_col && row >= self.start_row && row < self.end_row
     }
@@ -93,6 +110,12 @@ fn read_primary_bounds_from_env() -> Option<MonitorCellBounds> {
 }
 
 pub fn publish_primary_bounds(bounds: MonitorCellBounds) {
+    // SAFETY (Phase 4 note): the `unsafe std::env::set_var` calls below are a known
+    // hazard — `std::env::set_var` is not thread-safe and the surrounding `unsafe`
+    // blocks provide no actual safety guarantee. A follow-up Phase 4 agent working
+    // on the daemon crate will replace this IPC mechanism with a thread-safe channel,
+    // at which point these `unsafe` blocks and the env-var fallback in
+    // `read_primary_bounds_from_env` can be removed entirely. Do not remove them yet.
     unsafe {
         std::env::set_var("TRANCE_PRIMARY_START_COL", bounds.start_col.to_string());
         std::env::set_var("TRANCE_PRIMARY_END_COL", bounds.end_col.to_string());
@@ -103,6 +126,7 @@ pub fn publish_primary_bounds(bounds: MonitorCellBounds) {
 }
 
 pub fn clear_primary_bounds() {
+    // See `publish_primary_bounds` for the Phase 4 hazard note.
     unsafe {
         std::env::remove_var("TRANCE_PRIMARY_START_COL");
         std::env::remove_var("TRANCE_PRIMARY_END_COL");
@@ -117,5 +141,104 @@ pub fn is_secondary_monitor() -> bool {
         callback()
     } else {
         std::env::var("TRANCE_SECONDARY_MONITOR").is_ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bounds(
+        start_col: usize,
+        end_col: usize,
+        start_row: usize,
+        end_row: usize,
+    ) -> MonitorCellBounds {
+        MonitorCellBounds {
+            start_col,
+            end_col,
+            start_row,
+            end_row,
+            is_primary: true,
+        }
+    }
+
+    #[test]
+    fn bounds_contains_inside() {
+        let b = bounds(0, 10, 0, 5);
+        assert!(b.contains(5, 3));
+    }
+
+    #[test]
+    fn bounds_excludes_outside() {
+        let b = bounds(0, 10, 0, 5);
+        assert!(!b.contains(11, 3));
+        assert!(!b.contains(5, 6));
+    }
+
+    #[test]
+    fn bounds_excludes_end_exclusive() {
+        let b = bounds(0, 10, 0, 5);
+        assert!(!b.contains(10, 0));
+        assert!(!b.contains(0, 5));
+    }
+
+    #[test]
+    fn bounds_width_height() {
+        let b = bounds(0, 10, 0, 5);
+        assert_eq!(b.width(), 10);
+        assert_eq!(b.height(), 5);
+    }
+
+    #[test]
+    fn bounds_width_height_saturate_when_inverted() {
+        let b = bounds(8, 4, 6, 2);
+        assert_eq!(b.width(), 0);
+        assert_eq!(b.height(), 0);
+    }
+
+    #[test]
+    fn bounds_centers() {
+        let b = bounds(0, 10, 0, 6);
+        assert_eq!(b.center_col(), 5);
+        assert_eq!(b.center_row(), 3);
+    }
+
+    #[test]
+    fn get_primary_monitor_bounds_default_is_full_grid() {
+        // No callback set and no env vars in test by default
+        unsafe {
+            std::env::remove_var("TRANCE_PRIMARY_START_COL");
+            std::env::remove_var("TRANCE_PRIMARY_END_COL");
+            std::env::remove_var("TRANCE_PRIMARY_START_ROW");
+            std::env::remove_var("TRANCE_PRIMARY_END_ROW");
+        }
+        clear_primary_bounds();
+        let b = get_primary_monitor_bounds(80, 24);
+        assert_eq!(b.start_col, 0);
+        assert_eq!(b.end_col, 80);
+        assert_eq!(b.start_row, 0);
+        assert_eq!(b.end_row, 24);
+        assert!(b.is_primary);
+    }
+
+    #[test]
+    fn publish_then_get_primary_bounds_round_trip() {
+        clear_primary_bounds();
+        publish_primary_bounds(bounds(2, 8, 1, 4));
+        let b = get_primary_monitor_bounds(80, 24);
+        assert_eq!(b.start_col, 2);
+        assert_eq!(b.end_col, 8);
+        assert_eq!(b.start_row, 1);
+        assert_eq!(b.end_row, 4);
+        clear_primary_bounds();
+    }
+
+    #[test]
+    fn is_secondary_monitor_default_false() {
+        unsafe {
+            std::env::remove_var("TRANCE_SECONDARY_MONITOR");
+        }
+        assert!(!is_secondary_monitor());
     }
 }

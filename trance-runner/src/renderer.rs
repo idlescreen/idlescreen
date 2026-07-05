@@ -25,6 +25,7 @@ impl Renderer {
         }
     }
 
+    #[tracing::instrument(skip_all, fields(cols, rows))]
     pub fn render_grid(
         &mut self,
         grid: &[TerminalCell],

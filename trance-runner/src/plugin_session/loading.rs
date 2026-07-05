@@ -1,30 +1,31 @@
 // SPDX-License-Identifier: MIT
 
+use libloading::Library;
 use std::path::Path;
 use std::time::Duration;
-use libloading::Library;
 use trance_api::ScreensaverInstance;
 use trance_upscaler::{FilterMode, FrameUpscaler, resolve_render_scale};
 
 use crate::cell_renderer::CellRenderer;
-use crate::launcher::{LaunchMode, resolve_saver_binary};
+use crate::launcher::{LaunchMode, PluginError, resolve_saver_binary};
 
 use super::{PluginGuard, PluginSession};
 
 impl PluginSession {
-    pub fn load(saver_name: &str) -> Result<Self, String> {
+    #[tracing::instrument(skip_all, fields(saver_name = %saver_name))]
+    pub fn load(saver_name: &str) -> Result<Self, PluginError> {
         Self::load_with_options(saver_name, &LaunchMode::Daemon, None, None)
     }
 
+    #[tracing::instrument(skip_all, fields(saver_name = %saver_name))]
     pub fn load_with_options(
         saver_name: &str,
         launch_mode: &LaunchMode,
         gpu_enabled: Option<bool>,
         render_scale: Option<f32>,
-    ) -> Result<Self, String> {
-        let path =
-            resolve_saver_binary(saver_name, launch_mode).map_err(|error| error.to_string())?;
-        println!(
+    ) -> Result<Self, PluginError> {
+        let path = resolve_saver_binary(saver_name, launch_mode)?;
+        tracing::info!(
             "trance-runner: loading plugin '{}' from {}",
             saver_name,
             path.display()
@@ -32,46 +33,44 @@ impl PluginSession {
         Self::load_path_with_options(&path, gpu_enabled, render_scale)
     }
 
+    #[tracing::instrument(skip_all, fields(path = %path.display()))]
     pub fn load_path_with_options(
         path: &Path,
         gpu_enabled: Option<bool>,
         render_scale: Option<f32>,
-    ) -> Result<Self, String> {
-        let renderer = CellRenderer::new()?;
+    ) -> Result<Self, PluginError> {
+        let renderer = CellRenderer::new().map_err(|error| {
+            PluginError::Io(std::io::Error::new(std::io::ErrorKind::Other, error))
+        })?;
         let use_gpu = gpu_enabled.unwrap_or_else(trance_upscaler::gpu_enabled);
         let render_scale = resolve_render_scale(use_gpu, render_scale);
         let upscaler = FrameUpscaler::new(use_gpu, FilterMode::from_env());
+        // Note: TRANCE_GPU_ACTIVE was previously set/removed here. This ran from
+        // a non-main worker thread, which is undefined behavior on edition 2024
+        // (and a soundness footgun even before that). The env var is unread, so
+        // the setter is removed entirely.
         if upscaler.using_gpu() {
-            unsafe {
-                std::env::set_var("TRANCE_GPU_ACTIVE", "1");
-            }
-            println!(
-                "trance-runner: GPU upscale enabled (render scale {:.0}%, adapter: {})",
+            tracing::info!(
+                "GPU upscale enabled (render scale {:.0}%, adapter: {})",
                 render_scale * 100.0,
                 upscaler.adapter_name().unwrap_or("unknown")
             );
         } else {
-            unsafe {
-                std::env::remove_var("TRANCE_GPU_ACTIVE");
-            }
-            println!(
-                "trance-runner: CPU upscale (render scale {:.0}%)",
-                render_scale * 100.0
-            );
+            tracing::info!("CPU upscale (render scale {:.0}%)", render_scale * 100.0);
         }
 
         unsafe {
-            let lib = Library::new(path).map_err(|error| error.to_string())?;
+            let lib = Library::new(path)?;
             let create_fn: libloading::Symbol<unsafe extern "C" fn() -> *mut ScreensaverInstance> =
                 lib.get(b"create_screensaver")
-                    .map_err(|error| error.to_string())?;
+                    .map_err(|_| PluginError::SymbolMissing("create_screensaver"))?;
             let destroy_fn: libloading::Symbol<unsafe extern "C" fn(*mut ScreensaverInstance)> =
                 lib.get(b"destroy_screensaver")
-                    .map_err(|error| error.to_string())?;
+                    .map_err(|_| PluginError::SymbolMissing("destroy_screensaver"))?;
 
             let raw_ptr = create_fn();
             if raw_ptr.is_null() {
-                return Err("plugin returned null screensaver instance".into());
+                return Err(PluginError::SymbolMissing("create_screensaver (null)"));
             }
 
             let guard = PluginGuard {

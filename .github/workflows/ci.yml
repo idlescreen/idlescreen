@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    name: Lint + Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Format check
+        run: cargo fmt --all -- --check
+      - name: Clippy (deny warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Build (debug)
+        run: cargo build --workspace
+      - name: Test
+        run: cargo test --workspace --all-features
+      - name: Doc tests
+        run: cargo test --workspace --doc
+      - name: Build (release)
+        run: cargo build --workspace --release

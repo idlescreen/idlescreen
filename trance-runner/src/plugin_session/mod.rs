@@ -2,10 +2,10 @@
 
 #![allow(clippy::too_many_arguments)]
 
+use crate::cell_renderer::CellRenderer;
 use std::time::Duration;
 use trance_api::{Screensaver, ScreensaverInstance, TerminalCell};
-use trance_upscaler::{FrameUpscaler};
-use crate::cell_renderer::CellRenderer;
+use trance_upscaler::FrameUpscaler;
 
 mod loading;
 
@@ -84,6 +84,7 @@ impl PluginSession {
         self.physics_duration = Duration::from_secs_f32(1.0 / hz);
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn tick(&mut self, frame_dt: Duration) {
         self.plugin.saver_mut().update_frame_time(frame_dt);
         self.time_elapsed += frame_dt;
@@ -124,6 +125,7 @@ impl PluginSession {
         saver.has_scanlines()
     }
 
+    #[tracing::instrument(skip_all, fields(cols, rows, width, height))]
     pub fn render(&mut self, cols: usize, rows: usize, width: u32, height: u32) -> Vec<u8> {
         let scanlines = self.draw_frame(cols, rows);
         self.raster_viewport_internal(0, 0, cols, rows, cols, rows, width, height, scanlines);

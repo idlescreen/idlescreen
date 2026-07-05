@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 UberMetroid
 
 //! D-Bus API for the trance screensaver daemon (`com.ubermetroid.Trance`).
 //!

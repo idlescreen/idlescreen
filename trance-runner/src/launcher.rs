@@ -2,6 +2,23 @@
 
 use std::path::{Path, PathBuf};
 
+/// Errors that can occur during plugin loading and initialization.
+#[derive(Debug, thiserror::Error)]
+pub enum PluginError {
+    #[error("plugin name '{0}' is not in the allowlist")]
+    NotAllowed(String),
+    #[error("plugin path contains '..' (path traversal attempt)")]
+    PathTraversal,
+    #[error("invalid plugin name: {0}")]
+    InvalidName(String),
+    #[error("failed to load library: {0}")]
+    LoadFailure(#[from] libloading::Error),
+    #[error("symbol '{0}' not found in plugin")]
+    SymbolMissing(&'static str),
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
+}
+
 /// The canonical list of allowed saver basenames.
 pub const ALLOWED_SAVERS: &[&str] = &[
     "beams", "bursts", "chaos", "cosmos", "glyphs", "gnats", "storm",
@@ -58,7 +75,10 @@ fn dev_plugin_dirs(clean: &str) -> Vec<PathBuf> {
     vec![
         ubermetroid_plugins.join("target").join("release"),
         ubermetroid_plugins.join("target").join("debug"),
-        ubermetroid_plugins.join(clean).join("target").join("release"),
+        ubermetroid_plugins
+            .join(clean)
+            .join("target")
+            .join("release"),
         ubermetroid_plugins.join(clean).join("target").join("debug"),
         projects
             .join(format!("trance-plugin-{clean}"))

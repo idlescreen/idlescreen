@@ -10,6 +10,7 @@ use cosmic::prelude::*;
 use super::{AppModel, Message};
 
 impl AppModel {
+    #[tracing::instrument(skip(self, message), level = "debug")]
     pub(crate) fn handle_update(&mut self, message: Message) -> Task<cosmic::Action<Message>> {
         match message {
             Message::SubscriptionChannel => {}

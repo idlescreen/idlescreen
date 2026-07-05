@@ -1,0 +1,26 @@
+name: cargo-deny
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 7 * * 1'
+
+jobs:
+  deny:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --all-features bans sources advisories
+          # NOTE: licenses check is excluded because the pop-os cosmic-* forks
+          # have no license metadata in their Cargo.toml. Tracked as a known
+          # upstream issue; see deny.toml for the documentation.
+      - name: Licenses (advisory only)
+        run: cargo deny check licenses --all-features || echo "::warning::License check has known upstream issues; see deny.toml"

@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 UberMetroid
 
 mod config;
 mod controller;
@@ -8,8 +9,15 @@ mod inhibit;
 mod lock_monitor;
 mod presentation;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> anyhow::Result<()> {
+    use anyhow::Context;
     use tracing_subscriber::prelude::*;
+
+    // SAFETY: Setting TRANCE_SPAN_MODE on the main thread before any other
+    // thread is spawned is safe. Other code paths only READ this variable.
+    unsafe {
+        std::env::set_var("TRANCE_SPAN_MODE", "1");
+    }
 
     // Initialize tracing with journald or stderr fallback
     if std::env::var("JOURNAL_STREAM").is_ok() {
@@ -18,8 +26,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .from_env_lossy();
         let registry = tracing_subscriber::registry()
             .with(filter)
-            .with(tracing_journald::layer()?);
-        tracing::subscriber::set_global_default(registry)?;
+            .with(tracing_journald::layer().context("initializing journald tracing layer")?);
+        tracing::subscriber::set_global_default(registry)
+            .context("installing journald tracing subscriber")?;
     } else {
         tracing_subscriber::fmt()
             .with_env_filter(

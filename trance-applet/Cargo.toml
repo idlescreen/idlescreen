@@ -2,7 +2,7 @@
 name = "trance-applet"
 version = "0.3.15"
 edition = "2024"
-license = "MIT"
+license = "Apache-2.0"
 description = "COSMIC Desktop panel applet for the trance screensavers"
 repository = "https://github.com/UberMetroid/trance"
 
@@ -10,12 +10,15 @@ repository = "https://github.com/UberMetroid/trance"
 workspace = true
 
 [dependencies]
+anyhow = { workspace = true }
 i18n-embed-fl = "0.10"
 rust-embed = "8.11"
 tokio = { workspace = true }
 libc = { workspace = true }
 trance-dbus = { workspace = true }
 trance-runner = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [dependencies.i18n-embed]
 version = "0.16"
@@ -69,7 +72,7 @@ release = "1"
 arch = "x86_64"
 summary = "COSMIC Desktop panel applet for the trance screensavers"
 description = "Native System76 COSMIC Desktop panel applet for the trance screensaver daemon."
-license = "MIT"
+license = "Apache-2.0"
 assets = [
     { source = "target/release/trance-applet", dest = "/usr/bin/trance-applet", mode = "755" },
     { source = "resources/app.desktop", dest = "/usr/share/applications/com.system76.CosmicApplet.Trance.desktop", mode = "644" },

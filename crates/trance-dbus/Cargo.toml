@@ -3,10 +3,11 @@ name = "trance-dbus"
 version = "0.3.4"
 edition = "2024"
 description = "D-Bus API definitions and client for the trance screensaver daemon"
-license = "MIT"
+license = "Apache-2.0"
 
 [lints]
 workspace = true
 
 [dependencies]
+tracing.workspace = true
 zbus = { workspace = true, features = ["blocking-api"] }

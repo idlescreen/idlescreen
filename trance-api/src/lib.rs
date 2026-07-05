@@ -1,6 +1,30 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 UberMetroid
+
 //! Lightweight shared API definitions, traits, and math utilities for terminal
 //! screensaver plugins. Host applications register callbacks for live system
 //! queries; plugins depend only on this crate for portable drawing primitives.
+//!
+//! ## Example
+//!
+//! ```rust
+//! use trance_api::{LcgRng, Screensaver, TerminalCell};
+//!
+//! struct SolidRed;
+//!
+//! impl Screensaver for SolidRed {
+//!     fn update(&mut self, _: std::time::Duration, _: usize, _: usize) {}
+//!     fn draw(&self, grid: &mut [TerminalCell], _cols: usize, _rows: usize) {
+//!         for cell in grid.iter_mut() {
+//!             cell.bg = (255, 0, 0); // pure red
+//!             cell.fg = (255, 0, 0);
+//!         }
+//!     }
+//! }
+//!
+//! let mut rng = LcgRng::new(0xDEAD_BEEF);
+//! let _ = rng.next_u64();
+//! ```
 
 mod callbacks;
 mod caption;

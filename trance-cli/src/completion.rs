@@ -9,9 +9,11 @@
 //! - Bash: `source <(trance completion bash)`
 //! - Zsh: `source <(trance completion zsh)`
 
-pub fn handle_completion(args: &[String]) -> Result<(), String> {
+use anyhow::{Result, anyhow, bail};
+
+pub fn handle_completion(args: &[String]) -> Result<()> {
     if args.is_empty() {
-        return Err("usage: trance completion bash | zsh".into());
+        bail!("usage: trance completion bash | zsh");
     }
 
     match args[0].as_str() {
@@ -27,7 +29,7 @@ pub fn handle_completion(args: &[String]) -> Result<(), String> {
             println!("{script}");
             Ok(())
         }
-        _ => Err(format!(
+        _ => Err(anyhow!(
             "unsupported shell '{}'; please specify 'bash' or 'zsh'",
             args[0]
         )),

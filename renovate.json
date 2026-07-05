@@ -1,4 +1,26 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["local>felladrin/.github:renovate-config"]
+  "extends": [
+    "config:recommended",
+    ":automergeMinor",
+    ":automergePatch"
+  ],
+  "cargo": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "matchDatasources": ["crate"],
+      "groupName": "cargo minor/patch updates",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "matchDatasources": ["crate"],
+      "groupName": "cargo major updates",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["breaking"]
+    }
+  ]
 }

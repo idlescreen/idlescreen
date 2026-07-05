@@ -24,7 +24,7 @@ fn is_trusted_control_peer(pid: u32) -> bool {
     let path = format!("/proc/{pid}/exe");
     let target = match std::fs::canonicalize(path) {
         Ok(t) => {
-            tracing::info!(
+            tracing::debug!(
                 "D-Bus auth check: canonical path for PID {} is {:?}",
                 pid,
                 t
@@ -60,26 +60,27 @@ fn is_trusted_control_peer(pid: u32) -> bool {
     let parent = target.parent().and_then(|p| p.to_str()).unwrap_or("");
     let is_ok = parent == "/usr/bin"
         || parent == "/usr/local/bin"
-        || (cfg!(debug_assertions) && {
-            if let Ok(current_exe) = std::env::current_exe() {
-                if let Ok(current_canonical) = std::fs::canonicalize(current_exe) {
-                    let match_parent = target.parent() == current_canonical.parent();
-                    tracing::info!(
-                        "D-Bus auth check: comparing parent of target {:?} and current_canonical {:?} -> {}",
-                        target.parent(),
-                        current_canonical.parent(),
+        || (cfg!(debug_assertions)
+            && {
+                if let Ok(current_exe) = std::env::current_exe() {
+                    if let Ok(current_canonical) = std::fs::canonicalize(current_exe) {
+                        let match_parent = target.parent() == current_canonical.parent();
+                        tracing::debug!(
+                            "D-Bus auth check: comparing parent of target {:?} and current_canonical {:?} -> {}",
+                            target.parent(),
+                            current_canonical.parent(),
+                            match_parent
+                        );
                         match_parent
-                    );
-                    match_parent
+                    } else {
+                        tracing::warn!("D-Bus auth check: failed to canonicalize current exe");
+                        false
+                    }
                 } else {
-                    tracing::warn!("D-Bus auth check: failed to canonicalize current exe");
+                    tracing::warn!("D-Bus auth check: failed to get current exe");
                     false
                 }
-            } else {
-                tracing::warn!("D-Bus auth check: failed to get current exe");
-                false
-            }
-        });
+            });
     if !is_ok {
         tracing::warn!(
             "D-Bus auth check: path {:?} parent {:?} not trusted",
@@ -111,8 +112,10 @@ pub async fn require_control_peer(
         .ok_or_else(|| zbus::fdo::Error::AccessDenied("D-Bus peer PID unavailable".into()))?;
 
     if is_trusted_control_peer(pid) {
+        tracing::info!("D-Bus control peer accepted (pid {pid})");
         Ok(())
     } else {
+        tracing::info!("D-Bus control peer rejected (pid {pid})");
         Err(zbus::fdo::Error::AccessDenied(
             "control methods require the trance CLI or panel applet".into(),
         ))

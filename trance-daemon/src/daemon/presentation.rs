@@ -20,6 +20,7 @@ impl ActivePresentation {
     }
 }
 
+#[tracing::instrument(skip(overlay_presenter, presentation, current_saver, config), fields(saver_name = %saver_name, reason = %reason))]
 pub fn start_presentation(
     overlay_presenter: &Arc<OverlayPresenter>,
     presentation: &mut ActivePresentation,
@@ -35,7 +36,11 @@ pub fn start_presentation(
         trance_runner::launcher::LaunchMode::Daemon
     };
     let options = PresentationOptions {
-        gpu_enabled: config.gpu_enabled,
+        gpu_enabled: {
+            #[allow(deprecated)]
+            let v = config.gpu_enabled;
+            v
+        },
         show_fps_overlay: config.show_fps_overlay,
         render_scale: config.render_scale,
         launch_mode,
@@ -49,6 +54,7 @@ pub fn start_presentation(
     }
 }
 
+#[tracing::instrument(skip(overlay_presenter, presentation))]
 pub fn stop_presentation(
     overlay_presenter: Option<&Arc<OverlayPresenter>>,
     presentation: &mut ActivePresentation,

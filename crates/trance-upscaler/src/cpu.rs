@@ -31,6 +31,7 @@ impl StretchCache {
 }
 
 /// Fast integer nearest-neighbor stretch into `dst` (reuses `cache` x-map).
+#[tracing::instrument(skip_all, fields(src_w, src_h, dst_w, dst_h))]
 pub fn upscale_stretch_into(
     dst: &mut [u8],
     src: &[u8],
@@ -113,6 +114,7 @@ pub fn upscale_stretch(src: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u3
     dst
 }
 
+#[tracing::instrument(skip_all, fields(src_w, src_h, dst_w, dst_h, ?filter))]
 pub fn upscale_letterbox_into(
     dst: &mut [u8],
     src: &[u8],
@@ -235,3 +237,7 @@ fn write_pixel(dst: &mut [u8], width: u32, x: u32, y: u32, color: [u8; 4]) {
     }
     dst[offset..offset + 4].copy_from_slice(&color);
 }
+
+#[cfg(test)]
+#[path = "cpu_tests.rs"]
+mod tests;

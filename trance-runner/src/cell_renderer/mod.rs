@@ -16,7 +16,7 @@ use trance_api::TerminalCell;
 
 use pixels::{blit_bitmap, dim_rect, fill_rect, letterbox_into};
 
-pub use font::{font_available, resolve_font_path, FONT_CANDIDATES};
+pub use font::{FONT_CANDIDATES, font_available, resolve_font_path};
 
 const FONT_SIZE: f32 = 16.0;
 

@@ -3,7 +3,7 @@ name = "trance-daemon"
 version = "0.3.15"
 edition = "2024"
 description = "Background idle daemon and core package for trance screensavers"
-license = "MIT"
+license = "Apache-2.0"
 
 [[bin]]
 name = "trance-daemon"
@@ -24,6 +24,7 @@ signal-hook = "0.3"
 zbus = { workspace = true }
 futures-lite = "2.6"
 tokio = { workspace = true }
+anyhow.workspace = true
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tracing-journald = "0.3.2"
@@ -57,7 +58,7 @@ release = "1"
 arch = "x86_64"
 summary = "Background idle daemon and core package for trance screensavers"
 description = "Background idle monitoring service for trance screensavers."
-license = "MIT"
+license = "Apache-2.0"
 assets = [
     { source = "target/release/trance-daemon", dest = "/usr/bin/trance-daemon", mode = "755" },
     { source = "assets/trance-daemon.service", dest = "/usr/lib/systemd/user/trance-daemon.service", mode = "644" },

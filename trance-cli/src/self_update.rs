@@ -2,6 +2,8 @@
 
 use std::process::Command;
 
+use anyhow::Result;
+
 fn is_command_available(cmd: &str) -> bool {
     if let Ok(path) = std::env::var("PATH") {
         for p in path.split(':') {
@@ -14,7 +16,8 @@ fn is_command_available(cmd: &str) -> bool {
     false
 }
 
-fn handle_apt_update() -> Result<(), String> {
+#[tracing::instrument]
+fn handle_apt_update() -> Result<()> {
     println!("Checking for updates in APT repository...");
 
     let output = Command::new("apt-cache")
@@ -62,7 +65,8 @@ fn handle_apt_update() -> Result<(), String> {
     Ok(())
 }
 
-fn handle_dnf_update() -> Result<(), String> {
+#[tracing::instrument]
+fn handle_dnf_update() -> Result<()> {
     println!("Checking for updates in DNF repository...");
 
     let output = Command::new("dnf")
@@ -120,7 +124,8 @@ fn handle_dnf_update() -> Result<(), String> {
     Ok(())
 }
 
-pub fn handle_self_update() -> Result<(), String> {
+#[tracing::instrument]
+pub fn handle_self_update() -> Result<()> {
     if is_command_available("apt-cache") {
         handle_apt_update()
     } else if is_command_available("dnf") {

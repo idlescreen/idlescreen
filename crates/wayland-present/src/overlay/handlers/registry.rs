@@ -26,6 +26,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for SessionState {
         else {
             return;
         };
+        tracing::debug!(%interface, name, "wl_registry global");
 
         match interface.as_str() {
             "wl_compositor" => {
@@ -57,6 +58,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for SessionState {
 }
 
 impl Dispatch<wl_output::WlOutput, u32> for SessionState {
+    #[tracing::instrument(skip_all, fields(output_id))]
     fn event(
         state: &mut Self,
         _: &wl_output::WlOutput,

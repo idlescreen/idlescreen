@@ -2,9 +2,12 @@
 
 use std::fs;
 use std::path::PathBuf;
+
+use anyhow::{Context, Result};
 use trance_dbus::daemon_available;
 
-pub fn handle_clean() -> Result<(), String> {
+#[tracing::instrument]
+pub fn handle_clean() -> Result<()> {
     println!("Cleaning Trance workspace files...");
 
     // 1. PID File Cleanup
@@ -18,10 +21,10 @@ pub fn handle_clean() -> Result<(), String> {
         if daemon_available() {
             println!(" [!] Daemon is currently running. Sticking to active PID file.");
         } else {
-            match fs::remove_file(&pid_path) {
-                Ok(()) => println!(" [✔] Removed stale PID file: '{}'", pid_path.display()),
-                Err(e) => return Err(format!("failed to delete stale PID file: {e}")),
-            }
+            fs::remove_file(&pid_path).with_context(|| {
+                format!("failed to delete stale PID file: {}", pid_path.display())
+            })?;
+            println!(" [✔] Removed stale PID file: '{}'", pid_path.display());
         }
     } else {
         println!(" [✔] No stale PID files found.");

@@ -1,4 +1,14 @@
-/// HSL→RGB conversion.
+/// Convert HSL to RGB. `h` is in degrees [0, 360); `s`, `l` in [0.0, 1.0];
+/// returns `(r, g, b)` with each channel in `[0, 255]`.
+///
+/// # Example
+///
+/// ```
+/// use trance_api::hsl_to_rgb;
+/// assert_eq!(hsl_to_rgb(0.0, 1.0, 0.5), (255, 0, 0));   // pure red
+/// assert_eq!(hsl_to_rgb(120.0, 1.0, 0.5), (0, 255, 0)); // pure green
+/// assert_eq!(hsl_to_rgb(240.0, 1.0, 0.5), (0, 0, 255)); // pure blue
+/// ```
 pub fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (u8, u8, u8) {
     let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
     let x = c * (1.0 - (((h / 60.0) % 2.0) - 1.0).abs());
@@ -83,4 +93,45 @@ pub(crate) fn hue_rotated(
     let (h, _s, _l) = rgb_to_hsl(color.0, color.1, color.2);
     let new_h = (h + delta_deg).rem_euclid(360.0);
     hsl_to_rgb(new_h, 0.95, target_lightness)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hsl_red_at_zero() {
+        assert_eq!(hsl_to_rgb(0.0, 1.0, 0.5), (255, 0, 0));
+    }
+
+    #[test]
+    fn hsl_green_at_120() {
+        assert_eq!(hsl_to_rgb(120.0, 1.0, 0.5), (0, 255, 0));
+    }
+
+    #[test]
+    fn hsl_blue_at_240() {
+        assert_eq!(hsl_to_rgb(240.0, 1.0, 0.5), (0, 0, 255));
+    }
+
+    #[test]
+    fn hsl_grey_at_zero_saturation() {
+        // Half-grey: HSL(0, 0, 0.5) -> RGB(127, 127, 127) after rounding
+        assert_eq!(hsl_to_rgb(0.0, 0.0, 0.5), (127, 127, 127));
+    }
+
+    #[test]
+    fn lerp_clamps_below_zero() {
+        assert_eq!(lerp(10.0, 20.0, -0.5), 10.0);
+    }
+
+    #[test]
+    fn lerp_clamps_above_one() {
+        assert_eq!(lerp(10.0, 20.0, 1.5), 20.0);
+    }
+
+    #[test]
+    fn lerp_midpoint() {
+        assert_eq!(lerp(0.0, 100.0, 0.5), 50.0);
+    }
 }

@@ -4,7 +4,10 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-pub fn handle_bug_report() -> Result<(), String> {
+use anyhow::Result;
+
+#[tracing::instrument]
+pub fn handle_bug_report() -> Result<()> {
     println!("Generating sanitized diagnostic report...");
 
     let mut report = String::new();

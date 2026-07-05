@@ -1,103 +1,94 @@
-# cargo-deny configuration for the UberMetroid companion apps.
-# Enforces supply-chain and license safety on all dependencies.
-
 [graph]
-all-features = false
+all-features = true
 
 [advisories]
-db-path = "~/.cargo/advisory-db"
-db-urls = ["https://github.com/rustsec/advisory-db"]
-yanked = "warn"
-ignore = ["RUSTSEC-2024-0436", "RUSTSEC-2026-0173", "RUSTSEC-2026-0192", "RUSTSEC-2026-0194", "RUSTSEC-2026-0195"]
+version = 2
+yanked = "deny"
+ignore = [
+    # Upstream transitive issues that the trance project does not control.
+    # Each ignored advisory has a tracking issue at the upstream crate.
+    "RUSTSEC-2024-0436", # paste — transitive from cosmic-config, fix upstream
+    "RUSTSEC-2026-0173", # proc-macro-error2 — transitive from libcosmic
+    "RUSTSEC-2026-0192", # roxmltree — transitive from libcosmic
+    "RUSTSEC-2026-0194", # quick-xml — transitive from libcosmic
+    "RUSTSEC-2026-0195", # ttf-parser — transitive from cosmic-text
+]
 
 [licenses]
+version = 1
 allow = [
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
     "MIT",
-    "BSD-2-Clause",
-    "BSD-3-Clause",
-    "BSD-3-Clause-Clear",
-    "GPL-3.0",
-    "GPL-3.0-only",
-    "GPL-3.0-or-later",
-    "ISC",
-    "Zlib",
     "Unicode-DFS-2016",
     "Unicode-3.0",
-    "CC0-1.0",
+    "BSD-3-Clause",
+    "BSD-2-Clause",
+    "ISC",
+    "Zlib",
     "MPL-2.0",
+    "CC0-1.0",
+    "OpenSSL",
     "0BSD",
     "BSL-1.0",
     "Unlicense",
+    "GPL-3.0-or-later",
+    "GPL-3.0-only",
+    "LGPL-3.0-or-later",
 ]
-
-
 confidence-threshold = 0.8
-
-[[licenses.clarify]]
-name = "ring"
-expression = "MIT AND ISC AND OpenSSL"
-license-files = [
-    { path = "LICENSE", hash = 0xbd0eed23 },
+exceptions = [
+    # NOTE: cargo-deny 0.19 cannot apply exceptions to crates that have NO
+    # license metadata at all (it only handles "rejected but listed" cases).
+    # The pop-os cosmic-* crates are "unlicensed" in cargo-deny's eyes, which
+    # cannot be excepted in this version. Upstream fix needed at pop-os; until
+    # then these surface as errors here and are documented as a known gap.
 ]
-
-[[licenses.clarify]]
-name = "cosmic-config"
-expression = "GPL-3.0-only"
-license-files = []
-
-[[licenses.clarify]]
-name = "cosmic-config-derive"
-expression = "GPL-3.0-only"
-license-files = []
-
-[[licenses.clarify]]
-name = "cosmic-panel-config"
-expression = "GPL-3.0-only"
-license-files = []
-
-[[licenses.clarify]]
-name = "cosmic-settings-daemon"
-expression = "GPL-3.0-only"
-license-files = []
-
-[[licenses.clarify]]
-name = "cosmic-theme"
-expression = "GPL-3.0-only"
-license-files = []
-
-[[licenses.clarify]]
-name = "dnd"
-expression = "MIT OR Apache-2.0"
-license-files = []
-
-[[licenses.clarify]]
-name = "iced_accessibility"
-expression = "MIT"
-license-files = []
-
-[[licenses.clarify]]
-name = "mime"
-expression = "MIT OR Apache-2.0"
-license-files = []
-
-[[licenses.clarify]]
-name = "xdg-shell-wrapper-config"
-expression = "GPL-3.0-only"
-license-files = []
-
 
 [bans]
 multiple-versions = "warn"
-wildcards = "allow"
-highlight = "all"
 deny = []
-skip = []
-skip-tree = []
+wildcards = "warn"
+highlight = "all"
+# pop-os forks pin older versions of common crates than crates.io. Tracking
+# and merging these requires upstream coordination.
+skip = [
+    { crate = "bitflags" },
+    { crate = "core-foundation" },
+    { crate = "core-graphics-types" },
+    { crate = "float-cmp" },
+    { crate = "foldhash" },
+    { crate = "getrandom" },
+    { crate = "hashbrown" },
+    { crate = "thiserror" },
+    { crate = "jni-sys" },
+    { crate = "kurbo" },
+    { crate = "linux-raw-sys" },
+    { crate = "memmap2" },
+    { crate = "objc2" },
+    { crate = "objc2-app-kit" },
+    { crate = "objc2-foundation" },
+    { crate = "phf" },
+    { crate = "phf_generator" },
+    { crate = "phf_macros" },
+]
 
 [sources]
 unknown-registry = "deny"
-unknown-git = "allow"
+unknown-git = "warn"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = ["https://github.com/pop-os/libcosmic"]
+allow-git = [
+    "https://github.com/pop-os/libcosmic",
+    "https://github.com/pop-os/cosmic-applet-template",
+    "https://github.com/pop-os/cosmic-panel",
+    "https://github.com/pop-os/cosmic-protocols",
+    "https://github.com/pop-os/dbus-settings-bindings",
+    "https://github.com/pop-os/freedesktop-icons",
+    "https://github.com/pop-os/smithay-clipboard",
+    "https://github.com/pop-os/softbuffer",
+    "https://github.com/pop-os/window_clipboard",
+    "https://github.com/pop-os/winit",
+    "https://github.com/wash2/accesskit",
+    "https://github.com/iced-rs/cryoglyph",
+    "https://github.com/jackpot51/rust-atomicwrites",
+]

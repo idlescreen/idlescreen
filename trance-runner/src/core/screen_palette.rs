@@ -86,4 +86,12 @@ mod tests {
         assert_eq!(light.bg, (255, 255, 255));
         assert_eq!(light.fg, (0, 0, 0));
     }
+
+    #[test]
+    fn from_system_dark_vs_light_differ() {
+        let dark = ScreenPalette::from_system((100, 150, 200), true);
+        let light = ScreenPalette::from_system((100, 150, 200), false);
+        assert_ne!(dark.bg, light.bg);
+        assert_ne!(dark.fg, light.fg);
+    }
 }

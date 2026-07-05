@@ -1,0 +1,19 @@
+name: Unused Dependencies
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 8 * * 1'
+
+jobs:
+  udeps:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-udeps
+        run: cargo install cargo-udeps --locked
+      - name: Check
+        run: cargo +nightly udeps --workspace --all-features

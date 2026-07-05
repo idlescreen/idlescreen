@@ -1,56 +1,62 @@
 // SPDX-License-Identifier: MIT
 
+use anyhow::{Context, Result};
 use trance_dbus::{DaemonStatus, TranceClient, daemon_available};
 
 pub fn is_running() -> bool {
     daemon_available()
 }
 
-pub fn fetch_status() -> Option<DaemonStatus> {
-    let client = TranceClient::connect().ok()?;
-    client.get_status().ok()
+#[tracing::instrument]
+pub fn fetch_status() -> Result<DaemonStatus> {
+    let client = TranceClient::connect().context("failed to connect to trance daemon")?;
+    client.get_status().context("failed to fetch daemon status")
 }
 
-pub fn set_idle_enabled(enabled: bool) -> Result<(), String> {
-    let client = TranceClient::connect().map_err(|error| error.to_string())?;
+pub fn set_idle_enabled(enabled: bool) -> Result<()> {
+    let client = TranceClient::connect().context("failed to connect to trance daemon")?;
     if enabled {
-        client.enable().map_err(|error| error.to_string())
+        client.enable().context("failed to enable idle activation")
     } else {
-        client.disable().map_err(|error| error.to_string())
+        client
+            .disable()
+            .context("failed to disable idle activation")
     }
 }
 
-pub fn set_timeout(minutes: u32) -> Result<(), String> {
+pub fn set_timeout(minutes: u32) -> Result<()> {
     TranceClient::connect()
-        .map_err(|error| error.to_string())?
+        .context("failed to connect to trance daemon")?
         .set_timeout(minutes)
-        .map_err(|error| error.to_string())
+        .context("failed to set idle timeout")
 }
 
-pub fn set_active_saver(name: Option<&str>) -> Result<(), String> {
+pub fn set_active_saver(name: Option<&str>) -> Result<()> {
     TranceClient::connect()
-        .map_err(|error| error.to_string())?
+        .context("failed to connect to trance daemon")?
         .set_saver(name.unwrap_or(""))
-        .map_err(|error| error.to_string())
+        .context("failed to set active screensaver")
 }
 
-pub fn set_show_fps_overlay(enabled: bool) -> Result<(), String> {
+pub fn set_show_fps_overlay(enabled: bool) -> Result<()> {
     TranceClient::connect()
-        .map_err(|error| error.to_string())?
+        .context("failed to connect to trance daemon")?
         .set_show_fps_overlay(enabled)
-        .map_err(|error| error.to_string())
+        .context("failed to set FPS overlay")
 }
 
-pub fn list_savers() -> Result<Vec<String>, String> {
+#[tracing::instrument]
+pub fn list_savers() -> Result<Vec<String>> {
     TranceClient::connect()
-        .map_err(|error| error.to_string())?
+        .context("failed to connect to trance daemon")?
         .list_savers()
-        .map_err(|error| error.to_string())
+        .context("failed to list installed screensavers")
 }
 
-pub fn start_preview(name: &str) -> Result<(), String> {
+#[tracing::instrument]
+pub fn start_preview(name: &str) -> Result<()> {
     TranceClient::connect()
-        .map_err(|error| error.to_string())?
+        .context("failed to connect to trance daemon")?
         .preview(name)
-        .map_err(|error| error.to_string())
+        .context("failed to request screensaver preview")
 }

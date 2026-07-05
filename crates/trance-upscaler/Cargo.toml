@@ -3,7 +3,7 @@ name = "trance-upscaler"
 version = "0.3.4"
 edition = "2024"
 description = "CPU upscaling for trance screensaver frames"
-license = "MIT"
+license = "Apache-2.0"
 
 [lints]
 workspace = true
@@ -11,3 +11,4 @@ workspace = true
 [dependencies]
 bytemuck = { version = "1.21", features = ["derive"] }
 trance-api = { path = "../../trance-api" }
+tracing.workspace = true

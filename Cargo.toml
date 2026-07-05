@@ -1,15 +1,5 @@
 [workspace]
 resolver = "2"
-# NOTE (2026) — license inconsistency in this workspace:
-#   * Top-level `LICENSE` is Apache-2.0.
-#   * Every per-crate `Cargo.toml` declares `license = "MIT"`.
-# This is a known portfolio-level issue affecting the entire UberMetroid
-# fleet (see review `/tmp/reviews/03-desktop-trance.md`, item "LICENSE
-# mismatch"). The Cargo.toml `license` field is metadata only — the
-# binding license is the one in `LICENSE`. Until the user makes a
-# portfolio-level decision (likely align all Cargo.toml `license` fields
-# to "Apache-2.0"), do not change them locally without coordinating
-# across all 14+ crates in the workspace.
 members = [
     "crates/wayland-idle",
     "crates/wayland-present",
@@ -41,8 +31,46 @@ trance-upscaler = { path = "crates/trance-upscaler" }
 wayland-idle = { path = "crates/wayland-idle" }
 wayland-present = { path = "crates/wayland-present" }
 
+# Added in 2026 audit remediation
+anyhow = "1"
+thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+tracing-journald = "0.3"
+futures-lite = "2"
+once_cell = "1"
+
 [workspace.lints.rust]
 unused_must_use = "warn"
 dead_code = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+
+[workspace.lints.clippy]
+# Disable pedantic groups that are noisy or incompatible with FFI code
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+similar_names = "allow"
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_lossless = "allow"
+cast_abs_to_unsigned = "allow"
+# Allow common helper-method patterns
+many_single_char_names = "allow"
+# Warn on anti-patterns (target deny-by-default in 0.4 once coverage catches up)
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+unreachable = "warn"
+
+[profile.release-with-debug]
+inherits = "release"
+debug = 1
+strip = "none"
 
 

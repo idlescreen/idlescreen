@@ -1,0 +1,11 @@
+# Default owners
+*       @UberMetroid
+
+# Critical-path ownership
+/trance-daemon/         @UberMetroid
+/trance-runner/         @UberMetroid
+/trance-cli/            @UberMetroid
+/trance-applet/         @UberMetroid
+/.github/workflows/     @UberMetroid
+/deny.toml              @UberMetroid
+/clippy.toml            @UberMetroid

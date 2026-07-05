@@ -3,7 +3,7 @@ name = "trance-cli"
 version = "0.3.15"
 edition = "2024"
 description = "Command-line interface for the trance screensaver daemon"
-license = "MIT"
+license = "Apache-2.0"
 
 [[bin]]
 name = "trance"
@@ -12,9 +12,17 @@ path = "src/main.rs"
 [lints]
 workspace = true
 
+[features]
+default = []
+journald = ["dep:tracing-journald"]
+
 [dependencies]
 trance-dbus = { workspace = true }
 libc = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-journald = { workspace = true, optional = true }
 
 [package.metadata.deb]
 name = "trance-cli"

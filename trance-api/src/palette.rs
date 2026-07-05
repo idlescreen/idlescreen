@@ -66,3 +66,60 @@ impl ScreenPalette {
         Self::from_system((0, 180, 200), false)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sum(rgb: (u8, u8, u8)) -> u32 {
+        (rgb.0 as u32) + (rgb.1 as u32) + (rgb.2 as u32)
+    }
+
+    #[test]
+    fn default_dark_has_dark_bg() {
+        let p = ScreenPalette::default_dark();
+        assert!(sum(p.bg) < 128 * 3);
+    }
+
+    #[test]
+    fn default_light_has_light_bg() {
+        let p = ScreenPalette::default_light();
+        assert!(sum(p.bg) > 128 * 3);
+    }
+
+    #[test]
+    fn default_dark_and_light_have_dark_and_light_fg() {
+        let dark = ScreenPalette::default_dark();
+        let light = ScreenPalette::default_light();
+        assert!(sum(dark.fg) > sum(dark.bg));
+        assert!(sum(light.fg) < sum(light.bg));
+    }
+
+    #[test]
+    fn high_contrast_dark_polarizes() {
+        let p = ScreenPalette::high_contrast((0, 200, 100), true);
+        assert_eq!(p.bg, (0, 0, 0));
+        assert_eq!(p.fg, (255, 255, 255));
+    }
+
+    #[test]
+    fn high_contrast_light_polarizes() {
+        let p = ScreenPalette::high_contrast((0, 200, 100), false);
+        assert_eq!(p.bg, (255, 255, 255));
+        assert_eq!(p.fg, (0, 0, 0));
+    }
+
+    #[test]
+    fn high_contrast_polarizes_extremes() {
+        let p = ScreenPalette::high_contrast((128, 128, 128), true);
+        let sum_fg = sum(p.fg);
+        let sum_bg = sum(p.bg);
+        assert!(sum_fg.abs_diff(sum_bg) > 200);
+    }
+
+    #[test]
+    fn palette_default_uses_dark_mode() {
+        let p = ScreenPalette::default();
+        assert_eq!(p.bg, (0, 0, 0));
+    }
+}

@@ -155,7 +155,7 @@ pub fn daemon_available() -> bool {
         Ok(dbus) => dbus,
         Err(_) => return false,
     };
-    
+
     if let Ok(name) = zbus::names::BusName::try_from(SERVICE_NAME)
         && dbus.name_has_owner(name).unwrap_or(false)
     {
@@ -163,3 +163,7 @@ pub fn daemon_available() -> bool {
     }
     false
 }
+
+#[cfg(test)]
+#[path = "client_tests.rs"]
+mod tests;

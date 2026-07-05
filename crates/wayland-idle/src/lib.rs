@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 UberMetroid
 
 //! Wayland idle detection using the [`ext-idle-notify-v1`] protocol.
 //!

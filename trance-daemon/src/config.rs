@@ -13,6 +13,9 @@ pub struct DaemonConfig {
     /// **DEPRECATED** — no-op. Retained for back-compat with existing
     /// `theme.yaml` files; the previous `trance-gpu` crate was renamed to
     /// `trance-upscaler` and is now CPU-only. See `themes.yaml(5)`.
+    #[deprecated(
+        note = "GPU upscaler removed in 2026; field retained for back-compat, will be removed in 0.4"
+    )]
     pub gpu_enabled: bool,
     pub show_fps_overlay: bool,
     /// Simulation grid scale override in `(0.25, 1.0]`; `None` uses CPU
@@ -92,7 +95,10 @@ impl DaemonConfig {
                             // emitted here — the field is documented as
                             // deprecated in `themes.yaml(5)`.
                             let _ = val.parse::<bool>();
-                            config.gpu_enabled = false;
+                            #[allow(deprecated)]
+                            {
+                                config.gpu_enabled = false;
+                            }
                         }
                         "show_fps_overlay" => {
                             if let Ok(b) = val.parse::<bool>() {
@@ -144,5 +150,40 @@ impl DaemonConfig {
                 .unwrap_or_else(|| "null".to_string())
         );
         fs::write(path, content)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config_has_5_minute_timeout() {
+        let c = DaemonConfig::default();
+        assert_eq!(c.idle_timeout_mins, 5);
+    }
+
+    #[test]
+    fn default_saver_is_beams() {
+        let c = DaemonConfig::default();
+        assert_eq!(c.active_saver.as_deref(), Some("beams"));
+    }
+
+    #[test]
+    fn default_idle_enabled() {
+        let c = DaemonConfig::default();
+        assert!(c.idle_enabled);
+    }
+
+    #[test]
+    fn default_render_scale_is_none() {
+        let c = DaemonConfig::default();
+        assert!(c.render_scale.is_none());
+    }
+
+    #[test]
+    fn default_show_fps_overlay_false() {
+        let c = DaemonConfig::default();
+        assert!(!c.show_fps_overlay);
     }
 }

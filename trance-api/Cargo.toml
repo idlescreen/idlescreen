@@ -3,8 +3,15 @@ name = "trance-api"
 version = "0.3.4"
 edition = "2024"
 description = "Lightweight shared API definitions, traits, and math utilities for terminal screensaver plugins."
-license = "MIT"
+license = "Apache-2.0"
 
 [dependencies]
 bytemuck = { version = "1.21", features = ["derive"] }
+
+[dev-dependencies]
+# Reserved for future doctest-only deps
+
+[[example]]
+name = "minimal_saver"
+path = "examples/minimal_saver.rs"
 

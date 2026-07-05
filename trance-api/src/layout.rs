@@ -55,7 +55,28 @@ pub fn span_reach_scale(cols: usize, rows: usize) -> f32 {
     (max_dist / base).clamp(1.0, 4.5)
 }
 
-/// Build centered logo lines and grid position for the primary monitor.
+/// Place a centered logo block within `(cols, rows)`.
+///
+/// The returned [`CenteredLogo`] carries the rendered text lines plus the
+/// grid coordinates where they should be drawn. Returns `None` when running
+/// on a secondary monitor, when the rendered block is empty, or when no
+/// primary monitor bounds are configured.
+///
+/// # Example
+///
+/// ```
+/// use trance_api::CenteredLogo;
+/// // Construct a CenteredLogo directly to inspect its shape:
+/// let logo = CenteredLogo {
+///     lines: vec!["Hi".into()],
+///     x: 0,
+///     y: 0,
+///     width: 2,
+///     height: 1,
+/// };
+/// assert_eq!(logo.width, 2);
+/// assert_eq!(logo.height, 1);
+/// ```
 pub fn place_centered_logo(
     cols: usize,
     rows: usize,

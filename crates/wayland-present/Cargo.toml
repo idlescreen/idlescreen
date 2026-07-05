@@ -3,13 +3,14 @@ name = "wayland-present"
 version = "0.1.0"
 edition = "2024"
 description = "Wayland layer-shell overlay presenter for fullscreen idle surfaces"
-license = "MIT"
+license = "Apache-2.0"
 
 [lints]
 workspace = true
 
 [dependencies]
 libc = { workspace = true }
+tracing.workspace = true
 wayland-client = "0.31"
 wayland-protocols = { version = "0.32", features = ["client"] }
 wayland-protocols-wlr = { version = "0.3.12", features = ["client"] }

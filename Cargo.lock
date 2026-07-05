@@ -4914,6 +4914,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-serde"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "704b1aeb7be0d0a84fc9828cae51dab5970fee5088f83d1dd7ee6f6246fc6ff1"
+dependencies = [
+ "serde",
+ "tracing-core",
+]
+
+[[package]]
 name = "tracing-subscriber"
 version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4923,12 +4933,15 @@ dependencies = [
  "nu-ansi-term",
  "once_cell",
  "regex-automata",
+ "serde",
+ "serde_json",
  "sharded-slab",
  "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",
  "tracing-log",
+ "tracing-serde",
 ]
 
 [[package]]
@@ -4940,30 +4953,38 @@ dependencies = [
 
 [[package]]
 name = "trance-applet"
-version = "0.3.14"
+version = "0.3.15"
 dependencies = [
+ "anyhow",
  "i18n-embed",
  "i18n-embed-fl",
  "libc",
  "libcosmic",
  "rust-embed",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
  "trance-dbus",
  "trance-runner",
 ]
 
 [[package]]
 name = "trance-cli"
-version = "0.3.14"
+version = "0.3.15"
 dependencies = [
+ "anyhow",
  "libc",
+ "tracing",
+ "tracing-journald",
+ "tracing-subscriber",
  "trance-dbus",
 ]
 
 [[package]]
 name = "trance-daemon"
-version = "0.3.14"
+version = "0.3.15"
 dependencies = [
+ "anyhow",
  "futures-lite",
  "libc",
  "signal-hook",
@@ -4984,22 +5005,26 @@ dependencies = [
 name = "trance-dbus"
 version = "0.3.4"
 dependencies = [
+ "tracing",
  "zbus",
 ]
 
 [[package]]
 name = "trance-plugins-all"
-version = "0.3.14"
+version = "0.3.15"
 
 [[package]]
 name = "trance-runner"
-version = "0.2.14"
+version = "0.2.15"
 dependencies = [
  "crossterm",
  "fontdue",
  "libc",
  "libloading",
  "sysinfo",
+ "thiserror 1.0.69",
+ "tracing",
+ "tracing-subscriber",
  "trance-api",
  "trance-upscaler",
 ]
@@ -5009,6 +5034,7 @@ name = "trance-upscaler"
 version = "0.3.4"
 dependencies = [
  "bytemuck",
+ "tracing",
  "trance-api",
 ]
 
@@ -5369,6 +5395,7 @@ name = "wayland-idle"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "tracing",
  "wayland-client",
  "wayland-protocols",
 ]
@@ -5378,6 +5405,7 @@ name = "wayland-present"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "tracing",
  "wayland-client",
  "wayland-protocols",
  "wayland-protocols-wlr",

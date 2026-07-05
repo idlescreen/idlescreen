@@ -71,3 +71,41 @@ impl Drop for IdleMonitor {
         self.shutdown.store(true, Ordering::Relaxed);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn monitor_starts_unavailable_without_wayland() {
+        let backup = std::env::var("WAYLAND_DISPLAY").ok();
+        unsafe {
+            std::env::remove_var("WAYLAND_DISPLAY");
+        }
+        assert!(!IdleMonitor::is_available());
+        assert!(IdleMonitor::new(5).is_none());
+        if let Some(val) = backup {
+            unsafe {
+                std::env::set_var("WAYLAND_DISPLAY", val);
+            }
+        }
+    }
+
+    #[test]
+    fn monitor_is_available_matches_env() {
+        let backup = std::env::var("WAYLAND_DISPLAY").ok();
+        unsafe {
+            std::env::set_var("WAYLAND_DISPLAY", "wayland-mock-monitor-0");
+        }
+        assert!(IdleMonitor::is_available());
+        unsafe {
+            std::env::remove_var("WAYLAND_DISPLAY");
+        }
+        assert!(!IdleMonitor::is_available());
+        if let Some(val) = backup {
+            unsafe {
+                std::env::set_var("WAYLAND_DISPLAY", val);
+            }
+        }
+    }
+}

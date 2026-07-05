@@ -1,22 +1,65 @@
-# Trance Core Workspace Justfile
-# Use "just <recipe>" to execute targets
+default: verify
 
-# Build all binaries in release mode
+# Build a release binary
 build:
-    cargo build --release
+    cargo build --release --workspace
 
-# Run all workspace unit tests
+# Build a release binary (with hard-coded debug info for crash reports)
+build-debug:
+    cargo build --release --workspace --profile=release-with-debug
+
+# Run the full test suite
 test:
-    cargo test --workspace
+    cargo test --workspace --all-features
 
-# Package all core binaries, update local APT pool, and sign metadata
+# Run doc tests
+test-doc:
+    cargo test --workspace --doc
+
+# Format check
+fmt-check:
+    cargo fmt --all -- --check
+
+# Format (apply changes)
+fmt:
+    cargo fmt --all
+
+# Clippy (deny warnings)
+clippy:
+    cargo clippy --workspace --all-targets -- -D warnings
+
+# Documentation build
+doc:
+    cargo doc --workspace --no-deps --open
+
+# Security audit
+audit:
+    cargo audit
+
+# License + advisory check
+deny:
+    cargo deny check
+
+# Find unused dependencies
+udeps:
+    cargo +nightly udeps --workspace --all-features
+
+# Code coverage (HTML report)
+coverage:
+    cargo llvm-cov --workspace --all-features --html
+
+# Build distribution packages (deb, rpm)
 package:
-    rustc package.rs -o package_runner
-    ./package_runner
-    rm -f package_runner
+    ./package.rs
 
-# Check lines of code constraints (between 25 and 250 lines)
+# Enforce the 25-250 line cap (see trance-runner/LINE_LIMITS.md)
 check-limits:
-    rustc trance-runner/check_limits.rs -o check_limits_runner
-    cd trance-runner && ../check_limits_runner
-    rm -f check_limits_runner
+    cd trance-runner && cargo run --bin check_limits
+
+# Verify formatting + lint + tests all pass
+verify: fmt-check clippy test test-doc
+    @echo "All checks passed."
+
+# Quick CI mirror: lint + test only
+ci: fmt-check clippy test
+    @echo "CI checks passed."

@@ -154,3 +154,7 @@ pub fn install_primary_bounds_callback(
             })
     });
 }
+
+#[cfg(test)]
+#[path = "layout_tests.rs"]
+mod tests;
