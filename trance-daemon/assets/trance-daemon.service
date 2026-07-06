@@ -26,7 +26,7 @@ KillMode=mixed
 # the rule and rely on PrivateTmp instead.
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=%t
+ReadWritePaths=%t %h/.config/trance
 PrivateTmp=true
 ProtectHome=read-only
 MemoryDenyWriteExecute=true
