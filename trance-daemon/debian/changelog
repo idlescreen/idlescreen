@@ -1,3 +1,11 @@
+trance (0.3.30-1) unstable; urgency=medium
+
+  * UI polish: clearer daemon status in applet and TUI.
+  * Title-case screensaver names; preview/start labels reflect offline state.
+  * Align TUI with enable --now and trance-daemon run-plugin preview fallback.
+
+ -- UberMetroid <jerydleuck@gmail.com>  Thu, 09 Jul 2026 08:30:00 -1000
+
 trance (0.3.29-1) unstable; urgency=medium
 
   * Applet polish: enable --now when starting daemon; keep unit enabled on stop.

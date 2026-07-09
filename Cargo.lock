@@ -5111,7 +5111,7 @@ dependencies = [
 
 [[package]]
 name = "trance-applet"
-version = "0.3.29"
+version = "0.3.30"
 dependencies = [
  "anyhow",
  "i18n-embed",
@@ -5128,7 +5128,7 @@ dependencies = [
 
 [[package]]
 name = "trance-cli"
-version = "0.3.29"
+version = "0.3.30"
 dependencies = [
  "anyhow",
  "libc",
@@ -5140,7 +5140,7 @@ dependencies = [
 
 [[package]]
 name = "trance-daemon"
-version = "0.3.29"
+version = "0.3.30"
 dependencies = [
  "anyhow",
  "futures-lite",
@@ -5169,11 +5169,11 @@ dependencies = [
 
 [[package]]
 name = "trance-plugins-all"
-version = "0.3.29"
+version = "0.3.30"
 
 [[package]]
 name = "trance-runner"
-version = "0.3.29"
+version = "0.3.30"
 dependencies = [
  "crossterm",
  "fontdue",
@@ -5189,7 +5189,7 @@ dependencies = [
 
 [[package]]
 name = "trance-tui"
-version = "0.3.29"
+version = "0.3.30"
 dependencies = [
  "anyhow",
  "crossterm",

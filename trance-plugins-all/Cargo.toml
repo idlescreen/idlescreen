@@ -1,6 +1,6 @@
 [package]
 name = "trance-plugins-all"
-version = "0.3.29"
+version = "0.3.30"
 edition = "2024"
 description = "Meta package that recommends all official trance screensaver plugins"
 license = "Apache-2.0"

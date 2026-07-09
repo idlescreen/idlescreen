@@ -95,21 +95,21 @@ impl App {
 
     fn toggle_daemon(&mut self) {
         if self.daemon_running {
+            // Stop only — keep the unit enabled for next login.
             let _ = Command::new("systemctl")
-                .args(["--user", "stop", "trance-daemon"])
+                .args(["--user", "stop", "trance-daemon.service"])
                 .status();
         } else {
+            // enable --now so upgrades/logins keep the daemon alive.
             let sys_status = Command::new("systemctl")
-                .args(["--user", "start", "trance-daemon"])
+                .args(["--user", "enable", "--now", "trance-daemon.service"])
                 .status();
             let success = sys_status.map(|s| s.success()).unwrap_or(false);
             if !success {
-                let _ = Command::new("trance-daemon")
-                    .arg("daemon")
-                    .spawn();
+                let _ = Command::new("trance-daemon").arg("daemon").spawn();
             }
         }
-        std::thread::sleep(Duration::from_millis(250));
+        std::thread::sleep(Duration::from_millis(350));
         self.refresh_state();
     }
 
@@ -172,20 +172,52 @@ impl App {
             self.screensavers[self.selected_saver_idx - 1].clone()
         };
 
+        // Prefer live daemon overlay; start service if needed.
+        if !self.daemon_running {
+            self.toggle_daemon();
+        }
+
         let mut started_via_dbus = false;
         if self.daemon_running {
-            if let Some(ref client) = self.client {
-                if client.preview(&saver).is_ok() {
-                    started_via_dbus = true;
-                }
+            // Refresh client after possible start.
+            if self.client.is_none() {
+                self.refresh_state();
+            }
+            if let Some(ref client) = self.client
+                && client.preview(&saver).is_ok()
+            {
+                started_via_dbus = true;
             }
         }
         if !started_via_dbus {
-            let _ = Command::new("trance-runner")
-                .args(["preview", &saver])
+            // Packaged fallback (not the unshipped trance-runner binary).
+            let _ = Command::new("trance-daemon")
+                .args(["run-plugin", &saver])
                 .status();
         }
     }
+}
+
+fn display_saver_name(raw: &str) -> String {
+    if raw.eq_ignore_ascii_case("random") || raw == "Random selection" {
+        return raw.to_string();
+    }
+    let mut out = String::with_capacity(raw.len());
+    let mut cap = true;
+    for ch in raw.chars() {
+        if ch == '-' || ch == '_' {
+            out.push(' ');
+            cap = true;
+            continue;
+        }
+        if cap {
+            out.extend(ch.to_uppercase());
+            cap = false;
+        } else {
+            out.extend(ch.to_lowercase());
+        }
+    }
+    out
 }
 
 fn main() -> Result<()> {
@@ -331,13 +363,19 @@ fn ui(f: &mut ratatui::Frame, app: &mut App) {
 
     // Title Bar
     let battery_status = if app.on_battery {
-        " [Battery Saver Active (30 FPS)]".yellow().bold()
+        " [Battery · 30 FPS]".yellow().bold()
     } else {
         "".into()
     };
+    let daemon_hint = if app.daemon_running {
+        " · daemon live".green()
+    } else {
+        " · daemon stopped (Space on Daemon starts + enables)".dark_gray()
+    };
     let title = Line::from(vec![
-        " Trance Screensaver Settings TUI ".cyan().bold(),
+        " Trance Screensaver ".cyan().bold(),
         battery_status,
+        daemon_hint,
     ]);
     let title_block = Block::default()
         .borders(Borders::ALL)
@@ -354,18 +392,22 @@ fn ui(f: &mut ratatui::Frame, app: &mut App) {
     // Left Pane: Settings
     let mut settings_list = vec![
         format!(
-            "Background Daemon:    {}",
-            if app.daemon_running { "RUNNING" } else { "STOPPED" }
+            "Daemon Service:       {}",
+            if app.daemon_running {
+                "RUNNING (auto-start on)"
+            } else {
+                "STOPPED"
+            }
         ),
         format!(
             "Idle Activation:      {}",
-            if app.idle_enabled { "ENABLED" } else { "DISABLED" }
+            if app.idle_enabled { "ON" } else { "OFF" }
         ),
-        format!("Idle Timeout:         {} minutes", app.idle_timeout_mins),
+        format!("Idle Timeout:         {} min", app.idle_timeout_mins),
         format!("Render Scale:         {:.0}%", app.render_scale * 100.0),
         format!(
             "FPS Overlay:          {}",
-            if app.show_fps_overlay { "ENABLED" } else { "DISABLED" }
+            if app.show_fps_overlay { "ON" } else { "OFF" }
         ),
     ];
 
@@ -383,7 +425,7 @@ fn ui(f: &mut ratatui::Frame, app: &mut App) {
     }
 
     let settings_block = Block::default()
-        .title(" System Configurations ")
+        .title(" Settings ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(if app.active_pane == ActivePane::Settings {
             Color::Yellow
@@ -395,13 +437,16 @@ fn ui(f: &mut ratatui::Frame, app: &mut App) {
 
     // Right Pane: Screensavers list
     let mut saver_items = vec![ListItem::new(format!(
-        "{} Random selection",
+        "{} Random",
         if app.active_saver == "Random" { "*" } else { " " }
     ))];
 
     for s in &app.screensavers {
         let prefix = if app.active_saver == *s { "*" } else { " " };
-        saver_items.push(ListItem::new(format!("{prefix} {s}")));
+        saver_items.push(ListItem::new(format!(
+            "{prefix} {}",
+            display_saver_name(s)
+        )));
     }
 
     // Apply Highlight
@@ -409,7 +454,7 @@ fn ui(f: &mut ratatui::Frame, app: &mut App) {
     state.select(Some(app.selected_saver_idx));
 
     let savers_block = Block::default()
-        .title(" Installed Screensavers ")
+        .title(" Screensavers ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(if app.active_pane == ActivePane::Screensavers {
             Color::Yellow
@@ -430,10 +475,10 @@ fn ui(f: &mut ratatui::Frame, app: &mut App) {
     // Help Bar
     let help_text = match app.active_pane {
         ActivePane::Settings => {
-            " [Tab] Switch Pane | [Space/Enter] Toggle Option | [Left/Right] Adjust Timeout/Scale | [q/Esc] Quit"
+            " [Tab] Pane | [Space/Enter] Toggle | [←/→] Timeout/Scale | [q] Quit  ·  Daemon on = enable --now"
         }
         ActivePane::Screensavers => {
-            " [Tab] Switch Pane | [Up/Down] Navigate | [Enter] Set Default | [p] Preview Now | [q/Esc] Quit"
+            " [Tab] Pane | [↑/↓] Navigate | [Enter] Set Active | [p] Preview | [q] Quit"
         }
     };
     let help_block = Block::default()
