@@ -60,6 +60,15 @@ fn run(args: Vec<String>) -> Result<()> {
         return Ok(());
     }
 
+    // Version works without a running daemon.
+    match args[0].as_str() {
+        "version" | "about" | "--version" | "-V" => {
+            print_version(args[0].as_str() == "about" || args.get(1).map(String::as_str) == Some("--verbose") || args.get(1).map(String::as_str) == Some("-v"));
+            return Ok(());
+        }
+        _ => {}
+    }
+
     match args[0].as_str() {
         "doctor" => {
             let fix = args.iter().any(|a| a == "--fix" || a == "-f");
@@ -264,4 +273,36 @@ fn display_saver(name: &str) -> String {
 
 fn print_usage() {
     usage::print_usage();
+}
+
+/// CLI package version from Cargo (matches the shipped `trance-cli` / recommended stack).
+const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+fn print_version(verbose: bool) {
+    // Short form (scripts / habit):
+    //   trance version
+    //   trance --version
+    println!("trance {CLI_VERSION}");
+    if !verbose {
+        return;
+    }
+    // Longer form:
+    //   trance about
+    println!("Trance screensaver control CLI");
+    println!("License: Apache-2.0");
+    println!("Home:    https://github.com/UberMetroid/trance");
+    if daemon_available() {
+        if let Ok(client) = TranceClient::connect() {
+            if let Ok(status) = client.get_status() {
+                println!(
+                    "Daemon:  reachable ({})",
+                    if status.running { "running" } else { "connected" }
+                );
+                return;
+            }
+        }
+        println!("Daemon:  reachable");
+    } else {
+        println!("Daemon:  not running");
+    }
 }

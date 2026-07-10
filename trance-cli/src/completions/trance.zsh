@@ -9,6 +9,8 @@ _trance() {
     case "$state" in
         cmd)
             _values "trance command" \
+                "version[Print CLI version]" \
+                "about[Version and short project info]" \
                 "status[Show daemon state]" \
                 "enable[Toggle idle screensaver on]" \
                 "disable[Toggle idle screensaver off]" \
@@ -17,11 +19,11 @@ _trance() {
                 "list[List installed savers]" \
                 "preview[Preview a screensaver now]" \
                 "stop[Stop preview or idle presentation]" \
-                "gpu[Toggle GPU upscaling]" \
                 "fps-overlay[Toggle on-screen FPS overlay]" \
                 "render-scale[Simulation grid density]" \
                 "doctor[Run system diagnostics]" \
                 "config[Unified configuration controller]" \
+                "completion[Shell completion scripts]" \
                 "clean[Clean stale runs and logs]" \
                 "bug-report[Generate sanitized diagnostics report]" \
                 "self-update[Verify system updates]" \

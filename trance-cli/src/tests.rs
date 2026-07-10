@@ -45,3 +45,11 @@ fn test_invalid_command() {
     let res = run(vec!["invalid-command-name".to_string()]);
     assert!(res.is_err());
 }
+
+#[test]
+fn test_version_commands() {
+    assert!(run(vec!["version".to_string()]).is_ok());
+    assert!(run(vec!["--version".to_string()]).is_ok());
+    assert!(run(vec!["-V".to_string()]).is_ok());
+    assert!(run(vec!["about".to_string()]).is_ok());
+}

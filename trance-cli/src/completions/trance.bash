@@ -4,7 +4,7 @@ _trance_completion() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="status enable disable timeout saver list preview stop gpu fps-overlay render-scale doctor config clean bug-report self-update interactive help"
+    opts="version about status enable disable timeout saver list preview stop fps-overlay render-scale doctor config completion clean bug-report self-update interactive help"
 
     case "${prev}" in
         preview)

@@ -6,6 +6,8 @@ pub fn print_usage() {
         "Usage: trance <command> [args]\n\
          \n\
          Commands:\n\
+           version | --version | -V   Print CLI version (no daemon needed)\n\
+           about                      Version plus short project info\n\
            status [--json]        Show daemon state\n\
            enable | disable       Toggle idle screensaver\n\
            timeout <minutes>      Set idle timeout (1–240)\n\

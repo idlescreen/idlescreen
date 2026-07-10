@@ -98,6 +98,8 @@ Same daemon, three front ends:
 ### CLI
 
 ```bash
+trance version                  # or: trance --version / trance -V
+trance about                    # version + short project info
 trance status
 trance enable | disable
 trance timeout 10
