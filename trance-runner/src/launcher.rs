@@ -21,7 +21,7 @@ pub enum PluginError {
 
 /// The canonical list of allowed saver basenames.
 pub const ALLOWED_SAVERS: &[&str] = &[
-    "beams", "bursts", "chaos", "cosmos", "glyphs", "gnats", "radar", "storm", "tide",
+    "beams", "bursts", "chaos", "cosmos", "glyphs", "gnats", "radar", "storm", "waves",
     "loom", "relay",
 ];
 
