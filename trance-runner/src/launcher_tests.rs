@@ -40,8 +40,11 @@ fn allowlist_blocks_unknown_savers() {
 
 #[test]
 fn allowlist_is_complete() {
-    assert_eq!(ALLOWED_SAVERS.len(), 8);
+    assert_eq!(ALLOWED_SAVERS.len(), 11);
     assert!(ALLOWED_SAVERS.contains(&"beams"));
+    assert!(ALLOWED_SAVERS.contains(&"tide"));
+    assert!(ALLOWED_SAVERS.contains(&"loom"));
+    assert!(ALLOWED_SAVERS.contains(&"relay"));
 }
 
 #[test]
