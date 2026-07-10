@@ -1,6 +1,6 @@
 [package]
 name = "trance-daemon"
-version = "0.3.36"
+version = "0.3.37"
 edition = "2024"
 description = "Background idle daemon and core package for trance screensavers"
 license = "Apache-2.0"

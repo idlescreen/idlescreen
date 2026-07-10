@@ -1,3 +1,10 @@
+trance (0.3.37-1) unstable; urgency=medium
+
+  * Fix D-Bus AccessDenied on preview/control under systemd hardening.
+  * When peer /proc/pid/exe is unreadable, accept same-UID session peers.
+
+ -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 08:00:00 -1000
+
 trance (0.3.36-1) unstable; urgency=medium
 
   * Fix: upgrades no longer leave trance-daemon stopped.

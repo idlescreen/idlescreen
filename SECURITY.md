@@ -12,9 +12,12 @@
 * Screensaver plugins are **allowlisted** by basename and loaded only from
   trusted directory trees (system paths preferred over `~/.local`).
 * World-writable plugin libraries (`o+w`) are refused at resolve time.
-* D-Bus control methods require a trusted peer basename
+* D-Bus control methods prefer a trusted peer basename
   (`trance`, `trance-applet`, `trance-tui`, `trance-cli`) under
   `/usr/bin` or `/usr/local/bin` (debug builds allow same-directory peers).
+* When `/proc/<peer>/exe` is unreadable (common under systemd hardening such as
+  `ProtectSystem=strict`), control is allowed if the D-Bus peer’s Unix UID
+  matches the daemon’s (session-bus threat model).
 * `TRANCE_DBUS_TRUST_ALL=1` is honored only in **debug** builds.
 
 ## Reporting a Vulnerability

@@ -18,17 +18,19 @@ fn peer_exe_basename(pid: u32) -> Option<String> {
         .map(str::to_string)
 }
 
-fn is_trusted_control_peer(pid: u32) -> bool {
-    // Escape hatch is debug-only so release builds cannot be opened with
-    // `TRANCE_DBUS_TRUST_ALL=1` by a local attacker.
-    if cfg!(debug_assertions)
-        && std::env::var("TRANCE_DBUS_TRUST_ALL").ok().as_deref() == Some("1")
-    {
-        tracing::warn!("D-Bus auth: TRANCE_DBUS_TRUST_ALL=1 (debug build only)");
-        return true;
-    }
+/// Result of inspecting a peer executable path.
+enum PeerExeCheck {
+    /// Path readable and matches trusted name + install prefix (+ root ownership).
+    Trusted,
+    /// Path readable but not an allowed control client.
+    Untrusted,
+    /// Cannot read `/proc/<pid>/exe` (common under systemd hardening + Yama).
+    Unreadable,
+}
+
+fn check_peer_exe(pid: u32) -> PeerExeCheck {
     let path = format!("/proc/{pid}/exe");
-    let target = match std::fs::canonicalize(path) {
+    let target = match std::fs::canonicalize(&path) {
         Ok(t) => {
             tracing::debug!(
                 "D-Bus auth check: canonical path for PID {} is {:?}",
@@ -38,12 +40,14 @@ fn is_trusted_control_peer(pid: u32) -> bool {
             t
         }
         Err(e) => {
+            // EACCES/EPERM: hardened services often cannot ptrace-read peer
+            // `/proc/<pid>/exe`. ENOENT: peer already exited.
             tracing::warn!(
                 "D-Bus auth check: failed to canonicalize /proc/{}/exe: {:?}",
                 pid,
                 e
             );
-            return false;
+            return PeerExeCheck::Unreadable;
         }
     };
     let name = match target.file_name().and_then(|n| n.to_str()) {
@@ -53,7 +57,7 @@ fn is_trusted_control_peer(pid: u32) -> bool {
                 "D-Bus auth check: failed to get file name from {:?}",
                 target
             );
-            return false;
+            return PeerExeCheck::Untrusted;
         }
     };
     if !TRUSTED_CONTROL_PEERS.contains(&name) {
@@ -61,7 +65,7 @@ fn is_trusted_control_peer(pid: u32) -> bool {
             "D-Bus auth check: process name {:?} is not in trusted control peers list",
             name
         );
-        return false;
+        return PeerExeCheck::Untrusted;
     }
     let parent = target.parent().and_then(|p| p.to_str()).unwrap_or("");
     let path_ok = parent == "/usr/bin"
@@ -93,7 +97,7 @@ fn is_trusted_control_peer(pid: u32) -> bool {
             target,
             parent
         );
-        return false;
+        return PeerExeCheck::Untrusted;
     }
 
     // Production installs: binary must be root-owned and not world-writable so a
@@ -109,7 +113,7 @@ fn is_trusted_control_peer(pid: u32) -> bool {
                         "D-Bus auth check: refusing world-writable peer binary {:?}",
                         target
                     );
-                    return false;
+                    return PeerExeCheck::Untrusted;
                 }
                 // Only enforce root ownership for the system prefixes (not debug same-dir peers).
                 if (parent == "/usr/bin" || parent == "/usr/local/bin") && meta.uid() != 0 {
@@ -118,7 +122,7 @@ fn is_trusted_control_peer(pid: u32) -> bool {
                         target,
                         meta.uid()
                     );
-                    return false;
+                    return PeerExeCheck::Untrusted;
                 }
             }
             Err(e) => {
@@ -127,12 +131,57 @@ fn is_trusted_control_peer(pid: u32) -> bool {
                     target,
                     e
                 );
-                return false;
+                return PeerExeCheck::Untrusted;
             }
         }
     }
 
-    true
+    PeerExeCheck::Trusted
+}
+
+fn is_trusted_control_peer(pid: u32, peer_uid: Option<u32>) -> bool {
+    // Escape hatch is debug-only so release builds cannot be opened with
+    // `TRANCE_DBUS_TRUST_ALL=1` by a local attacker.
+    if cfg!(debug_assertions)
+        && std::env::var("TRANCE_DBUS_TRUST_ALL").ok().as_deref() == Some("1")
+    {
+        tracing::warn!("D-Bus auth: TRANCE_DBUS_TRUST_ALL=1 (debug build only)");
+        return true;
+    }
+
+    match check_peer_exe(pid) {
+        PeerExeCheck::Trusted => true,
+        PeerExeCheck::Untrusted => false,
+        PeerExeCheck::Unreadable => {
+            // Session bus: peers are already same-user scoped by the bus.
+            // Under systemd hardening (ProtectSystem=strict, PrivateTmp, …)
+            // the daemon often cannot read `/proc/<peer>/exe` (EACCES), which
+            // previously rejected *all* control calls including /usr/bin/trance.
+            // Fall back to matching the peer's Unix UID to our own.
+            #[cfg(unix)]
+            {
+                let our_uid = unsafe { libc::geteuid() };
+                if let Some(uid) = peer_uid {
+                    if uid == our_uid {
+                        tracing::info!(
+                            "D-Bus auth: peer pid {pid} uid {uid} accepted via same-UID fallback (peer exe unreadable)"
+                        );
+                        return true;
+                    }
+                    tracing::warn!(
+                        "D-Bus auth: peer pid {pid} uid {uid} != our uid {our_uid}; denying"
+                    );
+                    return false;
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                let _ = peer_uid;
+            }
+            tracing::warn!("D-Bus auth: peer exe unreadable and no UID to fall back on");
+            false
+        }
+    }
 }
 
 /// Control methods (preview, config writes) require trance CLI or applet.
@@ -154,8 +203,9 @@ pub async fn require_control_peer(
     let pid = creds
         .process_id()
         .ok_or_else(|| zbus::fdo::Error::AccessDenied("D-Bus peer PID unavailable".into()))?;
+    let peer_uid = creds.unix_user_id();
 
-    if is_trusted_control_peer(pid) {
+    if is_trusted_control_peer(pid, peer_uid) {
         tracing::info!("D-Bus control peer accepted (pid {pid})");
         Ok(())
     } else {
@@ -184,5 +234,29 @@ mod tests {
     fn current_process_is_readable() {
         let pid = std::process::id();
         assert!(peer_exe_basename(pid).is_some());
+    }
+
+    #[test]
+    fn current_process_exe_check_is_trusted_or_untrusted() {
+        // Running under `cargo test` the binary is not named `trance`, so Untrusted.
+        let pid = std::process::id();
+        match check_peer_exe(pid) {
+            PeerExeCheck::Trusted | PeerExeCheck::Untrusted | PeerExeCheck::Unreadable => {}
+        }
+    }
+
+    #[test]
+    fn same_uid_fallback_accepts_when_exe_unreadable() {
+        #[cfg(unix)]
+        {
+            let uid = unsafe { libc::geteuid() };
+            // Nonexistent PID → Unreadable → same-UID accepts.
+            assert!(is_trusted_control_peer(u32::MAX, Some(uid)));
+            // Non-matching UID must never be accepted on unreadable exe.
+            assert!(!is_trusted_control_peer(
+                u32::MAX,
+                Some(uid.wrapping_add(1))
+            ));
+        }
     }
 }
