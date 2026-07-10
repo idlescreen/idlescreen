@@ -1,5 +1,8 @@
-# Keeps security regressions visible: advisory check + unit tests on every push/PR.
-# Uses only GitHub-hosted runner + rustup (no third-party Actions).
+# CI for UberMetroid/trance
+#
+# This repository only allows *local* Actions (`allowed_actions=local_only`).
+# We therefore vendor checkout under .github/actions/checkout (from
+# actions/checkout@v4) and do not use marketplace actions.
 name: CI
 
 on:
@@ -10,18 +13,23 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
 
 jobs:
   advisories:
     name: Security advisories
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: ./.github/actions/checkout
 
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          rustc --version
+          cargo --version
 
       - name: Install cargo-deny
         run: cargo install cargo-deny --locked
@@ -32,22 +40,26 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: ./.github/actions/checkout
 
-      - name: Install system libraries (wayland / dbus for daemon crates)
+      - name: Install system libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libdbus-1-dev pkg-config \
-            libwayland-dev libxkbcommon-dev
+            libwayland-dev libxkbcommon-dev \
+            libssl-dev
 
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          rustc --version
 
-      # Skip trance-applet in CI: pulls full libcosmic/wgpu and is optional COSMIC-only UI.
+      # Skip trance-applet: optional COSMIC UI, huge libcosmic/wgpu build.
       - name: cargo test (core + tui + cli)
         run: |
           cargo test \
