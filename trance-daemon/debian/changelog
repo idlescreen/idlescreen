@@ -1,3 +1,9 @@
+trance (0.3.43-1) unstable; urgency=medium
+
+  * Update repository workflow comment header.
+
+ -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 19:29:00 -1000
+
 trance (0.3.42-1) unstable; urgency=medium
 
   * Update client package repository setup instructions to crateria.

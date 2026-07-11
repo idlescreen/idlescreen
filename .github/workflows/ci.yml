@@ -1,4 +1,4 @@
-# CI for UberMetroid/trance
+# CI for crateria/trance
 # Requires: Actions allow GitHub-owned actions (checkout, cache).
 # Required status checks on main: "Security advisories" and "Tests".
 name: CI
