@@ -141,7 +141,7 @@ fn check_dbus() -> CheckResult {
         }
         Err(e) => {
             println!(" [✗] D-Bus Connectivity: Failed to connect to daemon: {e}");
-            chk("D-Bus Connectivity", true, format!("{e}"))
+            chk("D-Bus Connectivity", false, format!("{e}"))
         }
     }
 }
@@ -203,7 +203,7 @@ fn check_running_pid() -> CheckResult {
         chk("Process Status", true, "missing pid but d-bus ok")
     } else {
         println!(" [✗] Process Status: Daemon PID file does not exist.");
-        chk("Process Status", true, "missing pid file")
+        chk("Process Status", false, "missing pid file")
     }
 }
 

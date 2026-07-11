@@ -4,10 +4,6 @@
   </a>
 </p>
 
-<p align="center">
-  <img src="assets/icon.png" width="72" height="72" alt="Trance">
-</p>
-
 # Trance
 
 Wayland-native screensaver for Linux. A user-session daemon watches idle time and shows modular effects. Control it with the CLI, TUI, or optional COSMIC panel applet.
