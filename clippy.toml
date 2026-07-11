@@ -1,4 +1,4 @@
-# Clippy configuration for the UberMetroid companion apps.
+# Clippy configuration for crateria companion apps.
 # Schema validated against clippy 0.1.96.
 
 # Allow expect/unwrap in tests.

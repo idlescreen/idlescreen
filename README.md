@@ -174,8 +174,8 @@ trance-tui
 
 ## Links
 
-* [packages](https://github.com/UberMetroid/packages) · [trance-plugins](https://github.com/crateria/trance-plugins) · [SECURITY.md](SECURITY.md)
+* [packages](https://github.com/crateria/packages) · [trance-plugins](https://github.com/crateria/trance-plugins) · [SECURITY.md](SECURITY.md)
 
 ## License
 
-[Apache-2.0](LICENSE) · Copyright 2026 UberMetroid
+[Apache-2.0](LICENSE) · Copyright 2026 crateria

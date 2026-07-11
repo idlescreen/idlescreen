@@ -20,7 +20,7 @@ pub struct SystemInfo {
 impl Default for SystemInfo {
     fn default() -> Self {
         let mut os = "Linux".to_string();
-        let mut logo_text = "ubermetroid".to_string();
+        let mut logo_text = "crateria".to_string();
         if let Ok(content) = std::fs::read_to_string("/etc/os-release") {
             for line in content.lines() {
                 if line.starts_with("PRETTY_NAME=") {

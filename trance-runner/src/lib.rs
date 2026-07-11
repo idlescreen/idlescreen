@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 UberMetroid
+// Copyright 2026 crateria
 
 //! Vendored subset of the `library` crate, scoped to what screensaver-security
 //! actually uses. See `LIBRARY_VENDORED.md` for the full list of source
 //! provenance and what was deliberately omitted.
 //!
-//! Original (pre-vendoring) location: /home/jeryd/library (ubermetroid/library).
+//! Original (pre-vendoring) location: /home/jeryd/library (crateria/library).
 //! Vendored on: 2026-06-12 from tag v2026.6.10.
 //! License: MIT (see top-level LICENSE file).
 //!

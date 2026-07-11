@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 UberMetroid
+// Copyright 2026 crateria
 
 //! COSMIC panel applet entry point for trance screensaver settings.
 //!

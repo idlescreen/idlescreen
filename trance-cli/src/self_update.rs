@@ -142,7 +142,7 @@ fn dnf_available_version(pkg: &str) -> Option<String> {
     })
 }
 
-/// Parse `dnf list` lines like: `trance.x86_64 0.3.33-1 ubermetroid`
+/// Parse `dnf list` lines like: `trance.x86_64 0.3.33-1 crateria`
 fn parse_dnf_list_version(text: &str, want_available: bool) -> Option<String> {
     let mut section = "";
     let mut last = None;
@@ -193,7 +193,7 @@ fn handle_dnf_update() -> Result<()> {
             println!(" [✔] Installed version: {inst}");
             println!(" [!] Could not query the latest package from the repo.");
             println!("     -> Try: sudo dnf clean all && sudo dnf update");
-            println!("     -> Confirm the UberMetroid repo is in /etc/yum.repos.d/");
+            println!("     -> Confirm the crateria repo is in /etc/yum.repos.d/");
         }
         (None, Some(cand)) => {
             println!(" [!] Trance is not installed as an RPM (latest in repo: {cand}).");
@@ -202,8 +202,8 @@ fn handle_dnf_update() -> Result<()> {
         (None, None) => {
             println!(" [!] Could not find the 'trance' package via RPM/DNF.");
             println!("     -> Register the repo, then: sudo dnf install trance");
-            println!("     -> curl -fsSL https://ubermetroid.github.io/packages/rpm/ubermetroid.repo \\");
-            println!("          | sudo tee /etc/yum.repos.d/ubermetroid.repo");
+            println!("     -> curl -fsSL https://crateria.github.io/packages/rpm/crateria.repo \\");
+            println!("          | sudo tee /etc/yum.repos.d/crateria.repo");
         }
     }
     Ok(())
@@ -251,11 +251,11 @@ fn handle_apt_update() -> Result<()> {
             // Fall back to dpkg version only.
             if let Some(inst) = stdout_trim("dpkg-query", &["-W", "-f=${Version}", PKG]) {
                 println!(" [✔] Installed version: {inst}");
-                println!(" [!] Could not read APT candidate (is the UberMetroid repo configured?).");
+                println!(" [!] Could not read APT candidate (is the crateria repo configured?).");
                 println!("     -> sudo apt update && sudo apt upgrade");
             } else {
                 println!(" [!] Could not determine package status for 'trance'.");
-                println!("     -> Ensure the UberMetroid APT repo is registered, then:");
+                println!("     -> Ensure the crateria APT repo is registered, then:");
                 println!("     -> sudo apt update && sudo apt install trance");
             }
         }
@@ -296,11 +296,11 @@ mod tests {
     fn parse_dnf5_list_available() {
         let text = "\
 Installed packages
-trance.x86_64 0.3.32-1 ubermetroid
+trance.x86_64 0.3.32-1 crateria
 
 Available packages
-trance.x86_64 0.3.29-1 ubermetroid
-trance.x86_64 0.3.33-1 ubermetroid
+trance.x86_64 0.3.29-1 crateria
+trance.x86_64 0.3.33-1 crateria
 ";
         assert_eq!(
             parse_dnf_list_version(text, true).as_deref(),

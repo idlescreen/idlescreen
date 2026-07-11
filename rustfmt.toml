@@ -1,4 +1,4 @@
-# Rust formatter configuration for the UberMetroid companion apps.
+# Rust formatter configuration for crateria companion apps.
 # Kept intentionally minimal; overridable per-crate if needed.
 
 edition = "2024"

@@ -279,7 +279,7 @@ fn check_package_install() -> CheckResult {
         }
     }
     println!(" [!] Package: trance not found via RPM or dpkg.");
-    println!("     -> Install from the UberMetroid apt/dnf repository.");
+    println!("     -> Install from the crateria apt/dnf repository.");
     chk("Package", true, "not a system package")
 }
 

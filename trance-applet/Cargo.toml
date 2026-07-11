@@ -52,8 +52,8 @@ features = [
 [package.metadata.deb]
 name = "trance-applet"
 changelog = "debian/changelog"
-copyright = "2026 UberMetroid"
-maintainer = "UberMetroid <jerydleuck@gmail.com>"
+copyright = "2026 crateria"
+maintainer = "crateria <jerydleuck@gmail.com>"
 extended-description = "Native System76 COSMIC Desktop panel applet for the trance screensaver daemon. Optional: install only on COSMIC (not needed for GNOME/KDE/Hyprland — use trance-tui there)."
 depends = "libc6, trance"
 # Advertise that this package enhances COSMIC; core `trance` only Suggests it.

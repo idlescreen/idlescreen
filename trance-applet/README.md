@@ -7,7 +7,7 @@ It is **not** pulled in by default with the core `trance` package (GNOME/KDE/Hyp
 ## Install (COSMIC only)
 
 ```bash
-# after the UberMetroid APT/DNF repo is configured
+# after the crateria APT/DNF repo is configured
 sudo apt install trance-applet    # Debian / Ubuntu / Pop
 # or
 sudo dnf install trance-applet    # Fedora

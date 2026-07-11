@@ -6,7 +6,7 @@
 //! `TerminalContext`, which owns the `RawTerminalGuard` acquired during setup.
 //!
 //! Note: Classic xscreensaver embedding support (XSCREENSAVER_WINDOW + xterm -into)
-//! has been removed. The user runs via trance-daemon fullscreen xterm or ubermetroid
+//! has been removed. The user runs via trance-daemon fullscreen xterm or crateria
 //! previews, which do not require X11 embedding. Raw terminal + ANSI works on
 //! Wayland (via xterm under XWayland or native terminals).
 

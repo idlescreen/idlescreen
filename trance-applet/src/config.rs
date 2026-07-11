@@ -119,7 +119,7 @@ impl ThemeConfig {
             }
             let active_str = self.active_saver.as_deref().unwrap_or("none");
             let content = format!(
-                "# ubermetroid themes and settings\n\
+                "# crateria themes and settings\n\
                  accent_color: \"{}\"\n\
                  # dark_mode is auto-detected from system\n\
                  idle_timeout_mins: {}\n\

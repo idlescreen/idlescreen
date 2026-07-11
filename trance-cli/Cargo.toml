@@ -27,8 +27,8 @@ tracing-journald = { workspace = true, optional = true }
 [package.metadata.deb]
 name = "trance-cli"
 changelog = "debian/changelog"
-copyright = "2026 UberMetroid"
-maintainer = "UberMetroid <jerydleuck@gmail.com>"
+copyright = "2026 crateria"
+maintainer = "crateria <jerydleuck@gmail.com>"
 extended-description = "Thin CLI for controlling the trance screensaver daemon over D-Bus."
 depends = "libc6, trance"
 section = "utils"

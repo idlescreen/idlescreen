@@ -78,24 +78,31 @@ fn dev_plugin_dirs(clean: &str) -> Vec<PathBuf> {
         return Vec::new();
     };
     let projects = PathBuf::from(home).join("Projects");
-    let ubermetroid_plugins = projects.join("ubermetroid").join("trance-plugins");
-    vec![
-        ubermetroid_plugins.join("target").join("release"),
-        ubermetroid_plugins.join("target").join("debug"),
-        ubermetroid_plugins
-            .join(clean)
-            .join("target")
-            .join("release"),
-        ubermetroid_plugins.join(clean).join("target").join("debug"),
+    // Prefer crateria/ layout; keep ubermetroid/ for local checkouts during the rebrand.
+    let plugin_roots = [
+        projects.join("crateria").join("trance-plugins"),
+        projects.join("ubermetroid").join("trance-plugins"),
+    ];
+    let mut dirs = Vec::new();
+    for root in plugin_roots {
+        dirs.push(root.join("target").join("release"));
+        dirs.push(root.join("target").join("debug"));
+        dirs.push(root.join(clean).join("target").join("release"));
+        dirs.push(root.join(clean).join("target").join("debug"));
+    }
+    dirs.push(
         projects
             .join(format!("trance-plugin-{clean}"))
             .join("target")
             .join("release"),
+    );
+    dirs.push(
         projects
             .join(format!("trance-plugin-{clean}"))
             .join("target")
             .join("debug"),
-    ]
+    );
+    dirs
 }
 
 /// True when `path` resolves under one of the trusted plugin directories.

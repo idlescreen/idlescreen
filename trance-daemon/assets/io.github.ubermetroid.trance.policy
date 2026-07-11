@@ -3,7 +3,7 @@
  "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
-  <vendor>UberMetroid</vendor>
+  <vendor>crateria</vendor>
   <vendor_url>https://github.com/crateria/trance</vendor_url>
 
   <action id="io.github.ubermetroid.trance.configure">

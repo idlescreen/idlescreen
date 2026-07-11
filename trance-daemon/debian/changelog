@@ -2,45 +2,45 @@ trance (0.3.43-1) unstable; urgency=medium
 
   * Update repository workflow comment header.
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 19:29:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 19:29:00 -1000
 
 trance (0.3.42-1) unstable; urgency=medium
 
   * Update client package repository setup instructions to crateria.
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 19:17:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 19:17:00 -1000
 
 trance (0.3.41-1) unstable; urgency=medium
 
   * Update VCS and documentation repository URLs to crateria organization.
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 19:13:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 19:13:00 -1000
 
 trance (0.3.40-1) unstable; urgency=medium
 
   * Fix trance-daemon unit tests by mocking system D-Bus checks.
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 17:33:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 17:33:00 -1000
 
 trance (0.3.39-1) unstable; urgency=medium
 
   * Allowlist new effects: tide, loom, relay.
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 13:00:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 13:00:00 -1000
 
 trance (0.3.38-1) unstable; urgency=medium
 
   * Packaging: skip root/system UIDs in upgrade scriptlets (desktop users only).
   * Quieter post/posttrans: auto-apply upgrade for your user; no manual restart.
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 08:15:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 08:15:00 -1000
 
 trance (0.3.37-1) unstable; urgency=medium
 
   * Fix D-Bus AccessDenied on preview/control under systemd hardening.
   * When peer /proc/pid/exe is unreadable, accept same-UID session peers.
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 08:00:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 08:00:00 -1000
 
 trance (0.3.36-1) unstable; urgency=medium
 
@@ -48,26 +48,26 @@ trance (0.3.36-1) unstable; urgency=medium
   * RPM: skip stop on upgrade preun; posttrans restarts if enabled.
   * Deb: prerm only stops on remove; postinst restarts if enabled.
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 07:55:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 07:55:00 -1000
 
 trance (0.3.35-1) unstable; urgency=medium
 
   * CLI: standard flags (-h/--help, -V/--version) plus short subcommands (v, st, p, …).
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 06:00:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 06:00:00 -1000
 
 trance (0.3.34-1) unstable; urgency=medium
 
   * Fix self-update on Fedora: detect RPM install even when apt-cache exists.
   * self-update uses dnf repoquery; doctor/about report package manager version.
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 05:45:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 05:45:00 -1000
 
 trance (0.3.33-1) unstable; urgency=medium
 
   * CLI: trance version / --version / -V / about (works without daemon).
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 05:40:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 05:40:00 -1000
 
 trance (0.3.32-1) unstable; urgency=medium
 
@@ -75,14 +75,14 @@ trance (0.3.32-1) unstable; urgency=medium
   * Security: D-Bus peers must be root-owned under /usr/bin; system plugins too.
   * Single start path: drop XDG autostart; systemd user unit only (remove legacy file on upgrade).
 
- -- UberMetroid <jerydleuck@gmail.com>  Fri, 10 Jul 2026 05:00:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Fri, 10 Jul 2026 05:00:00 -1000
 
 trance (0.3.31-1) unstable; urgency=medium
 
   * Security: bump ratatui to 0.30 / crossterm 0.29 so vulnerable lru 0.12.x is gone.
   * trance-tui: concrete CrosstermBackend for ratatui 0.30 Error bounds.
 
- -- UberMetroid <jerydleuck@gmail.com>  Thu, 09 Jul 2026 09:00:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Thu, 09 Jul 2026 09:00:00 -1000
 
 trance (0.3.30-1) unstable; urgency=medium
 
@@ -90,7 +90,7 @@ trance (0.3.30-1) unstable; urgency=medium
   * Title-case screensaver names; preview/start labels reflect offline state.
   * Align TUI with enable --now and trance-daemon run-plugin preview fallback.
 
- -- UberMetroid <jerydleuck@gmail.com>  Thu, 09 Jul 2026 08:30:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Thu, 09 Jul 2026 08:30:00 -1000
 
 trance (0.3.29-1) unstable; urgency=medium
 
@@ -98,7 +98,7 @@ trance (0.3.29-1) unstable; urgency=medium
   * Preview starts daemon if needed; fallback to trance-daemon run-plugin (not trance-runner).
   * Applet README: COSMIC-optional install notes.
 
- -- UberMetroid <jerydleuck@gmail.com>  Thu, 09 Jul 2026 08:00:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Thu, 09 Jul 2026 08:00:00 -1000
 
 trance (0.3.28-1) unstable; urgency=medium
 
@@ -109,28 +109,28 @@ trance (0.3.28-1) unstable; urgency=medium
   * Remove TRANCE_DBUS_TRUST_ALL from the systemd unit (debug-only at runtime).
   * trance doctor --fix reloads/enables/restarts the user service after upgrades.
 
- -- UberMetroid <jerydleuck@gmail.com>  Thu, 09 Jul 2026 07:30:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Thu, 09 Jul 2026 07:30:00 -1000
 
 trance (0.3.16-1) flux; urgency=medium
 
   * Upgrade to 0.3.16 version.
   * Migrate D-Bus service and interface names to io.github.ubermetroid.trance.
 
- -- Screensavers Developer <dev@ubermetroid.org>  Sat, 04 Jul 2026 21:05:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Sat, 04 Jul 2026 21:05:00 -1000
 
 trance (0.3.15-1) flux; urgency=medium
 
   * Upgrade to 0.3.15 version.
   * Migrate default configuration and runtime search directories to the 'trance' namespace.
 
- -- Screensavers Developer <dev@ubermetroid.org>  Sat, 04 Jul 2026 20:00:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Sat, 04 Jul 2026 20:00:00 -1000
 
 trance (0.3.14-1) flux; urgency=medium
 
   * Upgrade to 0.3.14 version.
   * Audit and resolve dependency and advisory exceptions in deny.toml.
 
- -- Screensavers Developer <dev@ubermetroid.org>  Sat, 04 Jul 2026 19:47:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Sat, 04 Jul 2026 19:47:00 -1000
 
 trance (0.3.13-1) flux; urgency=medium
 
@@ -138,14 +138,14 @@ trance (0.3.13-1) flux; urgency=medium
   * Fix mathematical bounds, prevent integer overflows/truncation, and fix bilinear extrapolation.
   * Restrict D-Bus auth path fallback to debug builds and enforce a limit on concurrent client inhibitors.
 
- -- Screensavers Developer <dev@ubermetroid.org>  Sat, 04 Jul 2026 19:38:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Sat, 04 Jul 2026 19:38:00 -1000
 
 trance (0.3.12-1) flux; urgency=medium
 
   * Upgrade to 0.3.12 version.
   * Completely remove all legacy local76 D-Bus services, fallbacks, search paths, and references.
 
- -- Screensavers Developer <dev@ubermetroid.org>  Sat, 04 Jul 2026 19:28:00 -1000
+ -- crateria <jerydleuck@gmail.com>  Sat, 04 Jul 2026 19:28:00 -1000
 
 trance (0.3.11-1) flux; urgency=medium
 
@@ -164,8 +164,8 @@ trance (0.3.10-1) flux; urgency=medium
 trance (0.3.9-1) flux; urgency=medium
 
   * Upgrade to 0.3.9 version.
-  * Implement unified Org-Rename D-Bus namespace (com.ubermetroid.Trance) with backward-compatibility layer.
-  * Support new ubermetroid config paths with fallback to local76 paths.
+  * Implement unified Org-Rename D-Bus namespace (com.crateria.Trance) with backward-compatibility layer.
+  * Support new crateria config paths with fallback to local76 paths.
   * Synchronize README.md with the CPU-based upscaler architecture.
 
  -- Screensavers Developer <dev@local76.org>  Sat, 04 Jul 2026 19:10:00 -1000

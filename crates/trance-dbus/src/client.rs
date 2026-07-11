@@ -10,7 +10,7 @@ use crate::status::DaemonStatus;
 #[zbus::proxy(
     interface = "io.github.ubermetroid.trance",
     default_service = "io.github.ubermetroid.trance",
-    default_path = "/io/github/ubermetroid/trance",
+    default_path = "/io/github/crateria/trance",
     gen_blocking = true
 )]
 trait Trance {
