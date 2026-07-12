@@ -1,6 +1,6 @@
 [package]
 name = "trance-applet"
-version = "0.3.52"
+version = "0.3.53"
 edition = "2024"
 license = "Apache-2.0"
 description = "COSMIC Desktop panel applet for the trance screensavers"

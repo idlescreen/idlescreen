@@ -85,6 +85,7 @@ fn run_event_loop(
         output_refresh_hz: HashMap::new(),
         output_origin: HashMap::new(),
         output_mode_size: HashMap::new(),
+        output_scale: HashMap::new(),
         dismiss_grace_until: None,
         queue: queue.clone(),
     };

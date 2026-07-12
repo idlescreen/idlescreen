@@ -5699,14 +5699,14 @@ dependencies = [
 
 [[package]]
 name = "trance-api"
-version = "0.3.52"
+version = "0.3.53"
 dependencies = [
  "bytemuck",
 ]
 
 [[package]]
 name = "trance-applet"
-version = "0.3.52"
+version = "0.3.53"
 dependencies = [
  "anyhow",
  "i18n-embed",
@@ -5723,7 +5723,7 @@ dependencies = [
 
 [[package]]
 name = "trance-cli"
-version = "0.3.52"
+version = "0.3.53"
 dependencies = [
  "anyhow",
  "libc",
@@ -5735,7 +5735,7 @@ dependencies = [
 
 [[package]]
 name = "trance-daemon"
-version = "0.3.53"
+version = "0.3.54"
 dependencies = [
  "anyhow",
  "futures-lite",
@@ -5757,7 +5757,7 @@ dependencies = [
 
 [[package]]
 name = "trance-dbus"
-version = "0.3.52"
+version = "0.3.53"
 dependencies = [
  "tracing",
  "zbus",
@@ -5765,7 +5765,7 @@ dependencies = [
 
 [[package]]
 name = "trance-ipc"
-version = "0.3.53"
+version = "0.3.54"
 dependencies = [
  "libc",
  "tracing",
@@ -5774,28 +5774,32 @@ dependencies = [
 
 [[package]]
 name = "trance-plugins-all"
-version = "0.3.52"
+version = "0.3.53"
 
 [[package]]
 name = "trance-runner"
-version = "0.3.53"
+version = "0.3.54"
 dependencies = [
+ "bytemuck",
  "crossterm",
  "fontdue",
+ "futures-lite",
  "landlock",
  "libc",
  "libloading 0.9.0",
+ "notify",
  "sysinfo",
  "thiserror 2.0.18",
  "tracing",
  "tracing-subscriber",
  "trance-api",
  "trance-upscaler",
+ "wgpu",
 ]
 
 [[package]]
 name = "trance-tui"
-version = "0.3.52"
+version = "0.3.53"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -5806,7 +5810,7 @@ dependencies = [
 
 [[package]]
 name = "trance-upscaler"
-version = "0.3.52"
+version = "0.3.53"
 dependencies = [
  "bytemuck",
  "tracing",
@@ -6207,7 +6211,7 @@ dependencies = [
 
 [[package]]
 name = "wayland-idle"
-version = "0.3.52"
+version = "0.3.53"
 dependencies = [
  "libc",
  "tracing",
@@ -6217,7 +6221,7 @@ dependencies = [
 
 [[package]]
 name = "wayland-present"
-version = "0.3.52"
+version = "0.3.53"
 dependencies = [
  "libc",
  "tracing",

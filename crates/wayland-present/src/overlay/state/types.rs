@@ -47,6 +47,7 @@ pub struct SessionState {
     pub output_refresh_hz: HashMap<u32, u32>,
     pub output_origin: HashMap<u32, (i32, i32)>,
     pub output_mode_size: HashMap<u32, (u32, u32)>,
+    pub output_scale: HashMap<u32, i32>,
     pub dismiss_grace_until: Option<Instant>,
     pub queue: QueueHandle<SessionState>,
 }

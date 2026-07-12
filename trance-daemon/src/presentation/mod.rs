@@ -12,6 +12,7 @@ mod overlays;
 mod plugin_loop;
 mod refresh;
 mod ipc_session;
+pub mod topology;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};

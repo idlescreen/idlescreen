@@ -8,9 +8,9 @@ use super::ipc_session::IpcPluginSession;
 use trance_upscaler::{simulation_tick_hz, target_fps};
 use wayland_present::{OutputLayout, OverlayPresenter};
 
-use super::frame_loop::run_frame_loop;
+use super::frame_loop::{ActiveSession, run_frame_loop};
 use super::layout::{
-    install_primary_bounds_callback, normalize_layout_positions, primary_bounds_in_grid,
+    install_primary_bounds_callback, primary_bounds_in_grid,
     span_simulation_grid, virtual_desktop,
 };
 use super::refresh::{presentation_refresh_hz, wait_for_output_layouts};
@@ -29,34 +29,103 @@ pub fn run_plugin_loop(
     if layouts.is_empty() {
         return Err("no configured outputs for screensaver presentation".into());
     }
+
+    let topology = super::topology::DisplayTopologyMap::build(&layouts);
+    for layout in layouts.iter_mut() {
+        if let Some(topo) = topology.monitors.iter().find(|m| m.id == layout.id) {
+            layout.x = topo.x;
+            layout.y = topo.y;
+            layout.width = topo.width;
+            layout.height = topo.height;
+            layout.scale = topo.scale;
+        }
+    }
     log_output_layouts(&layouts);
 
-    let mut session = IpcPluginSession::load_with_options(
-        saver_name,
-        &options.launch_mode,
-        Some(options.gpu_enabled),
-        options.render_scale,
-    )?;
+    let mut sessions = Vec::new();
+    if topology.independent_rendering {
+        for layout in &layouts {
+            let mut session = IpcPluginSession::load_with_options(
+                saver_name,
+                &options.launch_mode,
+                Some(options.gpu_enabled),
+                options.render_scale,
+            )?;
+            let (cols, rows) = session.grid_for_pixels(layout.width, layout.height);
+            session.init(cols, rows)?;
+            sessions.push(ActiveSession {
+                output_id: layout.id,
+                session,
+                cols,
+                rows,
+            });
+        }
+    } else {
+        let mut session = IpcPluginSession::load_with_options(
+            saver_name,
+            &options.launch_mode,
+            Some(options.gpu_enabled),
+            options.render_scale,
+        )?;
+        let (_min_x, _min_y, total_w, total_h) = virtual_desktop(&layouts);
+        let (virtual_cols, virtual_rows) = span_simulation_grid(&session, total_w, total_h);
+        session.init(virtual_cols, virtual_rows)?;
+        sessions.push(ActiveSession {
+            output_id: 0,
+            session,
+            cols: virtual_cols,
+            rows: virtual_rows,
+        });
+    }
 
-    let context = PresentationContext::build(&mut session, &mut layouts)?;
-    install_layout_callbacks(
-        context.primary_bounds,
-        context.virtual_cols,
-        context.virtual_rows,
-    );
-    session.init(context.virtual_cols, context.virtual_rows)?;
+    let primary = layouts
+        .iter()
+        .max_by_key(|layout| layout.width.saturating_mul(layout.height))
+        .copied()
+        .ok_or_else(|| "no primary output found".to_string())?;
 
-    let pacing = FramePacing::compute(&layouts, context.primary, &mut session);
-    log_run_startup(saver_name, &layouts, &pacing, &session);
+    let primary_bounds = if topology.independent_rendering {
+        let primary_session = sessions.iter().find(|s| s.output_id == primary.id).unwrap();
+        trance_api::MonitorCellBounds {
+            start_col: 0,
+            end_col: primary_session.cols,
+            start_row: 0,
+            end_row: primary_session.rows,
+            is_primary: true,
+        }
+    } else {
+        let s = &sessions[0];
+        let (min_x, min_y, total_w, total_h) = virtual_desktop(&layouts);
+        primary_bounds_in_grid(
+            primary,
+            min_x,
+            min_y,
+            total_w,
+            total_h,
+            s.cols,
+            s.rows,
+        )
+    };
+
+    let (v_cols, v_rows) = if topology.independent_rendering {
+        let primary_session = sessions.iter().find(|s| s.output_id == primary.id).unwrap();
+        (primary_session.cols, primary_session.rows)
+    } else {
+        (sessions[0].cols, sessions[0].rows)
+    };
+
+    install_layout_callbacks(primary_bounds, v_cols, v_rows);
+
+    let pacing = FramePacing::compute(&layouts, primary, &mut sessions);
+    log_run_startup(saver_name, &layouts, &pacing, &sessions[0].session);
 
     let result = pacing.run_loop(
         presenter,
         stop,
-        &mut session,
+        &mut sessions,
         &layouts,
-        context.primary,
-        context.virtual_cols,
-        context.virtual_rows,
+        primary,
+        topology.independent_rendering,
         options,
     );
 
@@ -68,51 +137,15 @@ pub fn run_plugin_loop(
 fn log_output_layouts(layouts: &[OutputLayout]) {
     for layout in layouts {
         tracing::info!(
-            "output {} @ ({}, {}) — {}x{} @ {} Hz",
+            "output {} @ ({}, {}) — {}x{} @ {} Hz (scale: {})",
             layout.id,
             layout.x,
             layout.y,
             layout.width,
             layout.height,
-            layout.refresh_rate_hz
+            layout.refresh_rate_hz,
+            layout.scale
         );
-    }
-}
-
-struct PresentationContext {
-    primary: OutputLayout,
-    virtual_cols: usize,
-    virtual_rows: usize,
-    primary_bounds: trance_api::MonitorCellBounds,
-}
-
-impl PresentationContext {
-    fn build(session: &mut IpcPluginSession, layouts: &mut [OutputLayout]) -> Result<Self, String> {
-        let primary = layouts
-            .iter()
-            .max_by_key(|layout| layout.width.saturating_mul(layout.height))
-            .copied()
-            .ok_or_else(|| "no primary output found".to_string())?;
-
-        normalize_layout_positions(layouts);
-        let (min_x, min_y, total_w, total_h) = virtual_desktop(layouts);
-        let (virtual_cols, virtual_rows) = span_simulation_grid(session, total_w, total_h);
-        let primary_bounds = primary_bounds_in_grid(
-            primary,
-            min_x,
-            min_y,
-            total_w,
-            total_h,
-            virtual_cols,
-            virtual_rows,
-        );
-
-        Ok(Self {
-            primary,
-            virtual_cols,
-            virtual_rows,
-            primary_bounds,
-        })
     }
 }
 
@@ -140,7 +173,7 @@ impl FramePacing {
     fn compute(
         layouts: &[OutputLayout],
         primary: OutputLayout,
-        session: &mut IpcPluginSession,
+        sessions: &mut [ActiveSession],
     ) -> Self {
         let present_refresh = presentation_refresh_hz(layouts, primary);
         let mut present_fps = target_fps(present_refresh);
@@ -156,7 +189,9 @@ impl FramePacing {
         }
 
         let frame_duration = Duration::from_secs_f32(1.0 / present_fps);
-        session.set_simulation_rate(tick_hz);
+        for s in sessions {
+            s.session.set_simulation_rate(tick_hz);
+        }
         Self {
             present_fps,
             tick_hz,
@@ -168,26 +203,23 @@ impl FramePacing {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn run_loop(
         mut self,
         presenter: &OverlayPresenter,
         stop: &AtomicBool,
-        session: &mut IpcPluginSession,
+        sessions: &mut [ActiveSession],
         layouts: &[OutputLayout],
         primary: OutputLayout,
-        virtual_cols: usize,
-        virtual_rows: usize,
+        independent_rendering: bool,
         options: PresentationOptions,
     ) -> Result<(), String> {
         run_frame_loop(
             presenter,
             stop,
-            session,
+            sessions,
             layouts,
             primary,
-            virtual_cols,
-            virtual_rows,
+            independent_rendering,
             options,
             self.present_fps,
             self.tick_hz,
@@ -213,10 +245,6 @@ fn log_run_startup(
         pacing.present_fps,
         pacing.tick_hz,
         session.render_scale() * 100.0,
-        if session.using_gpu_upscale() {
-            "yes"
-        } else {
-            "no"
-        }
+        if session.using_gpu_upscale() { "yes" } else { "no" }
     );
 }

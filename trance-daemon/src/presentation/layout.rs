@@ -17,6 +17,7 @@ struct ScaledBoundsState {
 
 static PRIMARY_BOUNDS_STATE: OnceLock<RwLock<ScaledBoundsState>> = OnceLock::new();
 
+#[allow(dead_code)]
 pub fn normalize_layout_positions(layouts: &mut [OutputLayout]) {
     if layouts.len() <= 1 {
         return;

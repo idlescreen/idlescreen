@@ -12,6 +12,7 @@ fn layout(id: u32, x: i32, y: i32, w: u32, h: u32) -> OutputLayout {
         refresh_rate_hz: 60,
         x,
         y,
+        scale: 1,
     }
 }
 

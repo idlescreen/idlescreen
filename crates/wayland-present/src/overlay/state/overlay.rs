@@ -104,6 +104,7 @@ impl SessionState {
             .get(&output_id)
             .copied()
             .unwrap_or((0, 0));
+        let scale = self.output_scale.get(&output_id).copied().unwrap_or(1);
         self.output_registry.upsert(OutputLayout {
             id: output_id,
             width: render_w,
@@ -111,6 +112,7 @@ impl SessionState {
             refresh_rate_hz,
             x,
             y,
+            scale,
         });
 
         if self.screensaver_mode {

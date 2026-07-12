@@ -13,15 +13,21 @@ use super::layout::{monitor_cell_bounds, virtual_desktop};
 use super::overlays::maybe_draw_overlays;
 use crate::presentation::PresentationOptions;
 
+pub struct ActiveSession {
+    pub output_id: u32,
+    pub session: IpcPluginSession,
+    pub cols: usize,
+    pub rows: usize,
+}
+
 /// Per-frame loop locals: inputs + state mutated across iterations.
 struct FrameLoopState<'a> {
     presenter: &'a OverlayPresenter,
     stop: &'a AtomicBool,
-    session: &'a mut IpcPluginSession,
+    sessions: &'a mut [ActiveSession],
     layouts: &'a [OutputLayout],
     primary: OutputLayout,
-    virtual_cols: usize,
-    virtual_rows: usize,
+    independent_rendering: bool,
     options: PresentationOptions,
     present_fps: f32,
     tick_hz: f32,
@@ -37,11 +43,10 @@ struct FrameLoopState<'a> {
 pub fn run_frame_loop(
     presenter: &OverlayPresenter,
     stop: &AtomicBool,
-    session: &mut IpcPluginSession,
+    sessions: &mut [ActiveSession],
     layouts: &[OutputLayout],
     primary: OutputLayout,
-    virtual_cols: usize,
-    virtual_rows: usize,
+    independent_rendering: bool,
     options: PresentationOptions,
     present_fps: f32,
     tick_hz: f32,
@@ -51,8 +56,10 @@ pub fn run_frame_loop(
     fps_report: &mut Instant,
     achieved_fps: &mut f32,
 ) -> Result<(), String> {
-    let use_hw_scaling = presenter.supports_scaling() && !session.using_gpu_upscale();
-    session.set_hardware_scaling(use_hw_scaling);
+    let use_hw_scaling = presenter.supports_scaling() && !sessions[0].session.using_gpu_upscale();
+    for s in sessions.iter_mut() {
+        s.session.set_hardware_scaling(use_hw_scaling);
+    }
     if use_hw_scaling {
         tracing::info!("wayland-present: hardware scaling enabled via wp_viewporter");
     }
@@ -60,11 +67,10 @@ pub fn run_frame_loop(
     let mut state = FrameLoopState {
         presenter,
         stop,
-        session,
+        sessions,
         layouts,
         primary,
-        virtual_cols,
-        virtual_rows,
+        independent_rendering,
         options,
         present_fps,
         tick_hz,
@@ -97,60 +103,103 @@ fn prepare_frame(state: &mut FrameLoopState) -> Result<(), String> {
     let frame_dt = frame_start.saturating_duration_since(state.last_frame);
     state.last_frame = frame_start;
     state.frame_start = frame_start;
-    state.session.tick(frame_dt);
+    for s in state.sessions.iter_mut() {
+        s.session.tick(frame_dt);
+    }
     Ok(())
 }
 
 fn present_frame(state: &mut FrameLoopState) {
     let (min_x, min_y, total_w, total_h) = virtual_desktop(state.layouts);
-    let scanlines = state
-        .session
-        .draw_frame(state.virtual_cols, state.virtual_rows);
-    for layout in state.layouts {
-        let bounds = monitor_cell_bounds(
-            *layout,
-            min_x,
-            min_y,
-            total_w,
-            total_h,
-            state.virtual_cols,
-            state.virtual_rows,
-            layout.id == state.primary.id,
-        );
-        let col_w = bounds.end_col.saturating_sub(bounds.start_col).max(1);
-        let row_h = bounds.end_row.saturating_sub(bounds.start_row).max(1);
+    
+    if state.independent_rendering {
+        for s in state.sessions.iter_mut() {
+            let scanlines = s.session.draw_frame(s.cols, s.rows);
+            if let Some(layout) = state.layouts.iter().find(|l| l.id == s.output_id) {
+                let target_w = if state.use_hw_scaling {
+                    s.session.content_width(s.cols)
+                } else {
+                    layout.width
+                };
+                let target_h = if state.use_hw_scaling {
+                    s.session.content_height(s.rows)
+                } else {
+                    layout.height
+                };
 
-        let (target_w, target_h) = if state.use_hw_scaling {
-            (
-                state.session.content_width(col_w),
-                state.session.content_height(row_h),
-            )
-        } else {
-            (layout.width, layout.height)
-        };
+                let mut pixels = s.session.raster_viewport(
+                    0,
+                    0,
+                    s.cols,
+                    s.rows,
+                    s.cols,
+                    s.rows,
+                    target_w,
+                    target_h,
+                    scanlines,
+                );
+                maybe_draw_overlays(
+                    &mut pixels,
+                    target_w,
+                    target_h,
+                    layout.id == state.primary.id,
+                    state.options.show_fps_overlay,
+                    state.achieved_fps,
+                );
+                state
+                    .presenter
+                    .submit_frame(layout.id, target_w, target_h, pixels);
+            }
+        }
+    } else {
+        let s = &mut state.sessions[0];
+        let scanlines = s.session.draw_frame(s.cols, s.rows);
+        for layout in state.layouts {
+            let bounds = monitor_cell_bounds(
+                *layout,
+                min_x,
+                min_y,
+                total_w,
+                total_h,
+                s.cols,
+                s.rows,
+                layout.id == state.primary.id,
+            );
+            let col_w = bounds.end_col.saturating_sub(bounds.start_col).max(1);
+            let row_h = bounds.end_row.saturating_sub(bounds.start_row).max(1);
 
-        let mut pixels = state.session.raster_viewport(
-            bounds.start_col,
-            bounds.start_row,
-            col_w,
-            row_h,
-            state.virtual_cols,
-            state.virtual_rows,
-            target_w,
-            target_h,
-            scanlines,
-        );
-        maybe_draw_overlays(
-            &mut pixels,
-            target_w,
-            target_h,
-            layout.id == state.primary.id,
-            state.options.show_fps_overlay,
-            state.achieved_fps,
-        );
-        state
-            .presenter
-            .submit_frame(layout.id, target_w, target_h, pixels);
+            let (target_w, target_h) = if state.use_hw_scaling {
+                (
+                    s.session.content_width(col_w),
+                    s.session.content_height(row_h),
+                )
+            } else {
+                (layout.width, layout.height)
+            };
+
+            let mut pixels = s.session.raster_viewport(
+                bounds.start_col,
+                bounds.start_row,
+                col_w,
+                row_h,
+                s.cols,
+                s.rows,
+                target_w,
+                target_h,
+                scanlines,
+            );
+            maybe_draw_overlays(
+                &mut pixels,
+                target_w,
+                target_h,
+                layout.id == state.primary.id,
+                state.options.show_fps_overlay,
+                state.achieved_fps,
+            );
+            state
+                .presenter
+                .submit_frame(layout.id, target_w, target_h, pixels);
+        }
     }
 }
 

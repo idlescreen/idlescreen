@@ -11,6 +11,7 @@ pub struct OutputLayout {
     pub refresh_rate_hz: u32,
     pub x: i32,
     pub y: i32,
+    pub scale: i32,
 }
 
 #[derive(Clone, Default)]

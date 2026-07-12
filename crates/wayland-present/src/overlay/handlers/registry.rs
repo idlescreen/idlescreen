@@ -71,6 +71,10 @@ impl Dispatch<wl_output::WlOutput, u32> for SessionState {
             state.output_origin.insert(*output_id, (x, y));
         }
 
+        if let wl_output::Event::Scale { factor } = event {
+            state.output_scale.insert(*output_id, factor);
+        }
+
         if let wl_output::Event::Mode {
             refresh,
             width,
@@ -97,6 +101,11 @@ impl Dispatch<wl_output::WlOutput, u32> for SessionState {
                             .get(output_id)
                             .copied()
                             .unwrap_or((0, 0));
+                        let scale = state
+                            .output_scale
+                            .get(output_id)
+                            .copied()
+                            .unwrap_or(1);
                         state.output_registry.upsert(OutputLayout {
                             id: *output_id,
                             width,
@@ -104,6 +113,7 @@ impl Dispatch<wl_output::WlOutput, u32> for SessionState {
                             refresh_rate_hz: refresh_hz.max(1),
                             x,
                             y,
+                            scale,
                         });
                     }
                 }

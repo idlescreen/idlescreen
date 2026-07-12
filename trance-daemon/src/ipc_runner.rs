@@ -42,12 +42,20 @@ pub fn run_ipc_runner(
     )
     .map_err(|e| format!("failed to load plugin {}: {}", saver_name, e))?;
 
+    if let Err(e) = session.start_watcher() {
+        tracing::warn!("Failed to start screensaver file watcher: {:?}", e);
+    }
+
     // 4. Send Ready response
     IpcResponse::Ready.write_to(&mut socket)
         .map_err(|e| format!("failed to send Ready response: {}", e))?;
 
     // 5. Command loop
     loop {
+        if let Ok(true) = session.poll_reload() {
+            tracing::info!("Screensaver reloaded successfully.");
+        }
+
         let command = match IpcCommand::read_from(&mut socket) {
             Ok(cmd) => cmd,
             Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
