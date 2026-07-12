@@ -4,7 +4,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
 use trance_api::{clear_caption, clear_primary_bounds};
-use trance_runner::plugin_session::PluginSession;
+use super::ipc_session::IpcPluginSession;
 use trance_upscaler::{simulation_tick_hz, target_fps};
 use wayland_present::{OutputLayout, OverlayPresenter};
 
@@ -31,13 +31,12 @@ pub fn run_plugin_loop(
     }
     log_output_layouts(&layouts);
 
-    let mut session = PluginSession::load_with_options(
+    let mut session = IpcPluginSession::load_with_options(
         saver_name,
         &options.launch_mode,
         Some(options.gpu_enabled),
         options.render_scale,
-    )
-    .map_err(|e| e.to_string())?;
+    )?;
 
     let context = PresentationContext::build(&mut session, &mut layouts)?;
     install_layout_callbacks(
@@ -45,7 +44,7 @@ pub fn run_plugin_loop(
         context.virtual_cols,
         context.virtual_rows,
     );
-    session.init(context.virtual_cols, context.virtual_rows);
+    session.init(context.virtual_cols, context.virtual_rows)?;
 
     let pacing = FramePacing::compute(&layouts, context.primary, &mut session);
     log_run_startup(saver_name, &layouts, &pacing, &session);
@@ -88,7 +87,7 @@ struct PresentationContext {
 }
 
 impl PresentationContext {
-    fn build(session: &mut PluginSession, layouts: &mut [OutputLayout]) -> Result<Self, String> {
+    fn build(session: &mut IpcPluginSession, layouts: &mut [OutputLayout]) -> Result<Self, String> {
         let primary = layouts
             .iter()
             .max_by_key(|layout| layout.width.saturating_mul(layout.height))
@@ -141,7 +140,7 @@ impl FramePacing {
     fn compute(
         layouts: &[OutputLayout],
         primary: OutputLayout,
-        session: &mut PluginSession,
+        session: &mut IpcPluginSession,
     ) -> Self {
         let present_refresh = presentation_refresh_hz(layouts, primary);
         let mut present_fps = target_fps(present_refresh);
@@ -174,7 +173,7 @@ impl FramePacing {
         mut self,
         presenter: &OverlayPresenter,
         stop: &AtomicBool,
-        session: &mut PluginSession,
+        session: &mut IpcPluginSession,
         layouts: &[OutputLayout],
         primary: OutputLayout,
         virtual_cols: usize,
@@ -205,7 +204,7 @@ fn log_run_startup(
     saver_name: &str,
     layouts: &[OutputLayout],
     pacing: &FramePacing,
-    session: &PluginSession,
+    session: &IpcPluginSession,
 ) {
     tracing::info!(
         "running plugin '{}' on {} monitor(s) at {:.0} FPS / {:.0} tick (render scale {:.0}%, GPU: {})",

@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use trance_runner::plugin_session::PluginSession;
+use super::ipc_session::IpcPluginSession;
 use wayland_present::{OutputLayout, OverlayPresenter};
 
 use super::layout::{monitor_cell_bounds, virtual_desktop};
@@ -17,7 +17,7 @@ use crate::presentation::PresentationOptions;
 struct FrameLoopState<'a> {
     presenter: &'a OverlayPresenter,
     stop: &'a AtomicBool,
-    session: &'a mut PluginSession,
+    session: &'a mut IpcPluginSession,
     layouts: &'a [OutputLayout],
     primary: OutputLayout,
     virtual_cols: usize,
@@ -37,7 +37,7 @@ struct FrameLoopState<'a> {
 pub fn run_frame_loop(
     presenter: &OverlayPresenter,
     stop: &AtomicBool,
-    session: &mut PluginSession,
+    session: &mut IpcPluginSession,
     layouts: &[OutputLayout],
     primary: OutputLayout,
     virtual_cols: usize,

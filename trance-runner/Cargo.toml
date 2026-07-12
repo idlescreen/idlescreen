@@ -1,6 +1,6 @@
 [package]
 name = "trance-runner"
-version = "0.3.52"
+version = "0.3.53"
 edition = "2024"
 description = "Shared runner logic for the terminal screensavers"
 license = "Apache-2.0"
@@ -19,6 +19,7 @@ trance-upscaler = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+landlock = { workspace = true }
 
 [[bin]]
 name = "check_limits"

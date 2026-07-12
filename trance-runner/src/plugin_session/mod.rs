@@ -47,6 +47,10 @@ pub struct PluginSession {
 }
 
 impl PluginSession {
+    pub fn grid(&self) -> &[TerminalCell] {
+        &self.grid
+    }
+
     pub fn render_scale(&self) -> f32 {
         self.render_scale
     }

@@ -15,6 +15,10 @@ const FONT_CANDIDATES: &[&str] = &[
 
 static FONT: OnceLock<Option<Font>> = OnceLock::new();
 
+pub fn init_font() {
+    let _ = font();
+}
+
 fn font() -> Option<&'static Font> {
     FONT.get_or_init(|| {
         for path in FONT_CANDIDATES {

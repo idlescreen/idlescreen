@@ -5,6 +5,7 @@ members = [
     "crates/wayland-present",
     "crates/trance-dbus",
     "crates/trance-upscaler",
+    "crates/trance-ipc",
     "trance-api",
     "trance-runner",
     "trance-daemon",
@@ -29,6 +30,7 @@ trance-api = { path = "trance-api" }
 trance-dbus = { path = "crates/trance-dbus" }
 trance-runner = { path = "trance-runner" }
 trance-upscaler = { path = "crates/trance-upscaler" }
+trance-ipc = { path = "crates/trance-ipc" }
 wayland-idle = { path = "crates/wayland-idle" }
 wayland-present = { path = "crates/wayland-present" }
 
@@ -40,6 +42,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"]
 tracing-journald = "0.3"
 futures-lite = "2"
 once_cell = "1"
+landlock = "0.4.5"
 
 [workspace.lints.rust]
 unused_must_use = "warn"

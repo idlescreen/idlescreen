@@ -85,6 +85,13 @@ pub fn run_plugin_fullscreen(plugin_path: &str) -> Result<isize, Box<dyn std::er
 
     unsafe {
         let lib = libloading::Library::new(plugin_path)?;
+
+        // Eagerly load caption font before filesystem is locked
+        crate::caption_overlay::init_font();
+        if let Err(e) = crate::sandbox::enforce_sandbox() {
+            tracing::warn!("Could not enforce Landlock sandbox: {e}");
+        }
+
         let create_fn: libloading::Symbol<unsafe extern "C" fn() -> *mut ScreensaverInstance> =
             lib.get(b"create_screensaver")?;
         let destroy_fn: libloading::Symbol<unsafe extern "C" fn(*mut ScreensaverInstance)> =

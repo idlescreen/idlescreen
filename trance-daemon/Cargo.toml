@@ -1,6 +1,6 @@
 [package]
 name = "trance-daemon"
-version = "0.3.52"
+version = "0.3.53"
 edition = "2024"
 description = "Background idle daemon and core package for trance screensavers"
 license = "Apache-2.0"
@@ -17,6 +17,7 @@ trance-runner = { workspace = true }
 trance-api = { workspace = true }
 trance-dbus = { workspace = true }
 trance-upscaler = { workspace = true }
+trance-ipc = { path = "../crates/trance-ipc" }
 wayland-idle = { workspace = true }
 wayland-present = { workspace = true }
 libc = { workspace = true }
