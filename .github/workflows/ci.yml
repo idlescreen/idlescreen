@@ -93,8 +93,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff-index --quiet HEAD || git commit -m "style: auto-format and apply clippy fixes"
-          git push
+          if [ -n "$(git status --porcelain)" ]; then
+            git commit -m "style: auto-format and apply clippy fixes"
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+          fi
 
       - name: Run clippy check
         run: cargo clippy --workspace --all-targets
