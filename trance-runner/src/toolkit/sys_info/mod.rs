@@ -62,8 +62,9 @@ fn get_system_info_raw() -> SystemInfo {
     sys.refresh_all();
 
     let os = sysinfo::System::long_os_version().unwrap_or_else(|| "Linux".to_string());
-    let logo_text = os.clone();
     let kernel = sysinfo::System::kernel_version().unwrap_or_else(|| "unknown".to_string());
+    let kernel_short = kernel.split('-').next().unwrap_or(&kernel);
+    let logo_text = format!("Linux {}", kernel_short);
     let hostname = sysinfo::System::host_name().unwrap_or_else(|| "localhost".to_string());
     let cpu = sys
         .cpus()
