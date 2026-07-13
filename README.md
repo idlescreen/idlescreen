@@ -13,10 +13,10 @@ Trance is a modular, Wayland-native screensaver system for modern Linux desktops
 ## Showcase
 
 ### Ripple
-<video src="assets/ripple.webm" autoplay loop muted width="100%"></video>
+![Ripple Showcase](assets/ripple.webp)
 
 ### Beams
-<video src="assets/beams.webm" autoplay loop muted width="100%"></video>
+![Beams Showcase](assets/beams.webp)
 
 ## Packages Produced
 This repository builds official `.deb` (Debian/Ubuntu/Pop!_OS) and `.rpm` (Fedora) packages:

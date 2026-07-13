@@ -5778,7 +5778,7 @@ version = "0.3.61"
 
 [[package]]
 name = "trance-runner"
-version = "0.3.65"
+version = "0.3.66"
 dependencies = [
  "bytemuck",
  "crossterm",
