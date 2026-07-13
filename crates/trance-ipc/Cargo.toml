@@ -1,6 +1,6 @@
 [package]
 name = "trance-ipc"
-version = "0.3.58"
+version = "0.3.59"
 edition = "2024"
 description = "Out-of-process screensaver execution and shared memory IPC"
 license = "Apache-2.0"

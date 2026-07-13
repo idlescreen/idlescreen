@@ -1,8 +1,0 @@
-blank_issues_enabled: true
-contact_links:
-  - name: Security vulnerability
-    url: https://github.com/crateria/trance/security/advisories/new
-    about: Report security issues privately (preferred).
-  - name: Plugin / effect bugs
-    url: https://github.com/crateria/trance-plugins/issues
-    about: Visual effects live in the trance-plugins repository.

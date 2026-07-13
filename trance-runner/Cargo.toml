@@ -1,6 +1,6 @@
 [package]
 name = "trance-runner"
-version = "0.3.58"
+version = "0.3.59"
 edition = "2024"
 description = "Shared runner logic for the terminal screensavers"
 license = "Apache-2.0"

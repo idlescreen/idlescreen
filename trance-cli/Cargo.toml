@@ -1,6 +1,6 @@
 [package]
 name = "trance-cli"
-version = "0.3.57"
+version = "0.3.58"
 edition = "2024"
 description = "Command-line interface for the trance screensaver daemon"
 license = "Apache-2.0"

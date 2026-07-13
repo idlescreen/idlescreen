@@ -1,6 +1,6 @@
 [package]
 name = "wayland-present"
-version = "0.3.57"
+version = "0.3.58"
 edition = "2024"
 description = "Wayland layer-shell overlay presenter for fullscreen idle surfaces"
 license = "Apache-2.0"
