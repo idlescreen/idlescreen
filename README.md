@@ -6,104 +6,43 @@
 
 # Trance
 
-[![CI](https://github.com/crateria/trance/actions/workflows/ci.yml/badge.svg)](https://github.com/crateria/trance/actions/workflows/ci.yml) [![APT Repository](https://img.shields.io/badge/apt-repo-blue.svg)](https://crateria.github.io/packages/) [![DNF Repository](https://img.shields.io/badge/dnf-repo-blue.svg)](https://crateria.github.io/packages/)
+[![CI](https://github.com/crateria/trance/actions/workflows/ci.yml/badge.svg)](https://github.com/crateria/trance/actions/workflows/ci.yml)
 
-Wayland-native modular screensaver daemon and desktop suite for Linux.
+Trance is a modular, Wayland-native screensaver system for modern Linux desktops, with first-class integration for the COSMIC Desktop environment.
 
----
+## Packages Produced
+This repository builds official `.deb` (Debian/Ubuntu/Pop!_OS) and `.rpm` (Fedora) packages:
+*   `trance-daemon` (The core background screensaver daemon)
+*   `trance-cli` (Control and command-line user interface - CUI)
+*   `trance-tui` (Terminal-based status and configuration monitor - TUI)
+*   `trance-applet` (Optional graphical desktop panel applet - GUI)
+*   `trance-plugins-all` (Standard animation effects pack)
 
 ## Installation
+Add the official Crateria repository and install the packages:
 
-Configure the repository and install the application packages.
-
-### Fedora / RHEL (DNF)
+### Debian / Ubuntu / Pop!_OS
 ```bash
-# Add repository configuration
-sudo curl -o /etc/yum.repos.d/crateria.repo https://crateria.github.io/packages/rpm/crateria.repo
-
-# Install all suite components
-sudo dnf install trance trance-cli trance-tui trance-applet
+sudo mkdir -p /etc/apt/keyrings
+sudo curl -fsSL https://crateria.github.io/packages/apt/crateria-keyring.gpg -o /etc/apt/keyrings/crateria.gpg
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/crateria.gpg] https://crateria.github.io/packages/apt stable main" | sudo tee /etc/apt/sources.list.d/crateria.list
+sudo apt update
+sudo apt install trance-daemon trance-cli trance-tui trance-plugins-all
 ```
 
-### Ubuntu / Debian (APT)
+### Fedora
 ```bash
-# Add keyring
-sudo curl -sSLo /etc/apt/keyrings/crateria.gpg https://crateria.github.io/packages/apt/crateria-keyring.gpg
-
-# Add sources list
-echo "deb [signed-by=/etc/apt/keyrings/crateria.gpg] https://crateria.github.io/packages/apt stable main" | sudo tee /etc/apt/sources.list.d/crateria.list
-
-# Install all suite components
-sudo apt update && sudo apt install trance trance-cli trance-tui trance-applet
+sudo curl -fsSL https://crateria.github.io/packages/rpm/crateria.repo -o /etc/yum.repos.d/crateria.repo
+sudo dnf install trance-daemon trance-cli trance-tui trance-plugins-all
 ```
 
----
-
-## CUI (Command Line Interface)
-
-Manage and interact with the screensaver daemon session via the terminal.
-
-### Active Session Controls:
-* **`trance status`** (or `st`)  
-  Query session status (lock status, timeouts, inhibitors). Use `--json` for scripting.
-* **`trance enable`** / **`disable`** (or `on` / `off`)  
-  Toggle screensaver idle activation.
-* **`trance timeout <mins>`** (or `t`)  
-  Query or set the idle activation timeout length.
-* **`trance saver <plugin>`**  
-  Query or set the active default screensaver plugin.
-* **`trance preview <plugin>`** (or `p`)  
-  Instantly trigger a preview of the specified screensaver.
-* **`trance stop`**  
-  Dismiss any active screensaver presentation or running preview.
-* **`trance list`** (or `ls`)  
-  List all available screensaver plugin library names.
-* **`trance inhibitors`**  
-  List active D-Bus session inhibitors blocking screensaver activation.
-* **`trance render-scale <value>`** (or `scale`)  
-  Set pixel grid scale multiplier (e.g. `0.5`, `1.0`, `2.0`).
-* **`trance fps-overlay <on/off>`** (or `fps`)  
-  Toggle or query the live frame-rate counter overlay.
-* **`trance interactive`** (or `i`)  
-  Launch a lightweight interactive control prompt in your terminal.
-
-### System Utilities:
-* **`trance doctor`** (or `doc`)  
-  Perform system health diagnostics (PAM config, DBus socket, group membership). Pass `--fix` to repair issues.
-* **`trance clean`**  
-  Purge orphaned system sockets, locks, and temporary log directories.
-* **`trance completion <shell>`**  
-  Generate tab-completion scripts (supports `bash`, `zsh`, `fish`).
-* **`trance bug-report`**  
-  Bundle system specifications, configs, and logs for debugging.
-* **`trance update`** (or `self-update`)  
-  Check for and apply client upgrades.
-
----
-
-## TUI (Terminal User Interface)
-
-Launch the interactive terminal dashboard to monitor daemon health, check logs, swap screensaver libraries, and configure simulation frame-rates dynamically:
-
-```bash
-trance-tui
-```
-
----
-
-## COSMIC Panel Applet
-
-An integrated applet for the COSMIC Desktop bar (`cosmic-panel`). Toggle screensaver activation, lock the screen, or switch visual designs directly from your desktop interface.
-
-### Adding to your panel:
-1. **Right-click** on your desktop panel/bar.
-2. Select **Add Applet**.
-3. Search for **Trance** and add it to your panel.
-
-*(Alternatively, run `trance-applet` in a terminal or startup script to launch the background panel process directly.)*
-
----
-
-## License
-
-[Apache-2.0](LICENSE) · Copyright 2026 Crateria
+## How to Use
+*   **Daemon (Background Service)**: Run `trance-daemon` directly or enable its systemd user service.
+*   **CLI (Command Line)**:
+    ```bash
+    trance-cli start
+    trance-cli stop
+    trance-cli next
+    ```
+*   **TUI (Terminal Monitor)**: Run `trance-tui` to view active status.
+*   **GUI (COSMIC Desktop Applet)**: Enable the Trance applet under Desktop Panel applets settings.

@@ -1,6 +1,6 @@
 [package]
 name = "wayland-idle"
-version = "0.3.60"
+version = "0.3.61"
 edition = "2024"
 description = "Wayland idle detection via ext-idle-notify-v1"
 license = "Apache-2.0"
