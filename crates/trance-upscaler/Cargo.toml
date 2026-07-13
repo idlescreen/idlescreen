@@ -1,6 +1,6 @@
 [package]
 name = "trance-upscaler"
-version = "0.3.59"
+version = "0.3.60"
 edition = "2024"
 description = "CPU upscaling for trance screensaver frames"
 license = "Apache-2.0"
