@@ -152,7 +152,7 @@ fn allocate_buffer(
 }
 
 fn create_memfd(length: usize) -> Option<OwnedFd> {
-    let fd = unsafe { libc::memfd_create(c"trance-overlay".as_ptr(), 0) };
+    let fd = unsafe { libc::memfd_create(c"trance-overlay".as_ptr(), libc::MFD_CLOEXEC) };
     if fd < 0 {
         return None;
     }

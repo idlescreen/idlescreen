@@ -179,12 +179,7 @@ impl TranceService {
         Ok(self.controller.inhibitors.list())
     }
 
-    /// DEPRECATED (2026) — no-op.
-    ///
-    /// The previous `trance-gpu` crate was renamed to `trance-upscaler`
-    /// and is now pure CPU code. We keep the D-Bus method to avoid
-    /// breaking existing clients (`trance config set gpu ...`,
-    /// `trance-applet` UI), but the parameter is ignored.
+    /// DEPRECATED (2026) — no-op method retained for D-Bus client compatibility.
     #[deprecated(note = "GPU upscaler removed; this method is a no-op")]
     #[allow(deprecated)]
     async fn set_gpu_enabled(

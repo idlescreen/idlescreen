@@ -65,6 +65,7 @@ pub struct SharedMemory {
     ptr: *mut libc::c_void,
     size: usize,
     is_owner: bool,
+    is_memfd: bool,
 }
 
 impl SharedMemory {
@@ -131,6 +132,7 @@ impl SharedMemory {
             ptr,
             size,
             is_owner: true,
+            is_memfd,
         })
     }
 
@@ -169,7 +171,16 @@ impl SharedMemory {
             ptr,
             size,
             is_owner: false,
+            is_memfd: false,
         })
+    }
+
+    pub fn fd(&self) -> libc::c_int {
+        self.fd
+    }
+
+    pub fn ptr(&self) -> *mut libc::c_void {
+        self.ptr
     }
 
     pub fn size(&self) -> usize {
@@ -211,6 +222,7 @@ impl Drop for SharedMemory {
                 libc::close(self.fd);
             }
             if self.is_owner
+                && !self.is_memfd
                 && let Ok(c_name) = CString::new(self.name.clone())
             {
                 libc::shm_unlink(c_name.as_ptr());

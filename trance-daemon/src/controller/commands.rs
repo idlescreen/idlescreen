@@ -94,7 +94,14 @@ mod tests {
     use super::*;
     use crate::config::DaemonConfig;
 
-    fn test_controller() -> (DaemonController, std::path::PathBuf) {
+    static TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn test_controller() -> (
+        DaemonController,
+        std::path::PathBuf,
+        std::sync::MutexGuard<'static, ()>,
+    ) {
+        let guard = TEST_MUTEX.lock().unwrap();
         let temp = std::env::temp_dir().join(format!(
             "trance-daemon-cmd-test-{}",
             std::time::SystemTime::now()
@@ -107,26 +114,26 @@ mod tests {
             std::env::set_var("XDG_CONFIG_HOME", &temp);
         }
         let controller = DaemonController::new(DaemonConfig::default());
-        (controller, temp)
+        (controller, temp, guard)
     }
 
     #[test]
     fn enable_sets_idle_true() {
-        let (c, _tmp) = test_controller();
+        let (c, _tmp, _guard) = test_controller();
         c.apply_command(DaemonCommand::Enable).unwrap();
         assert!(c.config.lock().unwrap().idle_enabled);
     }
 
     #[test]
     fn disable_sets_idle_false() {
-        let (c, _tmp) = test_controller();
+        let (c, _tmp, _guard) = test_controller();
         c.apply_command(DaemonCommand::Disable).unwrap();
         assert!(!c.config.lock().unwrap().idle_enabled);
     }
 
     #[test]
     fn set_timeout_validates_range() {
-        let (c, _tmp) = test_controller();
+        let (c, _tmp, _guard) = test_controller();
         assert!(c.apply_command(DaemonCommand::SetTimeout(0)).is_err());
         assert!(c.apply_command(DaemonCommand::SetTimeout(241)).is_err());
         assert!(c.apply_command(DaemonCommand::SetTimeout(10)).is_ok());
@@ -135,7 +142,7 @@ mod tests {
 
     #[test]
     fn set_timeout_accepts_boundaries() {
-        let (c, _tmp) = test_controller();
+        let (c, _tmp, _guard) = test_controller();
         assert!(c.apply_command(DaemonCommand::SetTimeout(1)).is_ok());
         assert!(c.apply_command(DaemonCommand::SetTimeout(240)).is_ok());
         assert_eq!(c.config.lock().unwrap().idle_timeout_mins, 240);
@@ -143,7 +150,7 @@ mod tests {
 
     #[test]
     fn set_render_scale_zero_normalizes_to_none() {
-        let (c, _tmp) = test_controller();
+        let (c, _tmp, _guard) = test_controller();
         c.apply_command(DaemonCommand::SetRenderScale(Some(0.0)))
             .unwrap();
         assert!(c.config.lock().unwrap().render_scale.is_none());
@@ -151,7 +158,7 @@ mod tests {
 
     #[test]
     fn set_render_scale_rejects_out_of_range() {
-        let (c, _tmp) = test_controller();
+        let (c, _tmp, _guard) = test_controller();
         assert!(
             c.apply_command(DaemonCommand::SetRenderScale(Some(2.0)))
                 .is_err()
@@ -164,7 +171,7 @@ mod tests {
 
     #[test]
     fn set_render_scale_accepts_in_range() {
-        let (c, _tmp) = test_controller();
+        let (c, _tmp, _guard) = test_controller();
         c.apply_command(DaemonCommand::SetRenderScale(Some(0.5)))
             .unwrap();
         assert_eq!(c.config.lock().unwrap().render_scale, Some(0.5));
@@ -172,7 +179,7 @@ mod tests {
 
     #[test]
     fn set_render_scale_accepts_none() {
-        let (c, _tmp) = test_controller();
+        let (c, _tmp, _guard) = test_controller();
         c.apply_command(DaemonCommand::SetRenderScale(None))
             .unwrap();
         assert!(c.config.lock().unwrap().render_scale.is_none());
@@ -180,7 +187,7 @@ mod tests {
 
     #[test]
     fn set_show_fps_overlay_toggles() {
-        let (c, _tmp) = test_controller();
+        let (c, _tmp, _guard) = test_controller();
         c.apply_command(DaemonCommand::SetShowFpsOverlay(true))
             .unwrap();
         assert!(c.config.lock().unwrap().show_fps_overlay);
@@ -191,7 +198,7 @@ mod tests {
 
     #[test]
     fn preview_and_stop_are_no_ops() {
-        let (c, _tmp) = test_controller();
+        let (c, _tmp, _guard) = test_controller();
         assert!(
             c.apply_command(DaemonCommand::Preview("beams".into()))
                 .is_ok()
@@ -201,7 +208,7 @@ mod tests {
 
     #[test]
     fn mark_dirty_sets_status_dirty_flag() {
-        let (c, _tmp) = test_controller();
+        let (c, _tmp, _guard) = test_controller();
         // Reset the flag (may be set by other tests/operations)
         let _ = c.take_dirty();
         c.mark_dirty();

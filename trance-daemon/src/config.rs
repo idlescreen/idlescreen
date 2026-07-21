@@ -126,9 +126,10 @@ impl DaemonConfig {
         let Some(path) = Self::get_config_path() else {
             return Ok(());
         };
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
+        let parent = path
+            .parent()
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no parent dir"))?;
+        fs::create_dir_all(parent)?;
         let active_str = self.active_saver.as_deref().unwrap_or("none");
         let content = format!(
             "# trance themes and settings\n\
@@ -149,7 +150,11 @@ impl DaemonConfig {
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| "null".to_string())
         );
-        fs::write(path, content)
+        static TMP_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let count = TMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let tmp_path = parent.join(format!("config.tmp.{}.{}", std::process::id(), count));
+        fs::write(&tmp_path, content)?;
+        fs::rename(tmp_path, path)
     }
 }
 
