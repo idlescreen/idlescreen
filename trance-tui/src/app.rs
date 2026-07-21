@@ -5,7 +5,7 @@ use std::process::Command;
 use std::time::Duration;
 use trance_dbus::{TranceClient, daemon_available};
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ActivePane {
     Settings,
     Screensavers,
@@ -175,3 +175,7 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "app_tests.rs"]
+mod tests;

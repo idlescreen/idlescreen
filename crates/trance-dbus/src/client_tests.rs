@@ -82,3 +82,36 @@ fn parse_status_reads_known_fields() {
     assert_eq!(status.idle_timeout_mins, 15);
     assert_eq!(status.active_saver, "cosmos");
 }
+
+#[test]
+fn parse_status_full_roundtrip() {
+    let mut map = HashMap::new();
+    map.insert("running".to_string(), Value::Bool(true).try_to_owned().unwrap());
+    map.insert("idle_enabled".to_string(), Value::Bool(true).try_to_owned().unwrap());
+    map.insert("idle_timeout_mins".to_string(), Value::U32(10).try_to_owned().unwrap());
+    map.insert("active_saver".to_string(), Value::Str("beams".into()).try_to_owned().unwrap());
+    map.insert("presentation_active".to_string(), Value::Bool(false).try_to_owned().unwrap());
+    map.insert("preview_active".to_string(), Value::Bool(true).try_to_owned().unwrap());
+    map.insert("system_idle".to_string(), Value::Bool(true).try_to_owned().unwrap());
+    map.insert("session_locked".to_string(), Value::Bool(false).try_to_owned().unwrap());
+    map.insert("inhibited".to_string(), Value::Bool(false).try_to_owned().unwrap());
+    map.insert("current_saver".to_string(), Value::Str("beams".into()).try_to_owned().unwrap());
+    map.insert("gpu_enabled".to_string(), Value::Bool(true).try_to_owned().unwrap());
+    map.insert("show_fps_overlay".to_string(), Value::Bool(true).try_to_owned().unwrap());
+    map.insert("render_scale".to_string(), Value::Str("0.75".into()).try_to_owned().unwrap());
+
+    let status = parse_status(map).unwrap();
+    assert!(status.running);
+    assert!(status.idle_enabled);
+    assert_eq!(status.idle_timeout_mins, 10);
+    assert_eq!(status.active_saver, "beams");
+    assert!(!status.presentation_active);
+    assert!(status.preview_active);
+    assert!(status.system_idle);
+    assert!(!status.session_locked);
+    assert!(!status.inhibited);
+    assert_eq!(status.current_saver, "beams");
+    assert!(status.gpu_enabled);
+    assert!(status.show_fps_overlay);
+    assert_eq!(status.render_scale, "0.75");
+}
