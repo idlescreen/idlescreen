@@ -64,11 +64,3 @@ CLI Command Reference:
 ### License
 
 Distributed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
-
----
-
-<p align="center">
-  <a href="https://github.com/studio2201/trance">
-    <img src="assets/corgi-footer.jpg" alt="studio2201 banner" width="100%">
-  </a>
-</p>
