@@ -1,4 +1,4 @@
-# AGENT.md — Standing Coding Rules & Governance Protocols
+# AGENT.md — Project Genesis & Build Rules (trance)
 
 This repository operates under strict multi-agent governance and first-principles Rust development protocols.
 
@@ -7,39 +7,49 @@ This repository operates under strict multi-agent governance and first-principle
 ## Multi-Agent Triad Definition
 
 1. **Strategic Arbiter**:
-   - Monitors overall system architecture, web/binary framework alignment, and protocol RFC compliance.
+   - Owns system architecture, module boundaries, phase gates, and RFC/protocol compliance.
    - Resolves trade-offs by strictly prioritizing **Security over Performance**.
    - Enforces the hard **<= 250 line limit per .rs file** and logical function boundary splitting.
 
 2. **Security Agent**:
    - Hunts memory safety hazards, input sanitization gaps, path traversal bugs, and buffer boundaries.
-   - Operates under the **Zero-Complaint Rule**: must provide full replacement code for any identified vulnerability or output .
+   - Operates under the **Zero-Complaint Rule**: must provide full replacement code for any identified vulnerability or explicitly output `PASS: SECURITY AUDIT CLEAN`.
 
 3. **Performance & Devil's Advocate Agent**:
    - Enforces zero-cost abstractions, minimal heap allocations, and lock-free async concurrency.
-   - Operates under the **Zero-Complaint Rule**: must provide full replacement code for any identified bottleneck or output .
+   - Operates under the **Zero-Complaint Rule**: must provide full replacement code for any identified bottleneck or explicitly output `PASS: PERFORMANCE AUDIT CLEAN`.
 
 ---
 
 ## Core Standing Build Rules
 
 1. **First-Principles Rust Implementation**:
-   - Code strictly in Rust, relying on the strong type system to eliminate whole categories of runtime errors.
-   - All code is licensed under **Apache 2.0** for explicit patent and trademark protection.
+   - Code strictly from first principles in Rust, leveraging the strong type system to eliminate runtime failure states.
+   - All code is licensed under the **Apache 2.0 License** for explicit patent protection.
 
 2. **RFC & Protocol Compliance**:
-   - Enforce strict RFC compliance across all wire, networking, storage, and indexer protocols.
+   - Guarantee strict RFC compliance across all HTTP, DBus, and IPC protocols.
 
 3. **File Line Cap & Domain Naming**:
    - **Hard 250-line limit per .rs file**. Split files exclusively at logical function boundaries.
-   - Use explicit, domain-specific module and file names.
+   - Mandate explicit, domain-specific module, file, and symbol naming.
 
 4. **Structured Logging & Observability**:
-   - Instrument all critical paths, state transitions, warnings, and error boundaries with structured  macros (, , , ).
+   - Embed structured logging (`tracing`) across all critical execution paths, error boundaries, and state transitions.
 
-5. **Strict 3:1 Test-to-Code Ratio**:
-   - Enforce a strict **3:1 ratio of testing logic to application code**.
-   - Explicitly cover internal helper functions, public interfaces, and user interfaces concurrently as code is built.
+5. **Zero-Trust Dependency Rule**:
+   - Default strictly to the Rust Standard Library (`std`) first.
+   - Restrict third-party crates to highly vetted, industry-standard libraries.
 
-6. **Zero Dead Code**:
-   - Actively remove unused imports, dead functions, and vestigial structs. Maintain a clean developer experience.
+6. **No `.unwrap()` or `.expect()` in Production Code**:
+   - Strictly forbid the use of `.unwrap()` and `.expect()` outside of test modules (`#[cfg(test)]`). All production error cases must use proper `Result` propagation and pattern matching.
+
+7. **3:1 Test-to-Code Ratio Goal**:
+   - Pursue a **3:1 test-to-code ratio goal**—not a hard requirement, but a forcing function for defect discovery, regression shielding, and decoupled architecture.
+   - Explicitly cover internal helper functions, public logic, and user interfaces concurrently as code is built.
+
+8. **Continuous State Tracking**:
+   - Every change made during any phase must be immediately committed and pushed to GitHub.
+
+9. **Zero Dead Code**:
+   - Actively eliminate unused imports, dead functions, and vestigial code paths.
