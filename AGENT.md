@@ -33,3 +33,10 @@ Enforce on every change in this repository.
 
 - Default branch: **`master`**.
 - After each hardening stage barrier: declarative commit message and push to `origin master`.
+
+## Architecture law
+
+- First-principle boundaries: **[docs/BOUNDARIES.md](docs/BOUNDARIES.md)**
+  (org canonical copy: idlescreen/.github `docs/BOUNDARIES.md`).
+- Stay a Wayland client and plugin host. Do not become a compositor, lock
+  screen, or raw DRM/KMS application.

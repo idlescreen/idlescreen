@@ -94,3 +94,9 @@ trance-cli preview <plugin>
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
+
+## Architecture boundaries
+
+IdleScreen is a **Wayland client and plugin host**, not a compositor or lock
+screen. The locked first-principle frame (kernel, compositor, DE, control plane,
+saver content) lives in [docs/BOUNDARIES.md](docs/BOUNDARIES.md).
