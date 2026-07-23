@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/studio2201/.github/master/profile/assets/trance.png" width="48" height="48" valign="middle"> Trance
+  <img src="assets/icon.png" width="48" height="48" valign="middle"> Trance
 </h1>
 
 <p align="center">
