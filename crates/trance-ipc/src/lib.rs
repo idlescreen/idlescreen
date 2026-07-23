@@ -7,9 +7,12 @@ pub mod ffi_cell;
 pub mod protocol;
 pub mod shm;
 
-pub use ffi_cell::{FfiTerminalCell, SHM_MAGIC, SharedMemoryHeader, compute_shm_size};
+pub use ffi_cell::{
+    FfiTerminalCell, MAX_GRID_CELLS, MAX_GRID_DIM, SHM_MAGIC, SharedMemoryHeader, compute_shm_size,
+    validate_grid_dims,
+};
 pub use protocol::{IpcCommand, IpcResponse};
-pub use shm::SharedMemory;
+pub use shm::{SharedMemory, is_plausible_socket_path, is_valid_shm_name};
 
 #[cfg(test)]
 mod tests {
@@ -54,7 +57,7 @@ mod tests {
 
     #[test]
     fn test_shm_size() {
-        let size = compute_shm_size(80, 24);
+        let size = compute_shm_size(80, 24).expect("size");
         let header_sz = std::mem::size_of::<SharedMemoryHeader>();
         let cell_sz = std::mem::size_of::<FfiTerminalCell>();
         assert_eq!(size, header_sz + 80 * 24 * cell_sz);
@@ -62,8 +65,23 @@ mod tests {
 
     #[test]
     fn test_compute_shm_size_zero_dimensions() {
-        let size = compute_shm_size(0, 0);
+        let size = compute_shm_size(0, 0).expect("zero grid is just header");
         assert_eq!(size, std::mem::size_of::<SharedMemoryHeader>());
+    }
+
+    #[test]
+    fn test_compute_shm_size_overflow_is_none() {
+        assert!(compute_shm_size(usize::MAX, 2).is_none());
+        assert!(compute_shm_size(usize::MAX / 2, usize::MAX / 2).is_none());
+    }
+
+    #[test]
+    fn test_validate_grid_dims() {
+        assert!(validate_grid_dims(80, 24).is_ok());
+        assert!(validate_grid_dims(0, 24).is_err());
+        assert!(validate_grid_dims(80, 0).is_err());
+        assert!(validate_grid_dims(MAX_GRID_DIM + 1, 1).is_err());
+        assert!(validate_grid_dims(MAX_GRID_CELLS, 2).is_err());
     }
 
     #[test]
@@ -154,14 +172,24 @@ mod proptests {
         /// SHM size is at least the header and grows linearly with cells.
         #[test]
         fn shm_size_monotonic(cols in 0usize..512, rows in 0usize..512) {
-            let size = compute_shm_size(cols, rows);
+            let size = compute_shm_size(cols, rows).expect("no overflow in range");
             let header = std::mem::size_of::<SharedMemoryHeader>();
             let cell = std::mem::size_of::<FfiTerminalCell>();
             prop_assert!(size >= header);
             prop_assert_eq!(size, header + cols * rows * cell);
             if cols > 0 && rows > 0 {
-                prop_assert!(compute_shm_size(cols - 1, rows) < size || cols == 1);
+                let smaller = compute_shm_size(cols - 1, rows).expect("smaller");
+                prop_assert!(smaller < size || cols == 1);
             }
+        }
+
+        /// Adversarial dims either validate cleanly or are rejected; size never panics.
+        #[test]
+        fn adversarial_dims_never_panic(cols in any::<u32>(), rows in any::<u32>()) {
+            let c = cols as usize;
+            let r = rows as usize;
+            let _ = validate_grid_dims(c, r);
+            let _ = compute_shm_size(c, r);
         }
 
         /// Unknown command tags are rejected.

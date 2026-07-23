@@ -3,6 +3,12 @@
 
 use trance_api::TerminalCell;
 
+/// Hard cap on a single grid axis (cols or rows) for IPC shared memory.
+pub const MAX_GRID_DIM: usize = 4096;
+
+/// Hard cap on total cells (`cols * rows`) to bound SHM / mmap DoS.
+pub const MAX_GRID_CELLS: usize = 512 * 512;
+
 /// FFI-safe representation of `TerminalCell` for shared memory communication.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,6 +59,24 @@ pub struct SharedMemoryHeader {
 
 pub const SHM_MAGIC: u32 = 0x54524e43;
 
-pub fn compute_shm_size(cols: usize, rows: usize) -> usize {
-    std::mem::size_of::<SharedMemoryHeader>() + cols * rows * std::mem::size_of::<FfiTerminalCell>()
+/// Reject zero, oversized, or overflowing grid dimensions before SHM allocate.
+pub fn validate_grid_dims(cols: usize, rows: usize) -> Result<(), &'static str> {
+    if cols == 0 || rows == 0 {
+        return Err("grid dimensions must be non-zero");
+    }
+    if cols > MAX_GRID_DIM || rows > MAX_GRID_DIM {
+        return Err("grid dimension exceeds maximum");
+    }
+    match cols.checked_mul(rows) {
+        Some(n) if n <= MAX_GRID_CELLS => Ok(()),
+        Some(_) => Err("grid cell count exceeds maximum"),
+        None => Err("grid cell count overflow"),
+    }
+}
+
+/// Byte size of header + `cols * rows` cells. `None` on overflow.
+pub fn compute_shm_size(cols: usize, rows: usize) -> Option<usize> {
+    let cells = cols.checked_mul(rows)?;
+    let cell_bytes = cells.checked_mul(std::mem::size_of::<FfiTerminalCell>())?;
+    std::mem::size_of::<SharedMemoryHeader>().checked_add(cell_bytes)
 }

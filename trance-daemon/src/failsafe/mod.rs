@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::io::Write;
+use std::path::{Path, PathBuf};
 
 mod pam;
 
@@ -41,10 +42,19 @@ pub fn run_failsafe_lock() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn which_bin(name: &str) -> bool {
-    std::env::var_os("PATH")
-        .map(|p| std::env::split_paths(&p).any(|dir| dir.join(name).is_file()))
-        .unwrap_or(false)
+/// Resolve a terminal basename only under fixed system prefixes.
+/// Never consults `$PATH` (PATH hijack would unlock a fake terminal).
+fn resolve_term_bin(name: &str) -> Option<PathBuf> {
+    if name.is_empty() || name.contains('/') || name.contains('\\') || name.contains('\0') {
+        return None;
+    }
+    for dir in ["/usr/bin", "/usr/local/bin"] {
+        let p = Path::new(dir).join(name);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    None
 }
 
 pub fn spawn_failsafe_locker() -> Result<(), String> {
@@ -62,16 +72,20 @@ pub fn spawn_failsafe_locker() -> Result<(), String> {
     let current_exe =
         std::env::current_exe().map_err(|e| format!("failed to get current exe path: {e}"))?;
 
-    let term_bin = term_emulators.into_iter().find(|&term| which_bin(term));
+    let term_bin = term_emulators.into_iter().find_map(resolve_term_bin);
 
     let Some(term) = term_bin else {
-        return Err("No terminal emulator found".to_string());
+        return Err("No terminal emulator found under /usr/bin or /usr/local/bin".to_string());
     };
+    let term_name = term
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("terminal");
 
     loop {
-        tracing::info!("Spawning failsafe locker using {}...", term);
-        let mut cmd = std::process::Command::new(term);
-        if term == "gnome-terminal" || term == "konsole" {
+        tracing::info!("Spawning failsafe locker using {}...", term.display());
+        let mut cmd = std::process::Command::new(&term);
+        if term_name == "gnome-terminal" || term_name == "konsole" {
             cmd.arg("--").arg(&current_exe).arg("failsafe-lock");
         } else {
             cmd.arg("-e").arg(&current_exe).arg("failsafe-lock");
@@ -94,4 +108,30 @@ pub fn spawn_failsafe_locker() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_term_rejects_path_injection() {
+        assert!(resolve_term_bin("../bin/xterm").is_none());
+        assert!(resolve_term_bin("/usr/bin/xterm").is_none());
+        assert!(resolve_term_bin("").is_none());
+        assert!(resolve_term_bin("xterm\0evil").is_none());
+    }
+
+    #[test]
+    fn resolve_term_looks_only_under_system_prefixes() {
+        // Presence depends on the host; we only assert that a found path is under
+        // the allowlisted prefixes (no PATH-relative resolution).
+        if let Some(p) = resolve_term_bin("bash") {
+            let s = p.to_string_lossy();
+            assert!(
+                s.starts_with("/usr/bin/") || s.starts_with("/usr/local/bin/"),
+                "unexpected path {s}"
+            );
+        }
+    }
 }

@@ -7,7 +7,9 @@ use std::process::{Child, Command};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
-use trance_ipc::{IpcCommand, IpcResponse, SHM_MAGIC, SharedMemory, compute_shm_size};
+use trance_ipc::{
+    IpcCommand, IpcResponse, SHM_MAGIC, SharedMemory, compute_shm_size, validate_grid_dims,
+};
 
 static SESSION_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -18,6 +20,17 @@ pub struct SessionInitResult {
     pub socket_path: PathBuf,
 }
 
+/// Prefer `XDG_RUNTIME_DIR` (user-private) over world-writable `/tmp` for UDS.
+fn runtime_socket_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("XDG_RUNTIME_DIR") {
+        let p = PathBuf::from(dir);
+        if p.is_dir() {
+            return p;
+        }
+    }
+    std::env::temp_dir()
+}
+
 pub fn initialize_ipc_session(
     saver_name: &str,
     cols: usize,
@@ -26,10 +39,15 @@ pub fn initialize_ipc_session(
     render_scale: f32,
     expected_stop: Arc<AtomicBool>,
 ) -> Result<SessionInitResult, String> {
+    validate_grid_dims(cols, rows).map_err(|e| e.to_string())?;
+    if !render_scale.is_finite() || !(0.0..=1.0).contains(&render_scale) {
+        return Err(format!("render_scale out of range: {render_scale}"));
+    }
+
     let session_idx = SESSION_COUNTER.fetch_add(1, Ordering::Relaxed);
     let rand_val = std::process::id();
     let socket_path =
-        std::env::temp_dir().join(format!("trance-uds-{}-{}.sock", rand_val, session_idx));
+        runtime_socket_dir().join(format!("trance-uds-{}-{}.sock", rand_val, session_idx));
     if socket_path.exists() {
         let _ = fs::remove_file(&socket_path);
     }
@@ -40,7 +58,7 @@ pub fn initialize_ipc_session(
         .map_err(|e| format!("failed to set UDS listener nonblocking: {}", e))?;
 
     let shm_name = format!("/trance-shm-{}-{}", rand_val, session_idx);
-    let shm_size = compute_shm_size(cols, rows);
+    let shm_size = compute_shm_size(cols, rows).ok_or("shm size overflow")?;
     let shm = SharedMemory::create(&shm_name, shm_size)?;
 
     unsafe {

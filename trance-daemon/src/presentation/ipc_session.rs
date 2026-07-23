@@ -139,12 +139,19 @@ impl IpcPluginSession {
             match IpcResponse::read_from(&mut *socket) {
                 Ok(IpcResponse::FrameReady { scanlines }) => {
                     if let Some(ref shm) = self.shm {
-                        let cells = unsafe { shm.cells_mut() };
-                        if self.grid.len() != grid_cols * grid_rows {
-                            self.grid = vec![TerminalCell::default(); grid_cols * grid_rows];
-                        }
-                        for (i, cell) in cells.iter().take(self.grid.len()).enumerate() {
-                            self.grid[i] = TerminalCell::from(*cell);
+                        match unsafe { shm.cells_mut() } {
+                            Ok(cells) => {
+                                if self.grid.len() != grid_cols * grid_rows {
+                                    self.grid =
+                                        vec![TerminalCell::default(); grid_cols * grid_rows];
+                                }
+                                for (i, cell) in cells.iter().take(self.grid.len()).enumerate() {
+                                    self.grid[i] = TerminalCell::from(*cell);
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!("shm cells view rejected: {e}");
+                            }
                         }
                     }
                     return scanlines;
