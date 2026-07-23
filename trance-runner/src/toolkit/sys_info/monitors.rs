@@ -12,14 +12,13 @@ static MONITOR_LAYOUT_CACHE: OnceLock<RwLock<Option<MonitorLayoutCacheEntry>>> =
 
 pub fn get_monitor_layouts(cols: usize, rows: usize) -> Vec<MonitorCellBounds> {
     let cache_rw = MONITOR_LAYOUT_CACHE.get_or_init(|| RwLock::new(None));
-    if let Ok(read_guard) = cache_rw.read() {
-        if let Some((ref layouts, (cached_cols, cached_rows), last_query)) = *read_guard
-            && cached_cols == cols
-            && cached_rows == rows
-            && last_query.elapsed() < Duration::from_secs(5)
-        {
-            return layouts.clone();
-        }
+    if let Ok(read_guard) = cache_rw.read()
+        && let Some((ref layouts, (cached_cols, cached_rows), last_query)) = *read_guard
+        && cached_cols == cols
+        && cached_rows == rows
+        && last_query.elapsed() < Duration::from_secs(5)
+    {
+        return layouts.clone();
     }
     let mut cache = cache_rw.write().unwrap_or_else(|e| e.into_inner());
     if let Some((ref layouts, (cached_cols, cached_rows), last_query)) = *cache

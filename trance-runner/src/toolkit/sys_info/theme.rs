@@ -14,12 +14,11 @@ static DARK_MODE_CACHE: OnceLock<RwLock<(Option<bool>, Instant)>> = OnceLock::ne
 /// Detect dark mode preference. Cached for 3 seconds.
 pub fn query_dark_mode() -> bool {
     let cache_rw = DARK_MODE_CACHE.get_or_init(|| RwLock::new((None, Instant::now())));
-    if let Ok(read_guard) = cache_rw.read() {
-        if let Some(val) = read_guard.0
-            && read_guard.1.elapsed() < Duration::from_secs(3)
-        {
-            return val;
-        }
+    if let Ok(read_guard) = cache_rw.read()
+        && let Some(val) = read_guard.0
+        && read_guard.1.elapsed() < Duration::from_secs(3)
+    {
+        return val;
     }
     let mut cache = cache_rw.write().unwrap_or_else(|e| e.into_inner());
     if let Some(val) = cache.0

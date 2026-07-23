@@ -1,4 +1,4 @@
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MonitorCellBounds {
@@ -77,12 +77,14 @@ fn env_bounds_cache() -> &'static RwLock<Option<MonitorCellBounds>> {
 }
 
 fn cached_primary_bounds_from_env() -> Option<MonitorCellBounds> {
-    if let Ok(read_guard) = env_bounds_cache().read() {
-        if let Some(bounds) = *read_guard {
-            return Some(bounds);
-        }
+    if let Ok(read_guard) = env_bounds_cache().read()
+        && let Some(bounds) = *read_guard
+    {
+        return Some(bounds);
     }
-    let mut cache = env_bounds_cache().write().unwrap_or_else(|e| e.into_inner());
+    let mut cache = env_bounds_cache()
+        .write()
+        .unwrap_or_else(|e| e.into_inner());
     if cache.is_none() {
         *cache = read_primary_bounds_from_env();
     }
@@ -129,7 +131,9 @@ pub fn publish_primary_bounds(bounds: MonitorCellBounds) {
         std::env::set_var("TRANCE_PRIMARY_START_ROW", bounds.start_row.to_string());
         std::env::set_var("TRANCE_PRIMARY_END_ROW", bounds.end_row.to_string());
     }
-    *env_bounds_cache().write().unwrap_or_else(|e| e.into_inner()) = Some(bounds);
+    *env_bounds_cache()
+        .write()
+        .unwrap_or_else(|e| e.into_inner()) = Some(bounds);
 }
 
 pub fn clear_primary_bounds() {
@@ -140,7 +144,9 @@ pub fn clear_primary_bounds() {
         std::env::remove_var("TRANCE_PRIMARY_START_ROW");
         std::env::remove_var("TRANCE_PRIMARY_END_ROW");
     }
-    *env_bounds_cache().write().unwrap_or_else(|e| e.into_inner()) = None;
+    *env_bounds_cache()
+        .write()
+        .unwrap_or_else(|e| e.into_inner()) = None;
 }
 
 pub fn is_secondary_monitor() -> bool {

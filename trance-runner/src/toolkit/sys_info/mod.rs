@@ -47,12 +47,11 @@ fn get_system() -> std::sync::MutexGuard<'static, sysinfo::System> {
 /// Returns rich live system info. Cross-platform. Cached for 3 seconds.
 pub fn get_system_info() -> SystemInfo {
     let cache_rw = SYSTEM_INFO_CACHE.get_or_init(|| RwLock::new((None, Instant::now())));
-    if let Ok(read_guard) = cache_rw.read() {
-        if let Some(ref val) = read_guard.0
-            && read_guard.1.elapsed() < Duration::from_secs(3)
-        {
-            return val.clone();
-        }
+    if let Ok(read_guard) = cache_rw.read()
+        && let Some(ref val) = read_guard.0
+        && read_guard.1.elapsed() < Duration::from_secs(3)
+    {
+        return val.clone();
     }
     let mut cache = cache_rw.write().unwrap_or_else(|e| e.into_inner());
     if let Some(ref val) = cache.0
