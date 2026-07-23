@@ -1,4 +1,3 @@
-
 /// Environment keys for deterministic offline export (`idle-render`).
 pub const SEED_ENV_KEYS: &[&str] = &["IDLE_RENDER_SEED", "TRANCE_SEED"];
 
@@ -202,15 +201,23 @@ mod seed_env_tests {
 
     #[test]
     fn seed_from_env_decimal() {
-        unsafe { std::env::set_var("IDLE_RENDER_SEED", "12345"); }
+        unsafe {
+            std::env::set_var("IDLE_RENDER_SEED", "12345");
+        }
         assert_eq!(seed_from_env(), Some(12345));
-        unsafe { std::env::remove_var("IDLE_RENDER_SEED"); }
+        unsafe {
+            std::env::remove_var("IDLE_RENDER_SEED");
+        }
     }
 
     #[test]
     fn seed_from_env_hex() {
-        unsafe { std::env::set_var("TRANCE_SEED", "0x10"); }
+        unsafe {
+            std::env::set_var("TRANCE_SEED", "0x10");
+        }
         assert_eq!(seed_from_env(), Some(16));
-        unsafe { std::env::remove_var("TRANCE_SEED"); }
+        unsafe {
+            std::env::remove_var("TRANCE_SEED");
+        }
     }
 }
