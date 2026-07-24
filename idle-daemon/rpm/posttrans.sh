@@ -61,7 +61,14 @@ else
         fi
         systemctl --user --machine="${_user}@" is-active idle-daemon.service >/dev/null 2>&1
     }
+    ensure_user_config_dirs() {
+        _uid="$1"; _user="$2"
+        if command -v runuser >/dev/null 2>&1; then
+            runuser -u "$_user" -- mkdir -p "/home/$_user/.config/idle" "/home/$_user/.config/idlescreen" 2>/dev/null || true
+        fi
+    }
     try_restart_idle() {
+        ensure_user_config_dirs "$1" "$2"
         _user_systemctl "$1" "$2" daemon-reload || true
         _user_systemctl "$1" "$2" reset-failed idle-daemon.service || true
         if _user_is_enabled "$1" "$2"; then
