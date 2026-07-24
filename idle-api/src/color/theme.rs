@@ -1,17 +1,12 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Theme {
+    #[default]
     Synthwave,
     Cyberpunk,
     Neon,
     Aurora,
     Monokai,
     Matrix,
-}
-
-impl Default for Theme {
-    fn default() -> Self {
-        Self::Synthwave
-    }
 }
 
 impl Theme {

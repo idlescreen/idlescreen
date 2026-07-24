@@ -150,7 +150,13 @@ impl PluginSession {
     }
 
     #[tracing::instrument(skip_all, fields(cols, rows, width, height))]
-    pub fn render(&mut self, cols: usize, rows: usize, width: u32, height: u32) -> std::sync::Arc<Vec<u8>> {
+    pub fn render(
+        &mut self,
+        cols: usize,
+        rows: usize,
+        width: u32,
+        height: u32,
+    ) -> std::sync::Arc<Vec<u8>> {
         let scanlines = self.draw_frame(cols, rows);
         self.raster_viewport_internal(0, 0, cols, rows, cols, rows, width, height, scanlines);
         self.pixel_buf.clone()

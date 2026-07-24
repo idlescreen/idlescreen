@@ -84,7 +84,8 @@ impl Renderer {
                     }
 
                     let mut b = [0; 4];
-                    self.write_buf.extend_from_slice(new_cell.ch.encode_utf8(&mut b).as_bytes());
+                    self.write_buf
+                        .extend_from_slice(new_cell.ch.encode_utf8(&mut b).as_bytes());
                     self.prev_grid[idx] = new_cell;
                     cursor_pos = Some((r, c + 1));
                 }

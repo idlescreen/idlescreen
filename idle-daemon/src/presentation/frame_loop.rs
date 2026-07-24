@@ -150,7 +150,7 @@ fn present_frame(state: &mut FrameLoopState) {
                 );
                 state
                     .presenter
-                    .submit_frame(layout.id, target_w, target_h, pixels.into());
+                    .submit_frame(layout.id, target_w, target_h, pixels);
             }
         }
     } else {
@@ -204,7 +204,7 @@ fn present_frame(state: &mut FrameLoopState) {
             );
             state
                 .presenter
-                .submit_frame(layout.id, target_w, target_h, pixels.into());
+                .submit_frame(layout.id, target_w, target_h, pixels);
         }
     }
 }

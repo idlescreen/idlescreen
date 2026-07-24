@@ -102,7 +102,13 @@ impl SessionState {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    pub fn update_frame(&mut self, output_id: u32, width: u32, height: u32, pixels: std::sync::Arc<Vec<u8>>) {
+    pub fn update_frame(
+        &mut self,
+        output_id: u32,
+        width: u32,
+        height: u32,
+        pixels: std::sync::Arc<Vec<u8>>,
+    ) {
         if !self.screensaver_mode {
             return;
         }
