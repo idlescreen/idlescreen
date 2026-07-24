@@ -17,7 +17,7 @@ KillMode=mixed
 
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=%t -%h/.config/idle -%h/.config/trance
+ReadWritePaths=%t -%h/.config/idlescreen -%h/.config/idle -%h/.config/trance
 PrivateTmp=true
 ProtectHome=read-only
 MemoryDenyWriteExecute=true
