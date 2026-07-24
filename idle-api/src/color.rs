@@ -95,20 +95,15 @@ pub(crate) fn hue_rotated(
     hsl_to_rgb(new_h, 0.95, target_lightness)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Theme {
+    #[default]
     Synthwave,
     Cyberpunk,
     Neon,
     Aurora,
     Monokai,
     Matrix,
-}
-
-impl Default for Theme {
-    fn default() -> Self {
-        Self::Synthwave
-    }
 }
 
 impl Theme {
