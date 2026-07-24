@@ -1,27 +1,25 @@
-# Optional Alpine multi-stage build for tooling and CI smoke images.
-# Desktop users should install native packages from idlescreen.github.io/packages.
+# Zero-dependency Alpine build container for IdleScreen
+FROM rust:1.80-alpine as builder
 
-FROM alpine:3.20 AS builder
+RUN apk add --no-build-cache \
+    musl-dev \
+    pkgconfig \
+    dbus-dev \
+    wayland-dev \
+    libxkbcommon-dev
 
-RUN apk add --no-cache \
-    rust cargo build-base pkgconfig dbus-dev wayland-dev libxkbcommon-dev linux-headers
-
-WORKDIR /app
+WORKDIR /build
 COPY . .
-
 RUN cargo build --release -p idle-daemon -p idle-cli
 
 FROM alpine:3.20
+RUN apk add --no-build-cache \
+    libwayland-client \
+    libxkbcommon \
+    dbus-libs \
+    ca-certificates
 
-RUN apk add --no-cache dbus wayland-libs libxkbcommon ca-certificates
+COPY --from=builder /build/target/release/idle-daemon /usr/local/bin/
+COPY --from=builder /build/target/release/idle /usr/local/bin/
 
-COPY --from=builder /app/target/release/idle-daemon /usr/bin/idle-daemon
-COPY --from=builder /app/target/release/idle /usr/bin/idle
-COPY --from=builder /app/target/release/trance /usr/bin/trance
-
-ENV WAYLAND_DISPLAY=wayland-0
-ENV XDG_CONFIG_HOME=/root/.config
-
-# Daemon requires a real Wayland session; this image is for packaging smoke
-# and tooling, not unattended fullscreen display without a compositor.
-ENTRYPOINT ["/usr/bin/idle-daemon"]
+ENTRYPOINT ["/usr/local/bin/idle-daemon"]
