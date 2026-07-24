@@ -16,30 +16,31 @@ pub fn check_fonts() -> CheckResult {
 }
 
 pub fn check_package_install() -> CheckResult {
-    for pkg in ["idle", "idlescreen", "trance"] {
+    for pkg in ["idle-daemon", "idle-cli", "cosmic-idle", "idlescreen", "idle", "trance"] {
         if let Ok(o) = Command::new("rpm")
-            .args(["-q", pkg, "--qf", "%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}"])
+            .args(["-q", pkg])
             .output()
-            && o.status.success()
         {
-            let ver = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            println!(" [✔] Package (RPM): {ver}");
-            println!("     -> Upgrade with: sudo dnf update");
-            return chk("Package", true, ver);
+            if o.status.success() {
+                let ver = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                println!(" [✔] Package (RPM): {ver}");
+                println!("     -> Upgrade with: sudo dnf update");
+                return chk("Package", true, ver);
+            }
         }
         if let Ok(o) = Command::new("dpkg-query")
             .args(["-W", "-f=${Package} ${Version}", pkg])
             .output()
-            && o.status.success()
         {
-            let ver = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            println!(" [✔] Package (DEB): {ver}");
-            println!("     -> Upgrade with: sudo apt update && sudo apt upgrade");
-            return chk("Package", true, ver);
+            if o.status.success() {
+                let ver = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                println!(" [✔] Package (DEB): {ver}");
+                println!("     -> Upgrade with: sudo apt update && sudo apt upgrade");
+                return chk("Package", true, ver);
+            }
         }
     }
-    println!(" [!] Package: idle not found via RPM or dpkg.");
-    println!("     -> Install from https://idlescreen.github.io/packages/");
+    println!(" [!] Package not detected via RPM or DEB query.");
     chk("Package", true, "not a system package")
 }
 

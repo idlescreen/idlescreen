@@ -126,7 +126,7 @@ fn apt_policy_versions(pkg: &str) -> Option<(String, String)> {
     }
 }
 
-fn self_update_apt() -> Result<(), Box<dyn std::error::Error>> {
+fn handle_apt_update() -> Result<()> {
     println!(" Checking APT package status for '{PKG}'...");
     match apt_policy_versions(PKG) {
         Some((inst, cand)) => {
