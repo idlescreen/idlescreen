@@ -64,8 +64,8 @@ impl PluginSession {
 
             // Eagerly set OS and logo text environment variables so plugins can read them
             // even inside the Landlock sandbox.
-            // Propagate export determinism if seed already set by idle-render.
-            if std::env::var_os("IDLE_RENDER_SEED").is_some() {
+            // Propagate export determinism if seed already set by render.
+            if std::env::var_os("IDLESCREEN_RENDER_SEED").is_some() {
                 std::env::set_var("TRANCE_EXPORT_MODE", "1");
             }
             let sys_info = if trance_api::SystemInfo::export_mode_enabled() {

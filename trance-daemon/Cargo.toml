@@ -48,7 +48,7 @@ depends = "libc6, fonts-dejavu-core, saver-beams, dbus"
 provides = "trance"
 replaces = "trance"
 conflicts = "trance (<< 2.0.0)"
-recommends = "idlescreen-savers, idlescreen-cli, idlescreen-tui"
+recommends = "idlescreen-savers, idlescreen-cli, app-tui"
 suggests = "app-cosmic"
 section = "utils"
 priority = "optional"
@@ -92,7 +92,7 @@ saver-beams = "*"
 [package.metadata.generate-rpm.recommends]
 idlescreen-savers = "*"
 idlescreen-cli = "*"
-idlescreen-tui = "*"
+app-tui = "*"
 "(app-cosmic if cosmic-panel)" = ""
 
 [package.metadata.generate-rpm.suggests]

@@ -10,7 +10,7 @@ Coordinated rename from historical `trance*` package/binary names.
 | CLI | `idlescreen-cli` | `idlescreen` | `trance-cli` |
 | **All savers** | `idlescreen-savers` | — (hard-depends every `saver-*`) | `trance-plugins-all` |
 | One saver | `saver-<name>` | `.so` under libexec | `trance-plugin-<name>` |
-| TUI | `idlescreen-tui` | `idlescreen-tui` | `trance-tui` |
+| TUI | `app-tui` | `app-tui` | `trance-tui` |
 | **COSMIC product** | **`app-cosmic`** | applet `idlescreen-applet` | `idlescreen-applet`, `trance-applet`, `idlescreen-cosmic` |
 
 ## Product install (COSMIC)
@@ -27,7 +27,7 @@ sudo apt install app-cosmic
 2. **`idlescreen-savers`** — every official `saver-*` plugin  
 3. Ships the **COSMIC panel applet**
 
-Optional recommends: `idlescreen-cli`, `idlescreen-tui`.
+Optional recommends: `idlescreen-cli`, `app-tui`.
 
 ## Paths
 

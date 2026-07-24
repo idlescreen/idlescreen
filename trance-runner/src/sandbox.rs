@@ -7,7 +7,7 @@ use landlock::{ABI, AccessFs, Ruleset};
 /// Enforces a strict Landlock filesystem sandbox on the current process,
 /// locking down all filesystem access (read, write, execute).
 ///
-/// Skipped when `TRANCE_DISABLE_SANDBOX=1` (offline export / `idle-render`).
+/// Skipped when `TRANCE_DISABLE_SANDBOX=1` (offline export / `render`).
 pub fn enforce_sandbox() -> Result<(), String> {
     if std::env::var_os("TRANCE_DISABLE_SANDBOX").as_deref() == Some(std::ffi::OsStr::new("1")) {
         tracing::info!("Landlock sandbox skipped (TRANCE_DISABLE_SANDBOX=1)");

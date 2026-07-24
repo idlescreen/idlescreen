@@ -17,7 +17,7 @@ Defined in `crates/trance-dbus` as `SERVICE_NAME`, `INTERFACE_NAME`, `OBJECT_PAT
 ## Clients
 
 - `trance-cli` (this workspace)
-- `trance-tui` / idle-tui
+- `trance-tui` / app-tui
 - COSMIC applet / app-cosmic
 
 ## Stability

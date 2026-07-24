@@ -80,7 +80,7 @@ impl Default for SystemInfo {
 }
 
 impl SystemInfo {
-    /// Stable fixture for offline export (`TRANCE_EXPORT_MODE=1` / idle-render).
+    /// Stable fixture for offline export (`TRANCE_EXPORT_MODE=1` / render).
     pub fn export_fixture() -> Self {
         Self {
             os: "IdleScreen Export".into(),
@@ -105,6 +105,6 @@ impl SystemInfo {
         matches!(
             std::env::var("TRANCE_EXPORT_MODE").ok().as_deref(),
             Some("1") | Some("true") | Some("TRUE")
-        ) || std::env::var_os("IDLE_RENDER_SEED").is_some()
+        ) || std::env::var_os("RENDER_SEED").is_some()
     }
 }

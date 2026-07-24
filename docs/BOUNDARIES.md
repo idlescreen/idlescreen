@@ -21,7 +21,7 @@ IdleScreen's core lane is:
 - **On the line:** Wayland protocols, D-Bus product API, plugin FFI.
 - **Below the line:** saver effect math (`update` / `draw`).
 
-Offline export (`idle-render`) reuses the pure side (plugins + raster) and does
+Offline export (`render`) reuses the pure side (plugins + raster) and does
 not require a compositor. Platform apps (`app-cosmic`, future `app-kde`, etc.)
 are DE-shaped clients of the control plane, not a second display server.
 
@@ -113,11 +113,11 @@ our lane.
 |--------------|------|
 | idle-core | Runtime: daemon, API, runner, CLI |
 | saver-* | Content: pure effects |
-| idle-render / idle-studio | Export: pure sim + raster + encode (no compositor) |
-| idle-tui | Control-plane client (terminal) |
+| render / app-studio | Export: pure sim + raster + encode (no compositor) |
+| app-tui | Control-plane client (terminal) |
 | app-* | Platform chrome / metapackage (DE or store) |
 | packages | Distribution host for Linux packages |
-| idle-pro / idle-brand | Business and brand, not runtime |
+| idle-pro / brand | Business and brand, not runtime |
 
 ## Explicit refusals
 

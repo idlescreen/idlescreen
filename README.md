@@ -9,7 +9,7 @@ Modular Wayland-native screensaver and ambient display daemon for Linux, written
 
 | | |
 |---|---|
-| Brand | [idlescreen/idle-brand](https://github.com/idlescreen/idle-brand) |
+| Brand | [idlescreen/brand](https://github.com/idlescreen/brand) |
 | Packages | [idlescreen.github.io/packages](https://idlescreen.github.io/packages/) |
 | Org | [idlescreen](https://github.com/idlescreen) |
 | Plugins | [official plugins](https://github.com/orgs/idlescreen/repositories?q=saver-) |
@@ -51,7 +51,7 @@ historical `crateria-*` prefix; the public host is **idlescreen.github.io**.
 Shipped package and binary names remain `idlescreen` / `idlescreen-*` (legacy `trance*` still provided) for install and
 API stability.
 
-Optional packages: `trance-plugins-all`, `trance-cli` (TUI: [idle-tui](https://github.com/idlescreen/idle-tui)). COSMIC panel
+Optional packages: `trance-plugins-all`, `trance-cli` (TUI: [app-tui](https://github.com/idlescreen/app-tui)). COSMIC panel
 users can install [app-cosmic](https://github.com/idlescreen/app-cosmic)
 separately.
 
