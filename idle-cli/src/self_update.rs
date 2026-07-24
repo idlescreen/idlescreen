@@ -89,71 +89,70 @@ fn handle_dnf_update() -> Result<()> {
             println!(" [✔] Installed version: {inst}");
             println!(" [!] Could not query the latest package from the repo.");
             println!("     -> Try: sudo dnf clean all && sudo dnf update");
-            println!("     -> Confirm the crateria repo is in /etc/yum.repos.d/");
+            println!("     -> Confirm the idlescreen repo is in /etc/yum.repos.d/");
         }
         (None, Some(cand)) => {
-            println!(" [!] Trance is not installed as an RPM (latest in repo: {cand}).");
-            println!("     -> Install with: sudo dnf install trance");
+            println!(" [!] IdleScreen is not installed as an RPM (latest in repo: {cand}).");
+            println!("     -> Install with: sudo dnf install idlescreen");
         }
         (None, None) => {
-            println!(" [!] Could not find the 'trance' package via RPM/DNF.");
-            println!("     -> Register the repo, then: sudo dnf install trance");
+            println!(" [!] Could not find the 'idlescreen' package via RPM/DNF.");
+            println!("     -> Register the repo, then: sudo dnf install idlescreen");
             println!(
-                "     -> curl -fsSL https://idlescreen.github.io/packages/rpm/crateria.repo \\"
+                "     -> curl -fsSL https://idlescreen.github.io/packages/rpm/idlescreen.repo \\"
             );
-            println!("          | sudo tee /etc/yum.repos.d/crateria.repo");
+            println!("          | sudo tee /etc/yum.repos.d/idlescreen.repo");
         }
     }
     Ok(())
 }
 
 fn apt_policy_versions(pkg: &str) -> Option<(String, String)> {
-    let output = Command::new("apt-cache")
-        .args(["policy", pkg])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
-    let mut installed = None;
-    let mut candidate = None;
-    for line in text.lines() {
+    let out = stdout_trim("apt-cache", &["policy", pkg])?;
+    let mut inst = None;
+    let mut cand = None;
+    for line in out.lines() {
         let line = line.trim();
-        if let Some(s) = line.strip_prefix("Installed:") {
-            installed = Some(s.trim().to_string());
-        } else if let Some(s) = line.strip_prefix("Candidate:") {
-            candidate = Some(s.trim().to_string());
+        if let Some(rest) = line.strip_prefix("Installed:") {
+            inst = Some(rest.trim().to_string());
+        } else if let Some(rest) = line.strip_prefix("Candidate:") {
+            cand = Some(rest.trim().to_string());
         }
     }
-    Some((installed?, candidate?))
+    match (inst, cand) {
+        (Some(i), Some(c)) if i != "(none)" && c != "(none)" => Some((i, c)),
+        (None, Some(c)) if c != "(none)" => Some(("(none)".to_string(), c)),
+        _ => None,
+    }
 }
 
-fn handle_apt_update() -> Result<()> {
-    println!("Checking for updates with APT...");
-
+fn self_update_apt() -> Result<(), Box<dyn std::error::Error>> {
+    println!(" Checking APT package status for '{PKG}'...");
     match apt_policy_versions(PKG) {
         Some((inst, cand)) => {
+            println!(" [✔] Installed version: {inst}");
+            println!(" [✔] Repository version: {cand}");
+
             if inst == "(none)" {
-                println!(" [!] Trance is not installed as a DEB package.");
-                println!("     -> Install with: sudo apt install trance");
-            } else if inst != cand {
-                println!(" [!] A new version is available: {inst} → {cand}");
-                println!("     -> Run: sudo apt update && sudo apt upgrade");
+                println!(" [!] Package is not currently installed.");
+                println!("     -> Run: sudo apt update && sudo apt install idlescreen");
+            } else if !versions_equalish(&inst, &cand) {
+                println!(" [!] Upgrade available: {inst} -> {cand}");
+                println!("     -> Run: sudo apt update && sudo apt install --only-upgrade idlescreen");
             } else {
-                println!(" [✔] Trance is already up to date (version {inst}).");
+                println!(" [✔] IdleScreen is up to date.");
                 println!("     -> Upgrade anytime with: sudo apt update && sudo apt upgrade");
             }
         }
         None => {
             if let Some(inst) = stdout_trim("dpkg-query", &["-W", "-f=${Version}", PKG]) {
                 println!(" [✔] Installed version: {inst}");
-                println!(" [!] Could not read APT candidate (is the crateria repo configured?).");
+                println!(" [!] Could not read APT candidate (is the idlescreen repo configured?).");
                 println!("     -> sudo apt update && sudo apt upgrade");
             } else {
-                println!(" [!] Could not determine package status for 'trance'.");
-                println!("     -> Ensure the crateria APT repo is registered, then:");
-                println!("     -> sudo apt update && sudo apt install trance");
+                println!(" [!] Could not determine package status for 'idlescreen'.");
+                println!("     -> Ensure the idlescreen APT repo is registered, then:");
+                println!("     -> sudo apt update && sudo apt install idlescreen");
             }
         }
     }
