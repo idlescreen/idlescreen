@@ -1,6 +1,6 @@
 [package]
 name = "idle-daemon"
-version = "2.3.4"
+version = "2.3.5"
 edition = "2024"
 description = "IdleScreen background idle daemon (Wayland screensaver host)"
 license = "Apache-2.0"

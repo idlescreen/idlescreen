@@ -42,7 +42,11 @@ pub fn tick_loop_until_shutdown(controller: Arc<DaemonController>) -> anyhow::Re
             .clone();
         let system_idle = idle_monitor.is_idle();
         let session_locked = controller.session_locked.load(Ordering::Relaxed);
-        let inhibited = controller.inhibitors.is_inhibited();
+        let mut inhibited = controller.inhibitors.is_inhibited();
+
+        if is_on_battery() {
+            inhibited = true;
+        }
 
         update_presentation_state(
             &overlay_presenter,
@@ -101,4 +105,42 @@ fn dispatch_tick_commands(
             }
         }
     }
+}
+
+fn is_on_battery() -> bool {
+    let path = std::path::Path::new("/sys/class/power_supply");
+    if let Ok(entries) = std::fs::read_dir(path) {
+        let mut has_ac = false;
+        let mut ac_online = true;
+        let mut battery_discharging = false;
+
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if let Ok(t) = std::fs::read_to_string(p.join("type")) {
+                let type_str = t.trim();
+                if type_str == "Mains" {
+                    has_ac = true;
+                    if let Ok(o) = std::fs::read_to_string(p.join("online")) {
+                        if o.trim() == "0" {
+                            ac_online = false;
+                        } else {
+                            ac_online = true;
+                        }
+                    }
+                } else if type_str == "Battery" {
+                    if let Ok(s) = std::fs::read_to_string(p.join("status")) {
+                        if s.trim() == "Discharging" {
+                            battery_discharging = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // If AC is present but offline, or a battery is discharging, we're on battery
+        if (has_ac && !ac_online) || battery_discharging {
+            return true;
+        }
+    }
+    false
 }
