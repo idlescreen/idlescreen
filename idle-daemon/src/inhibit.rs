@@ -204,22 +204,19 @@ fn check_mpris_playing() -> bool {
             return false;
         };
         for name in names {
-            if name.starts_with("org.mpris.MediaPlayer2.") {
-                if let Ok(prop_reply) = conn.call_method(
+            if name.starts_with("org.mpris.MediaPlayer2.")
+                && let Ok(prop_reply) = conn.call_method(
                     Some(name.as_str()),
                     "/org/mpris/MediaPlayer2",
                     Some("org.freedesktop.DBus.Properties"),
                     "Get",
                     &("org.mpris.MediaPlayer2.Player", "PlaybackStatus"),
-                ) {
-                    if let Ok(val) = prop_reply.body().deserialize::<zbus::zvariant::Value>() {
-                        if let Ok(status) = val.downcast::<String>() {
-                            if status == "Playing" {
-                                return true;
-                            }
-                        }
-                    }
-                }
+                )
+                && let Ok(val) = prop_reply.body().deserialize::<zbus::zvariant::Value>()
+                && let Ok(status) = val.downcast::<String>()
+                && status == "Playing"
+            {
+                return true;
             }
         }
         false
