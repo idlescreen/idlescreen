@@ -3,15 +3,14 @@
 
 pub fn print_usage() {
     println!(
-        "Usage: idle <command> [args]\n\
+        "Usage: idlescreen <command> [args]  (alias: idle <command>)\n\
          \n\
-         Global flags (GNU style):\n\
+         Global flags:\n\
            -h, --help              Show this help\n\
            -V, --version           Print version (same as: version / v)\n\
          \n\
          Commands (short aliases in parentheses):\n\
-           version (v)             Print CLI version (no daemon needed)\n\
-           about                   Version plus short project info\n\
+           tui                     Launch full live TUI interface\n\
            status (st) [--json]    Show daemon state\n\
            enable (on)             Turn idle screensaver on\n\
            disable (off)           Turn idle screensaver off\n\
@@ -30,6 +29,8 @@ pub fn print_usage() {
            bug-report              Sanitized diagnostics for bug reports\n\
            self-update (update)    Check for package updates (apt/dnf)\n\
            interactive (i)         Interactive console panel\n\
+           version (v)             Print CLI version\n\
+           about                   Version plus project info\n\
            help                    Show this help\n\
          \n\
          Note: use --help not -help; use --version not -version.\n"
