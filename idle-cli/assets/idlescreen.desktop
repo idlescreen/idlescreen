@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=IdleScreen
+Comment=High-Performance Ambient Screensavers & Idle Manager for Wayland
+Exec=idlescreen tui
+Icon=idlescreen-beams
+Terminal=true
+Type=Application
+Categories=Utility;System;Settings;
+Keywords=Screensaver;Idle;Wayland;COSMIC;TUI;Ambient;
+StartupNotify=false

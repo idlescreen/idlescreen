@@ -48,6 +48,7 @@ assets = [
     ["target/release/idle", "usr/bin/idle", "755"],
     ["target/release/idlescreen", "usr/bin/idlescreen", "755"],
     ["target/release/trance", "usr/bin/trance", "755"],
+    ["assets/idlescreen.desktop", "usr/share/applications/idlescreen.desktop", "644"],
     ["assets/com.system76.CosmicAppletIdle.desktop", "usr/share/applications/com.system76.CosmicAppletIdle.desktop", "644"],
     ["idle.1", "usr/share/man/man1/idle.1", "644"],
 ]
@@ -63,6 +64,7 @@ assets = [
     { source = "target/release/idle", dest = "/usr/bin/idle", mode = "755", user = "root", group = "root" },
     { source = "target/release/idlescreen", dest = "/usr/bin/idlescreen", mode = "755", user = "root", group = "root" },
     { source = "target/release/trance", dest = "/usr/bin/trance", mode = "755", user = "root", group = "root" },
+    { source = "assets/idlescreen.desktop", dest = "/usr/share/applications/idlescreen.desktop", mode = "644", user = "root", group = "root" },
     { source = "assets/com.system76.CosmicAppletIdle.desktop", dest = "/usr/share/applications/com.system76.CosmicAppletIdle.desktop", mode = "644", user = "root", group = "root" },
     { source = "idle.1", dest = "/usr/share/man/man1/idle.1", mode = "644", user = "root", group = "root" },
 ]
