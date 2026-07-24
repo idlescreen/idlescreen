@@ -137,11 +137,11 @@ fn present_frame(state: &mut FrameLoopState) {
                     0, 0, s.cols, s.rows, s.cols, s.rows, target_w, target_h, scanlines,
                 );
                 apply_fade_in(
-                    &mut pixels,
+                    std::sync::Arc::make_mut(&mut pixels).as_mut_slice(),
                     state.frame_start.duration_since(state.session_start),
                 );
                 maybe_draw_overlays(
-                    &mut pixels,
+                    std::sync::Arc::make_mut(&mut pixels).as_mut_slice(),
                     target_w,
                     target_h,
                     layout.id == state.primary.id,
@@ -191,11 +191,11 @@ fn present_frame(state: &mut FrameLoopState) {
                 scanlines,
             );
             apply_fade_in(
-                &mut pixels,
+                std::sync::Arc::make_mut(&mut pixels).as_mut_slice(),
                 state.frame_start.duration_since(state.session_start),
             );
             maybe_draw_overlays(
-                &mut pixels,
+                std::sync::Arc::make_mut(&mut pixels).as_mut_slice(),
                 target_w,
                 target_h,
                 layout.id == state.primary.id,

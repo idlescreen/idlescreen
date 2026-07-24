@@ -82,8 +82,8 @@ pub(crate) fn apply_config_line(
         return;
     }
 
-    if line.starts_with('[') && line.ends_with(']') {
-        *current_section = line[1..line.len() - 1].to_string();
+    if let Some(stripped) = line.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
+        *current_section = stripped.to_string();
         return;
     }
 
@@ -95,8 +95,8 @@ pub(crate) fn apply_config_line(
 
     if current_section == "saver" {
         config.saver_params.insert(key.to_string(), val.to_string());
-    } else if current_section.starts_with("saver.") {
-        let full_key = format!("{}.{}", &current_section[6..], key);
+    } else if let Some(stripped) = current_section.strip_prefix("saver.") {
+        let full_key = format!("{}.{}", stripped, key);
         config.saver_params.insert(full_key, val.to_string());
     } else {
         apply_config_key(config, key, val);

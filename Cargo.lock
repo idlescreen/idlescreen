@@ -636,7 +636,7 @@ checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
 name = "idle-api"
-version = "2.3.3"
+version = "2.3.4"
 dependencies = [
  "bytemuck",
  "proptest",

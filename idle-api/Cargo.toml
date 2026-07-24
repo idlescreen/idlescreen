@@ -1,6 +1,6 @@
 [package]
 name = "idle-api"
-version = "2.3.3"
+version = "2.3.4"
 edition = "2024"
 description = "Lightweight shared API definitions, traits, and math utilities for terminal screensaver plugins."
 license = "Apache-2.0"
