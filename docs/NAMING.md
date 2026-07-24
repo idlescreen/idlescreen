@@ -6,7 +6,6 @@
 |---------|---------|--------|
 | COSMIC | **`idle-cosmic`** | `idle-daemon` + `idle-savers` + applet |
 | TUI | **`idle-tui`** | `idle-daemon` |
-| Windows | **`idle-windows`** | platform host (stub) |
 | Studio | **`idle-studio`** | offline director (uses `render`) |
 
 Do **not** advertise `dnf install idle` or `dnf install idle-daemon` as the product path.
