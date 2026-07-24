@@ -2,13 +2,13 @@
 
 **IdleScreen** is a modular, high-performance ambient screensaver host and idle management suite designed for Wayland compositors (COSMIC, Hyprland, Sway, GNOME, KDE Plasma).
 
-🌐 **Official Website:** [https://idlescreen.github.io](https://idlescreen.github.io)
+Official Website: [https://idlescreen.github.io](https://idlescreen.github.io)
 
 ---
 
-## ⚡ Quick Install
+## Quick Install
 
-> 📦 **Supported Linux Distributions:** **Arch**, **Debian**, **Fedora**
+**Supported Linux Distributions:** **Arch**, **Debian**, **Fedora**
 
 ```bash
 curl -fsSL https://idlescreen.github.io/packages/install.sh | sh
@@ -16,7 +16,7 @@ curl -fsSL https://idlescreen.github.io/packages/install.sh | sh
 
 ---
 
-## 🎬 Official Screensaver Gallery
+## Official Screensaver Gallery
 
 IdleScreen includes 10 real-time procedural GPU & TUI visual effect modules out of the box:
 
@@ -35,16 +35,16 @@ IdleScreen includes 10 real-time procedural GPU & TUI visual effect modules out 
 
 ---
 
-## ✨ Features & Architecture
+## Features & Architecture
 
-- **⚡ WGPU Low-CPU Engine:** High-performance hardware acceleration with fallback software rasterization for terminal & headless hosts.
-- **🪐 COSMIC DE Panel Applet:** Native System76 COSMIC desktop integration with 1-click status control.
-- **📺 Universal Terminal Host:** Interactive TUI (`idlescreen tui`) for terminal power users.
-- **🔋 Smart Power Management:** Automatic battery state detection and media playback inhibit listeners.
+- **WGPU Low-CPU Engine:** High-performance hardware acceleration with fallback software rasterization for terminal & headless hosts.
+- **COSMIC DE Panel Applet:** Native System76 COSMIC desktop integration with 1-click status control.
+- **Universal Terminal Host:** Interactive TUI (`idlescreen tui`) for terminal power users.
+- **Smart Power Management:** Automatic battery state detection and media playback inhibit listeners.
 
 ---
 
-## 🛠️ Manual Package Installation
+## Manual Package Installation
 
 If you prefer to manually configure your Linux package manager:
 
@@ -94,7 +94,7 @@ sudo dnf install idlescreen
 
 ---
 
-## 💻 CLI Commands
+## CLI Commands
 
 Control IdleScreen from your terminal using `idlescreen` (or short alias `idle`):
 
@@ -110,7 +110,7 @@ idlescreen doctor         # Run system health and Wayland diagnostic check
 
 ---
 
-## 📺 Terminal UI (`idlescreen tui`)
+## Terminal UI (`idlescreen tui`)
 
 Launch the live interactive dashboard in any terminal window:
 
@@ -130,7 +130,7 @@ idlescreen tui
 
 ---
 
-## 🔗 Links
+## Links
 
 - **Official Website:** [https://idlescreen.github.io](https://idlescreen.github.io)
 - **GitHub Organization:** [github.com/idlescreen](https://github.com/idlescreen)
