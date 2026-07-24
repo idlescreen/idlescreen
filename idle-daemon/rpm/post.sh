@@ -77,7 +77,7 @@ else
     }
     print_user_hint() {
         echo "  First-time: systemctl --user enable --now idle-daemon"
-        echo "  or: idle doctor --fix"
+        echo "  or: idlescreen doctor --fix"
     }
 fi
 

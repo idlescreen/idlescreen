@@ -61,21 +61,21 @@ else
         fi
         systemctl --user --machine="${_user}@" is-active idle-daemon.service >/dev/null 2>&1
     }
-    try_restart_trance() {
+    try_restart_idle() {
         _user_systemctl "$1" "$2" daemon-reload || true
         _user_systemctl "$1" "$2" reset-failed idle-daemon.service || true
         if _user_is_enabled "$1" "$2"; then
-            echo "trance: applying upgrade for $2 (user service)"
+            echo "idle: applying upgrade for $2 (user service)"
             _user_systemctl "$1" "$2" restart idle-daemon.service || true
             return 0
         fi
         if _user_is_active "$1" "$2"; then
-            echo "trance: applying upgrade for $2 (running unit)"
+            echo "idle: applying upgrade for $2 (running unit)"
             _user_systemctl "$1" "$2" try-restart idle-daemon.service || true
         fi
     }
 fi
 
-# Reuse try_restart_trance from the lib (same behavior as %post).
-for_each_user_session try_restart_trance
+# Reuse try_restart_idle from the lib (same behavior as %post).
+for_each_user_session try_restart_idle
 exit 0
