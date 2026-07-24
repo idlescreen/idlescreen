@@ -16,9 +16,37 @@ curl -fsSL https://idlescreen.github.io/packages/install.sh | sh
 
 ---
 
-## 🛠️ Manual Installation by OS
+## 🎬 Official Screensaver Gallery
 
-If you prefer to manually configure your package manager:
+IdleScreen includes 10 real-time procedural GPU & TUI visual effect modules out of the box:
+
+| Module | Description | Preview Command | Video Preview |
+|--------|-------------|-----------------|---------------|
+| **Beams** | Vector laser particle beams crossing in space | `idlescreen preview beams` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/beams.mp4" width="280"></video> |
+| **Cosmos** | Deep space starfield & nebula warp simulation | `idlescreen preview cosmos` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/cosmos.mp4" width="280"></video> |
+| **Bursts** | Supernova geometry & shockwave physics | `idlescreen preview bursts` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/bursts.mp4" width="280"></video> |
+| **Storm** | Particle storm with lightning displacement | `idlescreen preview storm` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/storm.mp4" width="280"></video> |
+| **Chaos** | Mathematical attractor chaos fractals | `idlescreen preview chaos` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/chaos.mp4" width="280"></video> |
+| **Hearth** | Warm ambient embers & fire simulation | `idlescreen preview hearth` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/hearth.mp4" width="280"></video> |
+| **Ripple** | Fluid wave dynamics & caustics | `idlescreen preview ripple` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/ripple.mp4" width="280"></video> |
+| **Radar** | Polar sonar sweep radar tracking | `idlescreen preview radar` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/radar.mp4" width="280"></video> |
+| **Glyphs** | Digital matrix stream character cascade | `idlescreen preview glyphs` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/glyphs.mp4" width="280"></video> |
+| **Gnats** | Swarming autonomous agent behavior | `idlescreen preview gnats` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/gnats.mp4" width="280"></video> |
+
+---
+
+## ✨ Features & Architecture
+
+- **⚡ WGPU Low-CPU Engine:** High-performance hardware acceleration with fallback software rasterization for terminal & headless hosts.
+- **🪐 COSMIC DE Panel Applet:** Native System76 COSMIC desktop integration with 1-click status control.
+- **📺 Universal Terminal Host:** Interactive TUI (`idlescreen tui`) for terminal power users.
+- **🔋 Smart Power Management:** Automatic battery state detection and media playback inhibit listeners.
+
+---
+
+## 🛠️ Manual Package Installation
+
+If you prefer to manually configure your Linux package manager:
 
 <details>
 <summary><b>Arch Linux (`makepkg`)</b></summary>
@@ -99,25 +127,6 @@ idlescreen tui
 | `Enter` | Trigger screensaver immediately |
 | `c` | 1-Click install COSMIC DE panel applet (COSMIC DE only) |
 | `q` | Quit TUI |
-
----
-
-## 🎬 Screensaver Modules
-
-IdleScreen includes 10 GPU & TUI screensaver modules out of the box:
-
-| Module | Description | Preview Command | Video Preview |
-|--------|-------------|-----------------|---------------|
-| **Beams** | Vector laser particle beams crossing in space | `idlescreen preview beams` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/beams.mp4" width="280"></video> |
-| **Cosmos** | Deep space starfield & nebula warp simulation | `idlescreen preview cosmos` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/cosmos.mp4" width="280"></video> |
-| **Bursts** | Supernova geometry & shockwave physics | `idlescreen preview bursts` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/bursts.mp4" width="280"></video> |
-| **Storm** | Particle storm with lightning displacement | `idlescreen preview storm` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/storm.mp4" width="280"></video> |
-| **Chaos** | Mathematical attractor chaos fractals | `idlescreen preview chaos` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/chaos.mp4" width="280"></video> |
-| **Hearth** | Warm ambient embers & fire simulation | `idlescreen preview hearth` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/hearth.mp4" width="280"></video> |
-| **Ripple** | Fluid wave dynamics & caustics | `idlescreen preview ripple` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/ripple.mp4" width="280"></video> |
-| **Radar** | Polar sonar sweep radar tracking | `idlescreen preview radar` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/radar.mp4" width="280"></video> |
-| **Glyphs** | Digital matrix stream character cascade | `idlescreen preview glyphs` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/glyphs.mp4" width="280"></video> |
-| **Gnats** | Swarming autonomous agent behavior | `idlescreen preview gnats` | <video autoplay loop muted playsinline src="https://idlescreen.github.io/assets/videos/gnats.mp4" width="280"></video> |
 
 ---
 
