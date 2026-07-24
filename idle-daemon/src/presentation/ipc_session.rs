@@ -31,6 +31,8 @@ pub struct IpcPluginSession {
     pub(crate) shm: Option<SharedMemory>,
     pub(crate) socket_path: Option<PathBuf>,
     pub(crate) expected_stop: Arc<AtomicBool>,
+    /// When true, an unexpected child exit may arm the failsafe locker once.
+    pub(crate) failsafe_armed: Arc<AtomicBool>,
 }
 
 impl IpcPluginSession {
@@ -60,6 +62,7 @@ impl IpcPluginSession {
             shm: None,
             socket_path: None,
             expected_stop: Arc::new(AtomicBool::new(false)),
+            failsafe_armed: Arc::new(AtomicBool::new(true)),
         })
     }
 
@@ -89,14 +92,16 @@ impl IpcPluginSession {
     }
 
     pub fn init(&mut self, cols: usize, rows: usize) -> Result<(), String> {
-        self.grid = vec![TerminalCell::default(); cols * rows];
+        let cells = cols
+            .checked_mul(rows)
+            .ok_or_else(|| format!("grid size overflow: {cols}x{rows}"))?;
+        self.grid = vec![TerminalCell::default(); cells];
         let init_res = initialize_ipc_session(
             &self.saver_name,
             cols,
             rows,
             self.gpu_enabled,
             self.render_scale,
-            self.expected_stop.clone(),
         )?;
 
         self.child = Some(init_res.child);
@@ -138,14 +143,22 @@ impl IpcPluginSession {
             match IpcResponse::read_from(&mut *socket) {
                 Ok(IpcResponse::FrameReady { scanlines }) => {
                     if let Some(ref shm) = self.shm {
+                        // SAFETY: SHM mapped for session lifetime; dims set at init.
                         match unsafe { shm.cells_mut() } {
                             Ok(cells) => {
-                                if self.grid.len() != grid_cols * grid_rows {
-                                    self.grid =
-                                        vec![TerminalCell::default(); grid_cols * grid_rows];
+                                if let Some(need) = grid_cols.checked_mul(grid_rows) {
+                                    if self.grid.len() != need {
+                                        self.grid = vec![TerminalCell::default(); need];
+                                    }
+                                } else {
+                                    tracing::error!(
+                                        "grid resize overflow: {grid_cols}x{grid_rows}"
+                                    );
+                                    return false;
                                 }
-                                for (i, cell) in cells.iter().take(self.grid.len()).enumerate() {
-                                    self.grid[i] = TerminalCell::from(*cell);
+                                // Zip avoids bounds checks on the destination grid.
+                                for (dst, src) in self.grid.iter_mut().zip(cells.iter()) {
+                                    *dst = TerminalCell::from(*src);
                                 }
                             }
                             Err(e) => {

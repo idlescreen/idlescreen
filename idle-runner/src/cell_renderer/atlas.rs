@@ -24,13 +24,14 @@ impl CellRenderer {
     }
 
     pub fn get_or_insert_atlas_char(&mut self, ch: char) -> usize {
-        if let Some(pos) = self.atlas_chars.iter().position(|&c| c == ch) {
-            pos
-        } else {
-            self.atlas_chars.push(ch);
-            self.atlas_dirty = true;
-            self.atlas_chars.len() - 1
+        if let Some(&pos) = self.atlas_index.get(&ch) {
+            return pos as usize;
         }
+        let pos = self.atlas_chars.len() as u32;
+        self.atlas_chars.push(ch);
+        self.atlas_index.insert(ch, pos);
+        self.atlas_dirty = true;
+        pos as usize
     }
 
     pub fn rebuild_atlas_image(&mut self) {
@@ -48,8 +49,10 @@ impl CellRenderer {
         self.atlas_image.resize(atlas_w * atlas_h, 0);
         self.atlas_image.fill(0);
 
-        let chars = self.atlas_chars.clone();
-        for (idx, ch) in chars.into_iter().enumerate() {
+        // Index by position so we never clone `atlas_chars` (glyph_for needs &mut self).
+        let char_count = self.atlas_chars.len();
+        for idx in 0..char_count {
+            let ch = self.atlas_chars[idx];
             let (metrics, bitmap) = self.glyph_for(ch);
             let col = idx % self.atlas_cols;
             let row = idx / self.atlas_cols;

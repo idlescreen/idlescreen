@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/shm.rs
++++ replace < with <= in SharedMemory::create
+@@ -44,17 +44,17 @@
+         // SAFETY: O_CREAT|O_EXCL|O_RDWR with mode 0600 on a validated name.
+         let fd = unsafe {
+             libc::shm_open(
+                 c_name.as_ptr(),
+                 libc::O_CREAT | libc::O_RDWR | libc::O_EXCL,
+                 0o600,
+             )
+         };
+-        if fd < 0 {
++        if fd <= /* ~ changed by cargo-mutants ~ */ 0 {
+             return Err(format!(
+                 "shm_open (create) failed: {}",
+                 std::io::Error::last_os_error()
+             ));
+         }
+ 
+         // SAFETY: `fd` is open; size fits in off_t (capped at 64 MiB above).
+         if unsafe { libc::ftruncate(fd, size as libc::off_t) } < 0 {

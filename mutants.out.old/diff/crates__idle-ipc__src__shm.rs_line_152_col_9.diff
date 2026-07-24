@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/shm.rs
++++ replace SharedMemory::ptr -> *mut libc::c_void with Default::default()
+@@ -144,17 +144,17 @@
+         })
+     }
+ 
+     pub fn fd(&self) -> libc::c_int {
+         self.fd
+     }
+ 
+     pub fn ptr(&self) -> *mut libc::c_void {
+-        self.ptr
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn size(&self) -> usize {
+         self.size
+     }
+ 
+     pub fn name(&self) -> &str {
+         &self.name

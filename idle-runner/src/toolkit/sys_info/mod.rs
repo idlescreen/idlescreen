@@ -33,15 +33,70 @@ pub use monitors::{
 pub use theme::{SystemTheme, query_current_palette, query_dark_mode, query_system_theme};
 
 use std::sync::RwLock;
+use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind};
 
 static SYSTEM_INFO_CACHE: OnceLock<RwLock<(Option<SystemInfo>, Instant)>> = OnceLock::new();
 static SYSTEM_OBJECT: OnceLock<Mutex<sysinfo::System>> = OnceLock::new();
+/// Host identity strings that do not change while the process is running.
+static STATIC_HOST: OnceLock<StaticHostInfo> = OnceLock::new();
+
+struct StaticHostInfo {
+    os: String,
+    logo_text: String,
+    kernel: String,
+    hostname: String,
+    cpu: String,
+    gpus: String,
+    monitors: String,
+}
 
 fn get_system() -> std::sync::MutexGuard<'static, sysinfo::System> {
     SYSTEM_OBJECT
-        .get_or_init(|| Mutex::new(sysinfo::System::new_all()))
+        .get_or_init(|| {
+            // Only memory + CPU — skip process/disk/component scans on construct.
+            let kind = RefreshKind::nothing()
+                .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
+                .with_memory(MemoryRefreshKind::everything());
+            Mutex::new(sysinfo::System::new_with_specifics(kind))
+        })
         .lock()
         .unwrap_or_else(|e| e.into_inner())
+}
+
+fn static_host() -> &'static StaticHostInfo {
+    STATIC_HOST.get_or_init(|| {
+        let mut sys = get_system();
+        // One-shot CPU list read for brand string.
+        sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
+        let os = sysinfo::System::long_os_version().unwrap_or_else(|| "Linux".to_string());
+        let kernel = sysinfo::System::kernel_version().unwrap_or_else(|| "unknown".to_string());
+        let kernel_short = kernel.split('-').next().unwrap_or(&kernel);
+        let logo_text = format!("Linux {}", kernel_short);
+        let hostname = sysinfo::System::host_name().unwrap_or_else(|| "localhost".to_string());
+        let cpu = sys
+            .cpus()
+            .first()
+            .map(|c| c.brand().to_string())
+            .unwrap_or_else(|| "CPU".to_string());
+        let gpus = {
+            let joined = query_gpu_names().join(", ");
+            if joined.is_empty() {
+                "GPU(s)".to_string()
+            } else {
+                joined
+            }
+        };
+        let monitors = format!("{} monitor(s)", linux_query_all_monitors().len());
+        StaticHostInfo {
+            os,
+            logo_text,
+            kernel,
+            hostname,
+            cpu,
+            gpus,
+            monitors,
+        }
+    })
 }
 
 /// Returns rich live system info. Cross-platform. Cached for 3 seconds.
@@ -60,25 +115,18 @@ pub fn get_system_info() -> SystemInfo {
         return val.clone();
     }
     let val = get_system_info_raw();
+    // Store then clone once for the caller (avoids clone-then-store double clone).
     cache.0 = Some(val.clone());
     cache.1 = Instant::now();
     val
 }
 
 fn get_system_info_raw() -> SystemInfo {
+    let host = static_host();
     let mut sys = get_system();
-    sys.refresh_all();
-
-    let os = sysinfo::System::long_os_version().unwrap_or_else(|| "Linux".to_string());
-    let kernel = sysinfo::System::kernel_version().unwrap_or_else(|| "unknown".to_string());
-    let kernel_short = kernel.split('-').next().unwrap_or(&kernel);
-    let logo_text = format!("Linux {}", kernel_short);
-    let hostname = sysinfo::System::host_name().unwrap_or_else(|| "localhost".to_string());
-    let cpu = sys
-        .cpus()
-        .first()
-        .map(|c| c.brand().to_string())
-        .unwrap_or_else(|| "CPU".to_string());
+    // Selective refresh: processes/components are unused by SystemInfo.
+    sys.refresh_memory();
+    sys.refresh_cpu_usage();
 
     let total = sys.total_memory();
     let available = sys.available_memory();
@@ -106,20 +154,13 @@ fn get_system_info_raw() -> SystemInfo {
     } else {
         "disks".to_string()
     };
-    let gpus = query_gpu_names().join(", ");
-    let gpus = if gpus.is_empty() {
-        "GPU(s)".to_string()
-    } else {
-        gpus
-    };
-    let monitors = format!("{} monitor(s)", linux_query_all_monitors().len());
 
     SystemInfo {
-        os,
-        logo_text,
-        kernel,
-        hostname,
-        cpu,
+        os: host.os.clone(),
+        logo_text: host.logo_text.clone(),
+        kernel: host.kernel.clone(),
+        hostname: host.hostname.clone(),
+        cpu: host.cpu.clone(),
         uptime_secs,
         mem_used_mb,
         mem_total_mb,
@@ -127,8 +168,8 @@ fn get_system_info_raw() -> SystemInfo {
         cpu_usage_pct,
         power_status,
         disk_summary,
-        gpus,
-        monitors,
+        gpus: host.gpus.clone(),
+        monitors: host.monitors.clone(),
     }
 }
 
@@ -149,4 +190,18 @@ pub fn query_local_ip() -> Option<String> {
     let socket = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
     socket.connect("8.8.8.8:80").ok()?;
     socket.local_addr().ok().map(|addr| addr.ip().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_system_info_is_stable_and_cached() {
+        let a = get_system_info();
+        let b = get_system_info();
+        assert_eq!(a.hostname, b.hostname);
+        assert_eq!(a.os, b.os);
+        assert!(!a.cpu.is_empty());
+    }
 }

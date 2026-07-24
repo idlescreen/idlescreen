@@ -83,14 +83,20 @@ impl PluginSession {
     pub fn init(&mut self, cols: usize, rows: usize) {
         self.simulation_cols = cols;
         self.simulation_rows = rows;
-        self.grid = vec![TerminalCell::default(); cols * rows];
+        let cells = cols.checked_mul(rows).unwrap_or(0);
+        self.grid = vec![TerminalCell::default(); cells];
         if let Some(plugin) = self.plugin.as_mut() {
             plugin.saver_mut().init(cols, rows);
         }
     }
 
     pub fn set_simulation_rate(&mut self, fps: f32) {
-        let hz = fps.max(30.0);
+        // Finite, bounded Hz only — NaN/inf must not yield zero-duration busy loops.
+        let hz = if fps.is_finite() {
+            fps.clamp(30.0, 240.0)
+        } else {
+            30.0
+        };
         self.physics_duration = Duration::from_secs_f32(1.0 / hz);
     }
 

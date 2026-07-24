@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/shm.rs
++++ delete ! in <impl Drop for SharedMemory>::drop
+@@ -215,17 +215,17 @@
+     }
+ }
+ 
+ impl Drop for SharedMemory {
+     fn drop(&mut self) {
+         // SAFETY: reverse of create/open — unmap, close fd, unlink if we own the name.
+         // Null/`MAP_FAILED` and fd < 0 guard against double-free after partial init.
+         unsafe {
+-            if !self.ptr.is_null() && self.ptr != libc::MAP_FAILED {
++            if  /* ~ changed by cargo-mutants ~ */self.ptr.is_null() && self.ptr != libc::MAP_FAILED {
+                 libc::munmap(self.ptr, self.size);
+                 self.ptr = ptr::null_mut();
+             }
+             if self.fd >= 0 {
+                 libc::close(self.fd);
+                 self.fd = -1;
+             }
+             if self.is_owner

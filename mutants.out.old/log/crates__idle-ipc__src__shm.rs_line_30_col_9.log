@@ -1,0 +1,177 @@
+
+*** crates/idle-ipc/src/shm.rs:30:9: replace SharedMemory::create -> Result<Self, String> with Ok(Default::default())
+
+*** mutation diff:
+--- crates/idle-ipc/src/shm.rs
++++ replace SharedMemory::create -> Result<Self, String> with Ok(Default::default())
+@@ -22,84 +22,17 @@
+ 
+ // SAFETY: `SharedMemory` is the exclusive owner of the fd and mapped pages.
+ // Moving across threads transfers that ownership; concurrent access to the
+ // mapping is a protocol concern (single writer per field), not a Send concern.
+ unsafe impl Send for SharedMemory {}
+ 
+ impl SharedMemory {
+     pub fn create(name: &str, size: usize) -> Result<Self, String> {
+-        if !is_valid_shm_name(name) {
+-            return Err(format!("invalid shm name: {name}"));
+-        }
+-        if size < std::mem::size_of::<SharedMemoryHeader>() || size > 64 * 1024 * 1024 {
+-            return Err(format!("shm size out of range: {size}"));
+-        }
+-        let c_name = CString::new(name).map_err(|e| e.to_string())?;
+-
+-        // Named POSIX SHM only: the IPC child re-opens by name (`SharedMemory::open`).
+-        // O_EXCL + 0600: refuse squatters and keep the object owner-private.
+-        // SAFETY: `c_name` is a valid CString; unlink best-effort for stale objects.
+-        unsafe {
+-            libc::shm_unlink(c_name.as_ptr());
+-        }
+-        // SAFETY: O_CREAT|O_EXCL|O_RDWR with mode 0600 on a validated name.
+-        let fd = unsafe {
+-            libc::shm_open(
+-                c_name.as_ptr(),
+-                libc::O_CREAT | libc::O_RDWR | libc::O_EXCL,
+-                0o600,
+-            )
+-        };
+-        if fd < 0 {
+-            return Err(format!(
+-                "shm_open (create) failed: {}",
+-                std::io::Error::last_os_error()
+-            ));
+-        }
+-
+-        // SAFETY: `fd` is open; size fits in off_t (capped at 64 MiB above).
+-        if unsafe { libc::ftruncate(fd, size as libc::off_t) } < 0 {
+-            let err = std::io::Error::last_os_error();
+-            // SAFETY: clean up partially created object on size failure.
+-            unsafe {
+-                libc::close(fd);
+-                libc::shm_unlink(c_name.as_ptr());
+-            }
+-            return Err(format!("ftruncate failed: {err}"));
+-        }
+-
+-        // SAFETY: MAP_SHARED over the full sized object; fail closed on MAP_FAILED.
+-        let ptr = unsafe {
+-            libc::mmap(
+-                ptr::null_mut(),
+-                size,
+-                libc::PROT_READ | libc::PROT_WRITE,
+-                libc::MAP_SHARED,
+-                fd,
+-                0,
+-            )
+-        };
+-        if ptr == libc::MAP_FAILED {
+-            let err = std::io::Error::last_os_error();
+-            // SAFETY: release fd + name if mapping failed.
+-            unsafe {
+-                libc::close(fd);
+-                libc::shm_unlink(c_name.as_ptr());
+-            }
+-            return Err(format!("mmap failed: {err}"));
+-        }
+-
+-        Ok(Self {
+-            name: name.to_string(),
+-            fd,
+-            ptr,
+-            size,
+-            is_owner: true,
+-        })
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn open(name: &str, size: usize) -> Result<Self, String> {
+         if !is_valid_shm_name(name) {
+             return Err(format!("invalid shm name: {name}"));
+         }
+         if size < std::mem::size_of::<SharedMemoryHeader>() || size > 64 * 1024 * 1024 {
+             return Err(format!("shm size out of range: {size}"));
+
+
+*** /home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/cargo test --no-run --verbose --package=idle-ipc@0.4.0
+warning: /tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/idle-daemon/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/idle-daemon/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle-daemon`
+  * `bin` target `idlescreen-daemon`
+  * `bin` target `trance-daemon`
+warning: /tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/idle-cli/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/idle-cli/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle`
+  * `bin` target `idlescreen`
+  * `bin` target `trance`
+       Fresh libc v0.2.188
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.24
+       Fresh linux-raw-sys v0.12.1
+       Fresh autocfg v1.5.1
+       Fresh bitflags v2.13.1
+       Fresh fastrand v2.5.0
+       Fresh once_cell v1.21.4
+       Fresh wait-timeout v0.2.1
+       Fresh bit-vec v0.8.0
+       Fresh fnv v1.0.7
+       Fresh quick-error v1.2.3
+       Fresh bit-set v0.8.0
+       Fresh regex-syntax v0.8.11
+       Fresh unarray v0.1.4
+       Fresh proc-macro2 v1.0.107
+       Fresh getrandom v0.3.4
+       Fresh getrandom v0.4.3
+       Fresh zerocopy v0.8.55
+       Fresh rustix v1.1.4
+       Fresh quote v1.0.47
+       Fresh rand_core v0.9.5
+       Fresh ppv-lite86 v0.2.21
+       Fresh tempfile v3.27.0
+       Fresh num-traits v0.2.19
+       Fresh syn v2.0.119
+       Fresh rand v0.9.5
+       Fresh rusty-fork v0.3.1
+       Fresh rand_xorshift v0.4.0
+       Fresh rand_chacha v0.9.0
+       Fresh bytemuck_derive v1.11.0
+       Fresh proptest v1.11.0
+       Fresh bytemuck v1.25.2
+       Fresh idle-api v2.3.1 (/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/idle-api)
+       Dirty idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/crates/idle-ipc): the file `crates/idle-ipc/src/protocol.rs` has changed (1784876812.029655674s, 1s after last build at 1784876811.606650809s)
+   Compiling idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/crates/idle-ipc)
+     Running `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a0b8bba603035d0f -C extra-filename=-dbadf11ecf5c7d57 --out-dir /tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rlib --extern libc=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rlib --extern proptest=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps/libproptest-b92098e6fc18f2e8.rlib`
+     Running `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=f6298ca08a0d4778 -C extra-filename=-72a23dfc47ffc5d4 --out-dir /tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rmeta --extern libc=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rmeta`
+error[E0277]: the trait bound `SharedMemory: Default` is not satisfied
+  --> crates/idle-ipc/src/shm.rs:30:12
+   |
+30 |         Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+   |            ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `SharedMemory`
+   |
+help: consider annotating `SharedMemory` with `#[derive(Default)]`
+   |
+15 + #[derive(Default)]
+16 | pub struct SharedMemory {
+   |
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `idle-ipc` (lib) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=f6298ca08a0d4778 -C extra-filename=-72a23dfc47ffc5d4 --out-dir /tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rmeta --extern libc=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rmeta` (exit status: 1)
+warning: build failed, waiting for other jobs to finish...
+error[E0277]: the trait bound `shm::SharedMemory: Default` is not satisfied
+  --> crates/idle-ipc/src/shm.rs:30:12
+   |
+30 |         Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+   |            ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `shm::SharedMemory`
+   |
+help: consider annotating `shm::SharedMemory` with `#[derive(Default)]`
+   |
+15 + #[derive(Default)]
+16 | pub struct SharedMemory {
+   |
+
+error: could not compile `idle-ipc` (lib test) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a0b8bba603035d0f -C extra-filename=-dbadf11ecf5c7d57 --out-dir /tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rlib --extern libc=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rlib --extern proptest=/tmp/cargo-mutants-idle-audit-graph-6xGlHu.tmp/target/debug/deps/libproptest-b92098e6fc18f2e8.rlib` (exit status: 1)
+
+*** result: Failure(101)

@@ -13,32 +13,25 @@ impl DaemonController {
         preview_active: bool,
         current_saver: &str,
     ) {
-        // Snapshot config once per tick (avoids double lock+clone in dirty/copy).
+        // Lock order: config → inhibitors/logind → status (never hold status
+        // across `is_inhibited()`, which may block on system D-Bus).
         let config = self
             .config
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone();
+        let session_locked = self.session_locked.load(Ordering::Relaxed);
+        let inhibited = self.inhibitors.is_inhibited();
         let mut status = self.status.lock().unwrap_or_else(|e| e.into_inner());
-        let changed = Self::compute_dirty_fields(
+        let changed = Self::apply_live_fields(
             &mut status,
             &config,
             system_idle,
             presentation_active,
             preview_active,
             current_saver,
-            self.session_locked.load(Ordering::Relaxed),
-            self.inhibitors.is_inhibited(),
-        );
-        Self::copy_live_fields(
-            &mut status,
-            &config,
-            system_idle,
-            presentation_active,
-            preview_active,
-            current_saver,
-            self.session_locked.load(Ordering::Relaxed),
-            self.inhibitors.is_inhibited(),
+            session_locked,
+            inhibited,
         );
         if changed {
             self.status_dirty.store(true, Ordering::Relaxed);
@@ -64,8 +57,9 @@ impl DaemonController {
         }
     }
 
+    /// Update live fields in place; only allocate strings when values change.
     #[allow(clippy::fn_params_excessive_bools)]
-    fn compute_dirty_fields(
+    fn apply_live_fields(
         status: &mut idle_dbus::DaemonStatus,
         config: &crate::config::DaemonConfig,
         system_idle: bool,
@@ -75,59 +69,92 @@ impl DaemonController {
         session_locked: bool,
         inhibited: bool,
     ) -> bool {
-        let active_saver = config.active_saver.as_deref().unwrap_or("");
-        let render_scale = config
-            .render_scale
-            .map(|s| s.to_string())
-            .unwrap_or_default();
+        let mut changed = false;
 
-        status.system_idle != system_idle
-            || status.presentation_active != presentation_active
-            || status.preview_active != preview_active
-            || status.session_locked != session_locked
-            || status.inhibited != inhibited
-            || status.idle_enabled != config.idle_enabled
-            || status.idle_timeout_mins != config.idle_timeout_mins
-            || status.active_saver != active_saver
-            || {
-                #[allow(deprecated)]
-                let gpu_diff = status.gpu_enabled != config.gpu_enabled;
-                gpu_diff
-            }
-            || status.show_fps_overlay != config.show_fps_overlay
-            || status.render_scale != render_scale
-            || status.current_saver != current_saver
-    }
+        macro_rules! set_bool {
+            ($field:ident, $val:expr) => {
+                if status.$field != $val {
+                    status.$field = $val;
+                    changed = true;
+                }
+            };
+        }
 
-    #[allow(clippy::fn_params_excessive_bools)]
-    fn copy_live_fields(
-        status: &mut idle_dbus::DaemonStatus,
-        config: &crate::config::DaemonConfig,
-        system_idle: bool,
-        presentation_active: bool,
-        preview_active: bool,
-        current_saver: &str,
-        session_locked: bool,
-        inhibited: bool,
-    ) {
         status.running = true;
-        status.system_idle = system_idle;
-        status.presentation_active = presentation_active;
-        status.preview_active = preview_active;
-        status.session_locked = session_locked;
-        status.inhibited = inhibited;
-        status.idle_enabled = config.idle_enabled;
-        status.idle_timeout_mins = config.idle_timeout_mins;
-        status.active_saver = config.active_saver.clone().unwrap_or_default();
+        set_bool!(system_idle, system_idle);
+        set_bool!(presentation_active, presentation_active);
+        set_bool!(preview_active, preview_active);
+        set_bool!(session_locked, session_locked);
+        set_bool!(inhibited, inhibited);
+        set_bool!(idle_enabled, config.idle_enabled);
+        set_bool!(show_fps_overlay, config.show_fps_overlay);
+
+        if status.idle_timeout_mins != config.idle_timeout_mins {
+            status.idle_timeout_mins = config.idle_timeout_mins;
+            changed = true;
+        }
+
         #[allow(deprecated)]
         {
-            status.gpu_enabled = config.gpu_enabled;
+            if status.gpu_enabled != config.gpu_enabled {
+                status.gpu_enabled = config.gpu_enabled;
+                changed = true;
+            }
         }
-        status.show_fps_overlay = config.show_fps_overlay;
-        status.render_scale = config
-            .render_scale
-            .map(|s| s.to_string())
-            .unwrap_or_default();
-        status.current_saver = current_saver.to_string();
+
+        let active_saver = config.active_saver.as_deref().unwrap_or("");
+        if status.active_saver != active_saver {
+            status.active_saver.clear();
+            status.active_saver.push_str(active_saver);
+            changed = true;
+        }
+
+        if status.current_saver != current_saver {
+            status.current_saver.clear();
+            status.current_saver.push_str(current_saver);
+            changed = true;
+        }
+
+        // Format render_scale only when the displayed value would change.
+        match config.render_scale {
+            None => {
+                if !status.render_scale.is_empty() {
+                    status.render_scale.clear();
+                    changed = true;
+                }
+            }
+            Some(scale) => {
+                if !render_scale_matches(&status.render_scale, scale) {
+                    status.render_scale.clear();
+                    use std::fmt::Write;
+                    let _ = write!(&mut status.render_scale, "{scale}");
+                    changed = true;
+                }
+            }
+        }
+
+        changed
+    }
+}
+
+/// True when `existing` is the Display form of `scale` (avoids alloc on steady state).
+fn render_scale_matches(existing: &str, scale: f32) -> bool {
+    // Fast path: parse existing and compare with a small epsilon.
+    match existing.parse::<f32>() {
+        Ok(v) => (v - scale).abs() <= f32::EPSILON * 8.0,
+        Err(_) => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::render_scale_matches;
+
+    #[test]
+    fn render_scale_matches_accepts_same_value() {
+        assert!(render_scale_matches("0.5", 0.5));
+        assert!(render_scale_matches("1", 1.0));
+        assert!(!render_scale_matches("0.5", 1.0));
+        assert!(!render_scale_matches("", 0.5));
     }
 }

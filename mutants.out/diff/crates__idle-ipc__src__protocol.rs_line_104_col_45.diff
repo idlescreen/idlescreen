@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/protocol.rs
++++ replace != with == in IpcResponse::read_from
+@@ -96,17 +96,17 @@
+         let mut tag = [0u8; 1];
+         reader.read_exact(&mut tag)?;
+         match tag[0] {
+             0 => Ok(IpcResponse::Ready),
+             1 => {
+                 let mut scan_byte = [0u8; 1];
+                 reader.read_exact(&mut scan_byte)?;
+                 Ok(IpcResponse::FrameReady {
+-                    scanlines: scan_byte[0] != 0,
++                    scanlines: scan_byte[0] == /* ~ changed by cargo-mutants ~ */ 0,
+                 })
+             }
+             2 => Ok(IpcResponse::Ack),
+             _ => Err(std::io::Error::new(
+                 std::io::ErrorKind::InvalidData,
+                 "invalid response tag",
+             )),
+         }

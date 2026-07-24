@@ -27,6 +27,7 @@ pub mod discovery;
 pub mod fps_overlay;
 pub mod idle_runner;
 pub mod launcher;
+mod launcher_resolve;
 mod launcher_trust;
 pub mod plugin_session;
 pub mod sandbox;

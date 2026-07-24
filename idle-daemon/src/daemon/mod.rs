@@ -68,6 +68,7 @@ fn acquire_pidfile() -> anyhow::Result<Option<std::path::PathBuf>> {
         .ok()
         .and_then(|s| s.trim().parse::<i32>().ok())
     {
+        // SAFETY: signal 0 only probes existence; no signal is delivered.
         unsafe {
             if libc::kill(pid, 0) == 0 && pid != std::process::id() as i32 {
                 tracing::warn!("idle-daemon is already running (pid {pid}). Exiting.");

@@ -1,6 +1,6 @@
 [package]
 name = "idle-runner"
-version = "2.3.1"
+version = "2.3.2"
 edition = "2024"
 description = "Shared runner logic for the terminal screensavers"
 license = "Apache-2.0"

@@ -1,0 +1,14 @@
+crates/idle-ipc/src/shm.rs:48:46: replace | with ^ in SharedMemory::create
+crates/idle-ipc/src/shm.rs:48:31: replace | with ^ in SharedMemory::create
+crates/idle-ipc/src/shm.rs:52:15: replace < with == in SharedMemory::create
+crates/idle-ipc/src/shm.rs:52:15: replace < with <= in SharedMemory::create
+crates/idle-ipc/src/shm.rs:60:64: replace < with > in SharedMemory::create
+crates/idle-ipc/src/shm.rs:75:33: replace | with ^ in SharedMemory::create
+crates/idle-ipc/src/shm.rs:111:15: replace < with == in SharedMemory::open
+crates/idle-ipc/src/shm.rs:111:15: replace < with <= in SharedMemory::open
+crates/idle-ipc/src/shm.rs:123:33: replace | with ^ in SharedMemory::open
+crates/idle-ipc/src/shm.rs:223:36: replace && with || in <impl Drop for SharedMemory>::drop
+crates/idle-ipc/src/shm.rs:223:16: delete ! in <impl Drop for SharedMemory>::drop
+crates/idle-ipc/src/shm.rs:223:48: replace != with == in <impl Drop for SharedMemory>::drop
+crates/idle-ipc/src/shm.rs:227:24: replace >= with < in <impl Drop for SharedMemory>::drop
+crates/idle-ipc/src/shm.rs:229:27: delete - in <impl Drop for SharedMemory>::drop

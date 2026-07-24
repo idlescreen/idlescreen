@@ -134,4 +134,10 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn resolve_term_rejects_backslash_and_empty_components() {
+        assert!(resolve_term_bin("foo\\bar").is_none());
+        assert!(resolve_term_bin("xterm/../bash").is_none());
+    }
 }

@@ -5,10 +5,9 @@ use idle_ipc::{
 };
 use std::fs;
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 static SESSION_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -31,14 +30,24 @@ fn runtime_socket_dir() -> PathBuf {
     std::env::temp_dir()
 }
 
+/// `Child` Drop neither kills nor waits — explicit reap is required on init failure.
+pub(crate) fn kill_and_reap(child: &mut Child, socket_path: &Path) {
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = fs::remove_file(socket_path);
+}
+
 pub fn initialize_ipc_session(
     saver_name: &str,
     cols: usize,
     rows: usize,
     gpu_enabled: bool,
     render_scale: f32,
-    expected_stop: Arc<AtomicBool>,
 ) -> Result<SessionInitResult, String> {
+    // Liveness / failsafe for the OOP runner is owned by `IpcPluginSession`
+    // (`is_plugin_alive` + exclusive `Child::try_wait`/`wait`). Do not spawn a
+    // side-thread `waitpid` on the same pid — that race-reaps (ECHILD / lost status).
+
     validate_grid_dims(cols, rows).map_err(|e| e.to_string())?;
     if !render_scale.is_finite() || !(0.0..=1.0).contains(&render_scale) {
         return Err(format!("render_scale out of range: {render_scale}"));
@@ -61,6 +70,7 @@ pub fn initialize_ipc_session(
     let shm_size = compute_shm_size(cols, rows).ok_or("shm size overflow")?;
     let shm = SharedMemory::create(&shm_name, shm_size)?;
 
+    // SAFETY: `create` mapped at least a header; single-writer init before spawn.
     unsafe {
         let header = shm.header_mut();
         header.magic = SHM_MAGIC;
@@ -75,7 +85,7 @@ pub fn initialize_ipc_session(
     let gpu_str = gpu_enabled.to_string();
     let scale_str = format!("{:.6}", render_scale);
 
-    let child = Command::new(current_exe)
+    let mut child = Command::new(current_exe)
         .arg("run-ipc-runner")
         .arg(saver_name)
         .arg(socket_path.to_str().ok_or("invalid socket path")?)
@@ -87,39 +97,6 @@ pub fn initialize_ipc_session(
         .spawn()
         .map_err(|e| format!("failed to spawn runner process: {}", e))?;
 
-    let child_pid = child.id();
-
-    std::thread::spawn(move || {
-        let mut status: libc::c_int = 0;
-        loop {
-            let res = unsafe { libc::waitpid(child_pid as libc::pid_t, &mut status, 0) };
-            if res < 0 {
-                let err = std::io::Error::last_os_error();
-                if err.raw_os_error() == Some(libc::EINTR) {
-                    continue;
-                }
-                break;
-            }
-            break;
-        }
-
-        if expected_stop.load(Ordering::Relaxed) {
-            return;
-        }
-
-        let exited_cleanly = libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0;
-
-        if !exited_cleanly {
-            tracing::error!(
-                "Watchdog: screensaver runner (pid {}) exited unexpectedly",
-                child_pid
-            );
-            if let Err(e) = crate::failsafe::spawn_failsafe_locker() {
-                tracing::error!("Watchdog: failed to spawn failsafe locker: {e}");
-            }
-        }
-    });
-
     let start = std::time::Instant::now();
     let timeout = Duration::from_secs(5);
     let socket = loop {
@@ -127,37 +104,57 @@ pub fn initialize_ipc_session(
             Ok((stream, _)) => break stream,
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 if start.elapsed() > timeout {
+                    kill_and_reap(&mut child, &socket_path);
                     return Err("timeout waiting for runner process connection".into());
                 }
                 std::thread::sleep(Duration::from_millis(10));
             }
-            Err(e) => return Err(format!("UDS accept error: {}", e)),
+            Err(e) => {
+                kill_and_reap(&mut child, &socket_path);
+                return Err(format!("UDS accept error: {}", e));
+            }
         }
     };
 
-    socket
-        .set_nonblocking(false)
-        .map_err(|e| format!("failed to set blocking on runner stream: {}", e))?;
+    if let Err(e) = socket.set_nonblocking(false) {
+        kill_and_reap(&mut child, &socket_path);
+        return Err(format!("failed to set blocking on runner stream: {}", e));
+    }
 
     let mut socket = socket;
 
     match IpcResponse::read_from(&mut socket) {
         Ok(IpcResponse::Ready) => {}
-        Ok(resp) => return Err(format!("unexpected connection message: {:?}", resp)),
-        Err(e) => return Err(format!("failed to read connection message: {}", e)),
+        Ok(resp) => {
+            kill_and_reap(&mut child, &socket_path);
+            return Err(format!("unexpected connection message: {:?}", resp));
+        }
+        Err(e) => {
+            kill_and_reap(&mut child, &socket_path);
+            return Err(format!("failed to read connection message: {}", e));
+        }
     }
 
-    IpcCommand::Init {
+    if let Err(e) = (IpcCommand::Init {
         cols: cols as u32,
         rows: rows as u32,
-    }
+    })
     .write_to(&mut socket)
-    .map_err(|e| format!("failed to send Init: {}", e))?;
+    {
+        kill_and_reap(&mut child, &socket_path);
+        return Err(format!("failed to send Init: {}", e));
+    }
 
     match IpcResponse::read_from(&mut socket) {
         Ok(IpcResponse::Ack) => {}
-        Ok(resp) => return Err(format!("unexpected response to Init: {:?}", resp)),
-        Err(e) => return Err(format!("failed to read Init Ack: {}", e)),
+        Ok(resp) => {
+            kill_and_reap(&mut child, &socket_path);
+            return Err(format!("unexpected response to Init: {:?}", resp));
+        }
+        Err(e) => {
+            kill_and_reap(&mut child, &socket_path);
+            return Err(format!("failed to read Init Ack: {}", e));
+        }
     }
 
     Ok(SessionInitResult {
@@ -167,3 +164,7 @@ pub fn initialize_ipc_session(
         socket_path,
     })
 }
+
+#[cfg(test)]
+#[path = "ipc_init_tests.rs"]
+mod tests;

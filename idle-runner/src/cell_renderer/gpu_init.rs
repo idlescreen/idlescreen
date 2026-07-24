@@ -38,6 +38,8 @@ pub struct GpuCellRenderer {
     pub atlas_texture: Option<wgpu::Texture>,
     pub atlas_width: usize,
     pub atlas_height: usize,
+    /// Reused across frames to avoid allocating GpuCell vectors every draw.
+    pub cells_scratch: Vec<GpuCell>,
 }
 
 impl GpuCellRenderer {
@@ -177,6 +179,7 @@ impl GpuCellRenderer {
             atlas_texture: None,
             atlas_width: 0,
             atlas_height: 0,
+            cells_scratch: Vec::new(),
         })
     }
 

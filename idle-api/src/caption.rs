@@ -25,6 +25,17 @@ pub fn caption_text() -> String {
         .unwrap_or_default()
 }
 
+/// Borrow the current caption without cloning (for hot present paths).
+pub fn with_caption<F, R>(f: F) -> R
+where
+    F: FnOnce(&str) -> R,
+{
+    match CAPTION.lock() {
+        Ok(caption) => f(caption.as_str()),
+        Err(_) => f(""),
+    }
+}
+
 /// Clear any published caption.
 pub fn clear_caption() {
     if let Ok(mut caption) = CAPTION.lock() {

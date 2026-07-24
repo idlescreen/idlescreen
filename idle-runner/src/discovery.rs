@@ -1,5 +1,21 @@
 use super::launcher::{ALLOWED_SAVERS, is_allowed_saver};
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
+
+/// Reject env-derived roots that are relative, empty, or contain `..`.
+///
+/// Absolute roots without `..` still undergo `canonicalize` + trust checks at
+/// load time; this only blocks obvious traversal / relative injection via
+/// `XDG_DATA_DIRS` / `XDG_DATA_HOME`.
+pub(crate) fn is_safe_data_root(path: &str) -> bool {
+    if path.is_empty() || path.contains('\0') {
+        return false;
+    }
+    let p = Path::new(path);
+    if !p.is_absolute() {
+        return false;
+    }
+    !p.components().any(|c| matches!(c, Component::ParentDir))
+}
 
 /// Retrieve directories where screensaver plugins may be installed.
 ///
@@ -19,11 +35,11 @@ pub fn get_screensaver_dirs() -> Vec<PathBuf> {
         PathBuf::from("/usr/local/libexec/trance/screensavers"),
     ];
 
-    // 2. System paths from XDG_DATA_DIRS
+    // 2. System paths from XDG_DATA_DIRS (absolute, no `..` only)
     let xdg_data_dirs = std::env::var("XDG_DATA_DIRS")
         .unwrap_or_else(|_| "/usr/local/share:/usr/share".to_string());
     for part in xdg_data_dirs.split(':') {
-        if !part.is_empty() {
+        if is_safe_data_root(part) {
             dirs.push(PathBuf::from(part).join("idle").join("screensavers"));
             dirs.push(PathBuf::from(part).join("trance").join("screensavers"));
         }
@@ -31,11 +47,13 @@ pub fn get_screensaver_dirs() -> Vec<PathBuf> {
 
     // 3. User paths last (optional overrides only when system copy is absent)
     if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
-        if !xdg_data.is_empty() {
+        if is_safe_data_root(&xdg_data) {
             dirs.push(PathBuf::from(&xdg_data).join("idle").join("screensavers"));
             dirs.push(PathBuf::from(xdg_data).join("trance").join("screensavers"));
         }
-    } else if let Ok(home) = std::env::var("HOME") {
+    } else if let Ok(home) = std::env::var("HOME")
+        && is_safe_data_root(&home)
+    {
         let home_path = PathBuf::from(home);
         for brand in ["idle", "trance"] {
             dirs.push(
@@ -109,43 +127,5 @@ pub fn detect_screensavers() -> Vec<String> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn system_dirs_precede_user_dirs() {
-        // With HOME set and no XDG_DATA_HOME, /usr paths must appear before ~/.local.
-        let dirs = get_screensaver_dirs();
-        let usr = dirs.iter().position(|p| p.starts_with("/usr"));
-        let home = dirs
-            .iter()
-            .position(|p| p.components().any(|c| c.as_os_str() == ".local"));
-        assert!(usr.is_some(), "expected at least one /usr plugin dir");
-        if let (Some(u), Some(h)) = (usr, home) {
-            assert!(
-                u < h,
-                "system dirs must be searched before user dirs: {dirs:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn idle_system_path_is_first() {
-        let dirs = get_screensaver_dirs();
-        assert_eq!(
-            dirs.first().map(|p| p.as_os_str()),
-            Some(std::ffi::OsStr::new("/usr/libexec/idle/screensavers")),
-            "canonical idle path must win over legacy trees: {dirs:?}"
-        );
-    }
-
-    #[test]
-    fn legacy_trance_path_still_searched() {
-        let dirs = get_screensaver_dirs();
-        assert!(
-            dirs.iter().any(|p| p.ends_with("trance/screensavers")
-                || p.as_os_str() == "/usr/libexec/trance/screensavers"),
-            "legacy trance plugin trees must remain for upgrades: {dirs:?}"
-        );
-    }
-}
+#[path = "discovery_tests.rs"]
+mod tests;

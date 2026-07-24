@@ -1,11 +1,7 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 IdleScreen
 
-use std::collections::HashMap;
-
-use wayland_client::protocol::wl_surface;
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
-
-use crate::output::OutputLayout;
 
 use super::types::SessionState;
 
@@ -72,79 +68,40 @@ impl SessionState {
 
     #[allow(clippy::cast_possible_wrap)]
     pub fn configure_overlay(&mut self, output_id: u32, serial: u32, width: u32, height: u32) {
-        let Some(overlay) = self.overlays.get_mut(&output_id) else {
-            return;
+        let (render_w, render_h) = {
+            let Some(overlay) = self.overlays.get_mut(&output_id) else {
+                return;
+            };
+
+            Self::apply_tiling_margins(
+                &overlay.layer_surface,
+                &overlay.surface,
+                output_id,
+                width,
+                height,
+                &self.output_mode_size,
+            );
+            overlay.layer_surface.ack_configure(serial);
+            let (render_w, render_h) =
+                Self::render_dimensions(output_id, width, height, &self.output_mode_size);
+            overlay.width = render_w;
+            overlay.height = render_h;
+
+            if let Some(viewport) = &overlay.viewport {
+                viewport.set_destination(render_w as i32, render_h as i32);
+            }
+            (render_w, render_h)
         };
 
-        Self::apply_tiling_margins(
-            &overlay.layer_surface,
-            &overlay.surface,
-            output_id,
-            width,
-            height,
-            &self.output_mode_size,
-        );
-        overlay.layer_surface.ack_configure(serial);
-        let (render_w, render_h) =
-            Self::render_dimensions(output_id, width, height, &self.output_mode_size);
-        overlay.width = render_w;
-        overlay.height = render_h;
-
-        if let Some(viewport) = &overlay.viewport {
-            viewport.set_destination(render_w as i32, render_h as i32);
-        }
-
-        let refresh_rate_hz = self
-            .output_refresh_hz
-            .get(&output_id)
-            .copied()
-            .unwrap_or(60);
-        let (x, y) = self
-            .output_origin
-            .get(&output_id)
-            .copied()
-            .unwrap_or((0, 0));
-        let scale = self.output_scale.get(&output_id).copied().unwrap_or(1);
-        self.output_registry.upsert(OutputLayout {
-            id: output_id,
-            width: render_w,
-            height: render_h,
-            refresh_rate_hz,
-            x,
-            y,
-            scale,
-        });
+        self.register_configured_output(output_id, render_w, render_h);
 
         if self.screensaver_mode {
             return;
         }
-
-        let Some(appearance) = self.appearance else {
-            return;
-        };
-
-        let Some(shm) = &self.shm else {
-            return;
-        };
-
-        overlay.buffer = super::super::buffer::create_solid_buffer(
-            shm,
-            &self.queue,
-            render_w,
-            render_h,
-            appearance.color,
-        );
-
-        if let Some(buffer) = &overlay.buffer {
-            overlay.surface.attach(Some(&buffer.wl_buffer), 0, 0);
-            overlay
-                .surface
-                .damage_buffer(0, 0, render_w as i32, render_h as i32);
-            overlay.surface.commit();
-        }
+        self.attach_solid_buffer(output_id, render_w, render_h);
     }
 
-    #[allow(clippy::cast_possible_wrap, clippy::needless_pass_by_value)]
+    #[allow(clippy::needless_pass_by_value)]
     pub fn update_frame(&mut self, output_id: u32, width: u32, height: u32, pixels: Vec<u8>) {
         if !self.screensaver_mode {
             return;
@@ -158,7 +115,7 @@ impl SessionState {
             return;
         };
 
-        if super::super::buffer::ensure_frame_buffer(
+        if !super::super::buffer::ensure_frame_buffer(
             &mut overlay.buffer,
             shm,
             &self.queue,
@@ -166,33 +123,14 @@ impl SessionState {
             height,
             &pixels,
         ) {
-            let Some(buffer) = overlay.buffer.as_ref() else {
-                tracing::error!(
-                    output_id,
-                    "wayland-present: frame buffer missing after ensure; skipping frame"
-                );
-                return;
-            };
+            return;
+        }
 
-            let dst_w = if overlay.width > 0 {
-                overlay.width
-            } else {
-                width
-            };
-            let dst_h = if overlay.height > 0 {
-                overlay.height
-            } else {
-                height
-            };
-            if let Some(viewport) = &overlay.viewport {
-                viewport.set_destination(dst_w as i32, dst_h as i32);
-            }
-
-            overlay.surface.attach(Some(&buffer.wl_buffer), 0, 0);
-            overlay
-                .surface
-                .damage_buffer(0, 0, width as i32, height as i32);
-            overlay.surface.commit();
+        if !Self::commit_frame_buffer(overlay, width, height) {
+            tracing::error!(
+                output_id,
+                "wayland-present: frame buffer missing after ensure; skipping frame"
+            );
         }
     }
 
@@ -204,40 +142,5 @@ impl SessionState {
             overlay.layer_surface.destroy();
             overlay.surface.destroy();
         }
-    }
-
-    pub(crate) fn render_dimensions(
-        output_id: u32,
-        configured_w: u32,
-        configured_h: u32,
-        mode_sizes: &HashMap<u32, (u32, u32)>,
-    ) -> (u32, u32) {
-        let Some((native_w, native_h)) = mode_sizes.get(&output_id).copied() else {
-            return (configured_w, configured_h);
-        };
-        (native_w.max(configured_w), native_h.max(configured_h))
-    }
-
-    #[allow(clippy::cast_possible_wrap)]
-    pub(crate) fn apply_tiling_margins(
-        layer_surface: &zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
-        surface: &wl_surface::WlSurface,
-        output_id: u32,
-        configured_w: u32,
-        configured_h: u32,
-        mode_sizes: &HashMap<u32, (u32, u32)>,
-    ) {
-        let Some((native_w, native_h)) = mode_sizes.get(&output_id).copied() else {
-            layer_surface.set_margin(0, 0, 0, 0);
-            surface.commit();
-            return;
-        };
-
-        let inset_x = native_w.saturating_sub(configured_w) / 2;
-        let inset_y = native_h.saturating_sub(configured_h) / 2;
-        let m_y = if inset_y > 0 { -(inset_y as i32) } else { 0 };
-        let m_x = if inset_x > 0 { -(inset_x as i32) } else { 0 };
-        layer_surface.set_margin(m_y, m_x, m_y, m_x);
-        surface.commit();
     }
 }

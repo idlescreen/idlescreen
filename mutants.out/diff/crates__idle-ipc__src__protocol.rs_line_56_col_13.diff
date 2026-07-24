@@ -1,0 +1,27 @@
+--- crates/idle-ipc/src/protocol.rs
++++ delete match arm 1 in IpcCommand::read_from
+@@ -48,23 +48,17 @@
+                 let mut rows_bytes = [0u8; 4];
+                 reader.read_exact(&mut cols_bytes)?;
+                 reader.read_exact(&mut rows_bytes)?;
+                 Ok(IpcCommand::Init {
+                     cols: u32::from_le_bytes(cols_bytes),
+                     rows: u32::from_le_bytes(rows_bytes),
+                 })
+             }
+-            1 => {
+-                let mut dt_bytes = [0u8; 8];
+-                reader.read_exact(&mut dt_bytes)?;
+-                Ok(IpcCommand::TickAndDraw {
+-                    dt_micros: u64::from_le_bytes(dt_bytes),
+-                })
+-            }
++             /* ~ changed by cargo-mutants ~ */
+             2 => {
+                 let mut hz_bytes = [0u8; 4];
+                 reader.read_exact(&mut hz_bytes)?;
+                 Ok(IpcCommand::SetSimulationRate {
+                     hz: f32::from_le_bytes(hz_bytes),
+                 })
+             }
+             3 => Ok(IpcCommand::Stop),

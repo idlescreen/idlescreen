@@ -1,0 +1,30 @@
+--- crates/idle-ipc/src/protocol.rs
++++ delete match arm 0 in IpcCommand::read_from
+@@ -38,26 +38,17 @@
+         }
+         Ok(())
+     }
+ 
+     pub fn read_from<R: std::io::Read>(mut reader: R) -> std::io::Result<Self> {
+         let mut tag = [0u8; 1];
+         reader.read_exact(&mut tag)?;
+         match tag[0] {
+-            0 => {
+-                let mut cols_bytes = [0u8; 4];
+-                let mut rows_bytes = [0u8; 4];
+-                reader.read_exact(&mut cols_bytes)?;
+-                reader.read_exact(&mut rows_bytes)?;
+-                Ok(IpcCommand::Init {
+-                    cols: u32::from_le_bytes(cols_bytes),
+-                    rows: u32::from_le_bytes(rows_bytes),
+-                })
+-            }
++             /* ~ changed by cargo-mutants ~ */
+             1 => {
+                 let mut dt_bytes = [0u8; 8];
+                 reader.read_exact(&mut dt_bytes)?;
+                 Ok(IpcCommand::TickAndDraw {
+                     dt_micros: u64::from_le_bytes(dt_bytes),
+                 })
+             }
+             2 => {

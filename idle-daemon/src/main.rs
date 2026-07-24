@@ -2,6 +2,7 @@
 // Copyright 2026 IdleScreen
 
 mod config;
+mod config_parse;
 mod config_watcher;
 mod controller;
 mod daemon;

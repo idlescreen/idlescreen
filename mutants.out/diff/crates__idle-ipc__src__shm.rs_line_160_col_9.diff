@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/shm.rs
++++ replace SharedMemory::name -> &str with ""
+@@ -152,17 +152,17 @@
+         self.ptr
+     }
+ 
+     pub fn size(&self) -> usize {
+         self.size
+     }
+ 
+     pub fn name(&self) -> &str {
+-        &self.name
++        "" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Mutable header view.
+     ///
+     /// # Safety
+     /// - Mapping is live (`create`/`open` succeeded; `Drop` not yet run).
+     /// - Caller serializes writers (daemon initializes; runner updates counter).
+     /// - `self.size >= size_of::<SharedMemoryHeader>()` (enforced at open/create).

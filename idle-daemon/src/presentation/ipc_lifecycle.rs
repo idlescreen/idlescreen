@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 
 //! OOP plugin process liveness and crash recovery.
+//!
+//! **Single reaper rule:** only this session reaps the runner pid via
+//! `Child::try_wait` / `Child::wait` (never a side-thread `waitpid`).
+//! `Child` Drop does **not** wait — callers must `kill`+`wait` on teardown
+//! and on init failure (see `ipc_init::kill_and_reap`).
 
 use super::ipc_session::IpcPluginSession;
 use idle_ipc::IpcCommand;
@@ -8,8 +13,19 @@ use std::fs;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+/// Atomically take the failsafe arm. Returns true only on the first successful take
+/// until re-armed (e.g. after `recover`). Pure once-gate for unit tests.
+pub(crate) fn take_failsafe_arm(armed: &AtomicBool) -> bool {
+    armed
+        .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
+        .is_ok()
+}
+
 impl IpcPluginSession {
     /// True if the OOP plugin child is still running.
+    ///
+    /// On unexpected exit, triggers the failsafe locker once (session lock if
+    /// the saver process died while presenting). Frame loop latency is one tick.
     pub fn is_plugin_alive(&mut self) -> bool {
         let Some(child) = self.child.as_mut() else {
             return false;
@@ -19,13 +35,27 @@ impl IpcPluginSession {
             Ok(Some(status)) => {
                 if !self.expected_stop.load(Ordering::Relaxed) {
                     tracing::error!(?status, "plugin child exited unexpectedly");
+                    self.trigger_failsafe_once();
                 }
                 false
             }
             Err(e) => {
+                // ECHILD should not occur under the single-reaper rule; treat as dead.
                 tracing::error!(%e, "plugin child status query failed");
+                if !self.expected_stop.load(Ordering::Relaxed) {
+                    self.trigger_failsafe_once();
+                }
                 false
             }
+        }
+    }
+
+    fn trigger_failsafe_once(&self) {
+        // `expected_stop` is the intentional-stop flag; failsafe_armed gates once.
+        if take_failsafe_arm(&self.failsafe_armed)
+            && let Err(e) = crate::failsafe::spawn_failsafe_locker()
+        {
+            tracing::error!("failsafe: failed to spawn locker after runner death: {e}");
         }
     }
 
@@ -43,6 +73,7 @@ impl IpcPluginSession {
         }
         self.shm = None;
         self.expected_stop = Arc::new(AtomicBool::new(false));
+        self.failsafe_armed = Arc::new(AtomicBool::new(true));
         self.init(cols, rows)
     }
 }
@@ -62,3 +93,7 @@ impl Drop for IpcPluginSession {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "ipc_lifecycle_tests.rs"]
+mod tests;

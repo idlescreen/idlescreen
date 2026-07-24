@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/shm.rs
++++ replace | with & in SharedMemory::open
+@@ -115,17 +115,17 @@
+             ));
+         }
+ 
+         // SAFETY: MAP_SHARED; close fd on MAP_FAILED (non-owner does not unlink).
+         let ptr = unsafe {
+             libc::mmap(
+                 ptr::null_mut(),
+                 size,
+-                libc::PROT_READ | libc::PROT_WRITE,
++                libc::PROT_READ & /* ~ changed by cargo-mutants ~ */ libc::PROT_WRITE,
+                 libc::MAP_SHARED,
+                 fd,
+                 0,
+             )
+         };
+         if ptr == libc::MAP_FAILED {
+             let err = std::io::Error::last_os_error();
+             // SAFETY: fd is open and owned by this path only.

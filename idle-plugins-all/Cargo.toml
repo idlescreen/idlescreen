@@ -1,6 +1,6 @@
 [package]
 name = "idle-plugins-all"
-version = "2.3.1"
+version = "2.3.2"
 edition = "2024"
 description = "Meta package that hard-depends on all official IdleScreen saver plugins"
 license = "Apache-2.0"

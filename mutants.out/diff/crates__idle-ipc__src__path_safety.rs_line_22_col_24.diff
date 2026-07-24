@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/path_safety.rs
++++ replace || with && in is_plausible_socket_path
+@@ -14,17 +14,17 @@
+     }
+     rest.chars()
+         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+ }
+ 
+ /// UDS control paths must be absolute, end in `.sock`, stay under path limits,
+ /// and must not contain nulls or `..` segments.
+ pub fn is_plausible_socket_path(path: &str) -> bool {
+-    if path.is_empty() || path.len() >= 108 {
++    if path.is_empty() && /* ~ changed by cargo-mutants ~ */ path.len() >= 108 {
+         return false;
+     }
+     if path.contains('\0') || !path.starts_with('/') || !path.ends_with(".sock") {
+         return false;
+     }
+     if path.split('/').any(|seg| seg == "..") {
+         return false;
+     }

@@ -25,10 +25,12 @@ pub struct DaemonStatus {
 
 impl DaemonStatus {
     pub fn to_map(&self) -> HashMap<String, OwnedValue> {
-        let mut map = HashMap::new();
+        // Fixed field count — reserve once to avoid rehash during insert.
+        let mut map = HashMap::with_capacity(13);
         map.insert("running".into(), owned(self.running));
         map.insert("idle_enabled".into(), owned(self.idle_enabled));
         map.insert("idle_timeout_mins".into(), owned(self.idle_timeout_mins));
+        // String fields must be owned for Value<'static> / OwnedValue.
         map.insert("active_saver".into(), owned(self.active_saver.clone()));
         map.insert(
             "presentation_active".into(),

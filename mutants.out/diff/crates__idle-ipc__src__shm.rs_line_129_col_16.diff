@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/shm.rs
++++ replace == with != in SharedMemory::open
+@@ -121,17 +121,17 @@
+                 ptr::null_mut(),
+                 size,
+                 libc::PROT_READ | libc::PROT_WRITE,
+                 libc::MAP_SHARED,
+                 fd,
+                 0,
+             )
+         };
+-        if ptr == libc::MAP_FAILED {
++        if ptr != /* ~ changed by cargo-mutants ~ */ libc::MAP_FAILED {
+             let err = std::io::Error::last_os_error();
+             // SAFETY: fd is open and owned by this path only.
+             unsafe {
+                 libc::close(fd);
+             }
+             return Err(format!("mmap failed: {err}"));
+         }
+ 

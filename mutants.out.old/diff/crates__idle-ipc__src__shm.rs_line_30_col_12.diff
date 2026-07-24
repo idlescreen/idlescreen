@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/shm.rs
++++ delete ! in SharedMemory::create
+@@ -22,17 +22,17 @@
+ 
+ // SAFETY: `SharedMemory` is the exclusive owner of the fd and mapped pages.
+ // Moving across threads transfers that ownership; concurrent access to the
+ // mapping is a protocol concern (single writer per field), not a Send concern.
+ unsafe impl Send for SharedMemory {}
+ 
+ impl SharedMemory {
+     pub fn create(name: &str, size: usize) -> Result<Self, String> {
+-        if !is_valid_shm_name(name) {
++        if  /* ~ changed by cargo-mutants ~ */is_valid_shm_name(name) {
+             return Err(format!("invalid shm name: {name}"));
+         }
+         if size < std::mem::size_of::<SharedMemoryHeader>() || size > 64 * 1024 * 1024 {
+             return Err(format!("shm size out of range: {size}"));
+         }
+         let c_name = CString::new(name).map_err(|e| e.to_string())?;
+ 
+         // Named POSIX SHM only: the IPC child re-opens by name (`SharedMemory::open`).

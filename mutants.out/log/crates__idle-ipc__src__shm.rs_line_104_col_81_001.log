@@ -1,0 +1,187 @@
+
+*** crates/idle-ipc/src/shm.rs:104:81: replace * with / in SharedMemory::open
+
+*** mutation diff:
+--- crates/idle-ipc/src/shm.rs
++++ replace * with / in SharedMemory::open
+@@ -96,17 +96,17 @@
+             is_owner: true,
+         })
+     }
+ 
+     pub fn open(name: &str, size: usize) -> Result<Self, String> {
+         if !is_valid_shm_name(name) {
+             return Err(format!("invalid shm name: {name}"));
+         }
+-        if size < std::mem::size_of::<SharedMemoryHeader>() || size > 64 * 1024 * 1024 {
++        if size < std::mem::size_of::<SharedMemoryHeader>() || size > 64 * 1024 / /* ~ changed by cargo-mutants ~ */ 1024 {
+             return Err(format!("shm size out of range: {size}"));
+         }
+         let c_name = CString::new(name).map_err(|e| e.to_string())?;
+ 
+         // SAFETY: open existing named object; name validated above.
+         let fd = unsafe { libc::shm_open(c_name.as_ptr(), libc::O_RDWR, 0) };
+         if fd < 0 {
+             return Err(format!(
+
+
+*** /home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/cargo test --no-run --verbose --package=idle-ipc@0.4.0
+warning: /tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/idle-daemon/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/idle-daemon/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle-daemon`
+  * `bin` target `idlescreen-daemon`
+  * `bin` target `trance-daemon`
+warning: /tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/idle-cli/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/idle-cli/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle`
+  * `bin` target `idlescreen`
+  * `bin` target `trance`
+       Fresh cfg-if v1.0.4
+       Fresh libc v0.2.188
+       Fresh unicode-ident v1.0.24
+       Fresh autocfg v1.5.1
+       Fresh bitflags v2.13.1
+       Fresh linux-raw-sys v0.12.1
+       Fresh once_cell v1.21.4
+       Fresh fastrand v2.5.0
+       Fresh bit-vec v0.8.0
+       Fresh fnv v1.0.7
+       Fresh quick-error v1.2.3
+       Fresh unarray v0.1.4
+       Fresh proc-macro2 v1.0.107
+       Fresh wait-timeout v0.2.1
+       Fresh bit-set v0.8.0
+       Fresh regex-syntax v0.8.11
+       Fresh getrandom v0.3.4
+       Fresh quote v1.0.47
+       Fresh zerocopy v0.8.55
+       Fresh getrandom v0.4.3
+       Fresh rustix v1.1.4
+       Fresh syn v2.0.119
+       Fresh rand_core v0.9.5
+       Fresh tempfile v3.27.0
+       Fresh ppv-lite86 v0.2.21
+       Fresh num-traits v0.2.19
+       Fresh bytemuck_derive v1.11.0
+       Fresh rand_chacha v0.9.0
+       Fresh rusty-fork v0.3.1
+       Fresh rand v0.9.5
+       Fresh rand_xorshift v0.4.0
+       Fresh bytemuck v1.25.2
+       Fresh proptest v1.11.0
+       Fresh idle-api v2.3.1 (/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/idle-api)
+       Dirty idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/crates/idle-ipc): the file `crates/idle-ipc/src/shm.rs` has changed (1784876886.557512785s, 484005566ns after last build at 1784876886.073507219s)
+   Compiling idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/crates/idle-ipc)
+     Running `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a0b8bba603035d0f -C extra-filename=-dbadf11ecf5c7d57 --out-dir /tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rlib --extern libc=/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rlib --extern proptest=/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/deps/libproptest-b92098e6fc18f2e8.rlib`
+     Running `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=f6298ca08a0d4778 -C extra-filename=-72a23dfc47ffc5d4 --out-dir /tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rmeta --extern libc=/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rmeta`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+  Executable `/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/deps/idle_ipc-dbadf11ecf5c7d57`
+
+*** result: Success
+
+*** /home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/cargo test --verbose --package=idle-ipc@0.4.0
+warning: /tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/idle-cli/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/idle-cli/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle`
+  * `bin` target `idlescreen`
+  * `bin` target `trance`
+warning: /tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/idle-daemon/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/idle-daemon/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle-daemon`
+  * `bin` target `idlescreen-daemon`
+  * `bin` target `trance-daemon`
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on shared package cache
+       Fresh libc v0.2.188
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.24
+       Fresh proc-macro2 v1.0.107
+       Fresh quote v1.0.47
+       Fresh getrandom v0.3.4
+       Fresh rand_core v0.9.5
+       Fresh syn v2.0.119
+       Fresh linux-raw-sys v0.12.1
+       Fresh bitflags v2.13.1
+       Fresh autocfg v1.5.1
+       Fresh rustix v1.1.4
+       Fresh bytemuck_derive v1.11.0
+       Fresh zerocopy v0.8.55
+       Fresh getrandom v0.4.3
+       Fresh once_cell v1.21.4
+       Fresh fastrand v2.5.0
+       Fresh tempfile v3.27.0
+       Fresh ppv-lite86 v0.2.21
+       Fresh bytemuck v1.25.2
+       Fresh wait-timeout v0.2.1
+       Fresh fnv v1.0.7
+       Fresh bit-vec v0.8.0
+       Fresh quick-error v1.2.3
+       Fresh rusty-fork v0.3.1
+       Fresh bit-set v0.8.0
+       Fresh num-traits v0.2.19
+       Fresh idle-api v2.3.1 (/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/idle-api)
+       Fresh rand_chacha v0.9.0
+       Fresh rand_xorshift v0.4.0
+       Fresh rand v0.9.5
+       Fresh regex-syntax v0.8.11
+       Fresh unarray v0.1.4
+       Fresh proptest v1.11.0
+       Fresh idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/crates/idle-ipc)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running `/tmp/cargo-mutants-idle-audit-graph-cD0Zdb.tmp/target/debug/deps/idle_ipc-dbadf11ecf5c7d57`
+
+running 32 tests
+test path_safety::tests::shm_name_accepts_daemon_format ... ok
+test path_safety::tests::shm_name_rejects_traversal_and_oddities ... ok
+test path_safety::tests::socket_path_accepts_tmp_and_runtime ... ok
+test path_safety::tests::socket_path_rejects_dotdot_middle_segment ... ok
+test path_safety::tests::socket_path_rejects_relative_and_dots ... ok
+test shm::tests::cells_mut_accepts_zero_or_correct_magic ... ok
+test shm::tests::cells_mut_rejects_bad_magic ... ok
+test shm::tests::cells_mut_rejects_dims_exceeding_map ... ok
+test shm::tests::open_rejects_bad_name ... ok
+test shm::tests::create_rejects_bad_name ... ok
+test tests::test_compute_shm_size_overflow_is_none ... ok
+test shm::tests::create_rejects_oversized ... ok
+test tests::test_ffi_terminal_cell_conversion ... ok
+test shm::tests::create_accepts_header_mid_and_max_sizes ... FAILED
+test tests::test_invalid_ipc_response_tag ... ok
+test tests::test_ipc_commands ... ok
+test tests::test_ipc_responses ... ok
+test tests::test_shm_size ... ok
+test tests::test_truncated_command_read ... ok
+test tests::test_validate_grid_dims ... ok
+test shm::tests::create_open_roundtrip_name ... FAILED
+test shm::tests::open_rejects_size_out_of_range ... ok
+test tests::test_validate_grid_dims_boundaries ... ok
+test tests::test_compute_shm_size_zero_dimensions ... ok
+test shm::tests::create_rejects_tiny_size ... ok
+test tests::test_invalid_ipc_command_tag ... ok
+test proptests::invalid_command_tags_fail ... ok
+test proptests::adversarial_dims_never_panic ... ok
+test proptests::invalid_response_tags_fail ... ok
+test proptests::shm_size_monotonic ... ok
+test proptests::response_roundtrip ... ok
+test proptests::command_roundtrip ... ok
+
+failures:
+
+---- shm::tests::create_accepts_header_mid_and_max_sizes stdout ----
+
+thread 'shm::tests::create_accepts_header_mid_and_max_sizes' (1573866) panicked at crates/idle-ipc/src/shm_tests.rs:88:68:
+open 1MiB: "shm size out of range: 1048576"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- shm::tests::create_open_roundtrip_name stdout ----
+
+thread 'shm::tests::create_open_roundtrip_name' (1573867) panicked at crates/idle-ipc/src/shm_tests.rs:177:51:
+open while owner live: "shm size out of range: 120"
+
+
+failures:
+    shm::tests::create_accepts_header_mid_and_max_sizes
+    shm::tests::create_open_roundtrip_name
+
+test result: FAILED. 30 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `-p idle-ipc --lib`
+
+*** result: Failure(101)

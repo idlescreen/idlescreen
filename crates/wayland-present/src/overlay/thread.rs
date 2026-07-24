@@ -137,6 +137,7 @@ fn dispatch_pending_events(
     if let Some(guard) = event_queue.prepare_read() {
         let _ = connection.flush();
 
+        // SAFETY: `poll_fd` points to one valid `pollfd` for the Wayland socket.
         let poll_result = unsafe { libc::poll(poll_fd, 1, 100) };
         if poll_result > 0 {
             if poll_fd.revents & (libc::POLLHUP | libc::POLLERR | libc::POLLNVAL) != 0 {

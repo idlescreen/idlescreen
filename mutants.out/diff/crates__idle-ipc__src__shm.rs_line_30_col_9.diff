@@ -1,0 +1,88 @@
+--- crates/idle-ipc/src/shm.rs
++++ replace SharedMemory::create -> Result<Self, String> with Ok(Default::default())
+@@ -22,84 +22,17 @@
+ 
+ // SAFETY: `SharedMemory` is the exclusive owner of the fd and mapped pages.
+ // Moving across threads transfers that ownership; concurrent access to the
+ // mapping is a protocol concern (single writer per field), not a Send concern.
+ unsafe impl Send for SharedMemory {}
+ 
+ impl SharedMemory {
+     pub fn create(name: &str, size: usize) -> Result<Self, String> {
+-        if !is_valid_shm_name(name) {
+-            return Err(format!("invalid shm name: {name}"));
+-        }
+-        if size < std::mem::size_of::<SharedMemoryHeader>() || size > 64 * 1024 * 1024 {
+-            return Err(format!("shm size out of range: {size}"));
+-        }
+-        let c_name = CString::new(name).map_err(|e| e.to_string())?;
+-
+-        // Named POSIX SHM only: the IPC child re-opens by name (`SharedMemory::open`).
+-        // O_EXCL + 0600: refuse squatters and keep the object owner-private.
+-        // SAFETY: `c_name` is a valid CString; unlink best-effort for stale objects.
+-        unsafe {
+-            libc::shm_unlink(c_name.as_ptr());
+-        }
+-        // SAFETY: O_CREAT|O_EXCL|O_RDWR with mode 0600 on a validated name.
+-        let fd = unsafe {
+-            libc::shm_open(
+-                c_name.as_ptr(),
+-                libc::O_CREAT | libc::O_RDWR | libc::O_EXCL,
+-                0o600,
+-            )
+-        };
+-        if fd < 0 {
+-            return Err(format!(
+-                "shm_open (create) failed: {}",
+-                std::io::Error::last_os_error()
+-            ));
+-        }
+-
+-        // SAFETY: `fd` is open; size fits in off_t (capped at 64 MiB above).
+-        if unsafe { libc::ftruncate(fd, size as libc::off_t) } < 0 {
+-            let err = std::io::Error::last_os_error();
+-            // SAFETY: clean up partially created object on size failure.
+-            unsafe {
+-                libc::close(fd);
+-                libc::shm_unlink(c_name.as_ptr());
+-            }
+-            return Err(format!("ftruncate failed: {err}"));
+-        }
+-
+-        // SAFETY: MAP_SHARED over the full sized object; fail closed on MAP_FAILED.
+-        let ptr = unsafe {
+-            libc::mmap(
+-                ptr::null_mut(),
+-                size,
+-                libc::PROT_READ | libc::PROT_WRITE,
+-                libc::MAP_SHARED,
+-                fd,
+-                0,
+-            )
+-        };
+-        if ptr == libc::MAP_FAILED {
+-            let err = std::io::Error::last_os_error();
+-            // SAFETY: release fd + name if mapping failed.
+-            unsafe {
+-                libc::close(fd);
+-                libc::shm_unlink(c_name.as_ptr());
+-            }
+-            return Err(format!("mmap failed: {err}"));
+-        }
+-
+-        Ok(Self {
+-            name: name.to_string(),
+-            fd,
+-            ptr,
+-            size,
+-            is_owner: true,
+-        })
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn open(name: &str, size: usize) -> Result<Self, String> {
+         if !is_valid_shm_name(name) {
+             return Err(format!("invalid shm name: {name}"));
+         }
+         if size < std::mem::size_of::<SharedMemoryHeader>() || size > 64 * 1024 * 1024 {
+             return Err(format!("shm size out of range: {size}"));

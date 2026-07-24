@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/shm.rs
++++ replace SharedMemory::size -> usize with 1
+@@ -148,17 +148,17 @@
+         self.fd
+     }
+ 
+     pub fn ptr(&self) -> *mut libc::c_void {
+         self.ptr
+     }
+ 
+     pub fn size(&self) -> usize {
+-        self.size
++        1 /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn name(&self) -> &str {
+         &self.name
+     }
+ 
+     /// Mutable header view.
+     ///

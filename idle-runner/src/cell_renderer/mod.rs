@@ -37,6 +37,8 @@ pub struct CellRenderer {
     pub(crate) cell_height: usize,
     glyph_cache: HashMap<char, CachedGlyph>,
     pub(crate) atlas_chars: Vec<char>,
+    /// O(1) char → atlas slot for the GPU cell upload hot path.
+    pub(crate) atlas_index: HashMap<char, u32>,
     pub(crate) atlas_image: Vec<u8>,
     pub(crate) atlas_cols: usize,
     pub(crate) atlas_rows: usize,
@@ -60,6 +62,7 @@ impl CellRenderer {
             cell_height,
             glyph_cache: HashMap::new(),
             atlas_chars: Vec::new(),
+            atlas_index: HashMap::new(),
             atlas_image: Vec::new(),
             atlas_cols: 32,
             atlas_rows: 32,
@@ -149,7 +152,7 @@ impl CellRenderer {
                     atlas_rows,
                     &self.atlas_image,
                     atlas_dirty,
-                    &self.atlas_chars,
+                    &self.atlas_index,
                     out,
                 );
                 self.reset_atlas_dirty();

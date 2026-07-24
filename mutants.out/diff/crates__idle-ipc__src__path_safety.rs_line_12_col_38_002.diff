@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/path_safety.rs
++++ replace > with >= in is_valid_shm_name
+@@ -4,17 +4,17 @@
+ //! Path / name validation for IPC sockets and POSIX SHM objects.
+ 
+ /// POSIX SHM object names we create look like `/trance-shm-<pid>-<idx>`.
+ /// Reject anything else so a compromised arg vector cannot open arbitrary objects.
+ pub fn is_valid_shm_name(name: &str) -> bool {
+     let Some(rest) = name.strip_prefix("/trance-shm-") else {
+         return false;
+     };
+-    if rest.is_empty() || rest.len() > 64 {
++    if rest.is_empty() || rest.len() >= /* ~ changed by cargo-mutants ~ */ 64 {
+         return false;
+     }
+     rest.chars()
+         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+ }
+ 
+ /// UDS control paths must be absolute, end in `.sock`, stay under path limits,
+ /// and must not contain nulls or `..` segments.

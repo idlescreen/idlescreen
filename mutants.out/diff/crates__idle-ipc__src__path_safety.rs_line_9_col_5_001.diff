@@ -1,0 +1,28 @@
+--- crates/idle-ipc/src/path_safety.rs
++++ replace is_valid_shm_name -> bool with false
+@@ -1,24 +1,17 @@
+ // SPDX-License-Identifier: Apache-2.0
+ // Copyright 2026 IdleScreen
+ 
+ //! Path / name validation for IPC sockets and POSIX SHM objects.
+ 
+ /// POSIX SHM object names we create look like `/trance-shm-<pid>-<idx>`.
+ /// Reject anything else so a compromised arg vector cannot open arbitrary objects.
+ pub fn is_valid_shm_name(name: &str) -> bool {
+-    let Some(rest) = name.strip_prefix("/trance-shm-") else {
+-        return false;
+-    };
+-    if rest.is_empty() || rest.len() > 64 {
+-        return false;
+-    }
+-    rest.chars()
+-        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
++    false /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// UDS control paths must be absolute, end in `.sock`, stay under path limits,
+ /// and must not contain nulls or `..` segments.
+ pub fn is_plausible_socket_path(path: &str) -> bool {
+     if path.is_empty() || path.len() >= 108 {
+         return false;
+     }

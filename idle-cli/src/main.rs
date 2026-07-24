@@ -22,6 +22,7 @@ mod doctor_fs;
 mod doctor_service;
 mod doctor_sys;
 mod interactive;
+mod interactive_io;
 mod self_update;
 mod self_update_backend;
 mod usage;

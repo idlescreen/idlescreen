@@ -17,6 +17,16 @@ struct ScaledBoundsState {
 
 static PRIMARY_BOUNDS_STATE: OnceLock<RwLock<ScaledBoundsState>> = OnceLock::new();
 
+/// Saturating cast of a pixel extent to `i32` (Wayland logical coords).
+fn extent_i32(v: u32) -> i32 {
+    i32::try_from(v).unwrap_or(i32::MAX)
+}
+
+/// Non-negative i32 → usize without wrapping on negative inputs.
+fn nonneg_usize(v: i32) -> usize {
+    if v <= 0 { 0 } else { v as usize }
+}
+
 #[allow(dead_code)]
 pub fn normalize_layout_positions(layouts: &mut [OutputLayout]) {
     if layouts.len() <= 1 {
@@ -26,11 +36,11 @@ pub fn normalize_layout_positions(layouts: &mut [OutputLayout]) {
         return;
     }
 
-    let mut x = 0;
+    let mut x: i32 = 0;
     for layout in layouts {
         layout.x = x;
         layout.y = 0;
-        x += layout.width as i32;
+        x = x.saturating_add(extent_i32(layout.width));
     }
 }
 
@@ -63,19 +73,21 @@ pub fn virtual_desktop(layouts: &[OutputLayout]) -> (i32, i32, u32, u32) {
     let min_y = layouts.iter().map(|layout| layout.y).min().unwrap_or(0);
     let max_x = layouts
         .iter()
-        .map(|layout| layout.x + layout.width as i32)
+        .map(|layout| layout.x.saturating_add(extent_i32(layout.width)))
         .max()
         .unwrap_or(0);
     let max_y = layouts
         .iter()
-        .map(|layout| layout.y + layout.height as i32)
+        .map(|layout| layout.y.saturating_add(extent_i32(layout.height)))
         .max()
         .unwrap_or(0);
+    let span_x = max_x.saturating_sub(min_x).max(1);
+    let span_y = max_y.saturating_sub(min_y).max(1);
     (
         min_x,
         min_y,
-        (max_x - min_x).max(1) as u32,
-        (max_y - min_y).max(1) as u32,
+        u32::try_from(span_x).unwrap_or(u32::MAX).max(1),
+        u32::try_from(span_y).unwrap_or(u32::MAX).max(1),
     )
 }
 
@@ -89,16 +101,19 @@ pub fn monitor_cell_bounds(
     virtual_rows: usize,
     is_primary: bool,
 ) -> MonitorCellBounds {
-    let rel_x1 = layout.x - min_x;
-    let rel_y1 = layout.y - min_y;
-    let rel_x2 = rel_x1 + layout.width as i32;
-    let rel_y2 = rel_y1 + layout.height as i32;
+    let tw = (total_w as usize).max(1);
+    let th = (total_h as usize).max(1);
+    // Use saturating sub so inverted / partial layouts never wrap to huge usize.
+    let rel_x1 = layout.x.saturating_sub(min_x);
+    let rel_y1 = layout.y.saturating_sub(min_y);
+    let rel_x2 = rel_x1.saturating_add(extent_i32(layout.width));
+    let rel_y2 = rel_y1.saturating_add(extent_i32(layout.height));
 
     MonitorCellBounds {
-        start_col: ((rel_x1 as usize).saturating_mul(virtual_cols)) / total_w as usize,
-        end_col: ((rel_x2 as usize).saturating_mul(virtual_cols)) / total_w as usize,
-        start_row: ((rel_y1 as usize).saturating_mul(virtual_rows)) / total_h as usize,
-        end_row: ((rel_y2 as usize).saturating_mul(virtual_rows)) / total_h as usize,
+        start_col: nonneg_usize(rel_x1).saturating_mul(virtual_cols) / tw,
+        end_col: nonneg_usize(rel_x2).saturating_mul(virtual_cols) / tw,
+        start_row: nonneg_usize(rel_y1).saturating_mul(virtual_rows) / th,
+        end_row: nonneg_usize(rel_y2).saturating_mul(virtual_rows) / th,
         is_primary,
     }
 }

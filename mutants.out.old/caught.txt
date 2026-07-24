@@ -1,0 +1,87 @@
+crates/idle-ipc/src/ffi_cell.rs:10:39: replace * with +
+crates/idle-ipc/src/ffi_cell.rs:43:9: replace <impl From<FfiTerminalCell> for TerminalCell>::from -> Self with Default::default()
+crates/idle-ipc/src/ffi_cell.rs:47:28: replace != with == in <impl From<FfiTerminalCell> for TerminalCell>::from
+crates/idle-ipc/src/ffi_cell.rs:64:5: replace validate_grid_dims -> Result<(), &'static str> with Ok(())
+crates/idle-ipc/src/ffi_cell.rs:64:18: replace || with && in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:64:13: replace == with != in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:64:26: replace == with != in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:67:28: replace || with && in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:67:13: replace > with == in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:67:13: replace > with < in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:67:13: replace > with >= in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:67:36: replace > with == in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:67:36: replace > with < in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:10:39: replace * with /
+crates/idle-ipc/src/ffi_cell.rs:67:36: replace > with >= in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:71:20: replace match guard n <= MAX_GRID_CELLS with true in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:71:20: replace match guard n <= MAX_GRID_CELLS with false in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:71:22: replace <= with > in validate_grid_dims
+crates/idle-ipc/src/ffi_cell.rs:79:5: replace compute_shm_size -> Option<usize> with None
+crates/idle-ipc/src/ffi_cell.rs:79:5: replace compute_shm_size -> Option<usize> with Some(0)
+crates/idle-ipc/src/ffi_cell.rs:79:5: replace compute_shm_size -> Option<usize> with Some(1)
+crates/idle-ipc/src/path_safety.rs:9:5: replace is_valid_shm_name -> bool with true
+crates/idle-ipc/src/path_safety.rs:9:5: replace is_valid_shm_name -> bool with false
+crates/idle-ipc/src/path_safety.rs:12:24: replace || with && in is_valid_shm_name
+crates/idle-ipc/src/path_safety.rs:12:38: replace > with == in is_valid_shm_name
+crates/idle-ipc/src/path_safety.rs:12:38: replace > with < in is_valid_shm_name
+crates/idle-ipc/src/path_safety.rs:12:38: replace > with >= in is_valid_shm_name
+crates/idle-ipc/src/path_safety.rs:16:56: replace || with && in is_valid_shm_name
+crates/idle-ipc/src/path_safety.rs:16:44: replace || with && in is_valid_shm_name
+crates/idle-ipc/src/path_safety.rs:16:49: replace == with != in is_valid_shm_name
+crates/idle-ipc/src/path_safety.rs:16:61: replace == with != in is_valid_shm_name
+crates/idle-ipc/src/path_safety.rs:22:5: replace is_plausible_socket_path -> bool with true
+crates/idle-ipc/src/path_safety.rs:22:5: replace is_plausible_socket_path -> bool with false
+crates/idle-ipc/src/path_safety.rs:22:24: replace || with && in is_plausible_socket_path
+crates/idle-ipc/src/path_safety.rs:22:38: replace >= with < in is_plausible_socket_path
+crates/idle-ipc/src/path_safety.rs:25:54: replace || with && in is_plausible_socket_path
+crates/idle-ipc/src/path_safety.rs:25:28: replace || with && in is_plausible_socket_path
+crates/idle-ipc/src/path_safety.rs:25:31: delete ! in is_plausible_socket_path
+crates/idle-ipc/src/path_safety.rs:25:57: delete ! in is_plausible_socket_path
+crates/idle-ipc/src/path_safety.rs:28:38: replace == with != in is_plausible_socket_path
+crates/idle-ipc/src/protocol.rs:21:9: replace IpcCommand::write_to -> std::io::Result<()> with Ok(())
+crates/idle-ipc/src/protocol.rs:46:13: delete match arm 0 in IpcCommand::read_from
+crates/idle-ipc/src/protocol.rs:56:13: delete match arm 1 in IpcCommand::read_from
+crates/idle-ipc/src/protocol.rs:70:13: delete match arm 3 in IpcCommand::read_from
+crates/idle-ipc/src/protocol.rs:63:13: delete match arm 2 in IpcCommand::read_from
+crates/idle-ipc/src/protocol.rs:81:9: replace IpcResponse::write_to -> std::io::Result<()> with Ok(())
+crates/idle-ipc/src/protocol.rs:99:13: delete match arm 0 in IpcResponse::read_from
+crates/idle-ipc/src/protocol.rs:100:13: delete match arm 1 in IpcResponse::read_from
+crates/idle-ipc/src/protocol.rs:107:13: delete match arm 2 in IpcResponse::read_from
+crates/idle-ipc/src/protocol.rs:104:45: replace != with == in IpcResponse::read_from
+crates/idle-ipc/src/shm.rs:33:61: replace || with && in SharedMemory::create
+crates/idle-ipc/src/shm.rs:30:12: delete ! in SharedMemory::create
+crates/idle-ipc/src/shm.rs:33:17: replace < with > in SharedMemory::create
+crates/idle-ipc/src/shm.rs:33:17: replace < with == in SharedMemory::create
+crates/idle-ipc/src/shm.rs:33:17: replace < with <= in SharedMemory::create
+crates/idle-ipc/src/shm.rs:33:69: replace > with == in SharedMemory::create
+crates/idle-ipc/src/shm.rs:33:69: replace > with >= in SharedMemory::create
+crates/idle-ipc/src/shm.rs:33:69: replace > with < in SharedMemory::create
+crates/idle-ipc/src/shm.rs:33:81: replace * with + in SharedMemory::create
+crates/idle-ipc/src/shm.rs:33:81: replace * with / in SharedMemory::create
+crates/idle-ipc/src/shm.rs:33:74: replace * with + in SharedMemory::create
+crates/idle-ipc/src/shm.rs:33:74: replace * with / in SharedMemory::create
+crates/idle-ipc/src/shm.rs:48:46: replace | with & in SharedMemory::create
+crates/idle-ipc/src/shm.rs:48:31: replace | with & in SharedMemory::create
+crates/idle-ipc/src/shm.rs:52:15: replace < with > in SharedMemory::create
+crates/idle-ipc/src/shm.rs:60:64: replace < with == in SharedMemory::create
+crates/idle-ipc/src/shm.rs:60:64: replace < with <= in SharedMemory::create
+crates/idle-ipc/src/shm.rs:75:33: replace | with & in SharedMemory::create
+crates/idle-ipc/src/shm.rs:81:16: replace == with != in SharedMemory::create
+crates/idle-ipc/src/shm.rs:101:12: delete ! in SharedMemory::open
+crates/idle-ipc/src/shm.rs:104:61: replace || with && in SharedMemory::open
+crates/idle-ipc/src/shm.rs:104:17: replace < with == in SharedMemory::open
+crates/idle-ipc/src/shm.rs:104:17: replace < with > in SharedMemory::open
+crates/idle-ipc/src/shm.rs:104:69: replace > with == in SharedMemory::open
+crates/idle-ipc/src/shm.rs:104:69: replace > with < in SharedMemory::open
+crates/idle-ipc/src/shm.rs:104:81: replace * with / in SharedMemory::open
+crates/idle-ipc/src/shm.rs:104:74: replace * with / in SharedMemory::open
+crates/idle-ipc/src/shm.rs:111:15: replace < with > in SharedMemory::open
+crates/idle-ipc/src/shm.rs:123:33: replace | with & in SharedMemory::open
+crates/idle-ipc/src/shm.rs:129:16: replace == with != in SharedMemory::open
+crates/idle-ipc/src/shm.rs:148:9: replace SharedMemory::fd -> libc::c_int with Default::default()
+crates/idle-ipc/src/shm.rs:152:9: replace SharedMemory::ptr -> *mut libc::c_void with Default::default()
+crates/idle-ipc/src/shm.rs:156:9: replace SharedMemory::size -> usize with 0
+crates/idle-ipc/src/shm.rs:156:9: replace SharedMemory::size -> usize with 1
+crates/idle-ipc/src/shm.rs:160:9: replace SharedMemory::name -> &str with ""
+crates/idle-ipc/src/shm.rs:160:9: replace SharedMemory::name -> &str with "xyzzy"
+crates/idle-ipc/src/shm.rs:222:9: replace <impl Drop for SharedMemory>::drop with ()

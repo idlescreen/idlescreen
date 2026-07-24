@@ -44,7 +44,7 @@ mod terminal_cell;
 pub use callbacks::{
     PALETTE_CALLBACK, SYSTEM_INFO_CALLBACK, get_system_info, query_current_palette,
 };
-pub use caption::{caption_text, clear_caption, publish_caption};
+pub use caption::{caption_text, clear_caption, publish_caption, with_caption};
 pub use color::{hsl_to_rgb, lerp, percentage, rgb_to_hsl};
 pub use layout::{CenteredLogo, is_span_layout, place_centered_logo, span_reach_scale};
 pub use logo_block::render_logo_block;

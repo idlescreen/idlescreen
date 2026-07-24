@@ -1,202 +1,100 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 //! Authorization for D-Bus control methods.
+
+#[path = "auth_peer.rs"]
+mod auth_peer;
+
+use auth_peer::{PeerExeCheck, check_peer_exe, comm_matches_trusted, our_euid, peer_comm};
 
 use zbus::Connection;
 use zbus::message::Header;
 
-/// Basenames of processes allowed to call control methods on the daemon.
-const TRUSTED_CONTROL_PEERS: &[&str] = &[
-    "idle",
-    "idle-cli",
-    "idle-tui",
-    "idle-applet",
-    "trance",
-    "trance-applet",
-    "trance-tui",
-    "idlescreen",
-];
-
-#[cfg(test)]
-fn peer_exe_basename(pid: u32) -> Option<String> {
-    let path = format!("/proc/{pid}/exe");
-    let target = std::fs::canonicalize(path).ok()?;
-    target
-        .file_name()
-        .and_then(|name| name.to_str())
-        .map(str::to_string)
-}
-
-/// Result of inspecting a peer executable path.
-enum PeerExeCheck {
-    /// Path readable and matches trusted name + install prefix (+ root ownership).
-    Trusted,
-    /// Path readable but not an allowed control client.
-    Untrusted,
-    /// Cannot read `/proc/<pid>/exe` (common under systemd hardening + Yama).
-    Unreadable,
-}
-
-fn check_peer_exe(pid: u32) -> PeerExeCheck {
-    let path = format!("/proc/{pid}/exe");
-    let target = match std::fs::canonicalize(&path) {
-        Ok(t) => {
-            tracing::debug!(
-                "D-Bus auth check: canonical path for PID {} is {:?}",
-                pid,
-                t
-            );
-            t
-        }
-        Err(e) => {
-            // EACCES/EPERM: hardened services often cannot ptrace-read peer
-            // `/proc/<pid>/exe`. ENOENT: peer already exited.
-            tracing::warn!(
-                "D-Bus auth check: failed to canonicalize /proc/{}/exe: {:?}",
-                pid,
-                e
-            );
-            return PeerExeCheck::Unreadable;
-        }
+/// Require peer Unix UID to match our euid (session-bus same-user defense in depth).
+fn peer_uid_matches_ours(peer_uid: Option<u32>) -> bool {
+    let Some(our_uid) = our_euid() else {
+        return peer_uid.is_none();
     };
-    let name = match target.file_name().and_then(|n| n.to_str()) {
-        Some(n) => n,
+    match peer_uid {
+        Some(uid) if uid == our_uid => true,
+        Some(uid) => {
+            tracing::warn!("D-Bus auth: peer uid {uid} != our uid {our_uid}; denying");
+            false
+        }
         None => {
-            tracing::warn!(
-                "D-Bus auth check: failed to get file name from {:?}",
-                target
-            );
-            return PeerExeCheck::Untrusted;
-        }
-    };
-    if !TRUSTED_CONTROL_PEERS.contains(&name) {
-        tracing::warn!(
-            "D-Bus auth check: process name {:?} is not in trusted control peers list",
-            name
-        );
-        return PeerExeCheck::Untrusted;
-    }
-    let parent = target.parent().and_then(|p| p.to_str()).unwrap_or("");
-    let path_ok = parent == "/usr/bin"
-        || parent == "/usr/local/bin"
-        || (cfg!(debug_assertions)
-            && {
-                if let Ok(current_exe) = std::env::current_exe() {
-                    if let Ok(current_canonical) = std::fs::canonicalize(current_exe) {
-                        let match_parent = target.parent() == current_canonical.parent();
-                        tracing::debug!(
-                            "D-Bus auth check: comparing parent of target {:?} and current_canonical {:?} -> {}",
-                            target.parent(),
-                            current_canonical.parent(),
-                            match_parent
-                        );
-                        match_parent
-                    } else {
-                        tracing::warn!("D-Bus auth check: failed to canonicalize current exe");
-                        false
-                    }
-                } else {
-                    tracing::warn!("D-Bus auth check: failed to get current exe");
-                    false
-                }
-            });
-    if !path_ok {
-        tracing::warn!(
-            "D-Bus auth check: path {:?} parent {:?} not trusted",
-            target,
-            parent
-        );
-        return PeerExeCheck::Untrusted;
-    }
-
-    // Production installs: binary must be root-owned and not world-writable so a
-    // user cannot drop a fake `trance` next to the real one in a shared dir.
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        match std::fs::metadata(&target) {
-            Ok(meta) => {
-                let mode = meta.mode();
-                if mode & 0o002 != 0 {
-                    tracing::warn!(
-                        "D-Bus auth check: refusing world-writable peer binary {:?}",
-                        target
-                    );
-                    return PeerExeCheck::Untrusted;
-                }
-                // Only enforce root ownership for the system prefixes (not debug same-dir peers).
-                if (parent == "/usr/bin" || parent == "/usr/local/bin")
-                    && meta.uid() != 0
-                    && meta.uid() != 65534
-                {
-                    tracing::warn!(
-                        "D-Bus auth check: refusing non-root-owned peer binary {:?} (uid {})",
-                        target,
-                        meta.uid()
-                    );
-                    return PeerExeCheck::Untrusted;
-                }
-            }
-            Err(e) => {
-                tracing::warn!(
-                    "D-Bus auth check: cannot stat peer binary {:?}: {:?}",
-                    target,
-                    e
-                );
-                return PeerExeCheck::Untrusted;
-            }
-        }
-    }
-
-    PeerExeCheck::Trusted
-}
-
-fn is_trusted_control_peer(pid: u32, peer_uid: Option<u32>, peer_name: &str) -> bool {
-    // Escape hatch is debug-only so release builds cannot be opened with
-    // `TRANCE_DBUS_TRUST_ALL=1` by a local attacker.
-    if cfg!(debug_assertions) && std::env::var("TRANCE_DBUS_TRUST_ALL").ok().as_deref() == Some("1")
-    {
-        tracing::warn!("D-Bus auth: TRANCE_DBUS_TRUST_ALL=1 (debug build only)");
-        return true;
-    }
-
-    match check_peer_exe(pid) {
-        PeerExeCheck::Trusted => true,
-        PeerExeCheck::Untrusted => false,
-        PeerExeCheck::Unreadable => {
-            // Session bus: peers are already same-user scoped by the bus.
-            // Under systemd hardening (ProtectSystem=strict, PrivateTmp, …)
-            // the daemon often cannot read `/proc/<peer>/exe` (EACCES), which
-            // previously rejected *all* control calls including /usr/bin/trance.
-            // Fall back to matching the peer's Unix UID to our own.
-            #[cfg(unix)]
-            {
-                let our_uid = unsafe { libc::geteuid() };
-                if let Some(uid) = peer_uid {
-                    if uid == our_uid {
-                        tracing::warn!(
-                            "D-Bus auth: peer {peer_name} (pid {pid}, uid {uid}) accepted via same-UID fallback (peer exe unreadable)"
-                        );
-                        return true;
-                    }
-                    tracing::warn!(
-                        "D-Bus auth: peer pid {pid} uid {uid} != our uid {our_uid}; denying"
-                    );
-                    return false;
-                }
-            }
-            #[cfg(not(unix))]
-            {
-                let _ = peer_uid;
-                let _ = peer_name;
-            }
-            tracing::warn!("D-Bus auth: peer exe unreadable and no UID to fall back on");
+            tracing::warn!("D-Bus auth: peer UID unavailable; denying");
             false
         }
     }
 }
 
-/// Control methods (preview, config writes) require trance CLI or applet.
+fn dbus_trust_all_enabled() -> bool {
+    if !cfg!(debug_assertions) {
+        return false;
+    }
+    for key in ["IDLE_DBUS_TRUST_ALL", "TRANCE_DBUS_TRUST_ALL"] {
+        if std::env::var(key).ok().as_deref() == Some("1") {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_trusted_control_peer(pid: u32, peer_uid: Option<u32>, peer_name: &str) -> bool {
+    // Escape hatch is debug-only so release builds cannot be opened with
+    // `TRANCE_DBUS_TRUST_ALL=1` / `IDLE_DBUS_TRUST_ALL=1` by a local attacker.
+    if dbus_trust_all_enabled() {
+        tracing::warn!("D-Bus auth: *_DBUS_TRUST_ALL=1 (debug build only)");
+        return true;
+    }
+
+    // Always require same-UID before trusting path or comm (closes cross-user
+    // edge cases if the service is ever bound on a broader bus).
+    if !peer_uid_matches_ours(peer_uid) {
+        return false;
+    }
+
+    match check_peer_exe(pid) {
+        PeerExeCheck::Trusted => {
+            // Narrow TOCTOU window: re-check exe still resolves to a trusted peer.
+            match check_peer_exe(pid) {
+                PeerExeCheck::Trusted => true,
+                other => {
+                    tracing::warn!(
+                        "D-Bus auth: peer {peer_name} (pid {pid}) failed re-check after Trusted ({other:?})"
+                    );
+                    false
+                }
+            }
+        }
+        PeerExeCheck::Untrusted => false,
+        PeerExeCheck::Unreadable => {
+            // Do **not** accept pure same-UID: any compromised same-user process
+            // could otherwise call control methods. Prefer `/proc/pid/comm`, which
+            // remains readable under typical Yama/systemd hardening when `exe` is not.
+            match peer_comm(pid) {
+                Some(comm) if comm_matches_trusted(&comm) => {
+                    tracing::warn!(
+                        "D-Bus auth: peer {peer_name} (pid {pid}, comm {comm}) accepted via same-UID + trusted comm (peer exe unreadable)"
+                    );
+                    true
+                }
+                Some(comm) => {
+                    tracing::warn!(
+                        "D-Bus auth: peer pid {pid} comm {comm:?} not trusted; denying (exe unreadable)"
+                    );
+                    false
+                }
+                None => {
+                    tracing::warn!("D-Bus auth: peer pid {pid} exe and comm unreadable; denying");
+                    false
+                }
+            }
+        }
+    }
+}
+
+/// Control methods (preview, config writes) require idle/trance CLI or applet.
 pub async fn require_control_peer(
     connection: &Connection,
     header: &Header<'_>,

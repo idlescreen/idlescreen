@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/protocol.rs
++++ delete match arm 0 in IpcResponse::read_from
+@@ -91,17 +91,17 @@
+         }
+         Ok(())
+     }
+ 
+     pub fn read_from<R: std::io::Read>(mut reader: R) -> std::io::Result<Self> {
+         let mut tag = [0u8; 1];
+         reader.read_exact(&mut tag)?;
+         match tag[0] {
+-            0 => Ok(IpcResponse::Ready),
++             /* ~ changed by cargo-mutants ~ */
+             1 => {
+                 let mut scan_byte = [0u8; 1];
+                 reader.read_exact(&mut scan_byte)?;
+                 Ok(IpcResponse::FrameReady {
+                     scanlines: scan_byte[0] != 0,
+                 })
+             }
+             2 => Ok(IpcResponse::Ack),

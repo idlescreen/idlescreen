@@ -120,6 +120,37 @@ fn sanitize_strips_idle_saver_package_prefix() {
         sanitize_saver_name("idle-saver-beams"),
         Some("beams".to_string())
     );
+    assert_eq!(
+        sanitize_saver_name("idle-saver-storm"),
+        Some("storm".to_string())
+    );
+    assert_eq!(
+        sanitize_saver_name("idle-saver-ripple.so"),
+        Some("ripple".to_string())
+    );
+}
+
+#[test]
+fn sanitize_idle_saver_empty_stem_rejected() {
+    // Prefix alone leaves empty stem after strip.
+    assert!(sanitize_saver_name("idle-saver-").is_none());
+    assert!(sanitize_saver_name("idle-saver").is_some()); // no prefix match (needs trailing -)
+}
+
+#[test]
+fn sanitize_idle_saver_only_strips_once() {
+    assert_eq!(
+        sanitize_saver_name("idle-saver-idle-saver-beams"),
+        Some("idle-saver-beams".to_string())
+    );
+}
+
+#[test]
+fn is_allowed_after_idle_saver_prefix_strip() {
+    assert!(is_allowed_saver("idle-saver-beams"));
+    assert!(is_allowed_saver("idle-saver-hearth"));
+    assert!(!is_allowed_saver("idle-saver-evil"));
+    assert!(!is_allowed_saver("idle-saver-"));
 }
 
 #[test]
@@ -174,14 +205,25 @@ fn plugin_error_display_includes_context() {
 
 #[test]
 fn test_dev_plugin_dirs_env_behavior() {
+    use crate::launcher_resolve::dev_plugin_dirs;
+
     unsafe {
         std::env::set_var("TRANCE_DEV_PLUGINS", "1");
+        std::env::remove_var("IDLE_DEV_PLUGINS");
     }
     let dirs_with_env = dev_plugin_dirs("beams");
     assert!(!dirs_with_env.is_empty());
 
     unsafe {
         std::env::remove_var("TRANCE_DEV_PLUGINS");
+        std::env::set_var("IDLE_DEV_PLUGINS", "1");
+    }
+    let dirs_idle_env = dev_plugin_dirs("beams");
+    assert!(!dirs_idle_env.is_empty());
+
+    unsafe {
+        std::env::remove_var("TRANCE_DEV_PLUGINS");
+        std::env::remove_var("IDLE_DEV_PLUGINS");
     }
     let dirs_no_env = dev_plugin_dirs("beams");
     if cfg!(debug_assertions) {

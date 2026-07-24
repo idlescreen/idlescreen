@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/ffi_cell.rs
++++ replace * with +
+@@ -2,17 +2,17 @@
+ // Copyright 2026 IdleScreen
+ 
+ use idle_api::TerminalCell;
+ 
+ /// Hard cap on a single grid axis (cols or rows) for IPC shared memory.
+ pub const MAX_GRID_DIM: usize = 4096;
+ 
+ /// Hard cap on total cells (`cols * rows`) to bound SHM / mmap DoS.
+-pub const MAX_GRID_CELLS: usize = 512 * 512;
++pub const MAX_GRID_CELLS: usize = 512 + /* ~ changed by cargo-mutants ~ */ 512;
+ 
+ /// FFI-safe representation of `TerminalCell` for shared memory communication.
+ #[repr(C)]
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ pub struct FfiTerminalCell {
+     pub ch: u32,
+     pub fg_r: u8,
+     pub fg_g: u8,

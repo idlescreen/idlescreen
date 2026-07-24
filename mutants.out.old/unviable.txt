@@ -1,0 +1,6 @@
+crates/idle-ipc/src/ffi_cell.rs:28:9: replace <impl From<TerminalCell> for FfiTerminalCell>::from -> Self with Default::default()
+crates/idle-ipc/src/protocol.rs:43:9: replace IpcCommand::read_from -> std::io::Result<Self> with Ok(Default::default())
+crates/idle-ipc/src/protocol.rs:96:9: replace IpcResponse::read_from -> std::io::Result<Self> with Ok(Default::default())
+crates/idle-ipc/src/shm.rs:30:9: replace SharedMemory::create -> Result<Self, String> with Ok(Default::default())
+crates/idle-ipc/src/shm.rs:101:9: replace SharedMemory::open -> Result<Self, String> with Ok(Default::default())
+crates/idle-ipc/src/shm.rs:232:17: replace && with || in <impl Drop for SharedMemory>::drop

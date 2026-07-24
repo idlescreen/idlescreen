@@ -1,0 +1,94 @@
+
+*** crates/idle-ipc/src/shm.rs:232:17: replace && with || in <impl Drop for SharedMemory>::drop
+
+*** mutation diff:
+--- crates/idle-ipc/src/shm.rs
++++ replace && with || in <impl Drop for SharedMemory>::drop
+@@ -224,17 +224,17 @@
+                 libc::munmap(self.ptr, self.size);
+                 self.ptr = ptr::null_mut();
+             }
+             if self.fd >= 0 {
+                 libc::close(self.fd);
+                 self.fd = -1;
+             }
+             if self.is_owner
+-                && let Ok(c_name) = CString::new(self.name.as_str())
++                || /* ~ changed by cargo-mutants ~ */ let Ok(c_name) = CString::new(self.name.as_str())
+             {
+                 libc::shm_unlink(c_name.as_ptr());
+             }
+         }
+     }
+ }
+ 
+ #[cfg(test)]
+
+
+*** /home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/cargo test --no-run --verbose --package=idle-ipc@0.4.0
+warning: /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-daemon/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-daemon/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle-daemon`
+  * `bin` target `idlescreen-daemon`
+  * `bin` target `trance-daemon`
+warning: /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-cli/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-cli/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle`
+  * `bin` target `idlescreen`
+  * `bin` target `trance`
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+       Fresh libc v0.2.188
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.24
+       Fresh proc-macro2 v1.0.107
+       Fresh quote v1.0.47
+       Fresh getrandom v0.3.4
+       Fresh rand_core v0.9.5
+       Fresh syn v2.0.119
+       Fresh bitflags v2.13.1
+       Fresh linux-raw-sys v0.12.1
+       Fresh autocfg v1.5.1
+       Fresh rustix v1.1.4
+       Fresh bytemuck_derive v1.11.0
+       Fresh zerocopy v0.8.55
+       Fresh getrandom v0.4.3
+       Fresh fastrand v2.5.0
+       Fresh once_cell v1.21.4
+       Fresh tempfile v3.27.0
+       Fresh ppv-lite86 v0.2.21
+       Fresh bytemuck v1.25.2
+       Fresh wait-timeout v0.2.1
+       Fresh fnv v1.0.7
+       Fresh bit-vec v0.8.0
+       Fresh quick-error v1.2.3
+       Fresh rusty-fork v0.3.1
+       Fresh bit-set v0.8.0
+       Fresh num-traits v0.2.19
+       Fresh idle-api v2.3.1 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-api)
+       Fresh rand_chacha v0.9.0
+       Fresh rand v0.9.5
+       Fresh rand_xorshift v0.4.0
+       Fresh regex-syntax v0.8.11
+       Fresh unarray v0.1.4
+       Fresh proptest v1.11.0
+       Dirty idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/crates/idle-ipc): the file `crates/idle-ipc/src/shm.rs` has changed (1784876892.734583828s, 487005601ns after last build at 1784876892.247578227s)
+   Compiling idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/crates/idle-ipc)
+     Running `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a0b8bba603035d0f -C extra-filename=-dbadf11ecf5c7d57 --out-dir /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rlib --extern libc=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rlib --extern proptest=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libproptest-b92098e6fc18f2e8.rlib`
+     Running `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=f6298ca08a0d4778 -C extra-filename=-72a23dfc47ffc5d4 --out-dir /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rmeta --extern libc=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rmeta`
+error: `||` operators are not supported in let chain conditions
+   --> crates/idle-ipc/src/shm.rs:232:17
+    |
+232 |                 || /* ~ changed by cargo-mutants ~ */ let Ok(c_name) = CString::new(self.name.as_str())
+    |                 ^^
+
+error: could not compile `idle-ipc` (lib) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=f6298ca08a0d4778 -C extra-filename=-72a23dfc47ffc5d4 --out-dir /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rmeta --extern libc=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rmeta` (exit status: 1)
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `idle-ipc` (lib test) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a0b8bba603035d0f -C extra-filename=-dbadf11ecf5c7d57 --out-dir /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rlib --extern libc=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rlib --extern proptest=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libproptest-b92098e6fc18f2e8.rlib` (exit status: 1)
+
+*** result: Failure(101)

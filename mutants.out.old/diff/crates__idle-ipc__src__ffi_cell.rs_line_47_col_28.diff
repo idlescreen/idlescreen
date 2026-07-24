@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/ffi_cell.rs
++++ replace != with == in <impl From<FfiTerminalCell> for TerminalCell>::from
+@@ -39,17 +39,17 @@
+ }
+ 
+ impl From<FfiTerminalCell> for TerminalCell {
+     fn from(ffi: FfiTerminalCell) -> Self {
+         Self {
+             ch: std::char::from_u32(ffi.ch).unwrap_or(' '),
+             fg: (ffi.fg_r, ffi.fg_g, ffi.fg_b),
+             bg: (ffi.bg_r, ffi.bg_g, ffi.bg_b),
+-            bold: ffi.bold != 0,
++            bold: ffi.bold == /* ~ changed by cargo-mutants ~ */ 0,
+         }
+     }
+ }
+ 
+ #[repr(C)]
+ pub struct SharedMemoryHeader {
+     pub magic: u32,
+     pub cols: u32,

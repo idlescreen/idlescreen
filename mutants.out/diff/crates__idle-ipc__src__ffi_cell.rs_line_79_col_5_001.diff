@@ -1,0 +1,16 @@
+--- crates/idle-ipc/src/ffi_cell.rs
++++ replace compute_shm_size -> Option<usize> with Some(0)
+@@ -71,12 +71,10 @@
+         Some(n) if n <= MAX_GRID_CELLS => Ok(()),
+         Some(_) => Err("grid cell count exceeds maximum"),
+         None => Err("grid cell count overflow"),
+     }
+ }
+ 
+ /// Byte size of header + `cols * rows` cells. `None` on overflow.
+ pub fn compute_shm_size(cols: usize, rows: usize) -> Option<usize> {
+-    let cells = cols.checked_mul(rows)?;
+-    let cell_bytes = cells.checked_mul(std::mem::size_of::<FfiTerminalCell>())?;
+-    std::mem::size_of::<SharedMemoryHeader>().checked_add(cell_bytes)
++    Some(0) /* ~ changed by cargo-mutants ~ */
+ }

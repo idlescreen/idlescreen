@@ -1,0 +1,171 @@
+
+*** crates/idle-ipc/src/shm.rs:48:46: replace | with ^ in SharedMemory::create
+
+*** mutation diff:
+--- crates/idle-ipc/src/shm.rs
++++ replace | with ^ in SharedMemory::create
+@@ -40,17 +40,17 @@
+         // SAFETY: `c_name` is a valid CString; unlink best-effort for stale objects.
+         unsafe {
+             libc::shm_unlink(c_name.as_ptr());
+         }
+         // SAFETY: O_CREAT|O_EXCL|O_RDWR with mode 0600 on a validated name.
+         let fd = unsafe {
+             libc::shm_open(
+                 c_name.as_ptr(),
+-                libc::O_CREAT | libc::O_RDWR | libc::O_EXCL,
++                libc::O_CREAT | libc::O_RDWR ^ /* ~ changed by cargo-mutants ~ */ libc::O_EXCL,
+                 0o600,
+             )
+         };
+         if fd < 0 {
+             return Err(format!(
+                 "shm_open (create) failed: {}",
+                 std::io::Error::last_os_error()
+             ));
+
+
+*** /home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/cargo test --no-run --verbose --package=idle-ipc@0.4.0
+warning: /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-cli/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-cli/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle`
+  * `bin` target `idlescreen`
+  * `bin` target `trance`
+warning: /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-daemon/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-daemon/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle-daemon`
+  * `bin` target `idlescreen-daemon`
+  * `bin` target `trance-daemon`
+       Fresh libc v0.2.188
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.24
+       Fresh linux-raw-sys v0.12.1
+       Fresh bitflags v2.13.1
+       Fresh autocfg v1.5.1
+       Fresh fastrand v2.5.0
+       Fresh once_cell v1.21.4
+       Fresh wait-timeout v0.2.1
+       Fresh quick-error v1.2.3
+       Fresh bit-vec v0.8.0
+       Fresh fnv v1.0.7
+       Fresh bit-set v0.8.0
+       Fresh unarray v0.1.4
+       Fresh regex-syntax v0.8.11
+       Fresh proc-macro2 v1.0.107
+       Fresh getrandom v0.3.4
+       Fresh rustix v1.1.4
+       Fresh getrandom v0.4.3
+       Fresh zerocopy v0.8.55
+       Fresh quote v1.0.47
+       Fresh rand_core v0.9.5
+       Fresh ppv-lite86 v0.2.21
+       Fresh tempfile v3.27.0
+       Fresh num-traits v0.2.19
+       Fresh syn v2.0.119
+       Fresh rusty-fork v0.3.1
+       Fresh rand_chacha v0.9.0
+       Fresh rand v0.9.5
+       Fresh rand_xorshift v0.4.0
+       Fresh bytemuck_derive v1.11.0
+       Fresh proptest v1.11.0
+       Fresh bytemuck v1.25.2
+       Fresh idle-api v2.3.1 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-api)
+       Dirty idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/crates/idle-ipc): the file `crates/idle-ipc/src/shm.rs` has changed (1784876880.483442930s, 428004922ns after last build at 1784876880.055438008s)
+   Compiling idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/crates/idle-ipc)
+     Running `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a0b8bba603035d0f -C extra-filename=-dbadf11ecf5c7d57 --out-dir /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rlib --extern libc=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rlib --extern proptest=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libproptest-b92098e6fc18f2e8.rlib`
+     Running `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=f6298ca08a0d4778 -C extra-filename=-72a23dfc47ffc5d4 --out-dir /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rmeta --extern libc=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rmeta`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.32s
+  Executable `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/idle_ipc-dbadf11ecf5c7d57`
+
+*** result: Success
+
+*** /home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/cargo test --verbose --package=idle-ipc@0.4.0
+warning: /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-cli/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-cli/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle`
+  * `bin` target `idlescreen`
+  * `bin` target `trance`
+warning: /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-daemon/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-daemon/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle-daemon`
+  * `bin` target `idlescreen-daemon`
+  * `bin` target `trance-daemon`
+       Fresh libc v0.2.188
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.24
+       Fresh bitflags v2.13.1
+       Fresh autocfg v1.5.1
+       Fresh linux-raw-sys v0.12.1
+       Fresh once_cell v1.21.4
+       Fresh fastrand v2.5.0
+       Fresh wait-timeout v0.2.1
+       Fresh fnv v1.0.7
+       Fresh quick-error v1.2.3
+       Fresh bit-vec v0.8.0
+       Fresh bit-set v0.8.0
+       Fresh regex-syntax v0.8.11
+       Fresh unarray v0.1.4
+       Fresh proc-macro2 v1.0.107
+       Fresh getrandom v0.3.4
+       Fresh zerocopy v0.8.55
+       Fresh getrandom v0.4.3
+       Fresh rustix v1.1.4
+       Fresh quote v1.0.47
+       Fresh rand_core v0.9.5
+       Fresh tempfile v3.27.0
+       Fresh ppv-lite86 v0.2.21
+       Fresh num-traits v0.2.19
+       Fresh syn v2.0.119
+       Fresh rand_chacha v0.9.0
+       Fresh rusty-fork v0.3.1
+       Fresh rand v0.9.5
+       Fresh rand_xorshift v0.4.0
+       Fresh bytemuck_derive v1.11.0
+       Fresh proptest v1.11.0
+       Fresh bytemuck v1.25.2
+       Fresh idle-api v2.3.1 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-api)
+       Fresh idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/crates/idle-ipc)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/idle_ipc-dbadf11ecf5c7d57`
+
+running 32 tests
+test path_safety::tests::shm_name_rejects_traversal_and_oddities ... ok
+test path_safety::tests::shm_name_accepts_daemon_format ... ok
+test path_safety::tests::socket_path_rejects_dotdot_middle_segment ... ok
+test path_safety::tests::socket_path_accepts_tmp_and_runtime ... ok
+test path_safety::tests::socket_path_rejects_relative_and_dots ... ok
+test shm::tests::cells_mut_accepts_zero_or_correct_magic ... ok
+test shm::tests::create_rejects_bad_name ... ok
+test shm::tests::cells_mut_rejects_bad_magic ... ok
+test shm::tests::cells_mut_rejects_dims_exceeding_map ... ok
+test shm::tests::create_rejects_tiny_size ... ok
+test shm::tests::open_rejects_bad_name ... ok
+test shm::tests::open_rejects_size_out_of_range ... ok
+test tests::test_compute_shm_size_overflow_is_none ... ok
+test shm::tests::create_open_roundtrip_name ... ok
+test tests::test_compute_shm_size_zero_dimensions ... ok
+test shm::tests::create_rejects_oversized ... ok
+test tests::test_invalid_ipc_command_tag ... ok
+test tests::test_invalid_ipc_response_tag ... ok
+test tests::test_ipc_commands ... ok
+test shm::tests::create_accepts_header_mid_and_max_sizes ... ok
+test tests::test_ipc_responses ... ok
+test tests::test_ffi_terminal_cell_conversion ... ok
+test tests::test_shm_size ... ok
+test tests::test_validate_grid_dims ... ok
+test tests::test_truncated_command_read ... ok
+test tests::test_validate_grid_dims_boundaries ... ok
+test proptests::invalid_response_tags_fail ... ok
+test proptests::shm_size_monotonic ... ok
+test proptests::adversarial_dims_never_panic ... ok
+test proptests::invalid_command_tags_fail ... ok
+test proptests::response_roundtrip ... ok
+test proptests::command_roundtrip ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests idle_ipc
+     Running `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustdoc --edition=2024 --crate-type lib --color never --crate-name idle_ipc --test crates/idle-ipc/src/lib.rs --test-run-directory /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/crates/idle-ipc --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rlib --extern idle_ipc=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libidle_ipc-72a23dfc47ffc5d4.rlib --extern libc=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rlib --extern proptest=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libproptest-b92098e6fc18f2e8.rlib -L dependency=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' --error-format human`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+*** result: Success

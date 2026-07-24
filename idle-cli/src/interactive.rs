@@ -1,9 +1,10 @@
-// SPDX-License-Identifier: MIT
-
-use std::io::{self, Write};
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 IdleScreen
 
 use anyhow::{Context, Result};
 use idle_dbus::{DaemonStatus, TranceClient};
+
+use crate::interactive_io::{parse_one_based_index, read_prompted_line};
 
 enum MenuAction {
     ToggleIdle,
@@ -86,12 +87,7 @@ fn print_status(status: &DaemonStatus) {
 
 fn prompt_main_menu() -> Result<MenuAction> {
     loop {
-        print!("\nSelect an option (1-7): ");
-        io::stdout().flush().context("flushing stdout")?;
-        let mut choice = String::new();
-        io::stdin()
-            .read_line(&mut choice)
-            .context("reading selection from stdin")?;
+        let choice = read_prompted_line("\nSelect an option (1-7): ")?;
         match choice.trim() {
             "1" => return Ok(MenuAction::ToggleIdle),
             "2" => return Ok(MenuAction::SetTimeout),
@@ -114,12 +110,7 @@ fn prompt_saver_select(client: &TranceClient) -> Result<Option<String>> {
     for (i, s) in savers.iter().enumerate() {
         println!("  {}. {s}", i + 1);
     }
-    print!("Select a saver (0-{}): ", savers.len());
-    io::stdout().flush().context("flushing stdout")?;
-    let mut idx_str = String::new();
-    io::stdin()
-        .read_line(&mut idx_str)
-        .context("reading selection from stdin")?;
+    let idx_str = read_prompted_line(&format!("Select a saver (0-{}): ", savers.len()))?;
     if let Ok(idx) = idx_str.trim().parse::<usize>() {
         if idx == 0 {
             println!("Active screensaver set to: random");
@@ -138,12 +129,7 @@ fn prompt_saver_select(client: &TranceClient) -> Result<Option<String>> {
 }
 
 fn prompt_timeout() -> Result<Option<u32>> {
-    print!("Enter new timeout (1-240 mins): ");
-    io::stdout().flush().context("flushing stdout")?;
-    let mut timeout_str = String::new();
-    io::stdin()
-        .read_line(&mut timeout_str)
-        .context("reading timeout from stdin")?;
+    let timeout_str = read_prompted_line("Enter new timeout (1-240 mins): ")?;
     if let Ok(mins) = timeout_str.trim().parse::<u32>() {
         if (1..=240).contains(&mins) {
             println!("Timeout updated to {mins} minutes.");
@@ -193,16 +179,8 @@ fn preview_saver(client: &TranceClient) -> Result<()> {
     for (i, s) in savers.iter().enumerate() {
         println!("  {}. {s}", i + 1);
     }
-    print!("Select a screensaver (1-{}): ", savers.len());
-    io::stdout().flush().context("flushing stdout")?;
-    let mut idx_str = String::new();
-    io::stdin()
-        .read_line(&mut idx_str)
-        .context("reading selection from stdin")?;
-    if let Ok(idx) = idx_str.trim().parse::<usize>()
-        && idx >= 1
-        && idx <= savers.len()
-    {
+    let idx_str = read_prompted_line(&format!("Select a screensaver (1-{}): ", savers.len()))?;
+    if let Some(idx) = parse_one_based_index(&idx_str, savers.len()) {
         let name = &savers[idx - 1];
         client
             .preview(name)

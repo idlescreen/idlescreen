@@ -1,9 +1,10 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 IdleScreen
 
 use std::fs;
 use std::path::PathBuf;
 
-use idle_runner::launcher::{is_allowed_saver, sanitize_saver_name};
+use crate::config_parse::apply_config_line;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DaemonConfig {
@@ -36,17 +37,32 @@ impl Default for DaemonConfig {
     }
 }
 
+/// Absolute path without `..` or NUL — blocks env-based config path traversal.
+fn is_safe_config_root(path: &str) -> bool {
+    if path.is_empty() || path.contains('\0') {
+        return false;
+    }
+    let p = std::path::Path::new(path);
+    if !p.is_absolute() {
+        return false;
+    }
+    !p.components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+}
+
 impl DaemonConfig {
     /// Config directory candidates: IdleScreen first, legacy `trance` second.
     pub fn config_dir_candidates() -> Vec<PathBuf> {
         let mut bases = Vec::new();
         if let Some(xdg) = std::env::var("XDG_CONFIG_HOME")
             .ok()
-            .filter(|s| !s.is_empty())
+            .filter(|s| is_safe_config_root(s))
         {
             bases.push(PathBuf::from(xdg));
         }
-        if let Ok(home) = std::env::var("HOME") {
+        if let Ok(home) = std::env::var("HOME")
+            && is_safe_config_root(&home)
+        {
             bases.push(PathBuf::from(home).join(".config"));
         }
         let mut dirs = Vec::new();
@@ -82,66 +98,7 @@ impl DaemonConfig {
         let mut config = Self::default();
         if let Some(Ok(content)) = Self::resolve_config_path().map(fs::read_to_string) {
             for line in content.lines() {
-                let line = line.trim();
-                if line.is_empty() || line.starts_with('#') {
-                    continue;
-                }
-                if let Some(idx) = line.find(':') {
-                    let key = line[..idx].trim();
-                    let val = line[idx + 1..].trim().trim_matches('"').trim_matches('\'');
-                    match key {
-                        "idle_timeout_mins" => {
-                            if let Some(n) =
-                                val.parse::<u32>().ok().filter(|&n| (1..=240).contains(&n))
-                            {
-                                config.idle_timeout_mins = n;
-                            }
-                        }
-                        "active_saver" => {
-                            if val.is_empty() || val == "none" {
-                                config.active_saver = None;
-                            } else if is_allowed_saver(val) {
-                                config.active_saver =
-                                    sanitize_saver_name(val).map(|s| s.to_string());
-                            }
-                        }
-                        "idle_enabled" => {
-                            if let Ok(b) = val.parse::<bool>() {
-                                config.idle_enabled = b;
-                            }
-                        }
-                        "gpu_enabled" => {
-                            // DEPRECATED (2026): the previous `trance-gpu` crate
-                            // was renamed to `idle-upscaler` and is now pure
-                            // CPU code. `gpu_enabled` is a no-op; we accept the
-                            // value silently for back-compat with existing
-                            // config.yaml files but ignore it. Logging would be
-                            // spammy on every daemon start, so no warning is
-                            // emitted here — the field is documented as
-                            // deprecated in `config.yaml(5)`.
-                            let _ = val.parse::<bool>();
-                            #[allow(deprecated)]
-                            {
-                                config.gpu_enabled = false;
-                            }
-                        }
-                        "show_fps_overlay" => {
-                            if let Ok(b) = val.parse::<bool>() {
-                                config.show_fps_overlay = b;
-                            }
-                        }
-                        "render_scale" => {
-                            if val.is_empty() || val.eq_ignore_ascii_case("null") {
-                                config.render_scale = None;
-                            } else if let Some(scale) =
-                                val.parse::<f32>().ok().filter(|s| s.is_finite())
-                            {
-                                config.render_scale = Some(scale.clamp(0.25, 1.0));
-                            }
-                        }
-                        _ => {}
-                    }
-                }
+                apply_config_line(&mut config, line);
             }
         }
         config
@@ -197,6 +154,14 @@ mod tests {
     fn default_saver_is_beams() {
         let c = DaemonConfig::default();
         assert_eq!(c.active_saver.as_deref(), Some("beams"));
+    }
+
+    #[test]
+    fn safe_config_root_rejects_traversal() {
+        assert!(is_safe_config_root("/home/user/.config"));
+        assert!(!is_safe_config_root(""));
+        assert!(!is_safe_config_root("relative"));
+        assert!(!is_safe_config_root("/home/user/../etc"));
     }
 
     #[test]

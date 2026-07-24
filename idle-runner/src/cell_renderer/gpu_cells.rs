@@ -2,17 +2,25 @@
 
 use super::gpu_init::GpuCell;
 use idle_api::TerminalCell;
+use std::collections::HashMap;
 
-pub fn build_gpu_cells(
+/// Build GPU cell records into a reused scratch buffer (no per-frame alloc when sized).
+pub fn build_gpu_cells_into(
     grid: &[TerminalCell],
     grid_cols: usize,
     col_start: usize,
     row_start: usize,
     cols: usize,
     rows: usize,
-    atlas_chars: &[char],
-) -> Vec<GpuCell> {
-    let mut gpu_cells = Vec::with_capacity(cols * rows);
+    atlas_index: &HashMap<char, u32>,
+    out: &mut Vec<GpuCell>,
+) {
+    let needed = cols.saturating_mul(rows);
+    out.clear();
+    if out.capacity() < needed {
+        out.reserve(needed - out.capacity());
+    }
+
     for row in 0..rows {
         for col in 0..cols {
             let index = (row_start + row) * grid_cols + (col_start + col);
@@ -24,20 +32,16 @@ pub fn build_gpu_cells(
                 let char_idx = if cell.ch == ' ' {
                     0xFFFFFFFF
                 } else {
-                    atlas_chars
-                        .iter()
-                        .position(|&c| c == cell.ch)
-                        .map(|idx| idx as u32)
-                        .unwrap_or(0xFFFFFFFF)
+                    atlas_index.get(&cell.ch).copied().unwrap_or(0xFFFFFFFF)
                 };
-                gpu_cells.push(GpuCell {
+                out.push(GpuCell {
                     bg_color,
                     fg_color,
                     char_idx,
                     bold: u32::from(cell.bold),
                 });
             } else {
-                gpu_cells.push(GpuCell {
+                out.push(GpuCell {
                     bg_color: 0,
                     fg_color: 0xFFFFFF,
                     char_idx: 0xFFFFFFFF,
@@ -46,7 +50,6 @@ pub fn build_gpu_cells(
             }
         }
     }
-    gpu_cells
 }
 
 pub fn copy_staging_to_out(
@@ -85,5 +88,40 @@ pub fn copy_staging_to_out(
         staging_buffer.unmap();
     } else {
         tracing::error!("Failed to map staging buffer for wgpu cell renderer");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use idle_api::TerminalCell;
+
+    #[test]
+    fn build_gpu_cells_reuses_capacity() {
+        let grid = [
+            TerminalCell {
+                ch: 'A',
+                fg: (255, 0, 0),
+                bg: (0, 0, 0),
+                bold: false,
+            },
+            TerminalCell {
+                ch: ' ',
+                fg: (0, 0, 0),
+                bg: (0, 0, 0),
+                bold: false,
+            },
+        ];
+        let mut index = HashMap::new();
+        index.insert('A', 1u32);
+        let mut buf = Vec::with_capacity(8);
+        build_gpu_cells_into(&grid, 2, 0, 0, 2, 1, &index, &mut buf);
+        assert_eq!(buf.len(), 2);
+        assert_eq!(buf[0].char_idx, 1);
+        assert_eq!(buf[1].char_idx, 0xFFFFFFFF);
+        let cap = buf.capacity();
+        build_gpu_cells_into(&grid, 2, 0, 0, 2, 1, &index, &mut buf);
+        assert_eq!(buf.len(), 2);
+        assert_eq!(buf.capacity(), cap);
     }
 }

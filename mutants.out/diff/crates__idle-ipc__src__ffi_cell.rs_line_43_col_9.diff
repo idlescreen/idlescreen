@@ -1,0 +1,26 @@
+--- crates/idle-ipc/src/ffi_cell.rs
++++ replace <impl From<FfiTerminalCell> for TerminalCell>::from -> Self with Default::default()
+@@ -35,22 +35,17 @@
+             bg_b: cell.bg.2,
+             bold: if cell.bold { 1 } else { 0 },
+         }
+     }
+ }
+ 
+ impl From<FfiTerminalCell> for TerminalCell {
+     fn from(ffi: FfiTerminalCell) -> Self {
+-        Self {
+-            ch: std::char::from_u32(ffi.ch).unwrap_or(' '),
+-            fg: (ffi.fg_r, ffi.fg_g, ffi.fg_b),
+-            bg: (ffi.bg_r, ffi.bg_g, ffi.bg_b),
+-            bold: ffi.bold != 0,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[repr(C)]
+ pub struct SharedMemoryHeader {
+     pub magic: u32,
+     pub cols: u32,
+     pub rows: u32,

@@ -1,0 +1,30 @@
+--- crates/idle-ipc/src/ffi_cell.rs
++++ replace <impl From<TerminalCell> for FfiTerminalCell>::from -> Self with Default::default()
+@@ -20,26 +20,17 @@
+     pub bg_r: u8,
+     pub bg_g: u8,
+     pub bg_b: u8,
+     pub bold: u8,
+ }
+ 
+ impl From<TerminalCell> for FfiTerminalCell {
+     fn from(cell: TerminalCell) -> Self {
+-        Self {
+-            ch: cell.ch as u32,
+-            fg_r: cell.fg.0,
+-            fg_g: cell.fg.1,
+-            fg_b: cell.fg.2,
+-            bg_r: cell.bg.0,
+-            bg_g: cell.bg.1,
+-            bg_b: cell.bg.2,
+-            bold: if cell.bold { 1 } else { 0 },
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl From<FfiTerminalCell> for TerminalCell {
+     fn from(ffi: FfiTerminalCell) -> Self {
+         Self {
+             ch: std::char::from_u32(ffi.ch).unwrap_or(' '),
+             fg: (ffi.fg_r, ffi.fg_g, ffi.fg_b),

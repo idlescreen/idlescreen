@@ -8,6 +8,11 @@ use wayland_client::protocol::{wl_buffer, wl_shm};
 
 use super::state::SessionState;
 
+/// mmap'd ARGB8888 buffer backed by a sealed memfd + wl_buffer.
+///
+/// Drop order: `munmap` the mapping, then `OwnedFd` closes the memfd, then the
+/// Wayland proxy drops/`destroy`s the `wl_buffer`. Pool is destroyed after
+/// `create_buffer` returns (Wayland allows buffer lifetime independent of pool).
 pub struct MappedBuffer {
     pub wl_buffer: wl_buffer::WlBuffer,
     _memfd: OwnedFd,
@@ -20,9 +25,13 @@ pub struct MappedBuffer {
 impl Drop for MappedBuffer {
     fn drop(&mut self) {
         if !self.mapped_ptr.is_null() && self.mapped_len > 0 {
+            // SAFETY: `mapped_ptr`/`mapped_len` come from a successful MAP_SHARED
+            // mmap in `allocate_buffer`; we null them after munmap to make Drop idempotent.
             unsafe {
                 libc::munmap(self.mapped_ptr.cast(), self.mapped_len);
             }
+            self.mapped_ptr = ptr::null_mut();
+            self.mapped_len = 0;
         }
     }
 }
@@ -45,6 +54,7 @@ impl MappedBuffer {
             return false;
         }
 
+        // SAFETY: mapping is live until Drop; `length <= mapped_len` checked above.
         unsafe {
             let mapped = std::slice::from_raw_parts_mut(self.mapped_ptr, length);
             mapped.copy_from_slice(&pixels[..length]);
@@ -61,6 +71,7 @@ pub fn create_solid_buffer(
     color: [u8; 3],
 ) -> Option<MappedBuffer> {
     let buffer = allocate_buffer(shm, queue, width, height)?;
+    // SAFETY: buffer mapping is exclusive to this value until returned.
     unsafe {
         let mapped = std::slice::from_raw_parts_mut(buffer.mapped_ptr, buffer.mapped_len);
         fill_argb8888(mapped, color);
@@ -115,6 +126,8 @@ fn allocate_buffer(
     let length = stride.saturating_mul(height) as usize;
     let memfd = create_memfd(length)?;
 
+    // SAFETY: memfd is sized to `length`; MAP_SHARED for compositor readback.
+    // On MAP_FAILED we return None; OwnedFd drops and closes the memfd.
     let mapped_ptr = unsafe {
         let address = libc::mmap(
             ptr::null_mut(),
@@ -130,6 +143,7 @@ fn allocate_buffer(
         address as *mut u8
     };
 
+    // Pool is temporary: create buffer then drop pool (Wayland keeps buffer valid).
     let pool = shm.create_pool(memfd.as_fd(), length as i32, queue, ());
     let buffer = pool.create_buffer(
         0,
@@ -140,6 +154,7 @@ fn allocate_buffer(
         queue,
         (),
     );
+    pool.destroy();
 
     Some(MappedBuffer {
         wl_buffer: buffer,
@@ -152,12 +167,15 @@ fn allocate_buffer(
 }
 
 fn create_memfd(length: usize) -> Option<OwnedFd> {
+    // SAFETY: memfd_create with CLOEXEC; name is a static CStr.
     let fd = unsafe { libc::memfd_create(c"idle-overlay".as_ptr(), libc::MFD_CLOEXEC) };
     if fd < 0 {
         return None;
     }
 
+    // SAFETY: `fd` is a fresh owned descriptor from memfd_create.
     let owned = unsafe { OwnedFd::from_raw_fd(fd) };
+    // SAFETY: ftruncate to pixel buffer length; OwnedFd closes fd on failure via Drop.
     if unsafe { libc::ftruncate(owned.as_fd().as_raw_fd(), length as i64) } != 0 {
         return None;
     }

@@ -1,0 +1,33 @@
+--- crates/idle-ipc/src/shm.rs
++++ replace <impl Drop for SharedMemory>::drop with ()
+@@ -214,29 +214,15 @@
+         Ok(unsafe { std::slice::from_raw_parts_mut(cells_ptr, count) })
+     }
+ }
+ 
+ impl Drop for SharedMemory {
+     fn drop(&mut self) {
+         // SAFETY: reverse of create/open — unmap, close fd, unlink if we own the name.
+         // Null/`MAP_FAILED` and fd < 0 guard against double-free after partial init.
+-        unsafe {
+-            if !self.ptr.is_null() && self.ptr != libc::MAP_FAILED {
+-                libc::munmap(self.ptr, self.size);
+-                self.ptr = ptr::null_mut();
+-            }
+-            if self.fd >= 0 {
+-                libc::close(self.fd);
+-                self.fd = -1;
+-            }
+-            if self.is_owner
+-                && let Ok(c_name) = CString::new(self.name.as_str())
+-            {
+-                libc::shm_unlink(c_name.as_ptr());
+-            }
+-        }
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ #[path = "shm_tests.rs"]
+ mod tests;

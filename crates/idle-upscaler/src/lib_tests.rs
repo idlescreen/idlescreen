@@ -123,6 +123,61 @@ fn target_fps_matches_detected_when_unset() {
 }
 
 #[test]
+fn target_fps_floors_detected_at_60() {
+    let prior = std::env::var("TRANCE_MAX_FPS").ok();
+    unsafe {
+        std::env::remove_var("TRANCE_MAX_FPS");
+    }
+    assert!((target_fps(30) - (60.0)).abs() < 1e-3);
+    assert!((target_fps(0) - (60.0)).abs() < 1e-3);
+    assert!((target_fps(60) - (60.0)).abs() < 1e-3);
+    restore_max_fps(prior);
+}
+
+#[test]
+fn target_fps_respects_max_cap() {
+    let prior = std::env::var("TRANCE_MAX_FPS").ok();
+    unsafe {
+        std::env::set_var("TRANCE_MAX_FPS", "90");
+    }
+    assert!((target_fps(144) - (90.0)).abs() < 1e-3);
+    assert!((target_fps(60) - (60.0)).abs() < 1e-3);
+    restore_max_fps(prior);
+}
+
+#[test]
+fn simulation_tick_hz_clamps_env_outliers() {
+    let prior = std::env::var("TRANCE_TICK_HZ").ok();
+    unsafe {
+        std::env::set_var("TRANCE_TICK_HZ", "1");
+    }
+    assert!((simulation_tick_hz() - (15.0)).abs() < 1e-3);
+    unsafe {
+        std::env::set_var("TRANCE_TICK_HZ", "9999");
+    }
+    assert!((simulation_tick_hz() - (240.0)).abs() < 1e-3);
+    match prior {
+        Some(v) => unsafe {
+            std::env::set_var("TRANCE_TICK_HZ", v);
+        },
+        None => unsafe {
+            std::env::remove_var("TRANCE_TICK_HZ");
+        },
+    }
+}
+
+fn restore_max_fps(prior: Option<String>) {
+    match prior {
+        Some(v) => unsafe {
+            std::env::set_var("TRANCE_MAX_FPS", v);
+        },
+        None => unsafe {
+            std::env::remove_var("TRANCE_MAX_FPS");
+        },
+    }
+}
+
+#[test]
 fn frame_upscaler_never_uses_gpu() {
     let upscaler = FrameUpscaler::new(true, FilterMode::Linear);
     assert!(!upscaler.using_gpu());

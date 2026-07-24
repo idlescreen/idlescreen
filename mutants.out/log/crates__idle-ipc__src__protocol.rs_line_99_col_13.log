@@ -1,0 +1,196 @@
+
+*** crates/idle-ipc/src/protocol.rs:99:13: delete match arm 0 in IpcResponse::read_from
+
+*** mutation diff:
+--- crates/idle-ipc/src/protocol.rs
++++ delete match arm 0 in IpcResponse::read_from
+@@ -91,17 +91,17 @@
+         }
+         Ok(())
+     }
+ 
+     pub fn read_from<R: std::io::Read>(mut reader: R) -> std::io::Result<Self> {
+         let mut tag = [0u8; 1];
+         reader.read_exact(&mut tag)?;
+         match tag[0] {
+-            0 => Ok(IpcResponse::Ready),
++             /* ~ changed by cargo-mutants ~ */
+             1 => {
+                 let mut scan_byte = [0u8; 1];
+                 reader.read_exact(&mut scan_byte)?;
+                 Ok(IpcResponse::FrameReady {
+                     scanlines: scan_byte[0] != 0,
+                 })
+             }
+             2 => Ok(IpcResponse::Ack),
+
+
+*** /home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/cargo test --no-run --verbose --package=idle-ipc@0.4.0
+warning: /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-cli/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-cli/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle`
+  * `bin` target `idlescreen`
+  * `bin` target `trance`
+warning: /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-daemon/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-daemon/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle-daemon`
+  * `bin` target `idlescreen-daemon`
+  * `bin` target `trance-daemon`
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.24
+       Fresh bitflags v2.13.1
+       Fresh autocfg v1.5.1
+       Fresh linux-raw-sys v0.12.1
+       Fresh once_cell v1.21.4
+       Fresh fastrand v2.5.0
+       Fresh quick-error v1.2.3
+       Fresh bit-vec v0.8.0
+       Fresh fnv v1.0.7
+       Fresh libc v0.2.188
+       Fresh bit-set v0.8.0
+       Fresh unarray v0.1.4
+       Fresh regex-syntax v0.8.11
+       Fresh proc-macro2 v1.0.107
+       Fresh getrandom v0.3.4
+       Fresh rustix v1.1.4
+       Fresh getrandom v0.4.3
+       Fresh zerocopy v0.8.55
+       Fresh wait-timeout v0.2.1
+       Fresh quote v1.0.47
+       Fresh rand_core v0.9.5
+       Fresh ppv-lite86 v0.2.21
+       Fresh tempfile v3.27.0
+       Fresh num-traits v0.2.19
+       Fresh syn v2.0.119
+       Fresh rand v0.9.5
+       Fresh rusty-fork v0.3.1
+       Fresh rand_xorshift v0.4.0
+       Fresh rand_chacha v0.9.0
+       Fresh bytemuck_derive v1.11.0
+       Fresh proptest v1.11.0
+       Fresh bytemuck v1.25.2
+       Fresh idle-api v2.3.1 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-api)
+       Dirty idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/crates/idle-ipc): couldn't read metadata for file `target/debug/deps/libidle_ipc-72a23dfc47ffc5d4.rlib`
+   Compiling idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/crates/idle-ipc)
+     Running `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=f6298ca08a0d4778 -C extra-filename=-72a23dfc47ffc5d4 --out-dir /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rmeta --extern libc=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rmeta`
+     Running `/home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name idle_ipc --edition=2024 crates/idle-ipc/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a0b8bba603035d0f -C extra-filename=-dbadf11ecf5c7d57 --out-dir /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps --extern idle_api=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libidle_api-fffa68b90ae709d7.rlib --extern libc=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/liblibc-07c3a6f7013cd5d4.rlib --extern proptest=/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/libproptest-b92098e6fc18f2e8.rlib`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+  Executable `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/idle_ipc-dbadf11ecf5c7d57`
+
+*** result: Success
+
+*** /home/jeryd/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/cargo test --verbose --package=idle-ipc@0.4.0
+warning: /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-daemon/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-daemon/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle-daemon`
+  * `bin` target `idlescreen-daemon`
+  * `bin` target `trance-daemon`
+warning: /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-cli/Cargo.toml: file `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-cli/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `idle`
+  * `bin` target `idlescreen`
+  * `bin` target `trance`
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.24
+       Fresh linux-raw-sys v0.12.1
+       Fresh autocfg v1.5.1
+       Fresh bitflags v2.13.1
+       Fresh fastrand v2.5.0
+       Fresh once_cell v1.21.4
+       Fresh fnv v1.0.7
+       Fresh quick-error v1.2.3
+       Fresh bit-vec v0.8.0
+       Fresh libc v0.2.188
+       Fresh bit-set v0.8.0
+       Fresh unarray v0.1.4
+       Fresh regex-syntax v0.8.11
+       Fresh proc-macro2 v1.0.107
+       Fresh getrandom v0.3.4
+       Fresh getrandom v0.4.3
+       Fresh rustix v1.1.4
+       Fresh zerocopy v0.8.55
+       Fresh wait-timeout v0.2.1
+       Fresh quote v1.0.47
+       Fresh rand_core v0.9.5
+       Fresh ppv-lite86 v0.2.21
+       Fresh tempfile v3.27.0
+       Fresh num-traits v0.2.19
+       Fresh syn v2.0.119
+       Fresh rand_chacha v0.9.0
+       Fresh rand_xorshift v0.4.0
+       Fresh rand v0.9.5
+       Fresh rusty-fork v0.3.1
+       Fresh bytemuck_derive v1.11.0
+       Fresh proptest v1.11.0
+       Fresh bytemuck v1.25.2
+       Fresh idle-api v2.3.1 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/idle-api)
+       Fresh idle-ipc v0.4.0 (/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/crates/idle-ipc)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running `/tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/target/debug/deps/idle_ipc-dbadf11ecf5c7d57`
+
+running 32 tests
+test path_safety::tests::shm_name_rejects_traversal_and_oddities ... ok
+test path_safety::tests::shm_name_accepts_daemon_format ... ok
+test path_safety::tests::socket_path_accepts_tmp_and_runtime ... ok
+test path_safety::tests::socket_path_rejects_dotdot_middle_segment ... ok
+test path_safety::tests::socket_path_rejects_relative_and_dots ... ok
+test shm::tests::cells_mut_rejects_bad_magic ... ok
+test shm::tests::cells_mut_rejects_dims_exceeding_map ... ok
+test shm::tests::open_rejects_bad_name ... ok
+test shm::tests::create_rejects_bad_name ... ok
+test shm::tests::create_rejects_tiny_size ... ok
+test shm::tests::create_open_roundtrip_name ... ok
+test shm::tests::cells_mut_accepts_zero_or_correct_magic ... ok
+test shm::tests::create_rejects_oversized ... ok
+test shm::tests::open_rejects_size_out_of_range ... ok
+test tests::test_compute_shm_size_zero_dimensions ... ok
+test tests::test_compute_shm_size_overflow_is_none ... ok
+test tests::test_ffi_terminal_cell_conversion ... ok
+test tests::test_invalid_ipc_command_tag ... ok
+test shm::tests::create_accepts_header_mid_and_max_sizes ... ok
+test tests::test_invalid_ipc_response_tag ... ok
+test tests::test_ipc_commands ... ok
+test tests::test_shm_size ... ok
+test tests::test_ipc_responses ... FAILED
+test tests::test_truncated_command_read ... ok
+test proptests::response_roundtrip ... FAILED
+test tests::test_validate_grid_dims ... ok
+test tests::test_validate_grid_dims_boundaries ... ok
+test proptests::invalid_response_tags_fail ... ok
+test proptests::invalid_command_tags_fail ... ok
+test proptests::adversarial_dims_never_panic ... ok
+test proptests::shm_size_monotonic ... ok
+test proptests::command_roundtrip ... ok
+
+failures:
+
+---- tests::test_ipc_responses stdout ----
+
+thread 'tests::test_ipc_responses' (1564379) panicked at crates/idle-ipc/src/lib.rs:55:60:
+decode response: Custom { kind: InvalidData, error: "invalid response tag" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- proptests::response_roundtrip stdout ----
+
+thread 'proptests::response_roundtrip' (1564361) panicked at crates/idle-ipc/src/lib.rs:187:60:
+read: Custom { kind: InvalidData, error: "invalid response tag" }
+proptest: Saving this and future failures in /tmp/cargo-mutants-idle-audit-graph-kTM01z.tmp/crates/idle-ipc/proptest-regressions/lib.txt
+proptest: If this test was run on a CI system, you may wish to add the following line to your copy of the file.
+cc e81ba7273026574c21fa6310da2ec586668c126f36a43a0ce6e68198b04ba979
+
+thread 'proptests::response_roundtrip' (1564361) panicked at crates/idle-ipc/src/lib.rs:170:5:
+Test failed: read: Custom { kind: InvalidData, error: "invalid response tag" }.
+minimal failing input: resp = Ready
+	successes: 8
+	local rejects: 0
+	global rejects: 0
+
+
+
+failures:
+    proptests::response_roundtrip
+    tests::test_ipc_responses
+
+test result: FAILED. 30 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p idle-ipc --lib`
+
+*** result: Failure(101)

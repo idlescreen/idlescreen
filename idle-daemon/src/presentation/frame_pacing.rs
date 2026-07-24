@@ -13,6 +13,24 @@ use super::refresh::presentation_refresh_hz;
 use crate::presentation::PresentationOptions;
 use idle_upscaler::{simulation_tick_hz, target_fps};
 
+/// Clamp present FPS so `Duration::from_secs_f32(1.0 / fps)` never sees 0/NaN/∞.
+pub(super) fn clamp_present_fps(present_fps: f32) -> f32 {
+    if present_fps.is_finite() && present_fps > 0.0 {
+        present_fps.clamp(1.0, 480.0)
+    } else {
+        60.0
+    }
+}
+
+/// Clamp simulation tick Hz (matches upscaler floor/ceiling + non-finite guard).
+pub(super) fn clamp_tick_hz(tick_hz: f32) -> f32 {
+    if tick_hz.is_finite() && tick_hz > 0.0 {
+        tick_hz.clamp(15.0, 240.0)
+    } else {
+        60.0
+    }
+}
+
 pub(super) struct FramePacing {
     present_fps: f32,
     tick_hz: f32,
@@ -42,6 +60,10 @@ impl FramePacing {
             );
         }
 
+        // target_fps / simulation_tick_hz already floor at ≥15; clamp again so a
+        // future regression cannot pass 0/NaN into Duration::from_secs_f32.
+        let present_fps = clamp_present_fps(present_fps);
+        let tick_hz = clamp_tick_hz(tick_hz);
         let frame_duration = Duration::from_secs_f32(1.0 / present_fps);
         for s in sessions {
             s.session.set_simulation_rate(tick_hz);
@@ -114,3 +136,7 @@ pub(super) fn log_run_startup(
         }
     );
 }
+
+#[cfg(test)]
+#[path = "frame_pacing_tests.rs"]
+mod tests;

@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/shm.rs
++++ replace < with == in SharedMemory::create
+@@ -25,17 +25,17 @@
+ // mapping is a protocol concern (single writer per field), not a Send concern.
+ unsafe impl Send for SharedMemory {}
+ 
+ impl SharedMemory {
+     pub fn create(name: &str, size: usize) -> Result<Self, String> {
+         if !is_valid_shm_name(name) {
+             return Err(format!("invalid shm name: {name}"));
+         }
+-        if size < std::mem::size_of::<SharedMemoryHeader>() || size > 64 * 1024 * 1024 {
++        if size == /* ~ changed by cargo-mutants ~ */ std::mem::size_of::<SharedMemoryHeader>() || size > 64 * 1024 * 1024 {
+             return Err(format!("shm size out of range: {size}"));
+         }
+         let c_name = CString::new(name).map_err(|e| e.to_string())?;
+ 
+         // Named POSIX SHM only: the IPC child re-opens by name (`SharedMemory::open`).
+         // O_EXCL + 0600: refuse squatters and keep the object owner-private.
+         // SAFETY: `c_name` is a valid CString; unlink best-effort for stale objects.
+         unsafe {

@@ -2,6 +2,7 @@
 
 use super::gpu_init::{GpuCell, GpuCellRenderer, Uniforms};
 use idle_api::TerminalCell;
+use std::collections::HashMap;
 
 impl GpuCellRenderer {
     pub fn render(
@@ -19,7 +20,7 @@ impl GpuCellRenderer {
         atlas_rows: usize,
         atlas_image: &[u8],
         atlas_dirty: bool,
-        atlas_chars: &[char],
+        atlas_index: &HashMap<char, u32>,
         out: &mut Vec<u8>,
     ) {
         let Some(targets) = self.prepare_targets(cols, rows, cell_width, cell_height) else {
@@ -68,17 +69,18 @@ impl GpuCellRenderer {
         self.queue
             .write_buffer(&uni_buf, 0, bytemuck::bytes_of(&uniforms));
 
-        let gpu_cells = super::gpu_cells::build_gpu_cells(
+        super::gpu_cells::build_gpu_cells_into(
             grid,
             grid_cols,
             col_start,
             row_start,
             cols,
             rows,
-            atlas_chars,
+            atlas_index,
+            &mut self.cells_scratch,
         );
         self.queue
-            .write_buffer(&cells_buf, 0, bytemuck::cast_slice(&gpu_cells));
+            .write_buffer(&cells_buf, 0, bytemuck::cast_slice(&self.cells_scratch));
 
         self.encode_draw_and_copy(
             cols,

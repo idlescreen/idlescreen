@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 mod overlay;
+mod overlay_frame;
+mod overlay_geom;
 mod types;
 
 pub use types::{OutputTarget, SessionState};

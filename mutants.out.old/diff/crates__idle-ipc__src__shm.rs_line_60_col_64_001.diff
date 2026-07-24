@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/shm.rs
++++ replace < with > in SharedMemory::create
+@@ -52,17 +52,17 @@
+         if fd < 0 {
+             return Err(format!(
+                 "shm_open (create) failed: {}",
+                 std::io::Error::last_os_error()
+             ));
+         }
+ 
+         // SAFETY: `fd` is open; size fits in off_t (capped at 64 MiB above).
+-        if unsafe { libc::ftruncate(fd, size as libc::off_t) } < 0 {
++        if unsafe { libc::ftruncate(fd, size as libc::off_t) } > /* ~ changed by cargo-mutants ~ */ 0 {
+             let err = std::io::Error::last_os_error();
+             // SAFETY: clean up partially created object on size failure.
+             unsafe {
+                 libc::close(fd);
+                 libc::shm_unlink(c_name.as_ptr());
+             }
+             return Err(format!("ftruncate failed: {err}"));
+         }

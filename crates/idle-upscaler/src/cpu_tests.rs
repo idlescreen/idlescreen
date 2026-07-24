@@ -1,4 +1,5 @@
 use super::*;
+use crate::FilterMode;
 
 #[test]
 fn upscale_stretch_2x_identity_pattern() {

@@ -105,6 +105,8 @@ pub fn run_ipc_runner(
                 session.tick(Duration::from_micros(dt_micros));
                 let scanlines = session.draw_frame(cols, rows);
 
+                // SAFETY: SHM opened for this process; header dims set by daemon
+                // Init and validated against map size inside `cells_mut`.
                 let cells = unsafe { shm.cells_mut() }
                     .map_err(|e| format!("shm cells view rejected: {e}"))?;
                 for (i, cell) in session.grid().iter().enumerate() {
@@ -113,6 +115,7 @@ pub fn run_ipc_runner(
                     }
                 }
 
+                // SAFETY: same mapping; single writer for frame_counter (this runner).
                 unsafe {
                     let header = shm.header_mut();
                     header.frame_counter = header.frame_counter.wrapping_add(1);

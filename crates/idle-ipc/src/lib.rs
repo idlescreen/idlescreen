@@ -4,6 +4,7 @@
 //! Shared memory layout and control protocol for out-of-process screensaver execution.
 
 pub mod ffi_cell;
+pub mod path_safety;
 pub mod protocol;
 pub mod shm;
 
@@ -11,8 +12,9 @@ pub use ffi_cell::{
     FfiTerminalCell, MAX_GRID_CELLS, MAX_GRID_DIM, SHM_MAGIC, SharedMemoryHeader, compute_shm_size,
     validate_grid_dims,
 };
+pub use path_safety::{is_plausible_socket_path, is_valid_shm_name};
 pub use protocol::{IpcCommand, IpcResponse};
-pub use shm::{SharedMemory, is_plausible_socket_path, is_valid_shm_name};
+pub use shm::SharedMemory;
 
 #[cfg(test)]
 mod tests {
@@ -80,8 +82,25 @@ mod tests {
         assert!(validate_grid_dims(80, 24).is_ok());
         assert!(validate_grid_dims(0, 24).is_err());
         assert!(validate_grid_dims(80, 0).is_err());
+        assert!(validate_grid_dims(0, 0).is_err());
         assert!(validate_grid_dims(MAX_GRID_DIM + 1, 1).is_err());
+        assert!(validate_grid_dims(1, MAX_GRID_DIM + 1).is_err());
         assert!(validate_grid_dims(MAX_GRID_CELLS, 2).is_err());
+    }
+
+    #[test]
+    fn test_validate_grid_dims_boundaries() {
+        // Exact axis max is allowed (`>` must not become `>=`).
+        assert!(validate_grid_dims(MAX_GRID_DIM, 1).is_ok());
+        assert!(validate_grid_dims(1, MAX_GRID_DIM).is_ok());
+        // Exact cell-count max is allowed (`<=` must not become `<` or always-true).
+        assert!(validate_grid_dims(512, 512).is_ok());
+        assert_eq!(512 * 512, MAX_GRID_CELLS);
+        // One cell over the cap with both axes still under MAX_GRID_DIM.
+        assert!(validate_grid_dims(512, 513).is_err());
+        assert!(validate_grid_dims(513, 512).is_err());
+        // Both axes max → product far over MAX_GRID_CELLS.
+        assert!(validate_grid_dims(MAX_GRID_DIM, MAX_GRID_DIM).is_err());
     }
 
     #[test]

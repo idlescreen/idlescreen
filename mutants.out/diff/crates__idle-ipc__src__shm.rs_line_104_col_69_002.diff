@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/shm.rs
++++ replace > with >= in SharedMemory::open
+@@ -96,17 +96,17 @@
+             is_owner: true,
+         })
+     }
+ 
+     pub fn open(name: &str, size: usize) -> Result<Self, String> {
+         if !is_valid_shm_name(name) {
+             return Err(format!("invalid shm name: {name}"));
+         }
+-        if size < std::mem::size_of::<SharedMemoryHeader>() || size > 64 * 1024 * 1024 {
++        if size < std::mem::size_of::<SharedMemoryHeader>() || size >= /* ~ changed by cargo-mutants ~ */ 64 * 1024 * 1024 {
+             return Err(format!("shm size out of range: {size}"));
+         }
+         let c_name = CString::new(name).map_err(|e| e.to_string())?;
+ 
+         // SAFETY: open existing named object; name validated above.
+         let fd = unsafe { libc::shm_open(c_name.as_ptr(), libc::O_RDWR, 0) };
+         if fd < 0 {
+             return Err(format!(

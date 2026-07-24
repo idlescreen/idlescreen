@@ -1,0 +1,21 @@
+--- crates/idle-ipc/src/ffi_cell.rs
++++ replace || with && in validate_grid_dims
+@@ -56,17 +56,17 @@
+     pub rows: u32,
+     pub frame_counter: u64,
+ }
+ 
+ pub const SHM_MAGIC: u32 = 0x54524e43;
+ 
+ /// Reject zero, oversized, or overflowing grid dimensions before SHM allocate.
+ pub fn validate_grid_dims(cols: usize, rows: usize) -> Result<(), &'static str> {
+-    if cols == 0 || rows == 0 {
++    if cols == 0 && /* ~ changed by cargo-mutants ~ */ rows == 0 {
+         return Err("grid dimensions must be non-zero");
+     }
+     if cols > MAX_GRID_DIM || rows > MAX_GRID_DIM {
+         return Err("grid dimension exceeds maximum");
+     }
+     match cols.checked_mul(rows) {
+         Some(n) if n <= MAX_GRID_CELLS => Ok(()),
+         Some(_) => Err("grid cell count exceeds maximum"),
