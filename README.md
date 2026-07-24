@@ -1,63 +1,17 @@
-# IdleScreen (`idle`)
+# idle
 
-IdleScreen is a modular, high-performance ambient screensaver host and idle management daemon built specifically for Wayland compositors (COSMIC, Hyprland, Sway, Wayfire, KDE Plasma Wayland).
+Core engine workspace for IdleScreen (`idle-daemon`, `idle-cli`, `idle-api`, `idle-runner`).
 
-## Architecture & Features
+🌐 **Website & Installation:** [https://idlescreen.github.io](https://idlescreen.github.io)
 
-- **Protocol Integration**: Built on `ext-idle-notify-v1` and `zwlr_layer_shell_v1` protocols.
-- **IPC Plugin Host**: Isolated process architecture hosting modular `.so` screensaver plugins.
-- **Power Awareness**: Monitors `/sys/class/power_supply` to automatically pause rendering on battery power.
-- **Media Inhibit**: Detects active playback from MPRIS2 media players (`org.mpris.MediaPlayer2`).
-- **Smooth Ramping**: ARGB alpha opacity interpolation over initial presentation intervals.
-- **Color Engine**: Configurable palettes (`synthwave`, `cyberpunk`, `neon`, `aurora`, `monokai`, `matrix`).
-- **D-Bus Control**: Control via `idle` CLI or D-Bus methods on `io.github.ubermetroid.trance`.
-
-## Installation & Package Setup
-
-### Quick Install (Universal)
+### CLI Commands (`idlescreen` / `idle`)
 
 ```bash
-curl -fsSL https://idlescreen.github.io/packages/install.sh | sh
+idlescreen tui            # Launch interactive terminal UI dashboard
+idlescreen status         # Show daemon and active screensaver status
+idlescreen trigger        # Trigger screensaver immediately
+idlescreen on             # Enable screensaver engine
+idlescreen off            # Disable screensaver engine
+idlescreen preview <name> # Preview a specific screensaver (e.g. beams, cosmos)
+idlescreen doctor         # Run system health and Wayland check
 ```
-
-### Manual Package Repository Install
-
-If you prefer to manually configure your package manager (`dnf` / `apt`), follow the instructions at [idlescreen.github.io/packages](https://idlescreen.github.io/packages/).
-
-### Building from Source
-
-- Rust 1.80+
-- Wayland development libraries (`libwayland-dev`, `libxkbcommon-dev`, `libdbus-1-dev`)
-
-### Building from Source
-
-```bash
-cargo build --release
-```
-
-Binaries will be placed in `target/release/`:
-- `idle-daemon`: Core background daemon
-- `idle`: CLI controller
-
-## Configuration
-
-Default configuration file path: `~/.config/idle/config.yaml`
-
-```yaml
-timeout_mins: 5
-active_saver: "random"
-theme: "cyberpunk"
-off_timeout_mins: 15
-```
-
-## Diagnostics
-
-Run system diagnostics and auto-repair:
-
-```bash
-idle doctor --fix
-```
-
-## License
-
-Apache License 2.0. See LICENSE for details.
