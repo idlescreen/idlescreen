@@ -24,17 +24,14 @@ Trigger the idle saver now.
 .B stop
 Deactivate any active fullscreen screensaver presentation.
 .TP
-.BI preview " <saver>"
-Launch a plugin presentation preview in fullscreen.
+.BI preview " <saver> [--timeout N]"
+Launch a plugin presentation preview in fullscreen. Pass \fB--timeout N\fR to auto-stop after N seconds.
 .TP
-.BI set-saver " <saver>"
-Set the active screensaver plugin name.
+.BI saver " set <name|random|shuffle>"
+Set active screensaver plugin or enable randomizer shuffle mode.
 .TP
 .BI set-timeout " <minutes>"
 Set the idle timeout in minutes.
-.TP
-.BI set-gpu " <on|off>"
-Enable or disable wgpu-based hardware upscaling.
 .TP
 .BI set-fps " <on|off>"
 Enable or disable the FPS counter overlay.
@@ -42,7 +39,7 @@ Enable or disable the FPS counter overlay.
 .BI set-scale " <percentage>"
 Set render scaling filter grid size (e.g. 50, 75, 100).
 .TP
-.B doctor
-Run diagnostics on the system idle inhibitor and DBus services.
+.B doctor [--fix] [--json]
+Run system diagnostics on D-Bus, systemd, fonts, and active inhibitors. Pass \fB--fix\fR to auto-repair user units and directories.
 .SH AUTHOR
 IdleScreen <jerydleuck@gmail.com>

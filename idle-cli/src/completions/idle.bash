@@ -8,8 +8,13 @@ _idle_completion() {
 
     case "${prev}" in
         preview|p)
-            local savers="beams bursts chaos cosmos glyphs gnats radar storm"
+            local savers="beams bursts chaos cosmos glyphs gnats radar storm hearth ripple random shuffle --timeout -t"
             COMPREPLY=( $(compgen -W "${savers}" -- ${cur}) )
+            return 0
+            ;;
+        saver)
+            local saver_cmds="set list random shuffle"
+            COMPREPLY=( $(compgen -W "${saver_cmds}" -- ${cur}) )
             return 0
             ;;
         config|cfg)
@@ -18,7 +23,7 @@ _idle_completion() {
             return 0
             ;;
         completion)
-            local shell_opts="bash zsh"
+            local shell_opts="bash zsh fish nu"
             COMPREPLY=( $(compgen -W "${shell_opts}" -- ${cur}) )
             return 0
             ;;
@@ -27,7 +32,7 @@ _idle_completion() {
             return 0
             ;;
         doctor|doc)
-            COMPREPLY=( $(compgen -W "--fix -f" -- ${cur}) )
+            COMPREPLY=( $(compgen -W "--fix -f --json -j" -- ${cur}) )
             return 0
             ;;
         *)
