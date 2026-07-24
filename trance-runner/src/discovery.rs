@@ -32,11 +32,7 @@ pub fn get_screensaver_dirs() -> Vec<PathBuf> {
     // 3. User paths last (optional overrides only when system copy is absent)
     if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
         if !xdg_data.is_empty() {
-            dirs.push(
-                PathBuf::from(&xdg_data)
-                    .join("idle")
-                    .join("screensavers"),
-            );
+            dirs.push(PathBuf::from(&xdg_data).join("idle").join("screensavers"));
             dirs.push(PathBuf::from(xdg_data).join("trance").join("screensavers"));
         }
     } else if let Ok(home) = std::env::var("HOME") {

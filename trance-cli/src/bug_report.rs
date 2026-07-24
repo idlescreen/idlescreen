@@ -59,14 +59,7 @@ pub fn handle_bug_report() -> Result<()> {
     // Daemon Logs (last 20 lines)
     report.push_str("\n#### Daemon Log Output (systemd journalctl)\n");
     let log_output = Command::new("journalctl")
-        .args([
-            "--user",
-            "-u",
-            "idle-daemon",
-            "-n",
-            "20",
-            "--no-pager",
-        ])
+        .args(["--user", "-u", "idle-daemon", "-n", "20", "--no-pager"])
         .output();
     match log_output {
         Ok(o) => {
@@ -127,11 +120,7 @@ fn get_config_path() -> Option<PathBuf> {
         .ok()
         .filter(|s| !s.is_empty())
     {
-        return Some(
-            PathBuf::from(xdg_config)
-                .join("idle")
-                .join("config.yaml"),
-        );
+        return Some(PathBuf::from(xdg_config).join("idle").join("config.yaml"));
     }
     let home = std::env::var("HOME").ok()?;
     Some(

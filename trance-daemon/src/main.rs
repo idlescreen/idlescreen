@@ -56,9 +56,7 @@ fn main() -> anyhow::Result<()> {
         let sub = &args[1];
         if sub == "run-plugin" {
             if args.len() < 3 {
-                eprintln!(
-                    "error: missing saver name.\nusage: idle-daemon run-plugin <saver>"
-                );
+                eprintln!("error: missing saver name.\nusage: idle-daemon run-plugin <saver>");
                 std::process::exit(1);
             }
             let name = &args[2];

@@ -66,11 +66,7 @@ fn get_config_path() -> Option<PathBuf> {
         .ok()
         .filter(|s| !s.is_empty())
     {
-        return Some(
-            PathBuf::from(xdg_config)
-                .join("idle")
-                .join("config.yaml"),
-        );
+        return Some(PathBuf::from(xdg_config).join("idle").join("config.yaml"));
     }
     let home = std::env::var("HOME").ok()?;
     Some(
