@@ -1,62 +1,36 @@
 # idlescreen
 
-The IdleScreen front door — a single router binary that dispatches to every
-component in the ecosystem.
+The front door — one binary that routes to every IdleScreen component.
+Part of [IdleScreen](https://idlescreen.github.io) — modular Wayland
+screensavers for Linux.
+
+## Use
+
+```sh
+curl -fsSL https://idlescreen.github.io/packages/install.sh | sh
+```
 
 ```text
-idlescreen <component> [args]   run a component (cli, tui, studio, cosmic)
-idlescreen <verb> [args]        daemon commands → idle-cli (preview, stop, list, …)
-idlescreen components           show the component catalog
-idlescreen install <comp>...    install components ('all' for everything)
-idlescreen remove <comp>...     remove components
-idlescreen versions             installed versions of every component
+idlescreen components            show the component catalog + install state
+idlescreen <component> [args]    run a component (cli, tui, studio, cosmic)
+idlescreen <verb> [args]         daemon verbs forward to idle-cli
+idlescreen install <comp>...     install components ('all' for everything)
+idlescreen remove <comp>...      remove components
+idlescreen versions              installed version of every component
 ```
 
-Anything the router doesn't recognize is forwarded to `idle-cli`, so every
-existing `idlescreen <verb>` invocation keeps working.
+Anything unrecognized falls through to `idle-cli`, so `idlescreen <verb>`
+keeps working exactly as before.
 
-## Components
+## Develop
 
-| Name      | Package        | Kind                             |
-|-----------|----------------|----------------------------------|
-| `cli`     | `idle-cli`     | runnable — protocol commands     |
-| `tui`     | `idle-tui`     | runnable — config TUI            |
-| `studio`  | `idle-studio`  | runnable — render queue TUI      |
-| `cosmic`  | `idle-cosmic`  | runnable — COSMIC panel applet   |
-| `savers`  | `idle-savers`  | managed — all official plugins   |
-| `runtime` | `idle-daemon`  | managed — daemon + plugin host   |
-
-Runnable components exec their binary with any extra arguments. Managed
-components report install state (`idlescreen runtime` shows whether the
-daemon is running; `idlescreen savers` lists installed plugins).
-
-Aliases: `daemon`/`idle` → `runtime`, `plugins` → `savers`.
-
-## Repository map
-
-This is the router. The pieces live in their own repositories:
-
-- [`cli`](https://github.com/idlescreen/cli) — protocol commands
-- [`runtime`](https://github.com/idlescreen/runtime) — daemon, API, runner, D-Bus
-- [`savers`](https://github.com/idlescreen/savers) — official screensavers
-- [`studio`](https://github.com/idlescreen/studio) — render engine + TUI
-- [`tui`](https://github.com/idlescreen/tui) — configuration TUI
-- [`cosmic`](https://github.com/idlescreen/cosmic) — COSMIC applet
-- [`packages`](https://github.com/idlescreen/packages) — signed APT/RPM channel
-
-## Install
+Zero external deps — no sibling checkouts needed.
 
 ```sh
-curl -sSL https://idlescreen.github.io/install.sh | sh
-```
-
-Or from the package channel directly:
-
-```sh
-sudo dnf install idlescreen        # Fedora/RHEL
-sudo apt install idlescreen        # Debian/Ubuntu
+git clone https://github.com/idlescreen/idlescreen.git && cd idlescreen
+cargo build && cargo test
 ```
 
 ## License
 
-Apache-2.0
+Apache-2.0 · © 2026 IdleScreen
