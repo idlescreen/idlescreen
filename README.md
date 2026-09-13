@@ -13,16 +13,15 @@ curl -fsSL https://idlescreen.github.io/packages/install.sh | sh
 ## Commands
 
 ```text
-idlescreen components            show the component catalog + install state
-idlescreen <component> [args]    run a component (cli, tui, studio, cosmic)
-idlescreen install <comp>...     install components ('all' for everything)
-idlescreen remove <comp>...      remove components
-idlescreen versions              installed version of every component
-idlescreen <verb> [args]         daemon verbs forward to idle-cli
+idlescreen install <comp>...   install components ('all' for everything)
+idlescreen doctor [--fix]      diagnostics + repair
+idlescreen preview <name>      fullscreen saver preview
+idlescreen update              upgrade IdleScreen packages
+idlescreen tui                 runtime configuration
 ```
 
-Anything unrecognized falls through to `idle-cli`, so `idlescreen <verb>`
-keeps working exactly as before.
+Component verbs (`components`, `remove`, `versions`) and everything else
+route through to `idle-cli` — `idlescreen --help` lists the full surface.
 
 ## License
 
