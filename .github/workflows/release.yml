@@ -92,27 +92,34 @@ jobs:
         if: steps.plan.outputs.build == 'yes'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
+          # Tag arrives via env, never expression interpolation into shell.
+          case "$RELEASE_TAG" in
+            ""|*[!A-Za-z0-9._-]*) echo "ERROR: invalid release tag '$RELEASE_TAG'" >&2; exit 1 ;;
+          esac
+          [ "${#RELEASE_TAG}" -le 64 ] || { echo "ERROR: tag too long" >&2; exit 1; }
           shopt -s nullglob
-          gh release create "${{ inputs.tag || github.ref_name }}" \
-            --title "${{ inputs.tag || github.ref_name }}" \
-            --notes "Release ${{ inputs.tag || github.ref_name }}" \
+          gh release create "$RELEASE_TAG" \
+            --title "$RELEASE_TAG" \
+            --notes "Release $RELEASE_TAG" \
             target/debian/*.deb target/debian/*.sig target/debian/*.pem \
             target/generate-rpm/*.rpm target/generate-rpm/*.sig target/generate-rpm/*.pem
 
       - name: Trigger Packages Repository Update
         if: steps.plan.outputs.build == 'yes'
         env:
-          DISPATCH_TOKEN: ${{ secrets.IDLESCREEN_PACKAGES_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.IDLESCREEN_PACKAGES_DISPATCH_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          DISPATCH_REPO: ${{ github.repository }}
         run: |
-          if [ -z "$DISPATCH_TOKEN" ]; then
+          if [ -z "$GH_TOKEN" ]; then
             echo "::error::IDLESCREEN_PACKAGES_DISPATCH_TOKEN is not set — packages repo will not update"
             exit 1
           fi
-          curl -L \
+          # gh -f builds JSON-escaped fields — no raw tag interpolation.
+          gh api repos/idlescreen/packages/dispatches \
             -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $DISPATCH_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/idlescreen/packages/dispatches \
-            -d "{\"event_type\": \"new_release\", \"client_payload\": {\"repo\": \"${{ github.repository }}\", \"tag\": \"${{ inputs.tag || github.ref_name }}\"}}"
+            -f event_type=new_release \
+            -f "client_payload[repo]=${DISPATCH_REPO}" \
+            -f "client_payload[tag]=${RELEASE_TAG}"
