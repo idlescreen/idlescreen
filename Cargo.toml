@@ -1,7 +1,9 @@
 [package]
 authors = ["idlescreen developers"]
 name = "idlescreen"
-version = "1.0.0"
+# Continues the packages-repo metapackage line (was 3.0.3): this package
+# is still the product front door, now with the router binary included.
+version = "4.0.0"
 edition = "2024"
 license = "Apache-2.0"
 description = "IdleScreen router — one front door for cli, tui, studio, cosmic, savers, runtime"
@@ -33,33 +35,46 @@ panic = "warn"
 name = "idlescreen"
 copyright = "2026 IdleScreen"
 maintainer = "IdleScreen <jerydleuck@gmail.com>"
-depends = "libc6"
-# Router is the front door; the daemon verb surface lives in idle-cli.
-recommends = "idle-cli"
+maintainer-scripts = "debian"
+# Product metapackage deps (absorbed from the old packages-repo meta) —
+# `idlescreen` installs the whole product stack.
+depends = "libc6, idle-daemon (>= 3.5.8), idle-cli (>= 4.0.0), idle-savers, idle-tui (>= 3.0.1)"
+recommends = "idle-cosmic (>= 3.0.2)"
 # /usr/bin/idlescreen moved here from idle-cli <= 3.5.x.
 breaks = "idle-cli (<< 4.0.0)"
 replaces = "idle-cli (<< 4.0.0)"
-extended-description = "IdleScreen router: `idlescreen <component>` execs component binaries (cli, tui, studio, cosmic); `idlescreen <verb>` forwards daemon commands to idle-cli; `idlescreen install` manages components via dnf/apt."
+extended-description = "IdleScreen product package and router: pulls in the modular host stack and provides `idlescreen` — `idlescreen <component>` execs component binaries (cli, tui, studio, cosmic); `idlescreen <verb>` forwards daemon commands to idle-cli; `idlescreen install` manages components via dnf/apt. Removing this package removes the installed product stack; user config under ~/.config/idle is left in place."
 section = "utils"
 priority = "optional"
 assets = [
     ["target/release/idlescreen", "usr/bin/idlescreen", "755"],
+    ["libexec/remove-product-stack.sh", "usr/libexec/idlescreen/remove-product-stack", "755"],
+    ["libexec/schedule-remove-stack.sh", "usr/libexec/idlescreen/schedule-remove-stack", "755"],
 ]
 
 [package.metadata.generate-rpm]
 name = "idlescreen"
 release = "1"
 arch = "x86_64"
-summary = "IdleScreen router binary"
-description = "One front door for IdleScreen components: routes subcommands to cli/tui/studio/cosmic binaries and manages components via dnf/apt."
+summary = "IdleScreen product package and router"
+description = "One front door for IdleScreen components: routes subcommands to cli/tui/studio/cosmic binaries and manages components via dnf/apt. Pulls in the modular host stack; removing this package removes the installed product stack."
 license = "Apache-2.0"
+pre_uninstall_script = "rpm/preun.sh"
 assets = [
     { source = "target/release/idlescreen", dest = "/usr/bin/idlescreen", mode = "755" },
+    { source = "libexec/remove-product-stack.sh", dest = "/usr/libexec/idlescreen/remove-product-stack", mode = "755" },
+    { source = "libexec/schedule-remove-stack.sh", dest = "/usr/libexec/idlescreen/schedule-remove-stack", mode = "755" },
 ]
+
+[package.metadata.generate-rpm.requires]
+idle-daemon = ">= 3.5.8"
+idle-cli = ">= 4.0.0"
+idle-savers = "*"
+idle-tui = ">= 3.0.1"
+
+[package.metadata.generate-rpm.recommends]
+idle-cosmic = ">= 3.0.2"
 
 [package.metadata.generate-rpm.conflicts]
 # /usr/bin/idlescreen moved here from idle-cli <= 3.5.x.
 idle-cli = "< 4.0.0"
-
-[package.metadata.generate-rpm.recommends]
-idle-cli = "*"

@@ -1,0 +1,16 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+set -e
+
+# Files still present during prerm — schedule stack wipe on remove (not upgrade).
+case "$1" in
+    remove)
+        if [ -x /usr/libexec/idlescreen/schedule-remove-stack ]; then
+            /usr/libexec/idlescreen/schedule-remove-stack || true
+        fi
+        ;;
+    upgrade|deconfigure|failed-upgrade)
+        ;;
+esac
+
+exit 0

@@ -143,6 +143,44 @@ mod tests {
         }
     }
 
+    /// The teardown script this package ships must remove the whole
+    /// product stack — keep it in sync with the component catalog.
+    /// (Contract ported from the retired packages/metapackages/idlescreen.)
+    #[test]
+    fn remove_product_stack_lists_match() {
+        const STACK: &[&str] = &[
+            "idle-cosmic",
+            "idle-tui",
+            "idle-cli",
+            "idle-savers",
+            "idle-saver-aurora",
+            "idle-saver-beams",
+            "idle-saver-bursts",
+            "idle-saver-chaos",
+            "idle-saver-cosmos",
+            "idle-saver-glyphs",
+            "idle-saver-gnats",
+            "idle-saver-hearth",
+            "idle-saver-radar",
+            "idle-saver-ripple",
+            "idle-saver-storm",
+            "idle-daemon",
+        ];
+        let script = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/libexec/remove-product-stack.sh"
+        ))
+        .expect("read remove-product-stack.sh");
+        for pkg in STACK {
+            assert!(
+                script.contains(pkg),
+                "remove-product-stack.sh must list {pkg}"
+            );
+        }
+        assert!(script.contains("idlescreen.repo"));
+        assert!(script.contains("idlescreen.list"));
+    }
+
     #[test]
     fn names_and_packages_are_distinct() {
         let mut pkgs: Vec<_> = COMPONENTS.iter().map(|c| c.package).collect();
