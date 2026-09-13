@@ -7,7 +7,7 @@ screensavers for Linux.
 ## Install
 
 ```sh
-curl -fsSL https://idlescreen.github.io/packages/install.sh | sh
+curl -fsSL https://idlescreen.github.io/install.sh | sh
 ```
 
 ## Commands
