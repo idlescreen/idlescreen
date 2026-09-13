@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - name: rustup
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none --component rustfmt
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+    - name: file length cap (256 lines)
+      run: |
+        over=$(find . -name '*.rs' -not -path './target/*' | xargs wc -l | awk '$1 > 256 && $2 != "total" {print}')
+        [ -z "$over" ] || { echo "Files over 256 lines:"; echo "$over"; exit 1; }
+    - run: cargo fmt --all -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - name: rustup
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none --component clippy
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+    - run: cargo clippy --all-targets -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - name: rustup
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+    - run: cargo test --all-targets
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - name: rustup
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+    - run: cargo build --release

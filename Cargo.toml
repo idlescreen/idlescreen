@@ -1,0 +1,65 @@
+[package]
+authors = ["idlescreen developers"]
+name = "idlescreen"
+version = "1.0.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "IdleScreen router — one front door for cli, tui, studio, cosmic, savers, runtime"
+repository = "https://github.com/idlescreen/idlescreen"
+default-run = "idlescreen"
+
+[[bin]]
+name = "idlescreen"
+path = "src/main.rs"
+
+[workspace]
+
+[lints.rust]
+unused_must_use = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+uninlined_format_args = "allow"
+doc_markdown = "allow"
+semicolon_if_nothing_returned = "allow"
+panic = "warn"
+
+[package.metadata.deb]
+name = "idlescreen"
+copyright = "2026 IdleScreen"
+maintainer = "IdleScreen <jerydleuck@gmail.com>"
+depends = "libc6"
+# Router is the front door; the daemon verb surface lives in idle-cli.
+recommends = "idle-cli"
+# /usr/bin/idlescreen moved here from idle-cli <= 3.5.x.
+breaks = "idle-cli (<< 4.0.0)"
+replaces = "idle-cli (<< 4.0.0)"
+extended-description = "IdleScreen router: `idlescreen <component>` execs component binaries (cli, tui, studio, cosmic); `idlescreen <verb>` forwards daemon commands to idle-cli; `idlescreen install` manages components via dnf/apt."
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/idlescreen", "usr/bin/idlescreen", "755"],
+]
+
+[package.metadata.generate-rpm]
+name = "idlescreen"
+release = "1"
+arch = "x86_64"
+summary = "IdleScreen router binary"
+description = "One front door for IdleScreen components: routes subcommands to cli/tui/studio/cosmic binaries and manages components via dnf/apt."
+license = "Apache-2.0"
+assets = [
+    { source = "target/release/idlescreen", dest = "/usr/bin/idlescreen", mode = "755" },
+]
+
+[package.metadata.generate-rpm.conflicts]
+# /usr/bin/idlescreen moved here from idle-cli <= 3.5.x.
+idle-cli = "< 4.0.0"
+
+[package.metadata.generate-rpm.recommends]
+idle-cli = "*"
