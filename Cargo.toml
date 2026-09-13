@@ -2,7 +2,7 @@
 authors = ["idlescreen developers"]
 name = "idlescreen"
 version = "1.0.0"
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0"
 description = "IdleScreen router — one front door for cli, tui, studio, cosmic, savers, runtime"
 repository = "https://github.com/idlescreen/idlescreen"
