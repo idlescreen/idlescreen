@@ -4,4 +4,4 @@ version = 4
 
 [[package]]
 name = "idlescreen"
-version = "4.0.1"
+version = "4.0.2"

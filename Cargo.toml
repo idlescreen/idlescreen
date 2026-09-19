@@ -3,7 +3,7 @@ authors = ["idlescreen developers"]
 name = "idlescreen"
 # Continues the packages-repo metapackage line (was 3.0.3): this package
 # is still the product front door, now with the router binary included.
-version = "4.0.1"
+version = "4.0.2"
 edition = "2024"
 license = "Apache-2.0"
 description = "IdleScreen router — one front door for cli, tui, studio, cosmic, savers, runtime"
