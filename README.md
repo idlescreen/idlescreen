@@ -1,6 +1,10 @@
 # idlescreen
 
-[![studio2201 gate](https://github.com/idlescreen/idlescreen/actions/workflows/studio2201.yml/badge.svg)](https://github.com/idlescreen/idlescreen/actions/workflows/studio2201.yml)
+[![snip](https://img.shields.io/github/actions/workflow/status/idlescreen/idlescreen/snip.yml?label=snip&logo=shield)](https://github.com/idlescreen/idlescreen/actions/workflows/snip.yml)
+[![vigil](https://img.shields.io/github/actions/workflow/status/idlescreen/idlescreen/vigil.yml?label=vigil&logo=shield)](https://github.com/idlescreen/idlescreen/actions/workflows/vigil.yml)
+[![aegis](https://img.shields.io/github/actions/workflow/status/idlescreen/idlescreen/aegis.yml?label=aegis&logo=shield)](https://github.com/idlescreen/idlescreen/actions/workflows/aegis.yml)
+[![proven](https://img.shields.io/github/actions/workflow/status/idlescreen/idlescreen/proven.yml?label=proven&logo=shield)](https://github.com/idlescreen/idlescreen/actions/workflows/proven.yml)
+[![boneyard](https://img.shields.io/github/actions/workflow/status/idlescreen/idlescreen/boneyard.yml?label=boneyard&logo=shield)](https://github.com/idlescreen/idlescreen/actions/workflows/boneyard.yml)
 
 The front door — one binary that routes to every IdleScreen component.
 Part of [IdleScreen](https://idlescreen.github.io) — modular Wayland
