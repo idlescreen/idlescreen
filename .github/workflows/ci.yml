@@ -17,10 +17,17 @@ jobs:
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none --component rustfmt
         echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-    - name: file length cap (256 lines)
+    - name: file length cap (16-256 lines per page)
+      # Org-wide rule from .github/RULES.md.
       run: |
-        over=$(find . -name '*.rs' -not -path './target/*' | xargs wc -l | awk '$1 > 256 && $2 != "total" {print}')
-        [ -z "$over" ] || { echo "Files over 256 lines:"; echo "$over"; exit 1; }
+        over=$(find . -name '*.rs' -not -path './target/*' \
+            | xargs wc -l \
+            | awk '$1 > 256 || $1 < 16')
+        if [ -n "$over" ]; then
+          echo "Files outside 16-256 line range:"
+          echo "$over"
+          exit 1
+        fi
     - run: cargo fmt --all -- --check
 
   clippy:
