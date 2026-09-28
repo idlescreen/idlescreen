@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+// perf: T3 · metric: spawns a subprocess; cost is dominated by fork/exec, not by this page · check: test
 // Copyright 2026 IdleScreen
 
 //! The IdleScreen component catalog — the single source of truth the

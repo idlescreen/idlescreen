@@ -28,6 +28,12 @@ jobs:
           echo "$over"
           exit 1
         fi
+    - name: every page declares a performance metric
+      # Every `.rs` page must carry a `// perf:` line saying what it
+      # costs and how a machine would notice if that changed -- `bench`,
+      # `test`, or `review`. Pure bash/grep/awk, so it rides along with
+      # the checkout rather than costing another job.
+      run: bash scripts/check-perf-labels.sh
     - run: cargo fmt --all -- --check
 
   clippy:

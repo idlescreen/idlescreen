@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+// perf: T3 · metric: spawns a subprocess; cost is dominated by fork/exec, not by this page · check: review
 // Copyright 2026 IdleScreen
 
 //! Router-native verbs: `components`, `install`, `remove`, `versions`.
