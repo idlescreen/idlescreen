@@ -1,7 +1,7 @@
 {
  "repo": "idlescreen",
- "rev": "ff52e69",
- "dirty": true,
+ "rev": "b9c4068",
+ "dirty": false,
  "pages": [
   {
    "path": "./src/catalog.rs",
