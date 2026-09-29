@@ -1,0 +1,29 @@
+{
+ "repo": "idlescreen",
+ "rev": "ff52e69",
+ "dirty": true,
+ "pages": [
+  {
+   "path": "./src/catalog.rs",
+   "lines": 191,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./src/main.rs",
+   "lines": 125,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./src/verbs.rs",
+   "lines": 129,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  }
+ ],
+ "notes": "reach counts referencing files (shared file names qualified by ancestor dir);"
+}

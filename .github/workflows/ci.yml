@@ -17,6 +17,8 @@ jobs:
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none --component rustfmt
         echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+    - name: Validate page-score.json
+      run: qa/page_score_check.sh
     - run: cargo fmt --all -- --check
 
   clippy:
