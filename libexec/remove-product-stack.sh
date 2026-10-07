@@ -98,9 +98,24 @@ erase_deb() {
     fi
 }
 
+erase_pacman() {
+    to_erase=""
+    for p in $PKGS; do
+        if pacman -Q "$p" >/dev/null 2>&1; then
+            to_erase="$to_erase $p"
+        fi
+    done
+    # shellcheck disable=SC2086
+    if [ -n "$to_erase" ]; then
+        pacman -Rdd --noconfirm $to_erase 2>/dev/null || true
+    fi
+}
+
 remove_repo_dropins() {
     rm -f /etc/yum.repos.d/idlescreen.repo 2>/dev/null || true
     rm -f /etc/apt/sources.list.d/idlescreen.list 2>/dev/null || true
+    rm -f /usr/local/bin/omarchy-launch-screensaver 2>/dev/null || true
+    rm -rf /etc/pacman.d/idlescreen /etc/xdg/idlescreen 2>/dev/null || true
 }
 
 remove_empty_dirs() {
@@ -117,6 +132,9 @@ if command -v rpm >/dev/null 2>&1 && [ -d /var/lib/rpm ]; then
 fi
 if command -v dpkg >/dev/null 2>&1 && [ -d /var/lib/dpkg ]; then
     erase_deb
+fi
+if command -v pacman >/dev/null 2>&1 && [ -d /var/lib/pacman ]; then
+    erase_pacman
 fi
 remove_repo_dropins
 remove_empty_dirs
