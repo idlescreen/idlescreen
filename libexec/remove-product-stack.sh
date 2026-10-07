@@ -14,6 +14,7 @@ idle-cosmic
 idle-tui
 idle-cli
 idle-savers
+idle-saver-ascii
 idle-saver-aurora
 idle-saver-beams
 idle-saver-bursts
