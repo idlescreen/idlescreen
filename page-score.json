@@ -1,11 +1,11 @@
 {
  "repo": "idlescreen",
- "rev": "ef8d632",
- "dirty": false,
+ "rev": "d2ec55c",
+ "dirty": true,
  "pages": [
   {
    "path": "./src/catalog.rs",
-   "lines": 191,
+   "lines": 192,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 2

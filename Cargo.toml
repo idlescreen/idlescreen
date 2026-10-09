@@ -1,7 +1,7 @@
 [package]
 authors = ["idlescreen developers"]
 name = "idlescreen"
-version = "4.0.6"
+version = "4.0.7"
 edition = "2024"
 license = "Apache-2.0"
 description = "IdleScreen router — one front door for cli, tui, studio, cosmic, savers, runtime"
@@ -37,7 +37,6 @@ maintainer-scripts = "debian"
 # Product metapackage deps (absorbed from the old packages-repo meta) —
 # `idlescreen` installs the whole product stack.
 depends = "libc6, idle-daemon (>= 3.5.8), idle-cli (>= 4.0.0), idle-savers, idle-tui (>= 3.0.1)"
-recommends = "idle-cosmic (>= 3.0.2)"
 # /usr/bin/idlescreen moved here from idle-cli <= 3.5.x.
 breaks = "idle-cli (<< 4.0.0)"
 replaces = "idle-cli (<< 4.0.0)"
@@ -69,9 +68,6 @@ idle-daemon = ">= 3.5.8"
 idle-cli = ">= 4.0.0"
 idle-savers = "*"
 idle-tui = ">= 3.0.1"
-
-[package.metadata.generate-rpm.recommends]
-idle-cosmic = ">= 3.0.2"
 
 [package.metadata.generate-rpm.conflicts]
 # /usr/bin/idlescreen moved here from idle-cli <= 3.5.x.
