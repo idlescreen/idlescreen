@@ -154,31 +154,102 @@ pub fn render_banner(
 
     match tier {
         LayoutTier::Wide => {
-            // Budget for characters: each is 6 cols (5 + 1 space). Max budget = (cols - 4) / 6
-            let budget = (cols.saturating_sub(4) / 6).max(1);
-            let display_text: String = effective_text.trim().chars().take(budget).collect();
-            let mut lines = vec![String::new(); 5];
-            for ch in display_text.chars() {
-                let pattern = get_5x5(ch).unwrap_or(["     "; 5]);
-                for (i, row) in pattern.iter().enumerate() {
-                    lines[i].push_str(row);
-                    lines[i].push(' ');
+            let (scale, display_text) = determine_scale(&effective_text, subtitle, cols, rows);
+            if scale == 1 {
+                // Budget for characters: each is 6 cols (5 + 1 space). Max budget = (cols - 4) / 6
+                let budget = (cols.saturating_sub(4) / 6).max(1);
+                let text: String = display_text.chars().take(budget).collect();
+                let mut lines = vec![String::new(); 5];
+                for ch in text.chars() {
+                    let pattern = get_5x5(ch).unwrap_or(["     "; 5]);
+                    for (i, row) in pattern.iter().enumerate() {
+                        lines[i].push_str(row);
+                        lines[i].push(' ');
+                    }
                 }
-            }
-            if let Some(sub) = subtitle {
-                let sub_budget = cols.saturating_sub(4);
-                let sub_trimmed: String = sub.trim().chars().take(sub_budget).collect();
-                if !sub_trimmed.is_empty() {
-                    lines.push(String::new());
-                    lines.push(sub_trimmed);
+                if let Some(sub) = subtitle {
+                    let sub_budget = cols.saturating_sub(4);
+                    let sub_trimmed: String = sub.trim().chars().take(sub_budget).collect();
+                    if !sub_trimmed.is_empty() {
+                        lines.push(String::new());
+                        lines.push(sub_trimmed);
+                    }
                 }
-            }
-            let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
-            let height = lines.len();
-            RenderedBanner {
-                lines,
-                width,
-                height,
+                let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+                let height = lines.len();
+                RenderedBanner {
+                    lines,
+                    width,
+                    height,
+                }
+            } else {
+                let spacing = match scale {
+                    2 => 2,
+                    3 => 2,
+                    _ => 3,
+                };
+                let spacing_str = " ".repeat(spacing);
+                let mut lines = vec![String::new(); 5 * scale];
+
+                for ch in display_text.chars() {
+                    let pattern = get_5x5(ch).unwrap_or(["     "; 5]);
+                    let max_w = pattern.iter().map(|r| r.chars().count()).max().unwrap_or(5);
+
+                    for (r, base_row) in pattern.iter().enumerate() {
+                        let mut scaled_row = String::with_capacity(max_w * scale);
+                        for c in base_row.chars() {
+                            match c {
+                                '█' | '▀' | '▄' => {
+                                    for _ in 0..scale {
+                                        scaled_row.push('█');
+                                    }
+                                }
+                                _ => {
+                                    for _ in 0..scale {
+                                        scaled_row.push(' ');
+                                    }
+                                }
+                            }
+                        }
+                        let cur_len = scaled_row.chars().count();
+                        if cur_len < max_w * scale {
+                            for _ in 0..(max_w * scale - cur_len) {
+                                scaled_row.push(' ');
+                            }
+                        }
+                        scaled_row.push_str(&spacing_str);
+
+                        for sr in 0..scale {
+                            lines[r * scale + sr].push_str(&scaled_row);
+                        }
+                    }
+                }
+
+                if let Some(sub) = subtitle {
+                    let sub_budget = cols.saturating_sub(4);
+                    let sub_trimmed: String = sub.trim().chars().take(sub_budget).collect();
+                    if !sub_trimmed.is_empty() {
+                        lines.push(String::new());
+                        let banner_w = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+                        let sub_len = sub_trimmed.chars().count();
+                        if banner_w > sub_len {
+                            let pad = (banner_w - sub_len) / 2;
+                            let mut centered = " ".repeat(pad);
+                            centered.push_str(&sub_trimmed);
+                            lines.push(centered);
+                        } else {
+                            lines.push(sub_trimmed);
+                        }
+                    }
+                }
+
+                let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+                let height = lines.len();
+                RenderedBanner {
+                    lines,
+                    width,
+                    height,
+                }
             }
         }
         LayoutTier::Medium => {
@@ -274,4 +345,74 @@ fn center_text(text: &str, cols: usize) -> String {
     }
     s.push_str(text);
     s
+}
+
+/// Computes the responsive scale factor (1..=4) for the WideTier banner based on screen dimensions and text length.
+pub fn calculate_banner_scale(text: &str, cols: usize, rows: usize) -> usize {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return 1;
+    }
+
+    let effective_rows = if is_portrait(cols, rows) {
+        rows.saturating_sub(8)
+    } else {
+        rows
+    };
+
+    // Candidates in descending order of scale: 4 (400%), 3 (300%), 2 (200%)
+    for &scale in &[4, 3, 2] {
+        let min_rows = match scale {
+            4 => 40,
+            3 => 30,
+            2 => 26,
+            _ => 10,
+        };
+
+        if effective_rows < min_rows {
+            continue;
+        }
+
+        let spacing = match scale {
+            2 => 2,
+            3 => 2,
+            _ => 3,
+        };
+
+        // Calculate total width of trimmed text at this scale
+        let mut text_width = 0;
+        for ch in trimmed.chars() {
+            let pattern = get_5x5(ch).unwrap_or(["     "; 5]);
+            let max_w = pattern.iter().map(|r| r.chars().count()).max().unwrap_or(5);
+            text_width += max_w * scale + spacing;
+        }
+
+        // Must leave at least 4 columns margin
+        if text_width + 4 <= cols {
+            return scale;
+        }
+    }
+
+    1
+}
+
+fn determine_scale(
+    text: &str,
+    _subtitle: Option<&str>,
+    cols: usize,
+    rows: usize,
+) -> (usize, String) {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return (1, String::new());
+    }
+
+    let scale = calculate_banner_scale(trimmed, cols, rows);
+    if scale > 1 {
+        (scale, trimmed.to_string())
+    } else {
+        let budget = (cols.saturating_sub(4) / 6).max(1);
+        let display_text: String = trimmed.chars().take(budget).collect();
+        (1, display_text)
+    }
 }

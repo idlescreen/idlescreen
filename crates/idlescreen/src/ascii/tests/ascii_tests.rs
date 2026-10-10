@@ -238,3 +238,19 @@ fn smooth_transition_and_resize_without_panics() {
     saver.draw(&mut new_grid, 100, 30);
     assert_eq!(new_grid.len(), 3000);
 }
+
+#[test]
+fn large_screen_400_percent_rendering_and_effects() {
+    let cols = 240;
+    let rows = 67;
+    let mut saver = Ascii::new();
+    saver.init(cols, rows);
+    assert_eq!(saver.last_cols, cols);
+    assert_eq!(saver.last_rows, rows);
+    let mut grid = vec![TerminalCell::default(); cols * rows];
+    for _ in 0..15 {
+        saver.update(Duration::from_millis(16), cols, rows);
+        saver.draw(&mut grid, cols, rows);
+    }
+    assert!(grid.iter().any(|c| c.ch != ' '));
+}

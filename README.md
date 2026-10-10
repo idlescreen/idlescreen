@@ -30,7 +30,7 @@
 
 - **0.00% CPU at idle**: Pure event-driven epoll reactor sleeping with zero periodic wakeups.
 - **Native Wayland presentation**: Hardware destination scaling via `wp_viewporter` and direct software font rasterization into `wl_shm` (<0.5ms frame time).
-- **Pure in-process default**: Built-in ASCII screensaver engine with dynamic Host OS, Desktop Environment, and Linux Kernel tri-rotation mutation across 37 effects.
+- **Pure in-process default**: Built-in ASCII screensaver engine with dynamic Host OS, Desktop Environment, and Linux Kernel tri-rotation mutation across 37 effects, featuring responsive multi-cell font scaling (up to 400% / 20 rows) for high-resolution laptop and fullscreen displays.
 - **Multi-init first class**: Native support for systemd, OpenRC, runit, dinit, s6, and standalone supervisor.
 - **Clean split**: Optional `idlescreen-extras` helper package housing 11 legacy mathematical screensavers over anonymous kernel `socketpair` and sealed `memfd_create`.
 

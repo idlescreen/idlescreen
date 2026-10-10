@@ -80,3 +80,42 @@ fn test_lru_font_atlas_cache() {
     assert!(cache.get(&("OS2".to_string(), 80, 24)).is_none());
     assert!(cache.get(&("OS1".to_string(), 80, 24)).is_some());
 }
+
+#[test]
+fn test_banner_responsive_scaling_up_to_400_percent() {
+    // 14" laptop screen fullscreen display (1920x1080 -> 240 cols, 67 rows)
+    // Short brand text scales to 400% (20 rows tall)
+    let banner_400 = render_banner("UBUNTU", None, 240, 67);
+    assert_eq!(banner_400.height, 20);
+    assert!(banner_400.width <= 240);
+
+    // 10-char word on 240x67 scales to 400% (20 rows) if width permits, or 300% (15 rows)
+    let banner_idle = render_banner("IDLESCREEN", None, 240, 67);
+    assert!(banner_idle.height == 20 || banner_idle.height == 15);
+    assert!(banner_idle.width <= 240);
+
+    // With subtitle: height adds subtitle rows (20 + 2 = 22 rows)
+    let banner_with_sub = render_banner("UBUNTU", Some("v4.1.7"), 240, 67);
+    assert_eq!(banner_with_sub.height, 22);
+
+    // Medium-large window (120 cols, 35 rows) scales to 15 rows (300%) or 10 rows (200%)
+    let banner_med_large = render_banner("ARCH", None, 120, 35);
+    assert_eq!(banner_med_large.height, 15);
+
+    // Standard 80x24 terminal preserves 5 rows (100%)
+    let banner_std = render_banner("IDLE", None, 80, 24);
+    assert_eq!(banner_std.height, 5);
+
+    // Edge case: empty string
+    let banner_empty = render_banner("", None, 240, 67);
+    assert_eq!(banner_empty.height, 5);
+
+    // Edge case: very long text that cannot fit at scale 4 falls back to lower scale
+    let banner_long = render_banner(
+        "A VERY LONG PHRASE THAT CANNOT FIT AT SCALE 4",
+        None,
+        120,
+        35,
+    );
+    assert!(banner_long.height <= 15);
+}
