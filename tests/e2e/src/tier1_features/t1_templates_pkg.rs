@@ -58,15 +58,20 @@ fn test_xdg_desktop_autostart_contract() {
     let desktop_entry = r#"[Desktop Entry]
 Type=Application
 Name=IdleScreen Daemon
-Exec=idle-daemon daemon
+Comment=IdleScreen screensaver daemon
+Exec=idlescreen daemon
 Terminal=false
 NoDisplay=true
 X-GNOME-Autostart-enabled=true
+Categories=Utility;Screensaver;
 "#;
 
     assert!(desktop_entry.contains("[Desktop Entry]"));
     assert!(desktop_entry.contains("Type=Application"));
-    assert!(desktop_entry.contains("Exec=idle-daemon daemon"));
+    assert!(
+        desktop_entry.contains("Exec=idlescreen daemon")
+            || desktop_entry.contains("Exec=idle-daemon daemon")
+    );
 }
 
 #[test]

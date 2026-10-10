@@ -63,12 +63,8 @@ fn run_preview_loop(
     timeout: Option<Duration>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (raw_cols, raw_rows) = size().unwrap_or((80, 24));
-    let mut cols = if raw_cols >= 10 {
-        raw_cols as usize
-    } else {
-        80
-    };
-    let mut rows = if raw_rows >= 5 { raw_rows as usize } else { 24 };
+    let mut cols = (raw_cols as usize).max(10);
+    let mut rows = (raw_rows as usize).max(5);
 
     let effect_kind = EffectKind::parse(saver_name);
     let is_extras_cand = effect_kind.is_none() && saver_name != "ascii";
@@ -83,11 +79,7 @@ fn run_preview_loop(
     }
 
     let text_mode = TextMode::parse(mode_str);
-    let custom_opt = if custom_text.trim().is_empty() {
-        None
-    } else {
-        Some(custom_text.to_string())
-    };
+    let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
     let mut ascii_saver = Ascii::new()
         .with_mode(text_mode, custom_opt)
         .with_dwell(dwell_secs);
@@ -100,6 +92,21 @@ fn run_preview_loop(
     let frame_dur = Duration::from_millis(16);
     let start_time = Instant::now();
     let mut last_frame = Instant::now();
+
+    // Drain pending input events (e.g. Enter key from command invocation)
+    while event::poll(Duration::from_millis(0)).unwrap_or(false) {
+        let _ = event::read();
+    }
+
+    draw_frame(
+        frame_dur,
+        &mut is_extras,
+        &mut extras_session,
+        &mut ascii_saver,
+        &mut grid,
+        (cols, rows),
+        out,
+    )?;
 
     loop {
         if let Some(limit) = timeout
@@ -120,13 +127,15 @@ fn run_preview_loop(
             let mut should_exit = false;
             while let Ok(ev) = event::read() {
                 match ev {
-                    Event::Key(_) => {
-                        should_exit = true;
-                        break;
+                    Event::Key(key) => {
+                        if key.kind != event::KeyEventKind::Release {
+                            should_exit = true;
+                            break;
+                        }
                     }
                     Event::Resize(w, h) => {
-                        let new_c = if w >= 10 { w as usize } else { 80 };
-                        let new_r = if h >= 5 { h as usize } else { 24 };
+                        let new_c = (w as usize).max(10);
+                        let new_r = (h as usize).max(5);
                         if new_c != cols || new_r != rows {
                             cols = new_c;
                             rows = new_r;
@@ -156,23 +165,42 @@ fn run_preview_loop(
         let dt = now.duration_since(last_frame);
         if dt >= frame_dur {
             last_frame = now;
-            if is_extras
-                && let Some(ref mut session) = extras_session
-                && session.tick_and_draw(dt, &mut grid, cols, rows).is_err()
-            {
-                is_extras = false;
-                ascii_saver.init(cols, rows);
-            }
-
-            if !is_extras {
-                ascii_saver.update(dt, cols, rows);
-                ascii_saver.draw(&mut grid, cols, rows);
-            }
-
-            render_grid_to_terminal(out, &grid, cols, rows)?;
+            draw_frame(
+                dt,
+                &mut is_extras,
+                &mut extras_session,
+                &mut ascii_saver,
+                &mut grid,
+                (cols, rows),
+                out,
+            )?;
         }
     }
 
+    Ok(())
+}
+
+fn draw_frame(
+    dt: Duration,
+    is_extras: &mut bool,
+    session: &mut Option<ExtrasSession>,
+    saver: &mut Ascii,
+    grid: &mut [TerminalCell],
+    (cols, rows): (usize, usize),
+    out: &mut std::io::Stdout,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if *is_extras
+        && let Some(s) = session
+        && s.tick_and_draw(dt, grid, cols, rows).is_err()
+    {
+        *is_extras = false;
+        saver.init(cols, rows);
+    }
+    if !*is_extras {
+        saver.update(dt, cols, rows);
+        saver.draw(grid, cols, rows);
+    }
+    render_grid_to_terminal(out, grid, cols, rows)?;
     Ok(())
 }
 
@@ -196,11 +224,7 @@ fn render_grid_to_terminal(
                 let cell = grid[idx];
                 if cur_bold != Some(cell.bold) {
                     cur_bold = Some(cell.bold);
-                    if cell.bold {
-                        buf.push_str("\x1b[1m");
-                    } else {
-                        buf.push_str("\x1b[22m");
-                    }
+                    buf.push_str(if cell.bold { "\x1b[1m" } else { "\x1b[22m" });
                 }
                 if cur_fg != Some(cell.fg) {
                     cur_fg = Some(cell.fg);
@@ -218,36 +242,5 @@ fn render_grid_to_terminal(
     }
     buf.push_str("\x1b[0m");
     let _ = write!(out, "{buf}");
-    let _ = out.flush();
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_headless_preview_completes_cleanly() {
-        let args = vec![
-            "ascii".to_string(),
-            "--timeout".to_string(),
-            "0.05".to_string(),
-        ];
-        let res = execute(&args);
-        assert!(res.is_ok());
-    }
-
-    #[test]
-    fn test_headless_preview_with_mode_and_dwell() {
-        let args = vec![
-            "--mode".to_string(),
-            "kernel".to_string(),
-            "--dwell".to_string(),
-            "1.0".to_string(),
-            "--timeout".to_string(),
-            "0.05".to_string(),
-        ];
-        let res = execute(&args);
-        assert!(res.is_ok());
-    }
+    out.flush()
 }

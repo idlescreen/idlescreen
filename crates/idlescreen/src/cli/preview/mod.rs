@@ -6,6 +6,8 @@
 pub mod options;
 pub mod render;
 pub mod term_guard;
+#[cfg(test)]
+mod tests;
 
 pub use options::{PreviewOptions, parse_preview_args};
 pub use render::execute;

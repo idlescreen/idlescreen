@@ -67,8 +67,8 @@ copyright = "2026 IdleScreen"
 section = "utils"
 priority = "optional"
 depends = "libc6"
-replaces = "idle-daemon (<< 4.0.0), idle-cli (<< 4.0.0), idle-savers (<< 4.0.0), idle-tui (<< 4.0.0), idle-cosmic (<< 4.0.0), idle-saver-ascii (<< 4.0.0), idle-saver-aurora (<< 4.0.0), idle-saver-beams (<< 4.0.0), idle-saver-bursts (<< 4.0.0), idle-saver-chaos (<< 4.0.0), idle-saver-cosmos (<< 4.0.0), idle-saver-glyphs (<< 4.0.0), idle-saver-gnats (<< 4.0.0), idle-saver-hearth (<< 4.0.0), idle-saver-radar (<< 4.0.0), idle-saver-ripple (<< 4.0.0), idle-saver-storm (<< 4.0.0), idle-runner (<< 4.0.0)"
-breaks = "idle-daemon (<< 4.0.0), idle-cli (<< 4.0.0), idle-savers (<< 4.0.0), idle-tui (<< 4.0.0), idle-cosmic (<< 4.0.0), idle-saver-ascii (<< 4.0.0), idle-saver-aurora (<< 4.0.0), idle-saver-beams (<< 4.0.0), idle-saver-bursts (<< 4.0.0), idle-saver-chaos (<< 4.0.0), idle-saver-cosmos (<< 4.0.0), idle-saver-glyphs (<< 4.0.0), idle-saver-gnats (<< 4.0.0), idle-saver-hearth (<< 4.0.0), idle-saver-radar (<< 4.0.0), idle-saver-ripple (<< 4.0.0), idle-saver-storm (<< 4.0.0), idle-runner (<< 4.0.0)"
+replaces = "idle-daemon (<< 5.0.0), idle-cli (<< 5.0.0), idle-savers (<< 5.0.0), idle-tui (<< 5.0.0), idle-cosmic (<< 5.0.0), idle-saver-ascii (<< 5.0.0), idle-saver-aurora (<< 5.0.0), idle-saver-beams (<< 5.0.0), idle-saver-bursts (<< 5.0.0), idle-saver-chaos (<< 5.0.0), idle-saver-cosmos (<< 5.0.0), idle-saver-glyphs (<< 5.0.0), idle-saver-gnats (<< 5.0.0), idle-saver-hearth (<< 5.0.0), idle-saver-radar (<< 5.0.0), idle-saver-ripple (<< 5.0.0), idle-saver-storm (<< 5.0.0), idle-runner (<< 5.0.0)"
+breaks = "idle-daemon (<< 5.0.0), idle-cli (<< 5.0.0), idle-savers (<< 5.0.0), idle-tui (<< 5.0.0), idle-cosmic (<< 5.0.0), idle-saver-ascii (<< 5.0.0), idle-saver-aurora (<< 5.0.0), idle-saver-beams (<< 5.0.0), idle-saver-bursts (<< 5.0.0), idle-saver-chaos (<< 5.0.0), idle-saver-cosmos (<< 5.0.0), idle-saver-glyphs (<< 5.0.0), idle-saver-gnats (<< 5.0.0), idle-saver-hearth (<< 5.0.0), idle-saver-radar (<< 5.0.0), idle-saver-ripple (<< 5.0.0), idle-saver-storm (<< 5.0.0), idle-runner (<< 5.0.0)"
 provides = "idle-daemon (= 4.1.1), idle-cli (= 4.1.1), idle-savers (= 4.1.1), idle-tui (= 4.1.1), idle-cosmic (= 4.1.1), idle-saver-ascii (= 4.1.1), idle-saver-aurora (= 4.1.1), idle-saver-beams (= 4.1.1), idle-saver-bursts (= 4.1.1), idle-saver-chaos (= 4.1.1), idle-saver-cosmos (= 4.1.1), idle-saver-glyphs (= 4.1.1), idle-saver-gnats (= 4.1.1), idle-saver-hearth (= 4.1.1), idle-saver-radar (= 4.1.1), idle-saver-ripple (= 4.1.1), idle-saver-storm (= 4.1.1), idle-runner (= 4.1.1)"
 extended-description = "IdleScreen standalone screensaver and idle management suite for Linux"
 assets = [
@@ -76,6 +76,9 @@ assets = [
     ["../../assets/idlescreen.service", "usr/lib/systemd/user/idlescreen.service", "644"],
     ["../../assets/idlescreen.desktop", "etc/xdg/autostart/idlescreen.desktop", "644"],
     ["../../assets/idlescreen.1", "usr/share/man/man1/idlescreen.1", "644"],
+    ["../../target/release/idlescreen", "usr/bin/idle-tui", "755"],
+    ["../../target/release/idlescreen", "usr/bin/idle-cli", "755"],
+    ["../../target/release/idlescreen", "usr/bin/idle-daemon", "755"],
 ]
 
 [package.metadata.generate-rpm]
@@ -90,26 +93,29 @@ assets = [
     { source = "../../assets/idlescreen.service", dest = "/usr/lib/systemd/user/idlescreen.service", mode = "644" },
     { source = "../../assets/idlescreen.desktop", dest = "/etc/xdg/autostart/idlescreen.desktop", mode = "644" },
     { source = "../../assets/idlescreen.1", dest = "/usr/share/man/man1/idlescreen.1", mode = "644" },
+    { source = "../../target/release/idlescreen", dest = "/usr/bin/idle-tui", mode = "755" },
+    { source = "../../target/release/idlescreen", dest = "/usr/bin/idle-cli", mode = "755" },
+    { source = "../../target/release/idlescreen", dest = "/usr/bin/idle-daemon", mode = "755" },
 ]
 [package.metadata.generate-rpm.obsoletes]
-"idle-daemon" = "< 4.0.0"
-"idle-cli" = "< 4.0.0"
-"idle-savers" = "< 4.0.0"
-"idle-tui" = "< 4.0.0"
-"idle-cosmic" = "< 4.0.0"
-"idle-saver-ascii" = "< 4.0.0"
-"idle-saver-aurora" = "< 4.0.0"
-"idle-saver-beams" = "< 4.0.0"
-"idle-saver-bursts" = "< 4.0.0"
-"idle-saver-chaos" = "< 4.0.0"
-"idle-saver-cosmos" = "< 4.0.0"
-"idle-saver-glyphs" = "< 4.0.0"
-"idle-saver-gnats" = "< 4.0.0"
-"idle-saver-hearth" = "< 4.0.0"
-"idle-saver-radar" = "< 4.0.0"
-"idle-saver-ripple" = "< 4.0.0"
-"idle-saver-storm" = "< 4.0.0"
-"idle-runner" = "< 4.0.0"
+"idle-daemon" = "< 5.0.0"
+"idle-cli" = "< 5.0.0"
+"idle-savers" = "< 5.0.0"
+"idle-tui" = "< 5.0.0"
+"idle-cosmic" = "< 5.0.0"
+"idle-saver-ascii" = "< 5.0.0"
+"idle-saver-aurora" = "< 5.0.0"
+"idle-saver-beams" = "< 5.0.0"
+"idle-saver-bursts" = "< 5.0.0"
+"idle-saver-chaos" = "< 5.0.0"
+"idle-saver-cosmos" = "< 5.0.0"
+"idle-saver-glyphs" = "< 5.0.0"
+"idle-saver-gnats" = "< 5.0.0"
+"idle-saver-hearth" = "< 5.0.0"
+"idle-saver-radar" = "< 5.0.0"
+"idle-saver-ripple" = "< 5.0.0"
+"idle-saver-storm" = "< 5.0.0"
+"idle-runner" = "< 5.0.0"
 
 [package.metadata.generate-rpm.provides]
 "idle-daemon" = "= 4.1.1"
