@@ -144,6 +144,7 @@ pub struct WaylandState {
     pub output: Option<wl_output::WlOutput>,
     pub output_width: u32,
     pub output_height: u32,
+    pub output_refresh_mhz: i32,
     pub surface: Option<wl_surface::WlSurface>,
     pub layer_surface: Option<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1>,
     pub xdg_surface: Option<xdg_surface::XdgSurface>,
@@ -169,6 +170,7 @@ impl WaylandState {
             output: None,
             output_width: 0,
             output_height: 0,
+            output_refresh_mhz: 0,
             surface: None,
             layer_surface: None,
             xdg_surface: None,
@@ -239,6 +241,7 @@ impl Dispatch<wl_output::WlOutput, ()> for WaylandState {
             flags,
             width,
             height,
+            refresh,
             ..
         } = event
         {
@@ -250,6 +253,7 @@ impl Dispatch<wl_output::WlOutput, ()> for WaylandState {
             if is_current && width > 0 && height > 0 {
                 state.output_width = width as u32;
                 state.output_height = height as u32;
+                state.output_refresh_mhz = refresh;
             }
         }
     }
@@ -495,6 +499,7 @@ pub fn run_wayland_fullscreen_preview(
     dwell_secs: f32,
     custom_text: &str,
     timeout: Option<Duration>,
+    config_fps: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let connection = Connection::connect_to_env()?;
     let mut event_queue = connection.new_event_queue();
@@ -599,18 +604,27 @@ pub fn run_wayland_fullscreen_preview(
         is_extras = false;
     }
 
+    let target_fps = if config_fps > 0 {
+        config_fps
+    } else if state.output_refresh_mhz > 0 {
+        ((state.output_refresh_mhz + 500) / 1000).max(1) as u32
+    } else {
+        60
+    };
+    let frame_dur = Duration::from_nanos(1_000_000_000 / target_fps as u64);
+
     let text_mode = TextMode::parse(mode_str);
     let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
     let mut ascii_saver = Ascii::new()
         .with_mode(text_mode, custom_opt)
-        .with_dwell(dwell_secs);
+        .with_dwell(dwell_secs)
+        .with_fps(target_fps);
     if let Some(effect) = effect_kind {
         ascii_saver.pin_effect(effect);
     }
     ascii_saver.init(cols, rows);
 
     let mut cells = vec![TerminalCell::default(); cols * rows];
-    let frame_dur = Duration::from_millis(16);
     let mut last_frame = Instant::now();
 
     while !state.exit_requested {
@@ -708,6 +722,7 @@ pub fn run_wayland_daemon_presenter(
     dwell_secs: f32,
     mode_str: &str,
     custom_text: &str,
+    config_fps: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let connection = Connection::connect_to_env()?;
     let mut event_queue = connection.new_event_queue();
@@ -804,18 +819,27 @@ pub fn run_wayland_daemon_presenter(
         is_extras = false;
     }
 
+    let target_fps = if config_fps > 0 {
+        config_fps
+    } else if state_wl.output_refresh_mhz > 0 {
+        ((state_wl.output_refresh_mhz + 500) / 1000).max(1) as u32
+    } else {
+        60
+    };
+    let frame_dur = Duration::from_nanos(1_000_000_000 / target_fps as u64);
+
     let text_mode = TextMode::parse(mode_str);
     let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
     let mut ascii_saver = Ascii::new()
         .with_mode(text_mode, custom_opt)
-        .with_dwell(dwell_secs);
+        .with_dwell(dwell_secs)
+        .with_fps(target_fps);
     if let Some(effect) = effect_kind {
         ascii_saver.pin_effect(effect);
     }
     ascii_saver.init(cols, rows);
 
     let mut cells = vec![TerminalCell::default(); cols * rows];
-    let frame_dur = Duration::from_millis(16);
     let mut last_frame = Instant::now();
 
     while state.active.load(Ordering::SeqCst) && !state_wl.exit_requested {

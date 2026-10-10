@@ -47,7 +47,7 @@ fn default_mode() -> String {
     "cycle".to_string()
 }
 fn default_fps() -> u32 {
-    60
+    0
 }
 fn default_dwell_secs() -> f32 {
     5.0

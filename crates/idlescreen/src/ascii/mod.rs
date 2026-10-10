@@ -8,6 +8,8 @@ pub mod draw;
 pub mod effects;
 pub mod engine;
 pub mod layout;
+#[allow(clippy::all, unused)]
+pub mod scenes;
 pub mod state;
 pub mod sys_info;
 pub mod unicode;
@@ -50,6 +52,7 @@ pub struct Ascii {
     pub engine: Option<EngineSession>,
     pub portrait_top: Vec<String>,
     pub portrait_bottom: Vec<String>,
+    pub fps: u32,
 }
 
 impl Default for Ascii {
@@ -93,7 +96,13 @@ impl Ascii {
             engine: None,
             portrait_top: Vec::new(),
             portrait_bottom: Vec::new(),
+            fps: 60,
         }
+    }
+
+    pub fn with_fps(mut self, fps: u32) -> Self {
+        self.fps = if fps > 0 { fps } else { 60 };
+        self
     }
 
     pub fn with_mode(mut self, mode: TextMode, custom_text: Option<String>) -> Self {
@@ -184,6 +193,7 @@ impl Ascii {
             self.last_cols,
             self.last_rows,
             seed,
+            self.fps,
         );
         if let Some(ref mut session) = self.engine {
             if let Some(frame) = session.next_frame() {

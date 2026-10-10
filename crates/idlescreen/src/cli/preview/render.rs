@@ -34,6 +34,7 @@ pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let eff_mode = opts.mode.unwrap_or_else(|| config.saver.ascii.mode.clone());
     let eff_dwell = opts.dwell.unwrap_or(config.saver.ascii.dwell_secs);
     let eff_text = opts.text.unwrap_or_else(|| config.saver.ascii.text.clone());
+    let eff_fps = config.saver.ascii.fps;
 
     let is_interactive = std::io::stdin().is_terminal();
     let timeout = if !is_interactive && opts.timeout.is_none() {
@@ -51,6 +52,7 @@ pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             eff_dwell,
             &eff_text,
             timeout,
+            eff_fps,
         )
         .is_ok()
     {
@@ -66,6 +68,7 @@ pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         eff_dwell,
         &eff_text,
         timeout,
+        eff_fps,
     )
 }
 
@@ -76,6 +79,7 @@ fn run_preview_loop(
     dwell_secs: f32,
     custom_text: &str,
     timeout: Option<Duration>,
+    fps: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (raw_cols, raw_rows) = size().unwrap_or((80, 24));
     let mut cols = (raw_cols as usize).max(10);
@@ -93,18 +97,20 @@ fn run_preview_loop(
         is_extras = false;
     }
 
+    let target_fps = if fps > 0 { fps } else { 60 };
     let text_mode = TextMode::parse(mode_str);
     let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
     let mut ascii_saver = Ascii::new()
         .with_mode(text_mode, custom_opt)
-        .with_dwell(dwell_secs);
+        .with_dwell(dwell_secs)
+        .with_fps(target_fps);
     if let Some(effect) = effect_kind {
         ascii_saver.pin_effect(effect);
     }
     ascii_saver.init(cols, rows);
 
     let mut grid = vec![TerminalCell::default(); cols * rows];
-    let frame_dur = Duration::from_millis(16);
+    let frame_dur = Duration::from_nanos(1_000_000_000 / target_fps as u64);
     let start_time = Instant::now();
     let mut last_frame = Instant::now();
 

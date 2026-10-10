@@ -194,8 +194,10 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                 let dwell = config.saver.ascii.dwell_secs;
                 let mode = config.saver.ascii.mode.clone();
                 let text = config.saver.ascii.text.clone();
+                let fps = config.saver.ascii.fps;
                 presenter_handle = Some(std::thread::spawn(move || {
-                    let _ = crate::wayland::run_wayland_daemon_presenter(st, dwell, &mode, &text);
+                    let _ =
+                        crate::wayland::run_wayland_daemon_presenter(st, dwell, &mode, &text, fps);
                 }));
             }
         }

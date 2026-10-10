@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! Engine session wrapping the genuine ttfx animation engine.
+//! Engine session wrapping the in-tree decomposed ASCII animation scenes.
 
 use super::effects::EffectKind;
-use clap::Parser;
-use ttfx::cli::Cli;
+use super::scenes;
 use ttfx::engine::canvas::Anchor;
 use ttfx::engine::ctx::{Clock, EngineCtx};
 use ttfx::engine::effect::Effect;
+use ttfx::engine::terminal::TerminalConfig;
 
 pub struct EngineSession {
     ctx: EngineCtx,
@@ -16,21 +16,31 @@ pub struct EngineSession {
 }
 
 impl EngineSession {
-    pub fn new(art: &str, kind: EffectKind, cols: usize, rows: usize, seed: u64) -> Option<Self> {
+    pub fn new(
+        art: &str,
+        kind: EffectKind,
+        cols: usize,
+        rows: usize,
+        seed: u64,
+        fps: u32,
+    ) -> Option<Self> {
         if cols == 0 || rows == 0 || art.trim().is_empty() {
             return None;
         }
-        let cli = Cli::try_parse_from(["ttfx", kind.name()]).ok()?;
-        let mut config = cli.terminal_config();
-        config.canvas_width = cols as i64;
-        config.canvas_height = rows as i64;
-        config.ignore_terminal_dimensions = true;
-        config.anchor_text = Anchor::C;
+        let target_fps = if fps > 0 { fps } else { 60 };
+        let config = TerminalConfig {
+            canvas_width: cols as i64,
+            canvas_height: rows as i64,
+            ignore_terminal_dimensions: true,
+            anchor_text: Anchor::C,
+            frame_rate: target_fps as i64,
+            ..Default::default()
+        };
 
-        let clock = Clock::virtual_with_frame_rate(60);
+        let clock = Clock::virtual_with_frame_rate(target_fps as i64);
         let rng = ttfx::utils::rng::Rng::seeded(seed);
         let mut ctx = EngineCtx::new(art, config, rng, clock).ok()?;
-        let mut effect = cli.effect?.build_effect();
+        let mut effect = scenes::create_scene(kind);
         effect.build(&mut ctx).ok()?;
 
         Some(Self { ctx, effect })
