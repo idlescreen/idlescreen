@@ -29,8 +29,10 @@
 **IdleScreen** is a high-performance, resource-efficient screensaver and idle management suite for Linux.
 
 - **0.00% CPU at idle**: Pure event-driven epoll reactor sleeping with zero periodic wakeups.
+- **Dynamic 60–144 Hz refresh rate matching**: Automatically queries Wayland display modes (e.g. 60 Hz laptop $\to$ 60 FPS, 144 Hz 4K HDR desktop $\to$ 144 FPS) with synchronized simulation clock physics so visual timing remains constant while rendering at the monitor's native capability.
+- **37 in-tree punchy ASCII scenes**: All 37 scenes decomposed into standalone `.rs` modules (`crates/idlescreen/src/ascii/scenes/`) with direct dispatch, tuned particle entry impulses, and snappy deceleration curves.
+- **Responsive 400% font scaling**: Multi-cell block typography scaling up to 400% (~20 rows) for high-resolution laptop and fullscreen displays.
 - **Native Wayland presentation**: Hardware destination scaling via `wp_viewporter` and direct software font rasterization into `wl_shm` (<0.5ms frame time).
-- **Pure in-process default**: Built-in ASCII screensaver engine with dynamic Host OS, Desktop Environment, and Linux Kernel tri-rotation mutation across 37 effects, featuring responsive multi-cell font scaling (up to 400% / 20 rows) for high-resolution laptop and fullscreen displays.
 - **Multi-init first class**: Native support for systemd, OpenRC, runit, dinit, s6, and standalone supervisor.
 - **Clean split**: Optional `idlescreen-extras` helper package housing 11 legacy mathematical screensavers over anonymous kernel `socketpair` and sealed `memfd_create`.
 
@@ -56,9 +58,11 @@ sudo apt install idlescreen-extras    # Debian / Ubuntu
 ```text
 idlescreen daemon            Run event-driven screensaver daemon (or start idlescreen-daemon)
 idlescreen status            Check active screensaver and daemon status
-idlescreen preview [saver]   Preview screensaver in terminal (crossterm)
+idlescreen preview [saver]   Preview screensaver in terminal or fullscreen (e.g. fireworks, matrix, synthgrid)
 idlescreen list              List available built-in and extras screensavers
 idlescreen set <saver>       Set active screensaver (e.g. ascii, storm, aurora)
+idlescreen tui               Interactive configuration dashboard
+idlescreen config            Show configuration path and active TOML settings
 idlescreen stop              Stop running screensaver
 idlescreen doctor            Run diagnostic check on display, sockets, and configuration
 idlescreen version           Show version information
@@ -88,7 +92,7 @@ mode = "cycle"
 text = ""
 
 # Visual pacing & animation
-fps = 60
+fps = 0                   # 0 = auto-detect monitor refresh rate (60 Hz -> 60 FPS, 144 Hz -> 144 FPS)
 dwell_secs = 5.0
 dissolve_duration_secs = 0.7
 ```
