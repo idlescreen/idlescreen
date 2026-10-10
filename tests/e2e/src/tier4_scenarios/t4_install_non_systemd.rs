@@ -12,10 +12,10 @@ fn test_scenario_install_on_runit_host() {
     assert_eq!(init, InitSystem::Runit);
 
     // 2. Package installer copies runit service template
-    let service_dir = env.root().join("etc/sv/idle-daemon");
+    let service_dir = env.root().join("etc/sv/idlescreen");
     fs::create_dir_all(&service_dir).unwrap();
     let run_script = service_dir.join("run");
-    fs::write(&run_script, "#!/bin/sh\nexec idle-daemon daemon\n").unwrap();
+    fs::write(&run_script, "#!/bin/sh\nexec idlescreen daemon\n").unwrap();
 
     assert!(run_script.exists());
 
@@ -23,8 +23,8 @@ fn test_scenario_install_on_runit_host() {
     let bin_dir = env.bin_dir();
     fs::write(bin_dir.join("sv"), "#!/bin/sh\nexit 0\n").unwrap();
 
-    let res = safe_exec_supervisor(InitSystem::Runit, "start", "idle-daemon", Some(&bin_dir));
-    assert_eq!(res, Ok("success:sv:start:idle-daemon".to_string()));
+    let res = safe_exec_supervisor(InitSystem::Runit, "start", "idlescreen", Some(&bin_dir));
+    assert_eq!(res, Ok("success:sv:start:idlescreen".to_string()));
 }
 
 #[test]
@@ -37,10 +37,10 @@ fn test_scenario_install_on_openrc_host() {
     // 2. Package installer copies openrc runscript
     let service_dir = env.root().join("etc/init.d");
     fs::create_dir_all(&service_dir).unwrap();
-    let init_script = service_dir.join("idle-daemon");
+    let init_script = service_dir.join("idlescreen");
     fs::write(
         &init_script,
-        "#!/sbin/openrc-run\ncommand=/usr/bin/idle-daemon\n",
+        "#!/sbin/openrc-run\ncommand=/usr/bin/idlescreen\n",
     )
     .unwrap();
 
@@ -50,6 +50,6 @@ fn test_scenario_install_on_openrc_host() {
     let bin_dir = env.bin_dir();
     fs::write(bin_dir.join("rc-service"), "#!/bin/sh\nexit 0\n").unwrap();
 
-    let res = safe_exec_supervisor(InitSystem::OpenRc, "start", "idle-daemon", Some(&bin_dir));
-    assert_eq!(res, Ok("success:rc-service:start:idle-daemon".to_string()));
+    let res = safe_exec_supervisor(InitSystem::OpenRc, "start", "idlescreen", Some(&bin_dir));
+    assert_eq!(res, Ok("success:rc-service:start:idlescreen".to_string()));
 }

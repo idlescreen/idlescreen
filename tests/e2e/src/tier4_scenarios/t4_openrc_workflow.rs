@@ -22,7 +22,7 @@ fn test_scenario_openrc_service_lifecycle() {
     let ready_log = format_rfc3164(
         3,
         6,
-        "idle-daemon",
+        "idlescreen",
         2024,
         "D-Bus name claimed; service ready under OpenRC",
     );

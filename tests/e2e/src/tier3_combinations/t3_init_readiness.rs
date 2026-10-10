@@ -57,6 +57,6 @@ fn test_standalone_paired_with_bus_or_pid() {
     let env = InitEnvironment::new(InitSystem::Standalone);
     assert_eq!(detect_mock_init(env.root()), InitSystem::Standalone);
 
-    let pidfile_name = "idle-daemon.pid";
-    assert_eq!(pidfile_name, "idle-daemon.pid");
+    let pidfile_name = "idlescreen.pid";
+    assert_eq!(pidfile_name, "idlescreen.pid");
 }

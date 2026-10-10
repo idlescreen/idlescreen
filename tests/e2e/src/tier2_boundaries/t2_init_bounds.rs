@@ -56,7 +56,7 @@ fn test_supervisor_exec_unknown_subcommand_fails_safely() {
     let res = safe_exec_supervisor(
         InitSystem::OpenRc,
         "invalid_verb",
-        "idle-daemon",
+        "idlescreen",
         Some(&bin_dir),
     );
     assert!(res.is_ok(), "Must return result without process abort");
@@ -65,8 +65,8 @@ fn test_supervisor_exec_unknown_subcommand_fails_safely() {
 #[test]
 fn test_init_dispatch_unit_name_validation() {
     let valid_units = [
-        "idle-daemon",
-        "idle-daemon.service",
+        "idlescreen",
+        "idlescreen.service",
         "io.github.idlescreen.Idle",
     ];
     for unit in valid_units {

@@ -90,7 +90,7 @@ pub fn safe_exec_supervisor(
         InitSystem::Runit => "sv",
         InitSystem::Dinit => "dinitctl",
         InitSystem::S6 => "s6-rc",
-        InitSystem::Standalone => "idle-daemon",
+        InitSystem::Standalone => "idlescreen",
     };
 
     let bin_exists = if let Some(dir) = bin_path {

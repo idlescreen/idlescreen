@@ -20,7 +20,7 @@ fn test_missing_supervisor_logs_warning_to_syslog() {
     let warn_msg = format_rfc3164(
         3,
         4, // warning severity
-        "idle-daemon",
+        "idlescreen",
         1111,
         "systemctl missing; falling back to direct spawn",
     );
@@ -55,8 +55,8 @@ fn test_non_systemd_cli_logs_tails_file() {
     file_probe.write_line("line B").unwrap();
 
     let stream_source = match init {
-        InitSystem::Systemd => "journalctl --user -u idle-daemon.service -f",
-        _ => "tail -F ~/.local/state/idlescreen/idle-daemon.log",
+        InitSystem::Systemd => "journalctl --user -u idlescreen.service -f",
+        _ => "tail -F ~/.local/state/idlescreen/idlescreen.log",
     };
 
     assert!(stream_source.starts_with("tail"));

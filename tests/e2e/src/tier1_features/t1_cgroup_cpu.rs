@@ -31,8 +31,8 @@ fn test_parse_cgroup_v2_root_slice() {
 #[test]
 fn test_parse_proc_stat_valid_line() {
     // Simulated /proc/self/stat line:
-    // pid=123 comm=(idle-daemon) state=S ppid=1 ... utime=150 stime=50 ...
-    let line = "123 (idle-daemon) S 1 123 123 0 0 0 0 0 0 0 150 50 0 0 20 0 1 0 0 0 0";
+    // pid=123 comm=(idlescreen) state=S ppid=1 ... utime=150 stime=50 ...
+    let line = "123 (idlescreen) S 1 123 123 0 0 0 0 0 0 0 150 50 0 0 20 0 1 0 0 0 0";
     let ticks = parse_proc_stat_cpu_ticks(line);
     assert_eq!(
         ticks,
@@ -76,7 +76,7 @@ fn test_in_process_cpu_fallback_active_without_cgroup() {
     // remains active using /proc/self/stat CPU ticks.
     let cgroup_available = false;
     let proc_stat_sample = parse_proc_stat_cpu_ticks(
-        "789 (idle-daemon) R 1 789 789 0 0 0 0 0 0 0 500 100 0 0 20 0 1 0 0 0 0",
+        "789 (idlescreen) R 1 789 789 0 0 0 0 0 0 0 500 100 0 0 20 0 1 0 0 0 0",
     );
 
     let accounting_mode = if cgroup_available {

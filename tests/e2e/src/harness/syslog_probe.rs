@@ -94,7 +94,7 @@ impl RollingFileProbe {
     pub fn new(base: &Path) -> Self {
         let state_dir = base.join(".local/state/idlescreen");
         fs::create_dir_all(&state_dir).ok();
-        let log_path = state_dir.join("idle-daemon.log");
+        let log_path = state_dir.join("idlescreen.log");
         Self { log_path }
     }
 

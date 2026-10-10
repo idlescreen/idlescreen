@@ -18,19 +18,18 @@ fn test_scenario_rootless_container_environment() {
     assert!(!cgroup_writable);
 
     // 3. Fallback to /proc/self/stat CPU accounting
-    let simulated_stat =
-        "1001 (idle-daemon) S 1 1001 1001 0 0 0 0 0 0 0 450 150 0 0 20 0 1 0 0 0 0";
+    let simulated_stat = "1001 (idlescreen) S 1 1001 1001 0 0 0 0 0 0 0 450 150 0 0 20 0 1 0 0 0 0";
     let ticks = parse_proc_stat_cpu_ticks(simulated_stat);
     assert_eq!(ticks, Some((450, 150)));
 
     let cpu_sec = compute_cpu_seconds(450, 150, 100);
     assert_eq!(cpu_sec, 6.0);
 
-    // 4. Logging falls back to ~/.local/state/idlescreen/idle-daemon.log
+    // 4. Logging falls back to ~/.local/state/idlescreen/idlescreen.log
     let temp = TempDir::new().unwrap();
     let file_probe = RollingFileProbe::new(temp.path());
     file_probe
-        .write_line("INFO idle-daemon: container fallback active")
+        .write_line("INFO idlescreen: container fallback active")
         .unwrap();
 
     let logs = file_probe.read_all();

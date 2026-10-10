@@ -28,10 +28,10 @@ fn test_scenario_s6_supervision_lifecycle() {
     let temp = TempDir::new().unwrap();
     let log_probe = RollingFileProbe::new(temp.path());
     log_probe
-        .write_line("INFO idle-daemon: s6 readiness confirmed")
+        .write_line("INFO idlescreen: s6 readiness confirmed")
         .unwrap();
     log_probe
-        .write_line("INFO idle-daemon: enter tick loop")
+        .write_line("INFO idlescreen: enter tick loop")
         .unwrap();
 
     let logs = log_probe.read_all();

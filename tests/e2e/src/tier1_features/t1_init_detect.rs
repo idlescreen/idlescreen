@@ -57,10 +57,10 @@ fn test_supervisor_safe_exec_with_mock_binary() {
     let rc_service = bin_dir.join("rc-service");
     fs::write(&rc_service, "#!/bin/sh\nexit 0\n").expect("write fake rc-service");
 
-    let result = safe_exec_supervisor(InitSystem::OpenRc, "start", "idle-daemon", Some(&bin_dir));
+    let result = safe_exec_supervisor(InitSystem::OpenRc, "start", "idlescreen", Some(&bin_dir));
     assert_eq!(
         result,
-        Ok("success:rc-service:start:idle-daemon".to_string()),
+        Ok("success:rc-service:start:idlescreen".to_string()),
         "rc-service execution should succeed"
     );
 }
@@ -74,12 +74,12 @@ fn test_supervisor_safe_exec_fallback_when_binary_missing() {
     let result = safe_exec_supervisor(
         InitSystem::Systemd,
         "start",
-        "idle-daemon",
+        "idlescreen",
         Some(&empty_bin_dir),
     );
     assert_eq!(
         result,
-        Ok("fallback_direct_spawn:start:idle-daemon".to_string()),
+        Ok("fallback_direct_spawn:start:idlescreen".to_string()),
         "Missing binary must fall back to direct spawn without io::ErrorKind::NotFound abort"
     );
 }

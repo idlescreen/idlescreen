@@ -7,14 +7,14 @@ use crate::harness::InitSystem;
 fn test_openrc_service_template_contract() {
     let template = r#"#!/sbin/openrc-run
 description="IdleScreen Wayland screensaver daemon"
-command="/usr/bin/idle-daemon"
+command="/usr/bin/idlescreen"
 command_args="daemon"
 command_background="yes"
-pidfile="/run/idle-daemon.pid"
+pidfile="/run/idlescreen.pid"
 "#;
 
     assert!(template.starts_with("#!/sbin/openrc-run"));
-    assert!(template.contains(r#"command="/usr/bin/idle-daemon""#));
+    assert!(template.contains(r#"command="/usr/bin/idlescreen""#));
     assert!(template.contains(r#"command_args="daemon""#));
 }
 
@@ -22,33 +22,33 @@ pidfile="/run/idle-daemon.pid"
 fn test_runit_service_template_contract() {
     let template = r#"#!/bin/sh
 exec 2>&1
-exec idle-daemon daemon
+exec idlescreen daemon
 "#;
 
     assert!(template.starts_with("#!/bin/sh"));
-    assert!(template.contains("exec idle-daemon daemon"));
+    assert!(template.contains("exec idlescreen daemon"));
 }
 
 #[test]
 fn test_dinit_service_template_contract() {
     let template = r#"type = process
-command = /usr/bin/idle-daemon daemon
+command = /usr/bin/idlescreen daemon
 ready-notification = pipev3
 restart = yes
 "#;
 
     assert!(template.contains("type = process"));
-    assert!(template.contains("command = /usr/bin/idle-daemon daemon"));
+    assert!(template.contains("command = /usr/bin/idlescreen daemon"));
     assert!(template.contains("ready-notification = pipev3"));
 }
 
 #[test]
 fn test_s6_service_template_contract() {
-    let run_script = "#!/bin/execlineb -P\nidle-daemon daemon\n";
+    let run_script = "#!/bin/execlineb -P\nidlescreen daemon\n";
     let notification_fd = "3\n";
     let service_type = "longrun\n";
 
-    assert!(run_script.contains("idle-daemon daemon"));
+    assert!(run_script.contains("idlescreen daemon"));
     assert_eq!(notification_fd.trim(), "3");
     assert_eq!(service_type.trim(), "longrun");
 }
@@ -68,10 +68,7 @@ Categories=Utility;Screensaver;
 
     assert!(desktop_entry.contains("[Desktop Entry]"));
     assert!(desktop_entry.contains("Type=Application"));
-    assert!(
-        desktop_entry.contains("Exec=idlescreen daemon")
-            || desktop_entry.contains("Exec=idle-daemon daemon")
-    );
+    assert!(desktop_entry.contains("Exec=idlescreen daemon"));
 }
 
 #[test]
