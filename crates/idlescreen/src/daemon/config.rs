@@ -17,7 +17,7 @@ pub struct GeneralConfig {
 }
 
 fn default_idle_timeout_secs() -> u64 {
-    300
+    120
 }
 
 impl Default for GeneralConfig {

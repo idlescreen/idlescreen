@@ -140,31 +140,7 @@ pub fn render_view(model: &TuiModel) -> std::io::Result<()> {
         "  {box_border}└──────────────────────────────────────────────────────────────┘\x1b[0m\r\n"
     );
 
-    // 4. Dwell Duration
-    let is_dwell_focused = f == TuiField::DwellDuration;
-    let dwell_style = if is_dwell_focused {
-        "\x1b[1;33m"
-    } else {
-        "\x1b[1m"
-    };
-    let _ = writeln!(
-        b,
-        "{dwell_style}[3] Dwell Duration (seconds per effect/target rotation):\x1b[0m\r"
-    );
-    let dwell_val = format!("{:.1} s", model.dwell_secs);
-    if is_dwell_focused {
-        let _ = writeln!(
-            b,
-            "   \x1b[7m [ ◄   {dwell_val:^10}   ► ] \x1b[0m  \x1b[2m(←/→ to adjust by 0.5s)\x1b[0m\r\n"
-        );
-    } else {
-        let _ = writeln!(
-            b,
-            "    [ ◄   {dwell_val:^10}   ► ]   \x1b[2m(←/→ to adjust by 0.5s)\x1b[0m\r\n"
-        );
-    }
-
-    // 5. Idle Timeout
+    // 4. Idle Timeout
     let is_to_focused = f == TuiField::IdleTimeout;
     let to_style = if is_to_focused {
         "\x1b[1;33m"
@@ -173,7 +149,7 @@ pub fn render_view(model: &TuiModel) -> std::io::Result<()> {
     };
     let _ = writeln!(
         b,
-        "{to_style}[4] Idle Timeout (inactivity before screensaver activates):\x1b[0m\r"
+        "{to_style}[3] Idle Timeout (inactivity before screensaver activates):\x1b[0m\r"
     );
     let mins = model.idle_timeout_secs / 60;
     let secs = model.idle_timeout_secs % 60;

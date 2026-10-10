@@ -72,7 +72,7 @@ Located at `~/.config/idlescreen/config.toml`:
 
 ```toml
 [general]
-idle_timeout_secs = 300
+idle_timeout_secs = 120
 primary_output = ""       # Auto-detects largest resolution or compositor hint
 
 [saver.ascii]

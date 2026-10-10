@@ -73,6 +73,7 @@ replaces = "idle-daemon (<< 5.0.0), idle-cli (<< 5.0.0), idle-savers (<< 5.0.0),
 breaks = "idle-daemon (<< 5.0.0), idle-cli (<< 5.0.0), idle-savers (<< 5.0.0), idle-tui (<< 5.0.0), idle-cosmic (<< 5.0.0), idle-saver-ascii (<< 5.0.0), idle-saver-aurora (<< 5.0.0), idle-saver-beams (<< 5.0.0), idle-saver-bursts (<< 5.0.0), idle-saver-chaos (<< 5.0.0), idle-saver-cosmos (<< 5.0.0), idle-saver-glyphs (<< 5.0.0), idle-saver-gnats (<< 5.0.0), idle-saver-hearth (<< 5.0.0), idle-saver-radar (<< 5.0.0), idle-saver-ripple (<< 5.0.0), idle-saver-storm (<< 5.0.0), idle-runner (<< 5.0.0)"
 provides = "idle-daemon (= 4.1.5), idle-cli (= 4.1.5), idle-savers (= 4.1.5), idle-tui (= 4.1.5), idle-cosmic (= 4.1.5), idle-saver-ascii (= 4.1.5), idle-saver-aurora (= 4.1.5), idle-saver-beams (= 4.1.5), idle-saver-bursts (= 4.1.5), idle-saver-chaos (= 4.1.5), idle-saver-cosmos (= 4.1.5), idle-saver-glyphs (= 4.1.5), idle-saver-gnats (= 4.1.5), idle-saver-hearth (= 4.1.5), idle-saver-radar (= 4.1.5), idle-saver-ripple (= 4.1.5), idle-saver-storm (= 4.1.5), idle-runner (= 4.1.5)"
 extended-description = "IdleScreen standalone screensaver and idle management suite for Linux"
+maintainer-scripts = "debian"
 assets = [
     ["../../target/release/idlescreen", "usr/bin/idlescreen", "755"],
     ["../../assets/idlescreen.service", "usr/lib/systemd/user/idlescreen.service", "644"],
@@ -82,6 +83,8 @@ assets = [
     ["../../target/release/idlescreen", "usr/bin/idle-tui", "755"],
     ["../../target/release/idlescreen", "usr/bin/idle-cli", "755"],
     ["../../target/release/idlescreen", "usr/bin/idle-daemon", "755"],
+    ["../../libexec/schedule-remove-stack.sh", "usr/libexec/idlescreen/schedule-remove-stack", "755"],
+    ["../../libexec/remove-product-stack.sh", "usr/libexec/idlescreen/remove-product-stack", "755"],
 ]
 
 [package.metadata.generate-rpm]
@@ -91,6 +94,8 @@ arch = "x86_64"
 summary = "IdleScreen standalone screensaver and idle management suite for Linux"
 description = "Pure event-driven idle daemon, CLI, and built-in ASCII screensaver suite"
 license = "Apache-2.0"
+pre_uninstall_script = "rpm/preun.sh"
+post_uninstall_script = "rpm/postun.sh"
 assets = [
     { source = "../../target/release/idlescreen", dest = "/usr/bin/idlescreen", mode = "755" },
     { source = "../../assets/idlescreen.service", dest = "/usr/lib/systemd/user/idlescreen.service", mode = "644" },
@@ -100,6 +105,8 @@ assets = [
     { source = "../../target/release/idlescreen", dest = "/usr/bin/idle-tui", mode = "755" },
     { source = "../../target/release/idlescreen", dest = "/usr/bin/idle-cli", mode = "755" },
     { source = "../../target/release/idlescreen", dest = "/usr/bin/idle-daemon", mode = "755" },
+    { source = "../../libexec/schedule-remove-stack.sh", dest = "/usr/libexec/idlescreen/schedule-remove-stack", mode = "755" },
+    { source = "../../libexec/remove-product-stack.sh", dest = "/usr/libexec/idlescreen/remove-product-stack", mode = "755" },
 ]
 [package.metadata.generate-rpm.obsoletes]
 "idle-daemon" = "< 5.0.0"

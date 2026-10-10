@@ -6,7 +6,7 @@ use super::ThemeConfig;
 #[test]
 fn defaults_are_sane() {
     let d = ThemeConfig::defaults();
-    assert_eq!(d.idle_timeout_mins, 5);
+    assert_eq!(d.idle_timeout_mins, 2);
     assert_eq!(d.active_saver.as_deref(), Some("ascii"));
     assert!(d.idle_enabled);
     assert!(d.render_scale.is_none());

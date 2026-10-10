@@ -34,6 +34,7 @@ pub fn print_help() {
     println!("  timeout [mins]    Get or set idle timeout in minutes");
     println!("  config            Show configuration path and active TOML settings");
     println!("  doctor [options]  Run diagnostic check on display, sockets, and configuration");
+    println!("  uninstall         Uninstall IdleScreen and clean up configuration");
     println!("  help              Show this help message");
     println!("  version           Show version information");
 }
@@ -164,6 +165,32 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         }
         "version" | "--version" | "-V" => {
             println!("idlescreen {}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
+        "uninstall" | "remove" => {
+            println!("IdleScreen removal requested.");
+            let _ = std::process::Command::new("systemctl")
+                .args(["--user", "disable", "--now", "idlescreen.service"])
+                .status();
+            let _ = std::process::Command::new("systemctl")
+                .args(["--user", "disable", "--now", "idle-daemon.service"])
+                .status();
+
+            let remove_script = std::path::Path::new("/usr/libexec/idlescreen/remove-product-stack");
+            if remove_script.exists() {
+                println!("Executing product stack uninstaller...");
+                let status = std::process::Command::new("sudo")
+                    .arg(remove_script)
+                    .status();
+                if let Ok(s) = status && s.success() {
+                    println!("IdleScreen product stack and configuration removed successfully.");
+                }
+            } else {
+                println!("To complete removal, run your system package manager:");
+                println!("  Fedora/RHEL:   sudo dnf remove idlescreen");
+                println!("  Debian/Ubuntu: sudo apt remove idlescreen");
+                println!("  Arch Linux:    sudo pacman -R idlescreen");
+            }
             Ok(())
         }
         "help" | "--help" | "-h" => {

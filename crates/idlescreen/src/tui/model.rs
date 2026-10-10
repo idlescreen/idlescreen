@@ -59,7 +59,6 @@ impl ModeChoice {
 pub enum TuiField {
     ModeChoice(usize), // 0..4 for radio buttons
     CustomText,
-    DwellDuration,
     IdleTimeout,
     SaveButton,
     PreviewButton,
@@ -82,7 +81,7 @@ pub struct TuiModel {
     pub should_quit: bool,
 }
 
-pub const TOTAL_FIELDS: usize = 11;
+pub const TOTAL_FIELDS: usize = 10;
 
 impl TuiModel {
     pub fn from_config(config: &Config) -> Self {
@@ -125,10 +124,9 @@ impl TuiModel {
         match self.focused_index {
             0..=4 => TuiField::ModeChoice(self.focused_index),
             5 => TuiField::CustomText,
-            6 => TuiField::DwellDuration,
-            7 => TuiField::IdleTimeout,
-            8 => TuiField::SaveButton,
-            9 => TuiField::PreviewButton,
+            6 => TuiField::IdleTimeout,
+            7 => TuiField::SaveButton,
+            8 => TuiField::PreviewButton,
             _ => TuiField::QuitButton,
         }
     }
@@ -162,10 +160,6 @@ impl TuiModel {
                 self.focused_index = prev_idx;
                 self.dirty = true;
             }
-            TuiField::DwellDuration => {
-                self.dwell_secs = (self.dwell_secs - 0.5).max(0.5);
-                self.dirty = true;
-            }
             TuiField::IdleTimeout => {
                 self.idle_timeout_secs = self.idle_timeout_secs.saturating_sub(30).max(30);
                 self.dirty = true;
@@ -190,10 +184,6 @@ impl TuiModel {
                 let next_idx = (current_idx + 1) % 5;
                 self.mode = ModeChoice::ALL[next_idx];
                 self.focused_index = next_idx;
-                self.dirty = true;
-            }
-            TuiField::DwellDuration => {
-                self.dwell_secs = (self.dwell_secs + 0.5).min(60.0);
                 self.dirty = true;
             }
             TuiField::IdleTimeout => {

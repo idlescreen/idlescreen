@@ -31,7 +31,7 @@ impl ThemeConfig {
     pub fn defaults() -> Self {
         Self {
             accent_color: "#00BFFF".to_string(),
-            idle_timeout_mins: 5,
+            idle_timeout_mins: 2,
             theme_idx: 0,
             active_saver: Some("ascii".to_string()),
             idle_enabled: true,

@@ -1,0 +1,30 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+set -e
+
+case "$1" in
+    purge|remove)
+        rm -f /etc/apt/sources.list.d/idlescreen.list 2>/dev/null || true
+        rm -f /etc/apt/keyrings/idlescreen-keyring.gpg 2>/dev/null || true
+        rm -rf /etc/xdg/idlescreen /etc/idlescreen /etc/idle 2>/dev/null || true
+        _homes=""
+        if command -v getent >/dev/null 2>&1; then
+            _homes=$(getent passwd 2>/dev/null | awk -F: '$3 >= 1000 && $3 < 60000 && $6 != "" {print $6}')
+        fi
+        for _h in $_homes ${HOME:-} /home/*; do
+            [ -d "$_h" ] || continue
+            rm -rf "$_h/.config/idlescreen" \
+                   "$_h/.config/idle" \
+                   "$_h/.config/trance" \
+                   "$_h/.local/share/idlescreen" \
+                   "$_h/.local/state/idlescreen" \
+                   "$_h/.cache/idlescreen" 2>/dev/null || true
+        done
+        rmdir /usr/libexec/idlescreen /usr/share/idlescreen 2>/dev/null || true
+        rm -rf /run/user/*/idlescreen* /tmp/idlescreen* 2>/dev/null || true
+        ;;
+    upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+esac
+
+exit 0

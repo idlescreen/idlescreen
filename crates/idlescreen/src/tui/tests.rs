@@ -41,13 +41,13 @@ fn test_model_navigation_and_adjustment() {
     model.nav_prev();
     assert_eq!(model.focused_index, 4);
 
-    // Adjust dwell
+    // Adjust timeout
     model.focused_index = 6;
-    let old_dwell = model.dwell_secs;
+    let old_timeout = model.idle_timeout_secs;
     model.adjust_right();
-    assert!((model.dwell_secs - (old_dwell + 0.5)).abs() < f32::EPSILON);
+    assert_eq!(model.idle_timeout_secs, old_timeout + 30);
     model.adjust_left();
-    assert!((model.dwell_secs - old_dwell).abs() < f32::EPSILON);
+    assert_eq!(model.idle_timeout_secs, old_timeout);
 }
 
 #[test]

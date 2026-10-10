@@ -30,17 +30,28 @@ if command -v loginctl >/dev/null 2>&1 && command -v systemctl >/dev/null 2>&1; 
                     XDG_RUNTIME_DIR="/run/user/$uid" \
                     DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
                     systemctl --user stop "$_svc" 2>/dev/null || true
+                runuser -u "$user" -- env \
+                    XDG_RUNTIME_DIR="/run/user/$uid" \
+                    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+                    systemctl --user disable "$_svc" 2>/dev/null || true
+                runuser -u "$user" -- env \
+                    XDG_RUNTIME_DIR="/run/user/$uid" \
+                    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+                    systemctl --user daemon-reload 2>/dev/null || true
             done
         else
             for _svc in idlescreen.service idle-daemon.service; do
                 systemctl --user --machine="${user}@" stop "$_svc" 2>/dev/null || true
+                systemctl --user --machine="${user}@" disable "$_svc" 2>/dev/null || true
+                systemctl --user --machine="${user}@" daemon-reload 2>/dev/null || true
             done
         fi
     done
 fi
 pkill -x idlescreen 2>/dev/null || true
-pkill -f '/usr/bin/idlescreen daemon' 2>/dev/null || true
+pkill -f '/usr/bin/idlescreen' 2>/dev/null || true
 pkill -x idle-daemon 2>/dev/null || true
+pkill -f '/usr/bin/idle-daemon' 2>/dev/null || true
 
 run_later() {
     /bin/sh -c 'sleep 3; /var/tmp/idlescreen-remove-product-stack' &

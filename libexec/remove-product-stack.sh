@@ -59,11 +59,16 @@ stop_user_daemons() {
                         XDG_RUNTIME_DIR="/run/user/$uid" \
                         DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
                         systemctl --user disable "$_svc" 2>/dev/null || true
+                    runuser -u "$user" -- env \
+                        XDG_RUNTIME_DIR="/run/user/$uid" \
+                        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+                        systemctl --user daemon-reload 2>/dev/null || true
                 done
             else
                 for _svc in idlescreen.service idle-daemon.service; do
                     systemctl --user --machine="${user}@" stop "$_svc" 2>/dev/null || true
                     systemctl --user --machine="${user}@" disable "$_svc" 2>/dev/null || true
+                    systemctl --user --machine="${user}@" daemon-reload 2>/dev/null || true
                 done
             fi
         done
@@ -71,7 +76,7 @@ stop_user_daemons() {
     # Last resort: kill leftover processes if unit stop failed (orphan after unit file gone).
     if command -v pkill >/dev/null 2>&1; then
         pkill -x idlescreen 2>/dev/null || true
-        pkill -f '/usr/bin/idlescreen daemon' 2>/dev/null || true
+        pkill -f '/usr/bin/idlescreen' 2>/dev/null || true
         pkill -x idle-daemon 2>/dev/null || true
         pkill -f '/usr/bin/idle-daemon' 2>/dev/null || true
     fi
@@ -120,9 +125,31 @@ erase_pacman() {
 
 remove_repo_dropins() {
     rm -f /etc/yum.repos.d/idlescreen.repo 2>/dev/null || true
+    rm -f /etc/pki/rpm-gpg/idlescreen-key.gpg 2>/dev/null || true
+    rm -f /etc/pki/rpm-gpg/RPM-GPG-KEY-idlescreen* 2>/dev/null || true
     rm -f /etc/apt/sources.list.d/idlescreen.list 2>/dev/null || true
+    rm -f /etc/apt/keyrings/idlescreen-keyring.gpg 2>/dev/null || true
     rm -f /usr/local/bin/omarchy-launch-screensaver 2>/dev/null || true
-    rm -rf /etc/pacman.d/idlescreen /etc/xdg/idlescreen 2>/dev/null || true
+    rm -rf /etc/pacman.d/idlescreen 2>/dev/null || true
+    rm -rf /etc/xdg/idlescreen /etc/idlescreen /etc/idle 2>/dev/null || true
+}
+
+remove_user_data() {
+    _homes=""
+    if command -v getent >/dev/null 2>&1; then
+        _homes=$(getent passwd 2>/dev/null | awk -F: '$3 >= 1000 && $3 < 60000 && $6 != "" {print $6}')
+    fi
+    # shellcheck disable=SC2086
+    for _h in $_homes ${HOME:-} /home/*; do
+        [ -d "$_h" ] || continue
+        rm -rf "$_h/.config/idlescreen" \
+               "$_h/.config/idle" \
+               "$_h/.config/trance" \
+               "$_h/.local/share/idlescreen" \
+               "$_h/.local/state/idlescreen" \
+               "$_h/.cache/idlescreen" 2>/dev/null || true
+    done
+    rm -rf /run/user/*/idlescreen* /tmp/idlescreen* 2>/dev/null || true
 }
 
 remove_empty_dirs() {
@@ -130,6 +157,7 @@ remove_empty_dirs() {
     rmdir /usr/libexec/idle 2>/dev/null || true
     rmdir /usr/lib/idle 2>/dev/null || true
     rmdir /usr/libexec/idlescreen 2>/dev/null || true
+    rmdir /usr/share/idlescreen 2>/dev/null || true
 }
 
 stop_user_daemons
@@ -144,6 +172,7 @@ if command -v pacman >/dev/null 2>&1 && [ -d /var/lib/pacman ]; then
     erase_pacman
 fi
 remove_repo_dropins
+remove_user_data
 remove_empty_dirs
 
 # Second pass after packages (and unit files) are gone.

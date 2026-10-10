@@ -130,10 +130,6 @@ fn handle_normal_navigation(model: &mut TuiModel, key: KeyEvent) -> TuiAction {
                 model.dirty = true;
                 TuiAction::None
             }
-            TuiField::DwellDuration => {
-                model.adjust_right();
-                TuiAction::None
-            }
             TuiField::IdleTimeout => {
                 model.adjust_right();
                 TuiAction::None
