@@ -183,28 +183,35 @@ fn run_preview_loop(
         let elapsed = last_frame.elapsed();
         let poll_dur = frame_dur.saturating_sub(elapsed);
 
-        if poll_dur > Duration::from_millis(0) && event::poll(poll_dur)? {
-            match event::read()? {
-                Event::Key(key) => {
-                    if key.kind == KeyEventKind::Press {
-                        break;
-                    }
-                }
-                Event::Resize(new_cols, new_rows) => {
-                    cols = (new_cols as usize).max(1);
-                    rows = (new_rows as usize).max(1);
-                    grid.resize(cols * rows, TerminalCell::default());
-                    if is_extras {
-                        if let Some(ref mut session) = extras_session {
-                            let _ = session.init_grid(cols, rows);
+        if poll_dur > Duration::from_millis(0) {
+            match event::poll(poll_dur) {
+                Ok(true) => match event::read() {
+                    Ok(Event::Key(key)) => {
+                        if key.kind == KeyEventKind::Press {
+                            break;
                         }
-                    } else {
-                        ascii_saver.init(cols, rows);
                     }
+                    Ok(Event::Resize(new_cols, new_rows)) => {
+                        cols = (new_cols as usize).max(1);
+                        rows = (new_rows as usize).max(1);
+                        grid.resize(cols * rows, TerminalCell::default());
+                        if is_extras {
+                            if let Some(ref mut session) = extras_session {
+                                let _ = session.init_grid(cols, rows);
+                            }
+                        } else {
+                            ascii_saver.init(cols, rows);
+                        }
+                    }
+                    _ => {}
+                },
+                Ok(false) => {}
+                Err(_) => {
+                    std::thread::sleep(poll_dur);
                 }
-                _ => {}
             }
         }
+
 
         let now = Instant::now();
         let dt = now.duration_since(last_frame);
@@ -284,10 +291,11 @@ fn render_grid_to_terminal(
     }
 
     buf.push_str("\x1b[0m");
-    write!(out, "{buf}")?;
-    out.flush()?;
+    let _ = write!(out, "{buf}");
+    let _ = out.flush();
     Ok(())
 }
+
 
 #[cfg(test)]
 mod tests {
