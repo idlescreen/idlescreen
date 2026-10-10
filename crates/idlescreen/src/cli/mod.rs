@@ -33,7 +33,7 @@ pub fn print_help() {
     println!("  restart           Restart IdleScreen service via systemd");
     println!("  timeout [mins]    Get or set idle timeout in minutes");
     println!("  config            Show configuration path and active TOML settings");
-    println!("  doctor            Run diagnostic check on display, sockets, and configuration");
+    println!("  doctor [options]  Run diagnostic check on display, sockets, and configuration");
     println!("  help              Show this help message");
     println!("  version           Show version information");
 }
@@ -141,7 +141,10 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             handle_timeout(arg)
         }
         "config" => handle_config(),
-        "doctor" => doctor::execute(),
+        "doctor" => {
+            let doctor_args = if args.len() > 1 { &args[1..] } else { &[] };
+            doctor::execute_args(doctor_args)
+        }
         "stop" => {
             let mut stopped = false;
             if let Ok(conn) = zbus::blocking::Connection::session()
