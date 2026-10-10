@@ -99,7 +99,11 @@ pub fn print_verbose(r: &DoctorReport) {
     println!("=== IdleScreen Detailed Diagnostics ===\n");
     println!("Display & Environment:");
     let disp = r.wayland_display.as_deref().unwrap_or("not set");
-    let disp_mark = if r.wayland_display.is_some() { "✓" } else { "!" };
+    let disp_mark = if r.wayland_display.is_some() {
+        "✓"
+    } else {
+        "!"
+    };
     println!("  [{disp_mark}] WAYLAND_DISPLAY: {disp}");
     if let Some(ref de) = r.desktop_env {
         println!("  [✓] Desktop Environment: {de}");
@@ -164,7 +168,11 @@ pub fn print_verbose(r: &DoctorReport) {
             format!(
                 "{} ({})",
                 p.display(),
-                if r.config_is_toml { "TOML active" } else { "YAML" }
+                if r.config_is_toml {
+                    "TOML active"
+                } else {
+                    "YAML"
+                }
             )
         },
     );
@@ -190,7 +198,11 @@ pub fn print_verbose(r: &DoctorReport) {
     };
     println!("  [{shm_mark}] Shared Memory: /dev/shm {shm_desc}");
 
-    let bus_mark = if r.session_bus_connected { "✓" } else { "✗" };
+    let bus_mark = if r.session_bus_connected {
+        "✓"
+    } else {
+        "✗"
+    };
     let bus_desc = if r.session_bus_connected {
         "connected"
     } else {

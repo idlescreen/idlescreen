@@ -4,9 +4,9 @@
 //! Diagnostic doctor checking display session, daemon status, configuration, and permissions.
 
 pub mod inspect;
-pub mod view;
 #[cfg(test)]
 mod tests;
+pub mod view;
 
 pub use inspect::{DoctorReport, collect_diagnostics};
 
