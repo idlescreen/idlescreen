@@ -71,6 +71,6 @@ license = "Apache-2.0"
 assets = [
     { source = "../../target/release/idlescreen-extras", dest = "/usr/libexec/idlescreen/idlescreen-extras", mode = "755" },
 ]
-requires = [
-    "idlescreen = 4.1.0"
-]
+[package.metadata.generate-rpm.requires]
+idlescreen = "= 4.1.0"
+

@@ -59,7 +59,7 @@ jobs:
           # The packages pool is the source of truth for "already
           # distributed" — rebuilding an unchanged version produces
           # byte-different files that trip the importer's no-clobber guard.
-          v=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          v=$(grep -m1 '^version' crates/idlescreen/Cargo.toml | cut -d'"' -f2)
           if gh api "repos/idlescreen/packages/contents/rpm/pool/idlescreen-${v}-1.x86_64.rpm" --jq .name >/dev/null 2>&1 \
             || gh api "repos/idlescreen/packages/contents/apt/pool/main/idlescreen_${v}-1_amd64.deb" --jq .name >/dev/null 2>&1; then
             echo "build=skip" >> "$GITHUB_OUTPUT"
@@ -71,8 +71,11 @@ jobs:
       - name: Package
         if: steps.plan.outputs.build == 'yes'
         run: |
-          cargo deb --no-build
-          cargo generate-rpm
+          cargo deb --no-build -p idlescreen
+          cargo deb --no-build -p idlescreen-extras
+          (cd crates/idlescreen && cargo generate-rpm --target-dir ../../target)
+          (cd crates/idlescreen-extras && cargo generate-rpm --target-dir ../../target)
+
 
       - name: Install Cosign
         run: |

@@ -91,19 +91,43 @@ assets = [
     { source = "../../assets/idlescreen.desktop", dest = "/etc/xdg/autostart/idlescreen.desktop", mode = "644" },
     { source = "../../assets/idlescreen.1", dest = "/usr/share/man/man1/idlescreen.1", mode = "644" },
 ]
-obsoletes = [
-    "idle-daemon < 4.0.0", "idle-cli < 4.0.0", "idle-savers < 4.0.0", "idle-tui < 4.0.0",
-    "idle-cosmic < 4.0.0", "idle-saver-ascii < 4.0.0", "idle-saver-aurora < 4.0.0",
-    "idle-saver-beams < 4.0.0", "idle-saver-bursts < 4.0.0", "idle-saver-chaos < 4.0.0",
-    "idle-saver-cosmos < 4.0.0", "idle-saver-glyphs < 4.0.0", "idle-saver-gnats < 4.0.0",
-    "idle-saver-hearth < 4.0.0", "idle-saver-radar < 4.0.0", "idle-saver-ripple < 4.0.0",
-    "idle-saver-storm < 4.0.0", "idle-runner < 4.0.0"
-]
-provides = [
-    "idle-daemon = 4.1.0", "idle-cli = 4.1.0", "idle-savers = 4.1.0", "idle-tui = 4.1.0",
-    "idle-cosmic = 4.1.0", "idle-saver-ascii = 4.1.0", "idle-saver-aurora = 4.1.0",
-    "idle-saver-beams = 4.1.0", "idle-saver-bursts = 4.1.0", "idle-saver-chaos = 4.1.0",
-    "idle-saver-cosmos = 4.1.0", "idle-saver-glyphs = 4.1.0", "idle-saver-gnats = 4.1.0",
-    "idle-saver-hearth = 4.1.0", "idle-saver-radar = 4.1.0", "idle-saver-ripple = 4.1.0",
-    "idle-saver-storm = 4.1.0", "idle-runner = 4.1.0"
-]
+[package.metadata.generate-rpm.obsoletes]
+"idle-daemon" = "< 4.0.0"
+"idle-cli" = "< 4.0.0"
+"idle-savers" = "< 4.0.0"
+"idle-tui" = "< 4.0.0"
+"idle-cosmic" = "< 4.0.0"
+"idle-saver-ascii" = "< 4.0.0"
+"idle-saver-aurora" = "< 4.0.0"
+"idle-saver-beams" = "< 4.0.0"
+"idle-saver-bursts" = "< 4.0.0"
+"idle-saver-chaos" = "< 4.0.0"
+"idle-saver-cosmos" = "< 4.0.0"
+"idle-saver-glyphs" = "< 4.0.0"
+"idle-saver-gnats" = "< 4.0.0"
+"idle-saver-hearth" = "< 4.0.0"
+"idle-saver-radar" = "< 4.0.0"
+"idle-saver-ripple" = "< 4.0.0"
+"idle-saver-storm" = "< 4.0.0"
+"idle-runner" = "< 4.0.0"
+
+[package.metadata.generate-rpm.provides]
+"idle-daemon" = "= 4.1.0"
+"idle-cli" = "= 4.1.0"
+"idle-savers" = "= 4.1.0"
+"idle-tui" = "= 4.1.0"
+"idle-cosmic" = "= 4.1.0"
+"idle-saver-ascii" = "= 4.1.0"
+"idle-saver-aurora" = "= 4.1.0"
+"idle-saver-beams" = "= 4.1.0"
+"idle-saver-bursts" = "= 4.1.0"
+"idle-saver-chaos" = "= 4.1.0"
+"idle-saver-cosmos" = "= 4.1.0"
+"idle-saver-glyphs" = "= 4.1.0"
+"idle-saver-gnats" = "= 4.1.0"
+"idle-saver-hearth" = "= 4.1.0"
+"idle-saver-radar" = "= 4.1.0"
+"idle-saver-ripple" = "= 4.1.0"
+"idle-saver-storm" = "= 4.1.0"
+"idle-runner" = "= 4.1.0"
+
