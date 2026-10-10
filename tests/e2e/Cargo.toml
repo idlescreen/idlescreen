@@ -1,6 +1,7 @@
 [package]
 name = "idlescreen-e2e-tests"
-version = "4.1.0"
+version = "4.1.1"
+
 edition = "2024"
 authors = ["idlescreen developers"]
 description = "End-to-end opaque-box test suite for IdleScreen multi-init support"

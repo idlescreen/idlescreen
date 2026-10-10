@@ -8,7 +8,7 @@ use std::io::{IsTerminal, Write, stdout};
 use std::time::{Duration, Instant};
 
 use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::event::{self, Event, KeyEventKind};
 use crossterm::execute;
 use crossterm::style::ResetColor;
 use crossterm::terminal::{
@@ -187,13 +187,7 @@ fn run_preview_loop(
             match event::read()? {
                 Event::Key(key) => {
                     if key.kind == KeyEventKind::Press {
-                        match key.code {
-                            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                                break;
-                            }
-                            KeyCode::Char('q' | 'Q' | ' ') | KeyCode::Esc | KeyCode::Enter => break,
-                            _ => {}
-                        }
+                        break;
                     }
                 }
                 Event::Resize(new_cols, new_rows) => {
