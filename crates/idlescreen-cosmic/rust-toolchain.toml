@@ -1,0 +1,7 @@
+[toolchain]
+# Pinned to match the `idle` engine's toolchain file. CI uses stable
+# features (rustfmt + clippy); the [idle] crate sets the actual MSRV
+# gate via CI workflow.
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

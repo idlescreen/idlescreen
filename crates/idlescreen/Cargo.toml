@@ -1,0 +1,109 @@
+[package]
+name = "idlescreen"
+version = "4.1.0"
+edition = "2024"
+license = "Apache-2.0"
+authors = ["idlescreen developers"]
+description = "IdleScreen standalone screensaver and idle management suite for Linux"
+repository = "https://github.com/idlescreen/idlescreen"
+default-run = "idlescreen"
+
+[[bin]]
+name = "idlescreen"
+path = "src/main.rs"
+
+[dependencies]
+libc = "0.2"
+zbus = { version = "5.12", default-features = false, features = ["tokio", "blocking-api"] }
+tokio = { version = "1.40", features = ["rt", "net", "sync", "time", "macros", "io-util"] }
+wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
+wayland-protocols-wlr = { version = "0.3.12", features = ["client"] }
+crossterm = "0.28"
+unicode-normalization = "0.1"
+unicode-width = "0.2"
+toml = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+
+[dev-dependencies]
+tempfile = "3.27"
+
+[lints.rust]
+unused_must_use = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_lossless = "allow"
+cast_possible_wrap = "allow"
+doc_markdown = "allow"
+semicolon_if_nothing_returned = "allow"
+too_many_lines = "allow"
+items_after_statements = "allow"
+unused_self = "allow"
+type_complexity = "allow"
+needless_range_loop = "allow"
+match_same_arms = "allow"
+return_self_not_must_use = "allow"
+unnecessary_wraps = "allow"
+unreadable_literal = "allow"
+many_single_char_names = "allow"
+similar_names = "allow"
+inline_always = "allow"
+manual_memcpy = "allow"
+
+[package.metadata.deb]
+name = "idlescreen"
+maintainer = "IdleScreen <team@idlescreen.org>"
+copyright = "2026 IdleScreen"
+section = "utils"
+priority = "optional"
+depends = "libc6"
+replaces = "idle-daemon (<< 4.0.0), idle-cli (<< 4.0.0), idle-savers (<< 4.0.0), idle-tui (<< 4.0.0), idle-cosmic (<< 4.0.0), idle-saver-ascii (<< 4.0.0), idle-saver-aurora (<< 4.0.0), idle-saver-beams (<< 4.0.0), idle-saver-bursts (<< 4.0.0), idle-saver-chaos (<< 4.0.0), idle-saver-cosmos (<< 4.0.0), idle-saver-glyphs (<< 4.0.0), idle-saver-gnats (<< 4.0.0), idle-saver-hearth (<< 4.0.0), idle-saver-radar (<< 4.0.0), idle-saver-ripple (<< 4.0.0), idle-saver-storm (<< 4.0.0), idle-runner (<< 4.0.0)"
+breaks = "idle-daemon (<< 4.0.0), idle-cli (<< 4.0.0), idle-savers (<< 4.0.0), idle-tui (<< 4.0.0), idle-cosmic (<< 4.0.0), idle-saver-ascii (<< 4.0.0), idle-saver-aurora (<< 4.0.0), idle-saver-beams (<< 4.0.0), idle-saver-bursts (<< 4.0.0), idle-saver-chaos (<< 4.0.0), idle-saver-cosmos (<< 4.0.0), idle-saver-glyphs (<< 4.0.0), idle-saver-gnats (<< 4.0.0), idle-saver-hearth (<< 4.0.0), idle-saver-radar (<< 4.0.0), idle-saver-ripple (<< 4.0.0), idle-saver-storm (<< 4.0.0), idle-runner (<< 4.0.0)"
+provides = "idle-daemon (= 4.1.0), idle-cli (= 4.1.0), idle-savers (= 4.1.0), idle-tui (= 4.1.0), idle-cosmic (= 4.1.0), idle-saver-ascii (= 4.1.0), idle-saver-aurora (= 4.1.0), idle-saver-beams (= 4.1.0), idle-saver-bursts (= 4.1.0), idle-saver-chaos (= 4.1.0), idle-saver-cosmos (= 4.1.0), idle-saver-glyphs (= 4.1.0), idle-saver-gnats (= 4.1.0), idle-saver-hearth (= 4.1.0), idle-saver-radar (= 4.1.0), idle-saver-ripple (= 4.1.0), idle-saver-storm (= 4.1.0), idle-runner (= 4.1.0)"
+extended-description = "IdleScreen standalone screensaver and idle management suite for Linux"
+assets = [
+    ["../../target/release/idlescreen", "usr/bin/idlescreen", "755"],
+    ["../../assets/idlescreen.service", "usr/lib/systemd/user/idlescreen.service", "644"],
+    ["../../assets/idlescreen.desktop", "etc/xdg/autostart/idlescreen.desktop", "644"],
+    ["../../assets/idlescreen.1", "usr/share/man/man1/idlescreen.1", "644"],
+]
+
+[package.metadata.generate-rpm]
+name = "idlescreen"
+release = "1"
+arch = "x86_64"
+summary = "IdleScreen standalone screensaver and idle management suite for Linux"
+description = "Pure event-driven idle daemon, CLI, and built-in ASCII screensaver suite"
+license = "Apache-2.0"
+assets = [
+    { source = "../../target/release/idlescreen", dest = "/usr/bin/idlescreen", mode = "755" },
+    { source = "../../assets/idlescreen.service", dest = "/usr/lib/systemd/user/idlescreen.service", mode = "644" },
+    { source = "../../assets/idlescreen.desktop", dest = "/etc/xdg/autostart/idlescreen.desktop", mode = "644" },
+    { source = "../../assets/idlescreen.1", dest = "/usr/share/man/man1/idlescreen.1", mode = "644" },
+]
+obsoletes = [
+    "idle-daemon < 4.0.0", "idle-cli < 4.0.0", "idle-savers < 4.0.0", "idle-tui < 4.0.0",
+    "idle-cosmic < 4.0.0", "idle-saver-ascii < 4.0.0", "idle-saver-aurora < 4.0.0",
+    "idle-saver-beams < 4.0.0", "idle-saver-bursts < 4.0.0", "idle-saver-chaos < 4.0.0",
+    "idle-saver-cosmos < 4.0.0", "idle-saver-glyphs < 4.0.0", "idle-saver-gnats < 4.0.0",
+    "idle-saver-hearth < 4.0.0", "idle-saver-radar < 4.0.0", "idle-saver-ripple < 4.0.0",
+    "idle-saver-storm < 4.0.0", "idle-runner < 4.0.0"
+]
+provides = [
+    "idle-daemon = 4.1.0", "idle-cli = 4.1.0", "idle-savers = 4.1.0", "idle-tui = 4.1.0",
+    "idle-cosmic = 4.1.0", "idle-saver-ascii = 4.1.0", "idle-saver-aurora = 4.1.0",
+    "idle-saver-beams = 4.1.0", "idle-saver-bursts = 4.1.0", "idle-saver-chaos = 4.1.0",
+    "idle-saver-cosmos = 4.1.0", "idle-saver-glyphs = 4.1.0", "idle-saver-gnats = 4.1.0",
+    "idle-saver-hearth = 4.1.0", "idle-saver-radar = 4.1.0", "idle-saver-ripple = 4.1.0",
+    "idle-saver-storm = 4.1.0", "idle-runner = 4.1.0"
+]

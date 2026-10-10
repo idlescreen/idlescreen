@@ -1,0 +1,271 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 IdleScreen
+
+//! 3-tier progressive layout and portrait telemetry adaptation.
+
+use super::sys_info::SystemTelemetry;
+use super::unicode::{normalize_to_ascii_fold, non_latin_fallback};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LayoutTier {
+    /// cols >= 60: Full 5x5 block banner with centered subtitle
+    Wide,
+    /// 25 <= cols < 60: Condensed 3x3 banner or bordered text with ellipsis
+    Medium,
+    /// cols < 25: Single centered glyph or vertical character stack
+    Narrow,
+}
+
+impl LayoutTier {
+    pub fn for_dimensions(cols: usize, _rows: usize) -> Self {
+        if cols >= 60 {
+            LayoutTier::Wide
+        } else if cols >= 25 {
+            LayoutTier::Medium
+        } else {
+            LayoutTier::Narrow
+        }
+    }
+}
+
+pub struct RenderedBanner {
+    pub lines: Vec<String>,
+    pub width: usize,
+    pub height: usize,
+}
+
+/// 5x5 font pattern for uppercase ASCII characters.
+fn get_5x5(ch: char) -> Option<[&'static str; 5]> {
+    let u = ch.to_ascii_uppercase();
+    match u {
+        'A' => Some([" █▀▀█ ", "█   █", "█████", "█   █", "█   █"]),
+        'B' => Some(["████  ", "█   █ ", "████  ", "█   █ ", "████  "]),
+        'C' => Some([" ████", "█    ", "█    ", "█    ", " ████"]),
+        'D' => Some(["████  ", "█   █ ", "█   █ ", "█   █ ", "████  "]),
+        'E' => Some(["█████", "█    ", "████ ", "█    ", "█████"]),
+        'F' => Some(["█████", "█    ", "████ ", "█    ", "█    "]),
+        'G' => Some([" ████", "█    ", "█ ███", "█   █", " ████"]),
+        'H' => Some(["█   █", "█   █", "█████", "█   █", "█   █"]),
+        'I' => Some(["█████", "  █  ", "  █  ", "  █  ", "█████"]),
+        'J' => Some(["    █", "    █", "    █", "█   █", " ███ "]),
+        'K' => Some(["█   █", "█  █ ", "███  ", "█  █ ", "█   █"]),
+        'L' => Some(["█    ", "█    ", "█    ", "█    ", "█████"]),
+        'M' => Some(["█   █", "██ ██", "█ █ █", "█   █", "█   █"]),
+        'N' => Some(["█   █", "██  █", "█ █ █", "█  ██", "█   █"]),
+        'O' => Some([" ███ ", "█   █", "█   █", "█   █", " ███ "]),
+        'P' => Some(["████ ", "█   █", "████ ", "█    ", "█    "]),
+        'Q' => Some([" ███ ", "█   █", "█ █ █", "█  █ ", " ████"]),
+        'R' => Some(["████ ", "█   █", "████ ", "█  █ ", "█   █"]),
+        'S' => Some([" ████", "█    ", " ███ ", "    █", "████ "]),
+        'T' => Some(["█████", "  █  ", "  █  ", "  █  ", "  █  "]),
+        'U' => Some(["█   █", "█   █", "█   █", "█   █", " ███ "]),
+        'V' => Some(["█   █", "█   █", " █ █ ", " █ █ ", "  █  "]),
+        'W' => Some(["█   █", "█   █", "█ █ █", "██ ██", "█   █"]),
+        'X' => Some(["█   █", " █ █ ", "  █  ", " █ █ ", "█   █"]),
+        'Y' => Some(["█   █", " █ █ ", "  █  ", "  █  ", "  █  "]),
+        'Z' => Some(["█████", "   █ ", "  █  ", " █   ", "█████"]),
+        '0' => Some([" ███ ", "█  ██", "█ █ █", "██  █", " ███ "]),
+        '1' => Some(["  █  ", " ██  ", "  █  ", "  █  ", "█████"]),
+        '2' => Some([" ███ ", "█   █", "   █ ", " █   ", "█████"]),
+        '3' => Some(["████ ", "    █", " ███ ", "    █", "████ "]),
+        '4' => Some(["█   █", "█   █", "█████", "    █", "    █"]),
+        '5' => Some(["█████", "█    ", "████ ", "    █", "████ "]),
+        '6' => Some([" ███ ", "█    ", "████ ", "█   █", " ███ "]),
+        '7' => Some(["█████", "    █", "   █ ", "  █  ", "  █  "]),
+        '8' => Some([" ███ ", "█   █", " ███ ", "█   █", " ███ "]),
+        '9' => Some([" ███ ", "█   █", " ████", "    █", " ███ "]),
+        '_' => Some(["     ", "     ", "     ", "     ", "█████"]),
+        '!' => Some(["  █  ", "  █  ", "  █  ", "     ", "  █  "]),
+        '.' => Some(["     ", "     ", "     ", "     ", "  █  "]),
+        '-' => Some(["     ", "     ", " ███ ", "     ", "     "]),
+        ' ' => Some(["     ", "     ", "     ", "     ", "     "]),
+        _ => Some([" ███ ", "█   █", "█   █", "█   █", " ███ "]),
+    }
+}
+
+/// 3x3 condensed font pattern for uppercase ASCII characters.
+fn get_3x3(ch: char) -> Option<[&'static str; 3]> {
+    let u = ch.to_ascii_uppercase();
+    match u {
+        'A' => Some(["█▀█", "█▀█", "▀ ▀"]),
+        'B' => Some(["█▀▄", "█▀▄", "▀▀ "]),
+        'C' => Some(["█▀▀", "█  ", "▀▀▀"]),
+        'D' => Some(["█▀▄", "█ █", "▀▀ "]),
+        'E' => Some(["█▀▀", "█▀ ", "▀▀▀"]),
+        'F' => Some(["█▀▀", "█▀ ", "▀  "]),
+        'G' => Some(["█▀▀", "█ █", "▀▀▀"]),
+        'H' => Some(["█ █", "█▀█", "▀ ▀"]),
+        'I' => Some(["▀█▀", " █ ", "▀▀▀"]),
+        'J' => Some(["  █", "  █", "▀▀ "]),
+        'K' => Some(["█ █", "██ ", "▀ ▀"]),
+        'L' => Some(["█  ", "█  ", "▀▀▀"]),
+        'M' => Some(["█▀█", "█ █", "▀ ▀"]),
+        'N' => Some(["█▀█", "█ █", "▀ ▀"]),
+        'O' => Some(["█▀█", "█ █", "▀▀▀"]),
+        'P' => Some(["█▀█", "█▀▀", "▀  "]),
+        'Q' => Some(["█▀█", "█▄█", "▀▀█"]),
+        'R' => Some(["█▀█", "█▀▄", "▀ ▀"]),
+        'S' => Some(["█▀▀", "▀▀█", "▀▀▀"]),
+        'T' => Some(["▀█▀", " █ ", " ▀ "]),
+        'U' => Some(["█ █", "█ █", "▀▀▀"]),
+        'V' => Some(["█ █", "█ █", " ▀ "]),
+        'W' => Some(["█ █", "█▀█", "▀ ▀"]),
+        'X' => Some(["▀▄▀", " █ ", "▀ ▀"]),
+        'Y' => Some(["█ █", " █ ", " ▀ "]),
+        'Z' => Some(["▀▀█", " █ ", "█▀▀"]),
+        '0' => Some(["█▀█", "█ █", "▀▀▀"]),
+        '1' => Some([" █ ", " █ ", " ▀ "]),
+        '2' => Some(["▀▀█", "█▀▀", "▀▀▀"]),
+        '3' => Some(["▀▀█", " ▀█", "▀▀▀"]),
+        '4' => Some(["█ █", "▀▀█", "  ▀"]),
+        '5' => Some(["█▀▀", "▀▀█", "▀▀▀"]),
+        '6' => Some(["█▀▀", "█▀█", "▀▀▀"]),
+        '7' => Some(["▀▀█", "  █", "  ▀"]),
+        '8' => Some(["█▀█", "█▀█", "▀▀▀"]),
+        '9' => Some(["█▀█", "▀▀█", "  ▀"]),
+        '.' => Some(["   ", "   ", " ▄ "]),
+        '-' => Some(["   ", " ▀ ", "   "]),
+        ' ' => Some(["   ", "   ", "   "]),
+        _ => Some(["█▀█", "█ █", "▀▀▀"]),
+    }
+}
+
+/// Renders banner lines using the 3-tier progressive layout.
+pub fn render_banner(
+    raw_text: &str,
+    subtitle: Option<&str>,
+    cols: usize,
+    rows: usize,
+) -> RenderedBanner {
+    let tier = LayoutTier::for_dimensions(cols, rows);
+
+    // Normalize input text
+    let folded = normalize_to_ascii_fold(raw_text);
+    let effective_text = if folded.chars().all(|c| c.is_ascii() || c.is_ascii_whitespace()) {
+        folded
+    } else if let Some(fb) = non_latin_fallback(raw_text) {
+        fb.to_string()
+    } else {
+        folded
+    };
+
+    match tier {
+        LayoutTier::Wide => {
+            // Budget for characters: each is 6 cols (5 + 1 space). Max budget = (cols - 4) / 6
+            let budget = (cols.saturating_sub(4) / 6).max(1);
+            let display_text: String = effective_text.trim().chars().take(budget).collect();
+            let mut lines = vec![String::new(); 5];
+            for ch in display_text.chars() {
+                let pattern = get_5x5(ch).unwrap_or(["     "; 5]);
+                for (i, row) in pattern.iter().enumerate() {
+                    lines[i].push_str(row);
+                    lines[i].push(' ');
+                }
+            }
+            if let Some(sub) = subtitle {
+                let sub_budget = cols.saturating_sub(4);
+                let sub_trimmed: String = sub.trim().chars().take(sub_budget).collect();
+                if !sub_trimmed.is_empty() {
+                    lines.push(String::new());
+                    lines.push(sub_trimmed);
+                }
+            }
+            let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+            let height = lines.len();
+            RenderedBanner {
+                lines,
+                width,
+                height,
+            }
+        }
+        LayoutTier::Medium => {
+            // Budget for 3x3 characters: each is 4 cols (3 + 1 space)
+            let budget = (cols.saturating_sub(2) / 4).max(1);
+            let chars: Vec<char> = effective_text.trim().chars().collect();
+            let display_chars: Vec<char> = if chars.len() > budget {
+                let mut v: Vec<char> = chars.into_iter().take(budget.saturating_sub(1)).collect();
+                v.push('.');
+                v
+            } else {
+                chars
+            };
+            let mut lines = vec![String::new(); 3];
+            for ch in &display_chars {
+                let pattern = get_3x3(*ch).unwrap_or(["   "; 3]);
+                for (i, row) in pattern.iter().enumerate() {
+                    lines[i].push_str(row);
+                    lines[i].push(' ');
+                }
+            }
+            if let Some(sub) = subtitle {
+                let sub_budget = cols.saturating_sub(2);
+                let sub_trimmed: String = sub.trim().chars().take(sub_budget).collect();
+                if !sub_trimmed.is_empty() {
+                    lines.push(String::new());
+                    lines.push(sub_trimmed);
+                }
+            }
+            let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+            let height = lines.len();
+            RenderedBanner {
+                lines,
+                width,
+                height,
+            }
+        }
+        LayoutTier::Narrow => {
+            // cols < 25: Single glyph or vertical character stack
+            let mut lines = Vec::new();
+            let max_vertical = rows.saturating_sub(4).max(1);
+            for ch in effective_text.trim().chars().take(max_vertical) {
+                lines.push(ch.to_string());
+            }
+            let width = 1;
+            let height = lines.len();
+            RenderedBanner {
+                lines,
+                width,
+                height,
+            }
+        }
+    }
+}
+
+/// Checks if screen is in portrait orientation (rows / cols > 1.4).
+pub fn is_portrait(cols: usize, rows: usize) -> bool {
+    if cols == 0 {
+        return false;
+    }
+    (rows as f32 / cols as f32) > 1.4
+}
+
+/// Generates portrait telemetry lines (CPU, RAM, Kernel, Uptime).
+pub fn format_portrait_telemetry(telemetry: &SystemTelemetry, cols: usize) -> (Vec<String>, Vec<String>) {
+    let top = vec![
+        center_text(&format!("CPU: {:.1}%", telemetry.cpu_percent), cols),
+        center_text(&format!("RAM: {:.1}%", telemetry.ram_percent), cols),
+    ];
+
+    let hours = telemetry.uptime_secs / 3600;
+    let mins = (telemetry.uptime_secs % 3600) / 60;
+    let bottom = vec![
+        center_text(&telemetry.kernel, cols),
+        center_text(&format!("Up: {hours}h {mins}m"), cols),
+    ];
+
+    (top, bottom)
+}
+
+fn center_text(text: &str, cols: usize) -> String {
+    let len = text.chars().count();
+    if len >= cols {
+        return text.chars().take(cols).collect();
+    }
+    let pad = (cols - len) / 2;
+    let mut s = String::with_capacity(cols);
+    for _ in 0..pad {
+        s.push(' ');
+    }
+    s.push_str(text);
+    s
+}

@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Checkout runtime engine (path deps)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: idlescreen/runtime
+          path: runtime
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libdbus-1-dev pkg-config \
+            libwayland-dev libxkbcommon-dev libssl-dev \
+            libegl1-mesa-dev libgl1-mesa-dev
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+            sh -s -- -y --profile minimal --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          rustc --version
+
+      - name: Install cargo-deb and cargo-generate-rpm
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall -y cargo-deb cargo-generate-rpm
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Package
+        run: |
+          cargo deb --no-build
+          cargo generate-rpm
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          # Tag arrives via env, never expression interpolation into shell.
+          case "$RELEASE_TAG" in
+            ""|*[!A-Za-z0-9._-]*) echo "ERROR: invalid release tag '$RELEASE_TAG'" >&2; exit 1 ;;
+          esac
+          [ "${#RELEASE_TAG}" -le 64 ] || { echo "ERROR: tag too long" >&2; exit 1; }
+          gh release create "$RELEASE_TAG" \
+            --title "$RELEASE_TAG" \
+            --notes "idle-cosmic release $RELEASE_TAG (symbolic panel icon + idle-daemon handshake)" \
+            target/debian/*.deb \
+            target/generate-rpm/*.rpm
+
+      - name: Trigger packages import
+        env:
+          GH_TOKEN: ${{ secrets.IDLESCREEN_PACKAGES_DISPATCH_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          DISPATCH_REPO: ${{ github.repository }}
+        run: |
+          # Advisory, never fatal. This dispatch is a latency optimisation,
+          # not a dependency: packages' import-release.yml runs a "Sweep
+          # latest releases" step on a 6-hourly cron that converges the pool
+          # to every product repo's latest release whether or not a dispatch
+          # ever arrived. A missing or rejected token therefore costs at most
+          # one sweep window. Failing here instead would report a release that
+          # published correctly as a failed run, which trains readers to
+          # ignore red Xs on this workflow. Warn loudly, stay green.
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::IDLESCREEN_PACKAGES_DISPATCH_TOKEN is not set — pool will converge on the next 6-hourly sweep (import-release.yml), not now"
+            exit 0
+          fi
+          if ! gh api repos/idlescreen/packages/dispatches \
+            -X POST \
+            -f event_type=new_release \
+            -f "client_payload[repo]=${DISPATCH_REPO}" \
+            -f "client_payload[tag]=${RELEASE_TAG}"; then
+            echo "::warning::packages dispatch rejected — the 6-hourly sweep in import-release.yml will import ${DISPATCH_REPO} ${RELEASE_TAG} instead"
+          fi

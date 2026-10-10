@@ -1,0 +1,4 @@
+type = process
+command = /usr/bin/idlescreen daemon
+ready-notification = pipev3
+restart = yes

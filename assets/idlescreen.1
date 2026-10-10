@@ -1,0 +1,42 @@
+.TH IDLESCREEN 1 "October 2026" "idlescreen 4.1.0" "User Commands"
+.SH NAME
+idlescreen \- IdleScreen standalone screensaver and idle management suite
+.SH SYNOPSIS
+.B idlescreen
+[\fISUBCOMMAND\fR] [\fIOPTIONS\fR]
+.br
+.B idlescreen-daemon
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+\fBidlescreen\fR is a unified idle management and screensaver suite for Linux Wayland sessions.
+It features a zero-CPU event-driven daemon, built-in dynamic ASCII screensaver, and an optional
+library of mathematical screensavers via \fBidlescreen-extras\fR.
+.SH SUBCOMMANDS
+.TP
+.B daemon
+Start the IdleScreen background daemon.
+.TP
+.B status
+Query daemon state, active inhibitors, and current display status.
+.TP
+.B preview [\fISAVER\fR]
+Preview a screensaver effect immediately in fullscreen or terminal TUI.
+.TP
+.B list
+List all available screensavers (built-in and installed extras).
+.TP
+.B set \fISAVER\fR
+Set the default screensaver in configuration.
+.TP
+.B stop
+Deactivate the currently running screensaver.
+.TP
+.B inhibit [\fIOPTIONS\fR]
+Inhibit screensaver activation while a task executes.
+.TP
+.B doctor
+Perform system diagnostics and Wayland protocol checks.
+.SH CONFIGURATION
+Configuration is stored in \fB~/.config/idlescreen/config.toml\fR.
+.SH SEE ALSO
+.BR systemd (1)

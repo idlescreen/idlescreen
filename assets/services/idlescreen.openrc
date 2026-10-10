@@ -1,0 +1,6 @@
+#!/sbin/openrc-run
+description="IdleScreen Wayland screensaver daemon"
+command="/usr/bin/idlescreen"
+command_args="daemon"
+command_background="yes"
+pidfile="/run/idlescreen.pid"

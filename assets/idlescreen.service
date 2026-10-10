@@ -1,0 +1,37 @@
+[Unit]
+Description=IdleScreen screensaver daemon
+Documentation=https://github.com/idlescreen/idlescreen
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=io.github.idlescreen.Idle
+ExecStart=/usr/bin/idlescreen daemon
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+KillMode=mixed
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=%t -%h/.config/idlescreen -%h/.config/idle
+PrivateTmp=true
+ProtectHome=read-only
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+MemoryMax=512M
+TasksMax=128
+ProtectControlGroups=strict
+SystemCallFilter=@system-service
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=graphical-session.target
+Alias=idlescreen-daemon.service
+Alias=idle-daemon.service

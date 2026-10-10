@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=IdleScreen Daemon
+Comment=IdleScreen screensaver daemon
+Exec=idlescreen daemon
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+Categories=Utility;Screensaver;

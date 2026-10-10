@@ -1,0 +1,150 @@
+# cargo-deny configuration for all IdleScreen workspaces.
+# Enforces supply-chain, license, and source safety.
+
+[graph]
+all-features = true
+
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "warn"
+ignore = [
+    "RUSTSEC-2024-0436",
+    "RUSTSEC-2026-0192",
+    "RUSTSEC-2026-0194",
+    # Transitive advisory through libcosmic v1.0.0 → iced v0.14.0 →
+    # usvg v0.45.1 → resvg v0.45.1 → rustybuzz v0.20.1. libcosmic has not
+    # yet cut rustybuzz out of the iced-renderer tree; revisit on the next
+    # libcosmic bump (or whichever cargo-dependency lands first).
+    "RUSTSEC-2026-0206",
+]
+
+[licenses]
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "CC0-1.0",
+    "MPL-2.0",
+    "OpenSSL",
+    "CDLA-Permissive-2.0",
+    "0BSD",
+    "bzip2-1.0.6",
+    "BSL-1.0",
+    "GPL-3.0-only",
+    "GPL-3.0-or-later",
+    "LGPL-3.0-only",
+    "LGPL-3.0-or-later",
+    "Unlicense",
+]
+confidence-threshold = 0.8
+
+[[licenses.clarify]]
+name = "ring"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 },
+]
+
+[[licenses.clarify]]
+name = "mime"
+expression = "MIT OR Apache-2.0"
+license-files = []
+
+[[licenses.clarify]]
+name = "xdg-shell-wrapper-config"
+expression = "MIT OR Apache-2.0"
+license-files = []
+
+[[licenses.clarify]]
+name = "cosmic-config"
+expression = "GPL-3.0-only"
+license-files = []
+
+[[licenses.clarify]]
+name = "cosmic-config-derive"
+expression = "GPL-3.0-only"
+license-files = []
+
+[[licenses.clarify]]
+name = "cosmic-panel-config"
+expression = "GPL-3.0-only"
+license-files = []
+
+[[licenses.clarify]]
+name = "cosmic-settings-daemon"
+expression = "GPL-3.0-only"
+license-files = []
+
+[[licenses.clarify]]
+name = "cosmic-theme"
+expression = "GPL-3.0-only"
+license-files = []
+
+[[licenses.clarify]]
+name = "dnd"
+expression = "MIT OR Apache-2.0"
+license-files = []
+
+[[licenses.clarify]]
+name = "iced_accessibility"
+expression = "MIT OR Apache-2.0"
+license-files = []
+
+[[licenses.clarify]]
+name = "libcosmic"
+expression = "GPL-3.0-only"
+license-files = []
+
+[bans]
+multiple-versions = "warn"
+# See runtime/deny.toml for the full explanation: the `"*"` entries that
+# cargo-deny flags here come from `[package.metadata.generate-rpm.*]`
+# tables in sibling repos — RPM-spec dependency declarations, not cargo
+# requirements, and unmatchable by cargo-deny's wildcard check. Workspace
+# dependencies are all version-pinned; the only `"*"` strings in this
+# workspace's Cargo.toml are path-deps (no version field at all).
+wildcards = "allow"
+highlight = "all"
+deny = []
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = [
+    "https://github.com/UberMetroid/shared-assets",
+    "https://github.com/UberMetroid/shared-assets.git",
+    "https://github.com/iced-rs/cryoglyph",
+    "https://github.com/iced-rs/cryoglyph.git",
+    "https://github.com/jackpot51/rust-atomicwrites",
+    "https://github.com/jackpot51/rust-atomicwrites.git",
+    "https://github.com/pop-os/cosmic-panel",
+    "https://github.com/pop-os/cosmic-panel.git",
+    "https://github.com/pop-os/cosmic-protocols",
+    "https://github.com/pop-os/cosmic-protocols.git",
+    "https://github.com/pop-os/dbus-settings-bindings",
+    "https://github.com/pop-os/dbus-settings-bindings.git",
+    "https://github.com/pop-os/freedesktop-icons",
+    "https://github.com/pop-os/freedesktop-icons.git",
+    "https://github.com/pop-os/libcosmic",
+    "https://github.com/pop-os/libcosmic.git",
+    "https://github.com/pop-os/smithay-clipboard",
+    "https://github.com/pop-os/smithay-clipboard.git",
+    "https://github.com/pop-os/softbuffer",
+    "https://github.com/pop-os/softbuffer.git",
+    "https://github.com/pop-os/window_clipboard",
+    "https://github.com/pop-os/window_clipboard.git",
+    "https://github.com/pop-os/winit",
+    "https://github.com/pop-os/winit.git",
+    "https://github.com/wash2/accesskit",
+    "https://github.com/wash2/accesskit.git"
+]

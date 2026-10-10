@@ -1,0 +1,19 @@
+[package]
+name = "idlescreen-e2e-tests"
+version = "4.1.0"
+edition = "2024"
+authors = ["idlescreen developers"]
+description = "End-to-end opaque-box test suite for IdleScreen multi-init support"
+publish = false
+
+[[bin]]
+name = "idlescreen-e2e-runner"
+path = "src/main.rs"
+
+[lib]
+name = "idlescreen_e2e"
+path = "src/lib.rs"
+
+[dependencies]
+libc = "0.2"
+tempfile = "3.27"

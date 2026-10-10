@@ -1,0 +1,134 @@
+name: Standard CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    # This job also runs `cargo test --workspace --all-targets`. A
+    # deadlocked test must fail the build, not burn a runner for the
+    # 6-hour default. See runtime's
+    # `apply_commands_drains_channel_until_empty` incident.
+    timeout-minutes: 25
+
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+    - name: Checkout runtime engine (path deps)
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        repository: idlescreen/runtime
+        path: runtime
+
+    - name: Install build deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cargo rustc \
+          libwayland-dev libxkbcommon-dev libudev-dev \
+          libdbus-1-dev pkg-config libssl-dev \
+          libfontconfig1-dev libfreetype6-dev \
+          libclang-dev clang \
+          ffmpeg
+    - name: Verify sibling `runtime/` checkout (path-dep)
+      run: |
+        # `idle-cosmic` declares path-deps on `runtime/crates/*`. The
+        # `actions/checkout` step above materializes the engine at runtime/;
+        # fail fast with a clear message if it is missing.
+        if [ ! -f runtime/Cargo.toml ]; then
+          echo "::error::runtime/Cargo.toml missing — the runtime engine checkout step failed"
+          exit 1
+        fi
+
+    - name: cargo build
+      run: cargo build --workspace --all-targets
+
+    - name: cargo test
+      run: cargo test --workspace --all-targets
+
+    - name: cargo clippy
+      run: cargo clippy --workspace --all-targets -- -D warnings
+    - name: cargo audit (advisories)
+      run: |
+        curl -L --proto '=https' --tlsv1.2 -sSf \
+          https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        cargo binstall -y cargo-audit
+        # Transitive advisory through libcosmic v1.0.0 → iced v0.14.0 →
+        # usvg v0.45.1 → resvg v0.45.1 → rustybuzz v0.20.1. libcosmic does
+        # not yet ship a fix; revisit when upstream bumps usvg (or whatever
+        # cuts rustybuzz out of the iced-renderer tree).
+        cargo audit \
+          --ignore RUSTSEC-2026-0253 \
+          --ignore RUSTSEC-2026-0186 \
+          --ignore RUSTSEC-2026-0206
+
+    - name: Validate page-score.json
+      run: qa/page_score_check.sh
+    - name: cargo fmt check
+      run: cargo fmt --all -- --check
+  bootstrap:
+    # Guards the `runtime/` symlink in bootstrap.sh. The `test` job checks
+    # the engine out into `runtime/` itself, so it cannot catch a bootstrap
+    # that never creates the link — and cosmic has FOUR path deps into
+    # runtime (idle-dbus, idle-err, idle-log, idle-runner), so a missing
+    # `runtime/` symlink fails four cargo lookups, not one. This job checks
+    # out cosmic ONLY and runs the real script.
+    name: bootstrap on a clean checkout
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          rustup show || true
+      - name: No pre-existing engine checkout
+        run: |
+          if [ -e runtime ]; then
+            echo "::error::runtime/ already exists — this job must start from a bare checkout"
+            exit 1
+          fi
+      - name: Run bootstrap.sh
+        run: ./bootstrap.sh
+      - name: All four path-deps resolve through the link
+        run: |
+          for dep in idle-dbus idle-err idle-log idle-runner; do
+            test -e "runtime/crates/${dep}/Cargo.toml" -o -e "runtime/${dep}/Cargo.toml" \
+              || { echo "::error::bootstrap.sh did not produce path dep for ${dep}"; exit 1; }
+          done
+          cargo metadata --format-version 1 >/dev/null
+          echo "bootstrap produced all four resolvable runtime/ path deps"
+
+  deny:
+    # Supply-chain policy. Previously this repo had no deny.toml at all, and
+    # `runtime`'s CI ran `cargo deny check advisories licenses` — skipping the
+    # `sources` section where unknown-registry/unknown-git are denied, i.e.
+    # the typosquat control. This runs the bare form, which covers advisories,
+    # licenses, bans and sources.
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+    - name: Checkout runtime engine (path deps)
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        repository: idlescreen/runtime
+        path: runtime
+
+    - name: Install cargo-deny
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+        cargo binstall -y cargo-deny
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+    - name: cargo deny check
+      run: cargo deny check
