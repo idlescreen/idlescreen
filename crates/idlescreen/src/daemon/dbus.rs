@@ -47,6 +47,19 @@ impl ScreenSaverState {
             false
         }
     }
+
+    pub fn stop(&self) {
+        self.active.store(false, Ordering::SeqCst);
+        if let Ok(mut start) = self.started_at.lock() {
+            *start = None;
+        }
+    }
+
+    pub fn set_saver(&self, name: String) {
+        if let Ok(mut saver) = self.current_saver.lock() {
+            *saver = name;
+        }
+    }
 }
 
 pub struct ScreenSaverInterface {

@@ -22,7 +22,7 @@ pub fn print_help() {
         "  daemon            Run event-driven screensaver daemon (or start idlescreen-daemon)"
     );
     println!("  status            Check active screensaver and daemon status");
-    println!("  preview [saver]   Preview screensaver in terminal (crossterm)");
+    println!("  preview [saver] [--timeout <secs>]  Preview screensaver in terminal (crossterm)");
     println!("  list              List available built-in and extras screensavers");
     println!("  set <saver>       Set active screensaver (e.g. ascii, storm, aurora)");
     println!("  stop              Stop running screensaver");
@@ -41,8 +41,8 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         "daemon" => crate::daemon::run_daemon(),
         "status" => status::execute(),
         "preview" => {
-            let saver = args.get(1).map(std::string::String::as_str);
-            preview::execute(saver)
+            let preview_args = if args.len() > 1 { &args[1..] } else { &[] };
+            preview::execute(preview_args)
         }
         "list" => list::execute(),
         "set" => {

@@ -339,19 +339,39 @@ impl Drop for ExtrasSession {
 
 /// Resolves path to idlescreen-extras binary.
 pub fn resolve_extras_binary() -> Option<PathBuf> {
-    // 1. Check default installation location
-    let def = Path::new(DEFAULT_EXTRAS_BINARY);
-    if is_executable(def) {
-        return Some(def.to_path_buf());
+    // 0. Check explicit environment override
+    if let Ok(env_path) = std::env::var("IDLESCREEN_EXTRAS_BIN") {
+        let p = PathBuf::from(env_path);
+        if is_executable(&p) {
+            return Some(p);
+        }
     }
 
-    // 2. Check CARGO_BIN_EXE_idlescreen-extras or current exe directory (for tests)
+    // 1. Check default installation locations across Linux distributions
+    for loc in &[
+        DEFAULT_EXTRAS_BINARY,
+        "/usr/lib/idlescreen/idlescreen-extras",
+        "/usr/local/libexec/idlescreen/idlescreen-extras",
+        "/usr/local/lib/idlescreen/idlescreen-extras",
+    ] {
+        let p = Path::new(loc);
+        if is_executable(p) {
+            return Some(p.to_path_buf());
+        }
+    }
+
+    // 2. Check CARGO_BIN_EXE_idlescreen-extras or current exe directory / sibling build dirs (for tests and dev)
     if let Ok(current) = std::env::current_exe()
         && let Some(dir) = current.parent()
     {
-        let candidate = dir.join("idlescreen-extras");
-        if is_executable(&candidate) {
-            return Some(candidate);
+        for candidate in &[
+            dir.join("idlescreen-extras"),
+            dir.join("../release/idlescreen-extras"),
+            dir.join("../debug/idlescreen-extras"),
+        ] {
+            if is_executable(candidate) {
+                return Some(candidate.clone());
+            }
         }
     }
 

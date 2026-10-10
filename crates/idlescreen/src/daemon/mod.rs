@@ -62,6 +62,41 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     // 6. Signal readiness across all supervision protocols (systemd, fd3, etc.)
     notify_ready();
 
+    // Shared state across D-Bus, control socket, and supervision
+    let state = std::sync::Arc::new(crate::daemon::dbus::ScreenSaverState::new());
+    if let Some(ref s) = config.saver.active
+        && let Ok(mut cur) = state.current_saver.lock()
+    {
+        (*cur).clone_from(s);
+    }
+
+    // Connect to session D-Bus and register interfaces if available
+    let _dbus_conn = zbus::blocking::connection::Builder::session()
+        .ok()
+        .and_then(|builder| {
+            builder
+                .name("io.github.idlescreen.Idle")
+                .ok()?
+                .name("org.freedesktop.ScreenSaver")
+                .ok()?
+                .serve_at(
+                    "/io/github/idlescreen/Idle",
+                    crate::daemon::dbus::IdleInterface {
+                        state: state.clone(),
+                    },
+                )
+                .ok()?
+                .serve_at(
+                    "/org/freedesktop/ScreenSaver",
+                    crate::daemon::dbus::ScreenSaverInterface {
+                        state: state.clone(),
+                    },
+                )
+                .ok()?
+                .build()
+                .ok()
+        });
+
     let mut events = [libc::epoll_event { events: 0, u64: 0 }; 16];
     let mut running = true;
 
@@ -88,17 +123,28 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                     if reader.read_line(&mut line).is_ok() {
                         let cmd = line.trim();
                         let (resp, should_stop) = match cmd {
-                            "status" => (
-                                format!(
-                                    "{{\"running\":true,\"timeout\":{}}}",
-                                    config.general.idle_timeout_secs
-                                ),
-                                false,
-                            ),
-                            "stop" => ("OK".to_string(), true),
+                            "status" => {
+                                let active = state.active.load(std::sync::atomic::Ordering::SeqCst);
+                                let saver = state
+                                    .current_saver
+                                    .lock()
+                                    .map_or_else(|_| "ascii".to_string(), |s| s.clone());
+                                (
+                                    format!(
+                                        "{{\"running\":true,\"active\":{active},\"saver\":\"{saver}\",\"timeout\":{}}}",
+                                        config.general.idle_timeout_secs
+                                    ),
+                                    false,
+                                )
+                            }
+                            "stop" => {
+                                state.stop();
+                                ("OK".to_string(), true)
+                            }
                             "ping" | "PING" => ("PONG".to_string(), false),
                             _ if cmd.starts_with("set ") => {
                                 let saver = cmd[4..].trim();
+                                state.set_saver(saver.to_string());
                                 (format!("OK: saver set to {saver}"), false)
                             }
                             _ => ("UNKNOWN_COMMAND".to_string(), false),
