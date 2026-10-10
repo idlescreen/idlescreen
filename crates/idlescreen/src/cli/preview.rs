@@ -212,7 +212,6 @@ fn run_preview_loop(
             }
         }
 
-
         let now = Instant::now();
         let dt = now.duration_since(last_frame);
         if dt >= frame_dur {
@@ -295,7 +294,6 @@ fn render_grid_to_terminal(
     let _ = out.flush();
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {
