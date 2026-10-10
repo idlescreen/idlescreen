@@ -28,6 +28,7 @@ pub fn print_help() {
     println!("  set <saver>       Set active screensaver (e.g. ascii, storm, aurora)");
     println!("  start             Activate screensaver immediately");
     println!("  stop              Stop running screensaver");
+    println!("  toggle            Toggle stay-awake standby (enable/disable idle service)");
     println!("  enable            Enable and start IdleScreen service via systemd");
     println!("  disable           Disable and stop IdleScreen service via systemd");
     println!("  restart           Restart IdleScreen service via systemd");
@@ -47,7 +48,10 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
 
     match args[0].as_str() {
         "daemon" => crate::daemon::run_daemon(),
-        "status" => status::execute(),
+        "status" => {
+            let status_args = if args.len() > 1 { &args[1..] } else { &[] };
+            status::execute_args(status_args)
+        }
         "tui" | "ui" => crate::tui::run_tui(),
         "preview" => {
             let preview_args = if args.len() > 1 { &args[1..] } else { &[] };
@@ -89,6 +93,41 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 println!("Daemon not active; running interactive preview instead:");
                 let preview_args = if args.len() > 1 { &args[1..] } else { &[] };
                 preview::execute(preview_args)?;
+            }
+            Ok(())
+        }
+        "toggle" => {
+            let is_active = std::process::Command::new("systemctl")
+                .args(["--user", "is-active", "--quiet", "idlescreen.service"])
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false)
+                || std::process::Command::new("systemctl")
+                    .args(["--user", "is-active", "--quiet", "idle-daemon.service"])
+                    .status()
+                    .map(|s| s.success())
+                    .unwrap_or(false);
+
+            if is_active {
+                let _ = std::process::Command::new("systemctl")
+                    .args(["--user", "disable", "--now", "idlescreen.service"])
+                    .status()
+                    .or_else(|_| {
+                        std::process::Command::new("systemctl")
+                            .args(["--user", "disable", "--now", "idle-daemon.service"])
+                            .status()
+                    });
+                println!("IdleScreen standby: Service disabled (stay-awake ON)");
+            } else {
+                let _ = std::process::Command::new("systemctl")
+                    .args(["--user", "enable", "--now", "idlescreen.service"])
+                    .status()
+                    .or_else(|_| {
+                        std::process::Command::new("systemctl")
+                            .args(["--user", "enable", "--now", "idle-daemon.service"])
+                            .status()
+                    });
+                println!("IdleScreen standby: Service enabled (idle monitoring ACTIVE)");
             }
             Ok(())
         }
