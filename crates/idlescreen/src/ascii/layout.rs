@@ -38,10 +38,10 @@ pub struct RenderedBanner {
 fn get_5x5(ch: char) -> Option<[&'static str; 5]> {
     let u = ch.to_ascii_uppercase();
     match u {
-        'A' => Some([" █▀▀█ ", "█   █", "█████", "█   █", "█   █"]),
-        'B' => Some(["████  ", "█   █ ", "████  ", "█   █ ", "████  "]),
+        'A' => Some([" ███ ", "█   █", "█████", "█   █", "█   █"]),
+        'B' => Some(["████ ", "█   █", "████ ", "█   █", "████ "]),
         'C' => Some([" ████", "█    ", "█    ", "█    ", " ████"]),
-        'D' => Some(["████  ", "█   █ ", "█   █ ", "█   █ ", "████  "]),
+        'D' => Some(["████ ", "█   █", "█   █", "█   █", "████ "]),
         'E' => Some(["█████", "█    ", "████ ", "█    ", "█████"]),
         'F' => Some(["█████", "█    ", "████ ", "█    ", "█    "]),
         'G' => Some([" ████", "█    ", "█ ███", "█   █", " ████"]),
@@ -159,12 +159,15 @@ pub fn render_banner(
                 // Budget for characters: each is 6 cols (5 + 1 space). Max budget = (cols - 4) / 6
                 let budget = (cols.saturating_sub(4) / 6).max(1);
                 let text: String = display_text.chars().take(budget).collect();
+                let chars_count = text.chars().count();
                 let mut lines = vec![String::new(); 5];
-                for ch in text.chars() {
+                for (ci, ch) in text.chars().enumerate() {
                     let pattern = get_5x5(ch).unwrap_or(["     "; 5]);
                     for (i, row) in pattern.iter().enumerate() {
                         lines[i].push_str(row);
-                        lines[i].push(' ');
+                        if ci + 1 < chars_count {
+                            lines[i].push(' ');
+                        }
                     }
                 }
                 if let Some(sub) = subtitle {
@@ -172,7 +175,16 @@ pub fn render_banner(
                     let sub_trimmed: String = sub.trim().chars().take(sub_budget).collect();
                     if !sub_trimmed.is_empty() {
                         lines.push(String::new());
-                        lines.push(sub_trimmed);
+                        let banner_w = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+                        let sub_len = sub_trimmed.chars().count();
+                        if banner_w > sub_len {
+                            let pad = (banner_w - sub_len) / 2;
+                            let mut centered = " ".repeat(pad);
+                            centered.push_str(&sub_trimmed);
+                            lines.push(centered);
+                        } else {
+                            lines.push(sub_trimmed);
+                        }
                     }
                 }
                 let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
@@ -190,8 +202,9 @@ pub fn render_banner(
                 };
                 let spacing_str = " ".repeat(spacing);
                 let mut lines = vec![String::new(); 5 * scale];
+                let chars_count = display_text.chars().count();
 
-                for ch in display_text.chars() {
+                for (ci, ch) in display_text.chars().enumerate() {
                     let pattern = get_5x5(ch).unwrap_or(["     "; 5]);
                     let max_w = pattern.iter().map(|r| r.chars().count()).max().unwrap_or(5);
 
@@ -217,7 +230,9 @@ pub fn render_banner(
                                 scaled_row.push(' ');
                             }
                         }
-                        scaled_row.push_str(&spacing_str);
+                        if ci + 1 < chars_count {
+                            scaled_row.push_str(&spacing_str);
+                        }
 
                         for sr in 0..scale {
                             lines[r * scale + sr].push_str(&scaled_row);
@@ -360,6 +375,8 @@ pub fn calculate_banner_scale(text: &str, cols: usize, rows: usize) -> usize {
         rows
     };
 
+    let count = trimmed.chars().count();
+
     // Candidates in descending order of scale: 4 (400%), 3 (300%), 2 (200%)
     for &scale in &[4, 3, 2] {
         let min_rows = match scale {
@@ -381,10 +398,13 @@ pub fn calculate_banner_scale(text: &str, cols: usize, rows: usize) -> usize {
 
         // Calculate total width of trimmed text at this scale
         let mut text_width = 0;
-        for ch in trimmed.chars() {
+        for (ci, ch) in trimmed.chars().enumerate() {
             let pattern = get_5x5(ch).unwrap_or(["     "; 5]);
             let max_w = pattern.iter().map(|r| r.chars().count()).max().unwrap_or(5);
-            text_width += max_w * scale + spacing;
+            text_width += max_w * scale;
+            if ci + 1 < count {
+                text_width += spacing;
+            }
         }
 
         // Must leave at least 4 columns margin

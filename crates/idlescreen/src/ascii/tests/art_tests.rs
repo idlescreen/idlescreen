@@ -118,4 +118,23 @@ fn test_banner_responsive_scaling_up_to_400_percent() {
         35,
     );
     assert!(banner_long.height <= 15);
+
+    // Verify uniform line width across all rows of the scaled banner
+    let first_w = banner_400.lines[0].chars().count();
+    for line in &banner_400.lines {
+        assert_eq!(
+            line.chars().count(),
+            first_w,
+            "every row should have identical character width"
+        );
+    }
+    assert_eq!(first_w, banner_400.width);
+
+    // Verify uniform character width for A, B, D
+    let b_a = render_banner("A", None, 80, 24);
+    let b_b = render_banner("B", None, 80, 24);
+    let b_d = render_banner("D", None, 80, 24);
+    assert_eq!(b_a.width, 5);
+    assert_eq!(b_b.width, 5);
+    assert_eq!(b_d.width, 5);
 }

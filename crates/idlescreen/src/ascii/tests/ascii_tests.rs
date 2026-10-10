@@ -245,10 +245,11 @@ fn large_screen_400_percent_rendering_and_effects() {
     let rows = 67;
     let mut saver = Ascii::new();
     saver.init(cols, rows);
+    saver.pin_effect(EffectKind::Wipe);
     assert_eq!(saver.last_cols, cols);
     assert_eq!(saver.last_rows, rows);
     let mut grid = vec![TerminalCell::default(); cols * rows];
-    for _ in 0..15 {
+    for _ in 0..30 {
         saver.update(Duration::from_millis(16), cols, rows);
         saver.draw(&mut grid, cols, rows);
     }

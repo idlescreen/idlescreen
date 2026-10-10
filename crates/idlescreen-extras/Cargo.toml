@@ -1,6 +1,6 @@
 [package]
 name = "idlescreen-extras"
-version = "4.1.7"
+version = "4.1.8"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["idlescreen developers"]
@@ -55,7 +55,7 @@ maintainer = "IdleScreen <team@idlescreen.org>"
 copyright = "2026 IdleScreen"
 section = "utils"
 priority = "optional"
-depends = "libc6, idlescreen (= 4.1.7)"
+depends = "libc6, idlescreen (= 4.1.8)"
 extended-description = "Optional mathematical screensaver collection helper for IdleScreen"
 assets = [
     ["../../target/release/idlescreen-extras", "usr/libexec/idlescreen/idlescreen-extras", "755"],
@@ -72,6 +72,6 @@ assets = [
     { source = "../../target/release/idlescreen-extras", dest = "/usr/libexec/idlescreen/idlescreen-extras", mode = "755" },
 ]
 [package.metadata.generate-rpm.requires]
-idlescreen = "= 4.1.7"
+idlescreen = "= 4.1.8"
 
 
