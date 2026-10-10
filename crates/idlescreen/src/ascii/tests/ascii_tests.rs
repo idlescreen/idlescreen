@@ -152,10 +152,36 @@ fn all_37_effects_can_build_and_render_frames() {
         let rng = ttfx::utils::rng::Rng::seeded(42);
         let mut ctx = ttfx::engine::ctx::EngineCtx::new(art_data, config, rng, clock).unwrap();
         effect.build(&mut ctx).unwrap();
-        for _ in 0..5 {
-            let _ = effect.next_frame(&mut ctx);
+        let mut frame_count = 0;
+        while effect.next_frame(&mut ctx).is_some() {
+            frame_count += 1;
+            assert!(
+                frame_count <= 5000,
+                "Effect {name} exceeded 5000 frames without terminating!"
+            );
         }
+        assert!(
+            frame_count > 0,
+            "Effect {name} must produce at least one frame"
+        );
     }
+}
+
+#[test]
+fn decoupled_dwell_animates_until_settled_then_holds_dwell() {
+    let mut saver = Ascii::new().with_dwell(2.0);
+    saver.init(COLS, ROWS);
+    saver.pin_effect(EffectKind::Wipe);
+    assert!((saver.anim_left - 120.0).abs() < 0.001);
+    while saver.engine.is_some() {
+        saver.update(Duration::from_millis(16), COLS, ROWS);
+    }
+    assert!((saver.dwell_left - 2.0).abs() < 0.05);
+    for _ in 0..60 {
+        saver.update(Duration::from_millis(16), COLS, ROWS);
+    }
+    assert!(!saver.transition_active);
+    assert!((saver.dwell_left - 1.0).abs() < 0.15);
 }
 
 #[test]

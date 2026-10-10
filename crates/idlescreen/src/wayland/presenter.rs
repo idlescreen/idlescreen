@@ -54,6 +54,32 @@ impl MappedBuffer {
     }
 }
 
+fn poll_and_read_events<D>(
+    connection: &Connection,
+    event_queue: &mut wayland_client::EventQueue<D>,
+    state: &mut D,
+    timeout: Duration,
+) -> Result<(), Box<dyn std::error::Error>> {
+    connection.flush()?;
+
+    if let Some(guard) = connection.prepare_read() {
+        let fd = guard.connection_fd().as_raw_fd();
+        let mut pfd = libc::pollfd {
+            fd,
+            events: libc::POLLIN | libc::POLLERR | libc::POLLHUP,
+            revents: 0,
+        };
+        let timeout_ms = timeout.as_millis().min(50) as libc::c_int;
+        let ret = unsafe { libc::poll(&mut pfd, 1, timeout_ms) };
+        if ret > 0 && (pfd.revents & (libc::POLLIN | libc::POLLERR | libc::POLLHUP)) != 0 {
+            let _ = guard.read();
+        }
+    }
+
+    event_queue.dispatch_pending(state)?;
+    Ok(())
+}
+
 pub fn allocate_shm_buffer(
     shm: &wl_shm::WlShm,
     qh: &QueueHandle<WaylandState>,
@@ -351,6 +377,15 @@ impl Dispatch<wl_pointer::WlPointer, ()> for WaylandState {
         _: &QueueHandle<Self>,
     ) {
         match event {
+            wl_pointer::Event::Enter {
+                surface_x,
+                surface_y,
+                ..
+            } => {
+                if state.initial_pointer_pos.is_none() {
+                    state.initial_pointer_pos = Some((surface_x, surface_y));
+                }
+            }
             wl_pointer::Event::Button { .. } => {
                 state.exit_requested = true;
             }
@@ -359,16 +394,16 @@ impl Dispatch<wl_pointer::WlPointer, ()> for WaylandState {
                 surface_y,
                 ..
             } => {
-                if state.start_time.elapsed() > Duration::from_millis(300) {
-                    if let Some((init_x, init_y)) = state.initial_pointer_pos {
+                if let Some((init_x, init_y)) = state.initial_pointer_pos {
+                    if state.start_time.elapsed() > Duration::from_millis(300) {
                         let dx = (surface_x - init_x).abs();
                         let dy = (surface_y - init_y).abs();
                         if dx > 15.0 || dy > 15.0 {
                             state.exit_requested = true;
                         }
-                    } else {
-                        state.initial_pointer_pos = Some((surface_x, surface_y));
                     }
+                } else {
+                    state.initial_pointer_pos = Some((surface_x, surface_y));
                 }
             }
             wl_pointer::Event::Axis { .. } => {
@@ -573,11 +608,6 @@ pub fn run_wayland_fullscreen_preview(
             }
         }
 
-        event_queue.dispatch_pending(&mut state)?;
-        if state.exit_requested {
-            break;
-        }
-
         let now = Instant::now();
         let dt = now.duration_since(last_frame);
         if dt >= frame_dur {
@@ -638,9 +668,7 @@ pub fn run_wayland_fullscreen_preview(
 
         let elapsed = last_frame.elapsed();
         let sleep_dur = frame_dur.saturating_sub(elapsed);
-        if sleep_dur > Duration::ZERO {
-            std::thread::sleep(sleep_dur.min(Duration::from_millis(4)));
-        }
+        poll_and_read_events(&connection, &mut event_queue, &mut state, sleep_dur)?;
     }
 
     // Cleanup resources
@@ -779,11 +807,6 @@ pub fn run_wayland_daemon_presenter(
     let mut last_frame = Instant::now();
 
     while state.active.load(Ordering::SeqCst) && !state_wl.exit_requested {
-        event_queue.dispatch_pending(&mut state_wl)?;
-        if state_wl.exit_requested || !state.active.load(Ordering::SeqCst) {
-            break;
-        }
-
         let now = Instant::now();
         let dt = now.duration_since(last_frame);
         if dt >= frame_dur {
@@ -844,9 +867,7 @@ pub fn run_wayland_daemon_presenter(
 
         let elapsed = last_frame.elapsed();
         let sleep_dur = frame_dur.saturating_sub(elapsed);
-        if sleep_dur > Duration::ZERO {
-            std::thread::sleep(sleep_dur.min(Duration::from_millis(4)));
-        }
+        poll_and_read_events(&connection, &mut event_queue, &mut state_wl, sleep_dur)?;
     }
 
     if state_wl.exit_requested {

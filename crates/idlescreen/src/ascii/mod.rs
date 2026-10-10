@@ -162,7 +162,7 @@ impl Ascii {
             self.engine = None;
             return;
         }
-        self.anim_left = (self.dwell_time() * 2.5).clamp(1.0, 30.0);
+        self.anim_left = 120.0;
         self.rebuild_art();
         if is_portrait(self.last_cols, self.last_rows) {
             let telemetry = query_telemetry();
