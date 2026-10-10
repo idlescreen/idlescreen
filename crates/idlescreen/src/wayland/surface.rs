@@ -65,9 +65,10 @@ impl OutputRegistry {
     pub fn primary_output(&self) -> Option<&OutputInfo> {
         if let Some(ref name) = self.configured_primary
             && !name.trim().is_empty()
-            && let Some(o) = self.outputs.iter().find(|o| &o.name == name) {
-                return Some(o);
-            }
+            && let Some(o) = self.outputs.iter().find(|o| &o.name == name)
+        {
+            return Some(o);
+        }
 
         if let Some(o) = self.outputs.iter().find(|o| o.is_preferred) {
             return Some(o);

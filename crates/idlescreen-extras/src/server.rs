@@ -59,7 +59,10 @@ pub fn run(saver_name: &str, mut socket: UnixStream) -> Result<(), Box<dyn std::
                 let needed_bytes = num_cells.saturating_mul(std::mem::size_of::<TerminalCell>());
 
                 let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
-                if unsafe { libc::fstat(std::os::fd::AsRawFd::as_raw_fd(&shm_fd), stat.as_mut_ptr()) } < 0 {
+                if unsafe {
+                    libc::fstat(std::os::fd::AsRawFd::as_raw_fd(&shm_fd), stat.as_mut_ptr())
+                } < 0
+                {
                     return Err("fstat failed on shared memory".into());
                 }
                 let file_size = unsafe { stat.assume_init() }.st_size as usize;

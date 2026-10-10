@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Tier 4 Scenario 6: Installer multi-init detection and graceful deployment.
 
-use crate::harness::{
-    InitEnvironment, InitSystem, detect_mock_init, safe_exec_supervisor,
-};
+use crate::harness::{InitEnvironment, InitSystem, detect_mock_init, safe_exec_supervisor};
 use std::fs;
 
 #[test]
@@ -40,7 +38,11 @@ fn test_scenario_install_on_openrc_host() {
     let service_dir = env.root().join("etc/init.d");
     fs::create_dir_all(&service_dir).unwrap();
     let init_script = service_dir.join("idle-daemon");
-    fs::write(&init_script, "#!/sbin/openrc-run\ncommand=/usr/bin/idle-daemon\n").unwrap();
+    fs::write(
+        &init_script,
+        "#!/sbin/openrc-run\ncommand=/usr/bin/idle-daemon\n",
+    )
+    .unwrap();
 
     assert!(init_script.exists());
 

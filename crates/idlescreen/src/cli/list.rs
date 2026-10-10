@@ -12,15 +12,16 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(extras_bin) = resolve_extras_binary() {
         if let Ok(output) = Command::new(&extras_bin).arg("--list").output()
-            && output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                for line in stdout.lines() {
-                    let s = line.trim();
-                    if !s.is_empty() {
-                        println!("  {s:<17} [extras] Mathematical screensaver");
-                    }
+            && output.status.success()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                let s = line.trim();
+                if !s.is_empty() {
+                    println!("  {s:<17} [extras] Mathematical screensaver");
                 }
             }
+        }
     } else {
         println!();
         println!("Note: Install 'idlescreen-extras' for 11 additional mathematical screensavers.");

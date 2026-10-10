@@ -11,9 +11,9 @@
 //!
 //! Ensures end-to-end coherence across real operating environment scenarios.
 
-pub mod t4_systemd_workflow;
-pub mod t4_s6_workflow;
-pub mod t4_openrc_workflow;
-pub mod t4_suspend_resume_cycle;
 pub mod t4_container_fallback;
 pub mod t4_install_non_systemd;
+pub mod t4_openrc_workflow;
+pub mod t4_s6_workflow;
+pub mod t4_suspend_resume_cycle;
+pub mod t4_systemd_workflow;

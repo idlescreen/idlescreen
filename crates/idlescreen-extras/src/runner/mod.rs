@@ -64,7 +64,10 @@ pub mod perf_test_support {
     #[track_caller]
     pub fn assert_no_alloc<T, F: FnOnce() -> T>(what: &str, f: F) -> T {
         let (out, n) = count_allocs(f);
-        assert_eq!(n, 0, "{what} allocated {n} time(s); its label promises none");
+        assert_eq!(
+            n, 0,
+            "{what} allocated {n} time(s); its label promises none"
+        );
         out
     }
 }
@@ -335,7 +338,11 @@ pub fn detect_host_os() -> Option<String> {
 }
 
 pub fn detect_desktop_environment() -> Option<String> {
-    for key in ["XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP", "DESKTOP_SESSION"] {
+    for key in [
+        "XDG_CURRENT_DESKTOP",
+        "XDG_SESSION_DESKTOP",
+        "DESKTOP_SESSION",
+    ] {
         if let Ok(v) = std::env::var(key) {
             let t = v.trim();
             if !t.is_empty() {

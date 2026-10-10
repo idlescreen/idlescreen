@@ -18,8 +18,8 @@ pub mod storm;
 use crate::runner::Screensaver;
 
 pub const ALL_SAVERS: [&str; 11] = [
-    "aurora", "beams", "bursts", "chaos", "cosmos", "glyphs", "gnats", "hearth", "radar",
-    "ripple", "storm",
+    "aurora", "beams", "bursts", "chaos", "cosmos", "glyphs", "gnats", "hearth", "radar", "ripple",
+    "storm",
 ];
 
 pub fn create_saver(name: &str) -> Option<Box<dyn Screensaver>> {

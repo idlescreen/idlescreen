@@ -3,16 +3,16 @@
 
 //! Terminal screensaver preview using crossterm for headless and SSH sessions.
 
-use std::io::{stdout, Write};
+use std::io::{Write, stdout};
 use std::time::{Duration, Instant};
 
 use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use crossterm::execute;
-use crossterm::style::{ResetColor};
+use crossterm::style::ResetColor;
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, size, Clear, ClearType, EnterAlternateScreen,
-    LeaveAlternateScreen,
+    Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
+    enable_raw_mode, size,
 };
 
 use crate::ascii::Ascii;
@@ -92,11 +92,12 @@ fn run_preview_loop(
             // Render next frame
             if is_extras
                 && let Some(ref mut session) = extras_session
-                    && session.tick_and_draw(dt, &mut grid, cols, rows).is_err() {
-                        // Fall back to built-in ASCII
-                        is_extras = false;
-                        ascii_saver.init(cols, rows);
-                    }
+                && session.tick_and_draw(dt, &mut grid, cols, rows).is_err()
+            {
+                // Fall back to built-in ASCII
+                is_extras = false;
+                ascii_saver.init(cols, rows);
+            }
 
             if !is_extras {
                 ascii_saver.update(dt, cols, rows);

@@ -14,12 +14,12 @@ pub mod unicode;
 #[cfg(test)]
 mod tests;
 
-use std::time::Duration;
 use crate::cell::{LcgRng, TerminalCell};
 use draw::{paint_transition, place_banner_centered};
 use effects::{EffectKind, EffectPlaylist};
 use layout::{format_portrait_telemetry, is_portrait};
 use state::{TextMode, TriRotationState};
+use std::time::Duration;
 use sys_info::query_telemetry;
 
 pub const DEFAULT_DWELL_SECS: f32 = 5.0;
@@ -104,7 +104,8 @@ impl Ascii {
         let total = cols.saturating_mul(rows);
         self.target_grid.resize(total, TerminalCell::default());
         self.current_grid.resize(total, TerminalCell::default());
-        self.transition_from_grid.resize(total, TerminalCell::default());
+        self.transition_from_grid
+            .resize(total, TerminalCell::default());
         self.rebuild_target();
     }
 
@@ -118,7 +119,10 @@ impl Ascii {
         self.target_grid.fill(TerminalCell::default());
 
         let active_text = self.rotation.active_text();
-        let banner = self.rotation.atlas_cache.get_or_render(&active_text, None, cols, rows);
+        let banner = self
+            .rotation
+            .atlas_cache
+            .get_or_render(&active_text, None, cols, rows);
 
         let (_bx, _by, _bw, _bh) = place_banner_centered(
             &mut self.target_grid,
@@ -196,7 +200,8 @@ impl Ascii {
             // Initiate transition to next effect and next brand target
             self.transition_active = true;
             self.transition_left = self.transition_duration;
-            self.transition_from_grid.copy_from_slice(&self.current_grid);
+            self.transition_from_grid
+                .copy_from_slice(&self.current_grid);
 
             self.rotation.advance_mutation(&mut self.rng);
             self.effect = self.playlist.next_effect(&mut self.rng);

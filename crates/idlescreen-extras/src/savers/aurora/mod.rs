@@ -68,7 +68,8 @@ impl Aurora {
             .or_else(|| crate::runner::param_f32("curtains"))
             .map_or(3, |v| v.clamp(1.0, 3.0) as u32);
         let surge_opt = crate::runner::param_f32("aurora.surge")
-            .or_else(|| crate::runner::param_f32("surge")) != Some(0.0);
+            .or_else(|| crate::runner::param_f32("surge"))
+            != Some(0.0);
         Self {
             rng: rng2,
             curtains,

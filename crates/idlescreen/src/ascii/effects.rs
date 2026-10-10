@@ -358,8 +358,10 @@ impl EffectKind {
                     for x in 0..cols {
                         let idx = y * cols + x;
                         if idx < n && target[idx].ch != ' ' {
-                            let flame_noise = ((x.wrapping_mul(17) ^ ((elapsed * 20.0) as usize)) % 5) as f32;
-                            let cell_y_prog = (rows.saturating_sub(y) as f32 / rows as f32) + (flame_noise * 0.05);
+                            let flame_noise =
+                                ((x.wrapping_mul(17) ^ ((elapsed * 20.0) as usize)) % 5) as f32;
+                            let cell_y_prog = (rows.saturating_sub(y) as f32 / rows as f32)
+                                + (flame_noise * 0.05);
                             if progress >= cell_y_prog {
                                 out[idx] = target[idx];
                             } else if (progress + 0.2) >= cell_y_prog {
@@ -470,7 +472,11 @@ impl EffectKind {
             EffectKind::Vhstape => {
                 let glitch_row = ((elapsed * 12.0) as usize) % rows;
                 for y in 0..rows {
-                    let shift = if y == glitch_row || y == (glitch_row + 1) % rows { 2 } else { 0 };
+                    let shift = if y == glitch_row || y == (glitch_row + 1) % rows {
+                        2
+                    } else {
+                        0
+                    };
                     for x in 0..cols {
                         let src_idx = y * cols + x;
                         let dst_x = (x + shift) % cols;
@@ -557,7 +563,8 @@ impl EffectKind {
                     for x in 0..cols {
                         let idx = y * cols + x;
                         if idx < n && target[idx].ch != ' ' {
-                            let cell_angle = (y as f32 - center_y).atan2(x as f32 - center_x) + std::f32::consts::PI;
+                            let cell_angle = (y as f32 - center_y).atan2(x as f32 - center_x)
+                                + std::f32::consts::PI;
                             let diff = (angle - cell_angle).abs();
                             if diff < 0.3 {
                                 out[idx] = TerminalCell {
@@ -646,10 +653,12 @@ impl EffectPlaylist {
             let last_effect = self.last;
             self.shuffle(rng);
             if let Some(last) = last_effect
-                && self.order[0] == last && self.order.len() > 1 {
-                    let swap_idx = 1 + rng.next_usize(self.order.len() - 1);
-                    self.order.swap(0, swap_idx);
-                }
+                && self.order[0] == last
+                && self.order.len() > 1
+            {
+                let swap_idx = 1 + rng.next_usize(self.order.len() - 1);
+                self.order.swap(0, swap_idx);
+            }
             self.cursor = 0;
         }
         let effect = self.order[self.cursor];

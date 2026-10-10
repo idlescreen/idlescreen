@@ -2,8 +2,7 @@
 //! Tier 4 Scenario 2: s6 supervised daemon lifecycle with fd 3 readiness and rolling file.
 
 use crate::harness::{
-    InitEnvironment, InitSystem, PipeReadinessProbe, RollingFileProbe,
-    detect_mock_init,
+    InitEnvironment, InitSystem, PipeReadinessProbe, RollingFileProbe, detect_mock_init,
 };
 use tempfile::TempDir;
 
@@ -15,7 +14,10 @@ fn test_scenario_s6_supervision_lifecycle() {
 
     // 2. Set up notification-fd contract for descriptor 3
     let s6_notification_fd = 3;
-    assert_eq!(s6_notification_fd, 3, "s6 notification fd contract must be 3");
+    assert_eq!(
+        s6_notification_fd, 3,
+        "s6 notification fd contract must be 3"
+    );
     let mut pipe = PipeReadinessProbe::new();
 
     // 3. Daemon initializes and writes newline to fd 3
@@ -25,8 +27,12 @@ fn test_scenario_s6_supervision_lifecycle() {
     // 4. Daemon logs to atomic rolling log file
     let temp = TempDir::new().unwrap();
     let log_probe = RollingFileProbe::new(temp.path());
-    log_probe.write_line("INFO idle-daemon: s6 readiness confirmed").unwrap();
-    log_probe.write_line("INFO idle-daemon: enter tick loop").unwrap();
+    log_probe
+        .write_line("INFO idle-daemon: s6 readiness confirmed")
+        .unwrap();
+    log_probe
+        .write_line("INFO idle-daemon: enter tick loop")
+        .unwrap();
 
     let logs = log_probe.read_all();
     assert!(logs.contains("s6 readiness confirmed"));

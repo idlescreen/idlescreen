@@ -3,9 +3,9 @@
 
 //! IdleScreen core library modules.
 
-pub mod cell;
 pub mod ascii;
+pub mod cell;
+pub mod cli;
+pub mod daemon;
 pub mod extras_ipc;
 pub mod wayland;
-pub mod daemon;
-pub mod cli;

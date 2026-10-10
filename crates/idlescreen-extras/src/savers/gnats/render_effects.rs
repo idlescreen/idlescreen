@@ -167,9 +167,12 @@ pub fn draw_connectors(
                         f32::midpoint(fireflies[i].size as f32, fireflies[j].size as f32) / 3.0;
                     let intensity = nearness * (0.22 + 0.38 * size_depth) * fade;
 
-                    let line_r = (f32::midpoint(color1.0 as f32, color2.0 as f32) * intensity) as u8;
-                    let line_g = (f32::midpoint(color1.1 as f32, color2.1 as f32) * intensity) as u8;
-                    let line_b = (f32::midpoint(color1.2 as f32, color2.2 as f32) * intensity) as u8;
+                    let line_r =
+                        (f32::midpoint(color1.0 as f32, color2.0 as f32) * intensity) as u8;
+                    let line_g =
+                        (f32::midpoint(color1.1 as f32, color2.1 as f32) * intensity) as u8;
+                    let line_b =
+                        (f32::midpoint(color1.2 as f32, color2.2 as f32) * intensity) as u8;
 
                     for k in 1..steps {
                         let lx = (x1 + k as f32 * x_step).round() as i32;

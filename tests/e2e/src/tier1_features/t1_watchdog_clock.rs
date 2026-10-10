@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Tier 1: Monotonic Watchdog & Universal Suspend Detector tests (R2).
 
-use crate::harness::{
-    ClockSample, detect_suspend_divergence, read_real_clocks,
-};
+use crate::harness::{ClockSample, detect_suspend_divergence, read_real_clocks};
 
 #[test]
 fn test_monotonic_heartbeat_advancement() {
     let t0 = 10_000_000_000u64; // 10s
     let t1 = 12_500_000_000u64; // 12.5s
     let age = t1.saturating_sub(t0);
-    assert_eq!(age, 2_500_000_000, "Heartbeat age must advance monotonically");
+    assert_eq!(
+        age, 2_500_000_000,
+        "Heartbeat age must advance monotonically"
+    );
 }
 
 #[test]
@@ -27,7 +28,10 @@ fn test_monotonic_heartbeat_immune_to_wallclock() {
     let age_wall = wall_t1.saturating_sub(wall_t0);
 
     assert_eq!(age_mono, 100_000_000, "Monotonic age must stay positive");
-    assert_eq!(age_wall, 0, "Wall clock underflow yields 0 but causes false stalls if used");
+    assert_eq!(
+        age_wall, 0,
+        "Wall clock underflow yields 0 but causes false stalls if used"
+    );
 }
 
 #[test]
@@ -82,7 +86,10 @@ fn test_suspend_triggers_display_resync_flag() {
         display_resync_required = true;
     }
 
-    assert!(display_resync_required, "Display resync must be requested on resume");
+    assert!(
+        display_resync_required,
+        "Display resync must be requested on resume"
+    );
 }
 
 #[test]
@@ -104,7 +111,10 @@ fn test_watchdog_reset_on_resume() {
     }
 
     let age = curr.monotonic_ns.saturating_sub(last_watchdog_heartbeat);
-    assert_eq!(age, 0, "Watchdog must be reset to zero age immediately after resume");
+    assert_eq!(
+        age, 0,
+        "Watchdog must be reset to zero age immediately after resume"
+    );
 }
 
 #[test]

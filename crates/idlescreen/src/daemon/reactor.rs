@@ -5,8 +5,8 @@
 //! monotonic suspend detector, and decoupled watchdog keeper thread.
 
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -21,8 +21,14 @@ pub struct ClockSample {
 }
 
 pub fn read_clocks() -> ClockSample {
-    let mut ts_boot = libc::timespec { tv_sec: 0, tv_nsec: 0 };
-    let mut ts_mono = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    let mut ts_boot = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    let mut ts_mono = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
 
     unsafe {
         libc::clock_gettime(libc::CLOCK_BOOTTIME, &raw mut ts_boot);
@@ -137,10 +143,7 @@ impl EpollReactor {
     }
 
     pub fn add_fd(&self, fd: RawFd, events: u32, token: u64) -> std::io::Result<()> {
-        let mut ev = libc::epoll_event {
-            events,
-            u64: token,
-        };
+        let mut ev = libc::epoll_event { events, u64: token };
         let res = unsafe {
             libc::epoll_ctl(
                 self.epoll_fd.as_raw_fd(),
@@ -228,7 +231,7 @@ mod tests {
             monotonic_ns: 10_000_000_000,
         };
         let curr = ClockSample {
-            boottime_ns: 15_000_000_000, // +5s
+            boottime_ns: 15_000_000_000,  // +5s
             monotonic_ns: 10_050_000_000, // +50ms
         };
 

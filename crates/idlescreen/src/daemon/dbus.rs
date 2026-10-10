@@ -75,9 +75,10 @@ impl ScreenSaverInterface {
 
     fn get_active_time(&self) -> u32 {
         if let Ok(guard) = self.state.started_at.lock()
-            && let Some(start) = *guard {
-                return start.elapsed().as_secs() as u32;
-            }
+            && let Some(start) = *guard
+        {
+            return start.elapsed().as_secs() as u32;
+        }
         0
     }
 
@@ -116,11 +117,14 @@ pub struct IdleInterface {
 impl IdleInterface {
     fn get_status(&self) -> String {
         let active = self.state.active.load(Ordering::SeqCst);
-        let saver = self.state.current_saver.lock().map(|s| s.clone()).unwrap_or_default();
+        let saver = self
+            .state
+            .current_saver
+            .lock()
+            .map(|s| s.clone())
+            .unwrap_or_default();
         let inhibited = self.state.is_inhibited();
-        format!(
-            "{{\"active\":{active},\"saver\":\"{saver}\",\"inhibited\":{inhibited}}}"
-        )
+        format!("{{\"active\":{active},\"saver\":\"{saver}\",\"inhibited\":{inhibited}}}")
     }
 
     fn stop(&self) {
@@ -140,8 +144,8 @@ impl IdleInterface {
         let mut list = vec!["ascii".to_string()];
         if crate::extras_ipc::ExtrasSession::is_available() {
             for &s in &[
-                "aurora", "beams", "bursts", "chaos", "cosmos",
-                "glyphs", "gnats", "hearth", "radar", "ripple", "storm"
+                "aurora", "beams", "bursts", "chaos", "cosmos", "glyphs", "gnats", "hearth",
+                "radar", "ripple", "storm",
             ] {
                 list.push(s.to_string());
             }

@@ -2,8 +2,8 @@
 //! Tier 3: Pairwise combination — Supervisor Fallback + Logging Sinks.
 
 use crate::harness::{
-    InitEnvironment, InitSystem, RollingFileProbe, SyslogProbe,
-    format_rfc3164, safe_exec_supervisor,
+    InitEnvironment, InitSystem, RollingFileProbe, SyslogProbe, format_rfc3164,
+    safe_exec_supervisor,
 };
 use std::os::unix::net::UnixDatagram;
 use tempfile::TempDir;
@@ -24,7 +24,8 @@ fn test_missing_supervisor_logs_warning_to_syslog() {
         1111,
         "systemctl missing; falling back to direct spawn",
     );
-    sock.send_to(warn_msg.as_bytes(), syslog.socket_path()).unwrap();
+    sock.send_to(warn_msg.as_bytes(), syslog.socket_path())
+        .unwrap();
 
     let received = syslog.recv_syslog().unwrap();
     assert_eq!(received.facility, 3);

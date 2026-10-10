@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Tier 2: Init Detection & Dispatch Boundary & Corner Cases (R1).
 
-use crate::harness::{
-    InitEnvironment, InitSystem, detect_mock_init, safe_exec_supervisor,
-};
+use crate::harness::{InitEnvironment, InitSystem, detect_mock_init, safe_exec_supervisor};
 use std::fs;
 
 #[test]
@@ -66,9 +64,19 @@ fn test_supervisor_exec_unknown_subcommand_fails_safely() {
 
 #[test]
 fn test_init_dispatch_unit_name_validation() {
-    let valid_units = ["idle-daemon", "idle-daemon.service", "io.github.idlescreen.Idle"];
+    let valid_units = [
+        "idle-daemon",
+        "idle-daemon.service",
+        "io.github.idlescreen.Idle",
+    ];
     for unit in valid_units {
-        assert!(!unit.contains(';'), "Unit name must not contain shell injections");
-        assert!(!unit.contains('&'), "Unit name must not contain command delimiters");
+        assert!(
+            !unit.contains(';'),
+            "Unit name must not contain shell injections"
+        );
+        assert!(
+            !unit.contains('&'),
+            "Unit name must not contain command delimiters"
+        );
     }
 }

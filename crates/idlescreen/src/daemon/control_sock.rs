@@ -79,9 +79,10 @@ impl ControlClient {
 
 pub fn resolve_control_sock_path() -> std::io::Result<PathBuf> {
     if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR")
-        && !runtime_dir.trim().is_empty() {
-            return Ok(PathBuf::from(runtime_dir).join("idlescreen/control.sock"));
-        }
+        && !runtime_dir.trim().is_empty()
+    {
+        return Ok(PathBuf::from(runtime_dir).join("idlescreen/control.sock"));
+    }
 
     let uid = unsafe { libc::getuid() };
     Ok(PathBuf::from(format!("/tmp/idlescreen-{uid}/control.sock")))

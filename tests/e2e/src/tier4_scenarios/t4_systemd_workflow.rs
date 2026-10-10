@@ -2,8 +2,7 @@
 //! Tier 4 Scenario 1: Systemd native service lifecycle with abstract NOTIFY_SOCKET.
 
 use crate::harness::{
-    InitEnvironment, InitSystem, NotifySocketProbe, detect_mock_init,
-    emit_notify_socket,
+    InitEnvironment, InitSystem, NotifySocketProbe, detect_mock_init, emit_notify_socket,
 };
 
 #[test]

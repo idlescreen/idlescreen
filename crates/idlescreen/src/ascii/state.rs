@@ -108,7 +108,8 @@ impl LruFontAtlasCache {
         } else if self.entries.len() >= self.capacity {
             self.entries.remove(0);
         }
-        self.entries.push((key, banner.lines, banner.width, banner.height));
+        self.entries
+            .push((key, banner.lines, banner.width, banner.height));
     }
 
     pub fn get_or_render(
@@ -175,11 +176,15 @@ impl TriRotationState {
 
     pub fn active_text(&self) -> String {
         if let Some(ref custom) = self.custom_text
-            && !custom.trim().is_empty() {
-                return custom.trim().to_string();
-            }
+            && !custom.trim().is_empty()
+        {
+            return custom.trim().to_string();
+        }
         match self.mode {
-            TextMode::Custom => self.custom_text.clone().unwrap_or_else(|| self.os_name.clone()),
+            TextMode::Custom => self
+                .custom_text
+                .clone()
+                .unwrap_or_else(|| self.os_name.clone()),
             TextMode::Os => self.os_name.clone(),
             TextMode::De => self.de_name.clone(),
             TextMode::Kernel => self.kernel_version.clone(),

@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Tier 2: Multi-Sink Logging Boundary & Corner Cases (R4).
 
-use crate::harness::{
-    RollingFileProbe, parse_rfc3164_datagram,
-};
+use crate::harness::{RollingFileProbe, parse_rfc3164_datagram};
 use std::os::unix::net::UnixDatagram;
 use std::path::Path;
 use tempfile::TempDir;
@@ -29,7 +27,10 @@ fn test_syslog_malformed_datagram_parser_resilience() {
 
     for bad in bad_packets {
         let parsed = parse_rfc3164_datagram(bad);
-        assert!(parsed.is_none(), "Malformed packet '{bad}' must return None safely");
+        assert!(
+            parsed.is_none(),
+            "Malformed packet '{bad}' must return None safely"
+        );
     }
 }
 
@@ -42,7 +43,11 @@ fn test_syslog_max_message_length_truncation() {
     } else {
         &long_msg
     };
-    assert_eq!(truncated.len(), 1024, "Long syslog messages must cap at 1024 bytes");
+    assert_eq!(
+        truncated.len(),
+        1024,
+        "Long syslog messages must cap at 1024 bytes"
+    );
 }
 
 #[test]
@@ -60,7 +65,10 @@ fn test_rolling_log_file_zero_size_rotation_guard() {
     let probe = RollingFileProbe::new(temp.path());
     // Empty log file must not rotate under 0-byte guard
     let rotated = probe.rotate(100);
-    assert!(!rotated, "Non-existent or empty log file must not trigger rotation");
+    assert!(
+        !rotated,
+        "Non-existent or empty log file must not trigger rotation"
+    );
 }
 
 #[test]

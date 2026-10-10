@@ -93,14 +93,16 @@ impl Config {
 
         if toml_path.exists()
             && let Ok(content) = fs::read_to_string(&toml_path)
-                && let Ok(cfg) = toml::from_str::<Config>(&content) {
-                    return cfg;
-                }
+            && let Ok(cfg) = toml::from_str::<Config>(&content)
+        {
+            return cfg;
+        }
 
         if yaml_path.exists()
-            && let Ok(cfg) = migrate_yaml_to_toml(&yaml_path, &toml_path) {
-                return cfg;
-            }
+            && let Ok(cfg) = migrate_yaml_to_toml(&yaml_path, &toml_path)
+        {
+            return cfg;
+        }
 
         Self::default()
     }
@@ -108,9 +110,10 @@ impl Config {
 
 pub fn resolve_config_dir() -> PathBuf {
     if let Ok(cfg_home) = std::env::var("XDG_CONFIG_HOME")
-        && !cfg_home.trim().is_empty() {
-            return PathBuf::from(cfg_home).join("idlescreen");
-        }
+        && !cfg_home.trim().is_empty()
+    {
+        return PathBuf::from(cfg_home).join("idlescreen");
+    }
 
     if let Ok(home) = std::env::var("HOME") {
         return PathBuf::from(home).join(".config/idlescreen");
@@ -126,24 +129,32 @@ pub fn migrate_yaml_to_toml(yaml_path: &Path, toml_path: &Path) -> std::io::Resu
     let yaml_content = fs::read_to_string(&real_yaml_path)?;
 
     // Parse legacy YAML
-    let yaml_val: serde_yaml::Value = serde_yaml::from_str(&yaml_content).map_err(|e| {
-        std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
-    })?;
+    let yaml_val: serde_yaml::Value = serde_yaml::from_str(&yaml_content)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
 
     let mut config = Config::default();
 
     if let Some(general) = yaml_val.get("general") {
-        if let Some(timeout) = general.get("idle_timeout_secs").and_then(serde_yaml::Value::as_u64) {
+        if let Some(timeout) = general
+            .get("idle_timeout_secs")
+            .and_then(serde_yaml::Value::as_u64)
+        {
             config.general.idle_timeout_secs = timeout;
         }
         if let Some(primary) = general.get("primary_output").and_then(|v| v.as_str()) {
             config.general.primary_output = primary.to_string();
         }
-    } else if let Some(timeout) = yaml_val.get("idle_timeout").and_then(serde_yaml::Value::as_u64) {
+    } else if let Some(timeout) = yaml_val
+        .get("idle_timeout")
+        .and_then(serde_yaml::Value::as_u64)
+    {
         config.general.idle_timeout_secs = timeout;
     }
 
-    if let Some(saver) = yaml_val.get("saver").or_else(|| yaml_val.get("screensaver")) {
+    if let Some(saver) = yaml_val
+        .get("saver")
+        .or_else(|| yaml_val.get("screensaver"))
+    {
         if let Some(active) = saver.get("active").and_then(|v| v.as_str()) {
             config.saver.active = Some(active.to_string());
         }
@@ -160,16 +171,18 @@ pub fn migrate_yaml_to_toml(yaml_path: &Path, toml_path: &Path) -> std::io::Resu
             if let Some(dwell) = ascii.get("dwell_secs").and_then(serde_yaml::Value::as_f64) {
                 config.saver.ascii.dwell_secs = dwell as f32;
             }
-            if let Some(dissolve) = ascii.get("dissolve_duration_secs").and_then(serde_yaml::Value::as_f64) {
+            if let Some(dissolve) = ascii
+                .get("dissolve_duration_secs")
+                .and_then(serde_yaml::Value::as_f64)
+            {
                 config.saver.ascii.dissolve_duration_secs = dissolve as f32;
             }
         }
     }
 
     // Write toml atomically
-    let toml_string = toml::to_string_pretty(&config).map_err(|e| {
-        std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
-    })?;
+    let toml_string = toml::to_string_pretty(&config)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
 
     if let Some(parent) = toml_path.parent() {
         fs::create_dir_all(parent)?;

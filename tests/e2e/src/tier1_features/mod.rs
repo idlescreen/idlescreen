@@ -12,9 +12,9 @@
 //! Each feature includes at least 5 distinct test cases verifying valid
 //! inputs and expected behavior.
 
-pub mod t1_init_detect;
-pub mod t1_watchdog_clock;
-pub mod t1_readiness;
-pub mod t1_logging;
 pub mod t1_cgroup_cpu;
+pub mod t1_init_detect;
+pub mod t1_logging;
+pub mod t1_readiness;
 pub mod t1_templates_pkg;
+pub mod t1_watchdog_clock;

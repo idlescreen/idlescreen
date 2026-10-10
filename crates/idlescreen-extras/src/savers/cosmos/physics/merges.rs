@@ -32,7 +32,9 @@ pub fn handle_seed_merges(eff: &mut Cosmos, _delta: f32, _dir: f32, seeds_len: u
                     3
                 } else if was_i_bh || was_j_bh {
                     2
-                } else { i32::from(new_mass >= 8.5) };
+                } else {
+                    i32::from(new_mass >= 8.5)
+                };
 
                 let c_i = eff.seeds[i].color;
                 let c_j = eff.seeds[j].color;

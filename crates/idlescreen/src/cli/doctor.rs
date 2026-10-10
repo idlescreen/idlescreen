@@ -3,11 +3,11 @@
 
 //! Diagnostic doctor checking environment, display sockets, permissions, and extras.
 
-use std::path::Path;
 use crate::daemon::config::resolve_config_dir;
 use crate::daemon::control_sock::resolve_control_sock_path;
 use crate::daemon::pidfile::resolve_pid_path;
 use crate::extras_ipc::resolve_extras_binary;
+use std::path::Path;
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== IdleScreen Doctor Diagnostics ===");
@@ -45,7 +45,10 @@ pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     if toml_file.exists() {
         println!("  [✓] Config: {} (TOML active)", toml_file.display());
     } else if yaml_file.exists() {
-        println!("  [!] Config: {} (Legacy YAML pending migration)", yaml_file.display());
+        println!(
+            "  [!] Config: {} (Legacy YAML pending migration)",
+            yaml_file.display()
+        );
     } else {
         println!("  [✓] Config: Default built-in configuration");
     }

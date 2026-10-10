@@ -16,11 +16,7 @@ pub fn calculate_buffer_dimension(logical_dim: u32, scale_120ths: u32) -> u32 {
 }
 
 /// Calculates physical buffer dimensions (width, height) from logical dimensions and scale_120ths.
-pub fn calculate_buffer_size(
-    logical_w: u32,
-    logical_h: u32,
-    scale_120ths: u32,
-) -> (u32, u32) {
+pub fn calculate_buffer_size(logical_w: u32, logical_h: u32, scale_120ths: u32) -> (u32, u32) {
     (
         calculate_buffer_dimension(logical_w, scale_120ths),
         calculate_buffer_dimension(logical_h, scale_120ths),

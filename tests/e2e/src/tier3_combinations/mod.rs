@@ -11,7 +11,7 @@
 //! Verifies cross-cutting interactions between runtime components.
 
 pub mod t3_init_readiness;
-pub mod t3_suspend_watchdog;
 pub mod t3_logging_fallback;
-pub mod t3_standalone_budget;
 pub mod t3_package_lifecycle;
+pub mod t3_standalone_budget;
+pub mod t3_suspend_watchdog;

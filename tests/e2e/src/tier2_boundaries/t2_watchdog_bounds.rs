@@ -27,7 +27,7 @@ fn test_exact_threshold_boundary() {
         monotonic_ns: 10_000_000_000,
     };
     let curr = ClockSample {
-        boottime_ns: 11_010_000_000, // +1.010s
+        boottime_ns: 11_010_000_000,  // +1.010s
         monotonic_ns: 10_010_000_000, // +0.010s (divergence = exactly 1.000s)
     };
 

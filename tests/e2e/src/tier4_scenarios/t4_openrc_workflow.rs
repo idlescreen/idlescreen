@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Tier 4 Scenario 3: OpenRC daemon lifecycle with bus claiming and Syslog RFC 3164.
 
-use crate::harness::{
-    InitEnvironment, InitSystem, SyslogProbe, detect_mock_init, format_rfc3164,
-};
+use crate::harness::{InitEnvironment, InitSystem, SyslogProbe, detect_mock_init, format_rfc3164};
 use std::os::unix::net::UnixDatagram;
 
 #[test]
@@ -28,7 +26,9 @@ fn test_scenario_openrc_service_lifecycle() {
         2024,
         "D-Bus name claimed; service ready under OpenRC",
     );
-    client.send_to(ready_log.as_bytes(), syslog.socket_path()).unwrap();
+    client
+        .send_to(ready_log.as_bytes(), syslog.socket_path())
+        .unwrap();
 
     let received = syslog.recv_syslog().unwrap();
     assert_eq!(received.facility, 3);

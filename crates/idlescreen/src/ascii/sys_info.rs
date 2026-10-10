@@ -74,9 +74,10 @@ pub fn detect_os_name() -> String {
 
     // 6. uname(2) sysname
     if let Some(sysname) = uname_sysname()
-        && !sysname.is_empty() {
-            return clean_os_name(&sysname);
-        }
+        && !sysname.is_empty()
+    {
+        return clean_os_name(&sysname);
+    }
 
     // 7. Default fallback
     "IdleScreen".to_string()
@@ -160,7 +161,10 @@ pub fn clean_os_name(raw: &str) -> String {
 
     let mut cleaned = s.to_string();
     for marker in &markers {
-        if let Some(pos) = cleaned.to_ascii_lowercase().find(&marker.to_ascii_lowercase()) {
+        if let Some(pos) = cleaned
+            .to_ascii_lowercase()
+            .find(&marker.to_ascii_lowercase())
+        {
             cleaned = format!("{}{}", &cleaned[..pos], &cleaned[pos + marker.len()..]);
         }
     }
@@ -169,7 +173,9 @@ pub fn clean_os_name(raw: &str) -> String {
     let trimmed = cleaned.trim();
     if let Some(pos) = trimmed.rfind(' ') {
         let suffix = &trimmed[pos + 1..];
-        if suffix.chars().all(|c| c.is_ascii_digit() || c == '.') && !trimmed[..pos].trim().is_empty() {
+        if suffix.chars().all(|c| c.is_ascii_digit() || c == '.')
+            && !trimmed[..pos].trim().is_empty()
+        {
             return trimmed[..pos].trim().to_string();
         }
     }

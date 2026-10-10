@@ -39,7 +39,8 @@ impl CircuitBreaker {
         }
 
         let now = Instant::now();
-        self.failures.retain(|&t| now.duration_since(t).as_secs() < CIRCUIT_BREAKER_WINDOW_SECS);
+        self.failures
+            .retain(|&t| now.duration_since(t).as_secs() < CIRCUIT_BREAKER_WINDOW_SECS);
         self.failures.push(now);
 
         if self.failures.len() >= CIRCUIT_BREAKER_MAX_FAILURES {
@@ -78,9 +79,10 @@ pub fn record_circuit_breaker_failure() -> bool {
 
 pub fn reset_circuit_breaker() {
     if let Ok(mut guard) = GLOBAL_CIRCUIT_BREAKER.lock()
-        && let Some(ref mut cb) = *guard {
-            cb.reset();
-        }
+        && let Some(ref mut cb) = *guard
+    {
+        cb.reset();
+    }
 }
 
 #[cfg(test)]

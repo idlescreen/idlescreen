@@ -47,7 +47,8 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
         libc::sigaddset(&raw mut mask, libc::SIGINT);
         libc::sigprocmask(libc::SIG_BLOCK, &raw const mask, std::ptr::null_mut());
     }
-    let sfd = unsafe { libc::signalfd(-1, &raw const mask, libc::SFD_NONBLOCK | libc::SFD_CLOEXEC) };
+    let sfd =
+        unsafe { libc::signalfd(-1, &raw const mask, libc::SFD_NONBLOCK | libc::SFD_CLOEXEC) };
 
     // 5. Initialize epoll reactor
     let mut reactor = EpollReactor::new()?;

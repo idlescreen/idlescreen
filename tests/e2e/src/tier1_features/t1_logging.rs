@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Tier 1: Multi-Sink Logging & Log Viewer tests (R4).
 
-use crate::harness::{
-    RollingFileProbe, SyslogProbe, format_rfc3164,
-};
+use crate::harness::{RollingFileProbe, SyslogProbe, format_rfc3164};
 use std::os::unix::net::UnixDatagram;
 use tempfile::TempDir;
 
@@ -11,7 +9,10 @@ use tempfile::TempDir;
 fn test_syslog_rfc3164_format_daemon_info() {
     // Facility daemon (3), Severity info (6) -> PRI = 3 * 8 + 6 = 30
     let formatted = format_rfc3164(3, 6, "idle-daemon", 1234, "daemon started");
-    assert!(formatted.starts_with("<30>"), "Expected <30> priority prefix");
+    assert!(
+        formatted.starts_with("<30>"),
+        "Expected <30> priority prefix"
+    );
     assert!(formatted.contains("idle-daemon[1234]: daemon started"));
 }
 
@@ -19,7 +20,10 @@ fn test_syslog_rfc3164_format_daemon_info() {
 fn test_syslog_rfc3164_format_daemon_err() {
     // Facility daemon (3), Severity err (3) -> PRI = 3 * 8 + 3 = 27
     let formatted = format_rfc3164(3, 3, "idle-daemon", 1234, "unrecoverable error");
-    assert!(formatted.starts_with("<27>"), "Expected <27> priority prefix");
+    assert!(
+        formatted.starts_with("<27>"),
+        "Expected <27> priority prefix"
+    );
     assert!(formatted.contains("idle-daemon[1234]: unrecoverable error"));
 }
 
@@ -37,7 +41,11 @@ fn test_syslog_datagram_emission_and_reception() {
     assert_eq!(parsed.priority, 30);
     assert_eq!(parsed.facility, 3);
     assert_eq!(parsed.severity, 6);
-    assert!(parsed.content.contains("idle-daemon[5555]: render loop active"));
+    assert!(
+        parsed
+            .content
+            .contains("idle-daemon[5555]: render loop active")
+    );
 }
 
 #[test]
@@ -46,7 +54,9 @@ fn test_rolling_log_file_creation_under_state_dir() {
     let probe = RollingFileProbe::new(temp.path());
 
     assert!(
-        probe.path().ends_with(".local/state/idlescreen/idle-daemon.log"),
+        probe
+            .path()
+            .ends_with(".local/state/idlescreen/idle-daemon.log"),
         "Log file path must follow canonical state directory convention"
     );
 
@@ -74,7 +84,9 @@ fn test_rolling_log_file_rotation_on_size() {
     let probe = RollingFileProbe::new(temp.path());
 
     for _ in 0..100 {
-        probe.write_line("This is a rolling test line padding bytes").unwrap();
+        probe
+            .write_line("This is a rolling test line padding bytes")
+            .unwrap();
     }
 
     let rotated = probe.rotate(500); // 500 byte limit

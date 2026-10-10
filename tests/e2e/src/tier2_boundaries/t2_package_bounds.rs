@@ -9,7 +9,10 @@ fn test_template_missing_file_handling() {
     let temp = TempDir::new().unwrap();
     let nonexistent = temp.path().join("missing.service");
     let content = fs::read_to_string(&nonexistent);
-    assert!(content.is_err(), "Reading nonexistent template must error cleanly");
+    assert!(
+        content.is_err(),
+        "Reading nonexistent template must error cleanly"
+    );
 }
 
 #[test]
@@ -19,7 +22,10 @@ fn test_template_empty_file_rejected() {
     fs::write(&empty_file, "").unwrap();
 
     let text = fs::read_to_string(&empty_file).unwrap();
-    assert!(text.trim().is_empty(), "Empty template must be identified as invalid");
+    assert!(
+        text.trim().is_empty(),
+        "Empty template must be identified as invalid"
+    );
 }
 
 #[test]
@@ -33,12 +39,22 @@ fn test_unknown_init_system_string_fallback() {
         "s6" => "s6",
         _ => "standalone",
     };
-    assert_eq!(normalized, "standalone", "Unknown init must fall back to standalone");
+    assert_eq!(
+        normalized, "standalone",
+        "Unknown init must fall back to standalone"
+    );
 }
 
 #[test]
 fn test_detect_sh_mock_arch_family_variants() {
-    let arch_distros = ["arch", "endeavouros", "garuda", "cachyos", "artix", "manjaro"];
+    let arch_distros = [
+        "arch",
+        "endeavouros",
+        "garuda",
+        "cachyos",
+        "artix",
+        "manjaro",
+    ];
     for distro in arch_distros {
         let is_arch = matches!(
             distro,
@@ -61,5 +77,8 @@ fn test_start_daemon_timeout_budget() {
 fn test_service_restart_race_protection() {
     // When stopping and restarting daemon, short delay ensures socket/bus release
     let stop_settle_delay_ms = 400;
-    assert!(stop_settle_delay_ms >= 300, "Stop settle delay must be >= 300ms");
+    assert!(
+        stop_settle_delay_ms >= 300,
+        "Stop settle delay must be >= 300ms"
+    );
 }

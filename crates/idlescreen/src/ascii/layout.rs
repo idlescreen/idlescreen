@@ -4,7 +4,7 @@
 //! 3-tier progressive layout and portrait telemetry adaptation.
 
 use super::sys_info::SystemTelemetry;
-use super::unicode::{normalize_to_ascii_fold, non_latin_fallback};
+use super::unicode::{non_latin_fallback, normalize_to_ascii_fold};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LayoutTier {
@@ -141,7 +141,10 @@ pub fn render_banner(
 
     // Normalize input text
     let folded = normalize_to_ascii_fold(raw_text);
-    let effective_text = if folded.chars().all(|c| c.is_ascii() || c.is_ascii_whitespace()) {
+    let effective_text = if folded
+        .chars()
+        .all(|c| c.is_ascii() || c.is_ascii_whitespace())
+    {
         folded
     } else if let Some(fb) = non_latin_fallback(raw_text) {
         fb.to_string()
@@ -240,7 +243,10 @@ pub fn is_portrait(cols: usize, rows: usize) -> bool {
 }
 
 /// Generates portrait telemetry lines (CPU, RAM, Kernel, Uptime).
-pub fn format_portrait_telemetry(telemetry: &SystemTelemetry, cols: usize) -> (Vec<String>, Vec<String>) {
+pub fn format_portrait_telemetry(
+    telemetry: &SystemTelemetry,
+    cols: usize,
+) -> (Vec<String>, Vec<String>) {
     let top = vec![
         center_text(&format!("CPU: {:.1}%", telemetry.cpu_percent), cols),
         center_text(&format!("RAM: {:.1}%", telemetry.ram_percent), cols),

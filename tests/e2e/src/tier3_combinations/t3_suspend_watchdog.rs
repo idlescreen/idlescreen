@@ -24,7 +24,10 @@ fn test_suspend_detection_triggers_watchdog_reset_and_resync() {
         watchdog_heartbeat = curr.monotonic_ns;
     }
 
-    assert!(resync_dispatched, "Resync must be triggered on suspend wake");
+    assert!(
+        resync_dispatched,
+        "Resync must be triggered on suspend wake"
+    );
     let watchdog_age = curr.monotonic_ns.saturating_sub(watchdog_heartbeat);
     assert_eq!(watchdog_age, 0, "Watchdog must be zeroed immediately");
 }
@@ -52,7 +55,10 @@ fn test_no_false_watchdog_stalls_across_suspend() {
 
     let age = curr.monotonic_ns.saturating_sub(last_heartbeat);
     let stalled = age > timeout_ns;
-    assert!(!stalled, "System resume must not escalate false stall timeout");
+    assert!(
+        !stalled,
+        "System resume must not escalate false stall timeout"
+    );
 }
 
 #[test]

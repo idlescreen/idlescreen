@@ -11,7 +11,7 @@ pub mod physics;
 pub mod types;
 pub mod update;
 
-use types::{Rocket, Particle, Explosion, Star};
+use types::{Explosion, Particle, Rocket, Star};
 
 pub struct Bursts {
     pub(crate) rng: LcgRng,

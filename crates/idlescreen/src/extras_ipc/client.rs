@@ -10,9 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 
-use super::breaker::{
-    CircuitBreaker, is_circuit_breaker_tripped, record_circuit_breaker_failure,
-};
+use super::breaker::{CircuitBreaker, is_circuit_breaker_tripped, record_circuit_breaker_failure};
 use super::pidfd::PidFd;
 use super::protocol::{IpcCommand, IpcResponse, send_fd};
 use crate::cell::TerminalCell;
@@ -45,7 +43,9 @@ impl ExtrasSession {
         if cols == 0 || rows == 0 || count > max_cells || cols > 1000 || rows > 1000 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("invalid grid dimensions: {cols}x{rows} (exceeds shared memory limit of {max_cells} cells)"),
+                format!(
+                    "invalid grid dimensions: {cols}x{rows} (exceeds shared memory limit of {max_cells} cells)"
+                ),
             ));
         }
 
@@ -213,7 +213,9 @@ impl ExtrasSession {
         if cols == 0 || rows == 0 || count > max_cells || cols > 1000 || rows > 1000 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("invalid grid dimensions: {cols}x{rows} (exceeds shared memory limit of {max_cells} cells)"),
+                format!(
+                    "invalid grid dimensions: {cols}x{rows} (exceeds shared memory limit of {max_cells} cells)"
+                ),
             ));
         }
 
@@ -229,7 +231,8 @@ impl ExtrasSession {
             return Err(e);
         }
 
-        self.socket.set_read_timeout(Some(Duration::from_millis(500)))?;
+        self.socket
+            .set_read_timeout(Some(Duration::from_millis(500)))?;
         let resp = match IpcResponse::read_from(&mut self.socket) {
             Ok(r) => r,
             Err(e) => {
@@ -289,7 +292,8 @@ impl ExtrasSession {
         }
 
         // 500ms deadline timeout
-        self.socket.set_read_timeout(Some(Duration::from_millis(500)))?;
+        self.socket
+            .set_read_timeout(Some(Duration::from_millis(500)))?;
         match IpcResponse::read_from(&mut self.socket) {
             Ok(IpcResponse::FrameReady { dirty, .. }) => {
                 let count = cols.saturating_mul(rows);
@@ -343,12 +347,13 @@ pub fn resolve_extras_binary() -> Option<PathBuf> {
 
     // 2. Check CARGO_BIN_EXE_idlescreen-extras or current exe directory (for tests)
     if let Ok(current) = std::env::current_exe()
-        && let Some(dir) = current.parent() {
-            let candidate = dir.join("idlescreen-extras");
-            if is_executable(&candidate) {
-                return Some(candidate);
-            }
+        && let Some(dir) = current.parent()
+    {
+        let candidate = dir.join("idlescreen-extras");
+        if is_executable(&candidate) {
+            return Some(candidate);
         }
+    }
 
     // 3. Check PATH
     if let Ok(path_var) = std::env::var("PATH") {
@@ -374,8 +379,8 @@ fn is_executable(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::breaker::reset_circuit_breaker;
+    use super::*;
 
     #[test]
     fn test_spawn_oversized_grid_rejected_immediately() {

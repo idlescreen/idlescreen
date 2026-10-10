@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Tier 3: Pairwise combination — Standalone Mode + In-Process CPU Fallback.
 
-use crate::harness::{
-    InitSystem, compute_cpu_seconds,
-};
+use crate::harness::{InitSystem, compute_cpu_seconds};
 
 #[test]
 fn test_standalone_without_cgroup_uses_proc_stat() {
@@ -44,5 +42,8 @@ fn test_standalone_cgroup_presence_prefers_cgroup() {
     } else {
         "proc_stat"
     };
-    assert_eq!(preferred, "cgroup_v2", "Must prefer cgroup v2 when available");
+    assert_eq!(
+        preferred, "cgroup_v2",
+        "Must prefer cgroup v2 when available"
+    );
 }

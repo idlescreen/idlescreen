@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Tier 1: Abstract Readiness Notifications tests (R3).
 
-use crate::harness::{
-    NotifySocketProbe, PipeReadinessProbe, emit_notify_socket,
-};
+use crate::harness::{NotifySocketProbe, PipeReadinessProbe, emit_notify_socket};
 
 #[test]
 fn test_notify_socket_filesystem_ready_datagram() {
@@ -65,7 +63,10 @@ fn test_fd_pipe_readiness_newline_byte() {
 fn test_fd_pipe_readiness_target_fd_is_three() {
     // In s6 and dinit readiness protocols, notification fd is standard descriptor 3
     let expected_fd = 3i32;
-    assert_eq!(expected_fd, 3, "Notification fd contract must specify descriptor 3");
+    assert_eq!(
+        expected_fd, 3,
+        "Notification fd contract must specify descriptor 3"
+    );
 }
 
 #[test]

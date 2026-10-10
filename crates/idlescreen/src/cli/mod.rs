@@ -18,7 +18,9 @@ pub fn print_help() {
     println!("  idlescreen <command> [options]");
     println!();
     println!("Commands:");
-    println!("  daemon            Run event-driven screensaver daemon (or start idlescreen-daemon)");
+    println!(
+        "  daemon            Run event-driven screensaver daemon (or start idlescreen-daemon)"
+    );
     println!("  status            Check active screensaver and daemon status");
     println!("  preview [saver]   Preview screensaver in terminal (crossterm)");
     println!("  list              List available built-in and extras screensavers");

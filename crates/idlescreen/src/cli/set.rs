@@ -3,13 +3,13 @@
 
 //! Sets the active screensaver across D-Bus, control socket, or configuration.
 
-use crate::daemon::config::{resolve_config_dir, Config};
+use crate::daemon::config::{Config, resolve_config_dir};
 use crate::daemon::control_sock::ControlClient;
 use std::fs;
 
 pub const ALL_KNOWN_SAVERS: &[&str] = &[
-    "ascii", "aurora", "beams", "bursts", "chaos", "cosmos",
-    "glyphs", "gnats", "hearth", "radar", "ripple", "storm",
+    "ascii", "aurora", "beams", "bursts", "chaos", "cosmos", "glyphs", "gnats", "hearth", "radar",
+    "ripple", "storm",
 ];
 
 pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
@@ -38,8 +38,7 @@ pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>
     }
 
     // 2. Fallback to control socket
-    if !notified_daemon
-        && let Ok(resp) = ControlClient::send_command(&format!("set {saver_clean}"))
+    if !notified_daemon && let Ok(resp) = ControlClient::send_command(&format!("set {saver_clean}"))
     {
         println!("Active screensaver set to '{saver_clean}' (via control socket: {resp})");
         notified_daemon = true;

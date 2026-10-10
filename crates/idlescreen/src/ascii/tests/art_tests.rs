@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::super::layout::{LayoutTier, render_banner, is_portrait};
+use super::super::layout::{LayoutTier, is_portrait, render_banner};
 use super::super::state::LruFontAtlasCache;
 use super::super::sys_info::clean_os_name;
-use super::super::unicode::{normalize_to_ascii_fold, place_unicode_str, string_width, GridCellChar};
+use super::super::unicode::{
+    GridCellChar, normalize_to_ascii_fold, place_unicode_str, string_width,
+};
 
 #[test]
 fn test_clean_os_name() {
-    assert_eq!(clean_os_name("Fedora Linux 40 (Workstation Edition)"), "Fedora Linux");
+    assert_eq!(
+        clean_os_name("Fedora Linux 40 (Workstation Edition)"),
+        "Fedora Linux"
+    );
     assert_eq!(clean_os_name("Ubuntu 24.04 LTS"), "Ubuntu");
     assert_eq!(clean_os_name("Debian GNU/Linux 12 (bookworm)"), "Debian");
     assert_eq!(clean_os_name("Arch Linux"), "Arch Linux");

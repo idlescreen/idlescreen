@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Tier 2: Readiness Notification Boundary & Corner Cases (R3).
 
-use crate::harness::{
-    NotifySocketProbe, PipeReadinessProbe, emit_notify_socket,
-};
+use crate::harness::{NotifySocketProbe, PipeReadinessProbe, emit_notify_socket};
 use std::path::Path;
 
 #[test]
@@ -32,7 +30,10 @@ fn test_notify_socket_empty_env_is_noop() {
 fn test_notify_socket_abstract_socket_max_length() {
     // Linux sockaddr_un sun_path limit is 108 bytes
     let valid_abstract_name = "@idlescreen_notify_socket_test";
-    assert!(valid_abstract_name.len() < 108, "Abstract socket name must fit within sun_path");
+    assert!(
+        valid_abstract_name.len() < 108,
+        "Abstract socket name must fit within sun_path"
+    );
 }
 
 #[test]

@@ -126,7 +126,10 @@ pub fn draw_gnats(gnats: &Gnats, grid: &mut [TerminalCell], cols: usize, rows: u
 
     // 4. Soft glow under bright (on-phase) fireflies, then bodies
     for p in &gnats.fireflies {
-        let blink = f32::midpoint((gnats.time_elapsed * p.blink_rate + p.blink_phase).sin(), 1.0);
+        let blink = f32::midpoint(
+            (gnats.time_elapsed * p.blink_rate + p.blink_phase).sin(),
+            1.0,
+        );
         // Desynced blink: most of the time dim, brief bright peaks
         let on = blink > 0.62;
         let brightness = if on {

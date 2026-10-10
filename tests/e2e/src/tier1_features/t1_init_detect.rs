@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Tier 1: Multi-Init Detection & Service Dispatch tests (R1).
 
-use crate::harness::{
-    InitEnvironment, InitSystem, detect_mock_init, safe_exec_supervisor,
-};
+use crate::harness::{InitEnvironment, InitSystem, detect_mock_init, safe_exec_supervisor};
 use std::fs;
 
 #[test]
@@ -45,7 +43,11 @@ fn test_detect_s6_when_service_present() {
 fn test_detect_standalone_when_no_supervisor() {
     let env = InitEnvironment::new(InitSystem::Standalone);
     let detected = detect_mock_init(env.root());
-    assert_eq!(detected, InitSystem::Standalone, "Expected standalone fallback");
+    assert_eq!(
+        detected,
+        InitSystem::Standalone,
+        "Expected standalone fallback"
+    );
 }
 
 #[test]
@@ -55,12 +57,7 @@ fn test_supervisor_safe_exec_with_mock_binary() {
     let rc_service = bin_dir.join("rc-service");
     fs::write(&rc_service, "#!/bin/sh\nexit 0\n").expect("write fake rc-service");
 
-    let result = safe_exec_supervisor(
-        InitSystem::OpenRc,
-        "start",
-        "idle-daemon",
-        Some(&bin_dir),
-    );
+    let result = safe_exec_supervisor(InitSystem::OpenRc, "start", "idle-daemon", Some(&bin_dir));
     assert_eq!(
         result,
         Ok("success:rc-service:start:idle-daemon".to_string()),

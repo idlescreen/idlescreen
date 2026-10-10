@@ -2,8 +2,8 @@
 //! Tier 3: Pairwise combination — Init Systems + Readiness Signaling.
 
 use crate::harness::{
-    InitEnvironment, InitSystem, NotifySocketProbe, PipeReadinessProbe,
-    detect_mock_init, emit_notify_socket,
+    InitEnvironment, InitSystem, NotifySocketProbe, PipeReadinessProbe, detect_mock_init,
+    emit_notify_socket,
 };
 
 #[test]
@@ -23,7 +23,10 @@ fn test_s6_paired_with_pipe_notification_fd3() {
     assert_eq!(detect_mock_init(env.root()), InitSystem::S6);
 
     let target_notification_fd = 3;
-    assert_eq!(target_notification_fd, 3, "s6 notification fd contract is descriptor 3");
+    assert_eq!(
+        target_notification_fd, 3,
+        "s6 notification fd contract is descriptor 3"
+    );
     let mut pipe = PipeReadinessProbe::new();
     assert!(pipe.simulate_daemon_ready().is_ok());
     assert_eq!(pipe.await_readiness(), Ok(true));

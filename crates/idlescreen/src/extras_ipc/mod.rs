@@ -12,5 +12,5 @@ pub use breaker::{
     CircuitBreaker, is_circuit_breaker_tripped, record_circuit_breaker_failure,
     reset_circuit_breaker,
 };
-pub use client::{resolve_extras_binary, ExtrasSession};
+pub use client::{ExtrasSession, resolve_extras_binary};
 pub use pidfd::PidFd;

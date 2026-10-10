@@ -11,9 +11,9 @@
 //!
 //! Each feature includes at least 5 distinct corner cases testing resilience.
 
-pub mod t2_init_bounds;
-pub mod t2_watchdog_bounds;
-pub mod t2_readiness_bounds;
-pub mod t2_logging_bounds;
 pub mod t2_cgroup_bounds;
+pub mod t2_init_bounds;
+pub mod t2_logging_bounds;
 pub mod t2_package_bounds;
+pub mod t2_readiness_bounds;
+pub mod t2_watchdog_bounds;

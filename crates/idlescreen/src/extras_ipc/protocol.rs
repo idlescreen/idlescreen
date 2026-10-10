@@ -88,11 +88,7 @@ impl IpcResponse {
                 writer.write_all(&[0])?;
             }
             IpcResponse::FrameReady { scanlines, dirty } => {
-                writer.write_all(&[
-                    1,
-                    u8::from(*scanlines),
-                    u8::from(*dirty),
-                ])?;
+                writer.write_all(&[1, u8::from(*scanlines), u8::from(*dirty)])?;
             }
             IpcResponse::Ack => {
                 writer.write_all(&[2])?;
@@ -148,17 +144,13 @@ pub fn recv_fd(sock: RawFd) -> std::io::Result<RawFd> {
 
     let cmsg = unsafe { libc::CMSG_FIRSTHDR(&raw const msg) };
     if cmsg.is_null() {
-        return Err(std::io::Error::other(
-            "missing cmsg in recvmsg",
-        ));
+        return Err(std::io::Error::other("missing cmsg in recvmsg"));
     }
 
     let level = unsafe { (*cmsg).cmsg_level };
     let ctype = unsafe { (*cmsg).cmsg_type };
     if level != libc::SOL_SOCKET || ctype != libc::SCM_RIGHTS {
-        return Err(std::io::Error::other(
-            "unexpected cmsg type",
-        ));
+        return Err(std::io::Error::other("unexpected cmsg type"));
     }
 
     let cmsg_len = unsafe { (*cmsg).cmsg_len };
@@ -178,9 +170,7 @@ pub fn recv_fd(sock: RawFd) -> std::io::Result<RawFd> {
     }
 
     if fd < 0 {
-        return Err(std::io::Error::other(
-            "received invalid file descriptor",
-        ));
+        return Err(std::io::Error::other("received invalid file descriptor"));
     }
 
     Ok(fd)
@@ -202,9 +192,7 @@ pub fn send_fd(sock: RawFd, fd_to_send: RawFd) -> std::io::Result<()> {
 
     let cmsg = unsafe { libc::CMSG_FIRSTHDR(&raw const msg) };
     if cmsg.is_null() {
-        return Err(std::io::Error::other(
-            "failed to allocate cmsg header",
-        ));
+        return Err(std::io::Error::other("failed to allocate cmsg header"));
     }
 
     unsafe {
