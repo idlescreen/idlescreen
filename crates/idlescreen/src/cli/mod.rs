@@ -100,13 +100,11 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             let is_active = std::process::Command::new("systemctl")
                 .args(["--user", "is-active", "--quiet", "idlescreen.service"])
                 .status()
-                .map(|s| s.success())
-                .unwrap_or(false)
+                .is_ok_and(|s| s.success())
                 || std::process::Command::new("systemctl")
                     .args(["--user", "is-active", "--quiet", "idle-daemon.service"])
                     .status()
-                    .map(|s| s.success())
-                    .unwrap_or(false);
+                    .is_ok_and(|s| s.success());
 
             if is_active {
                 let _ = std::process::Command::new("systemctl")

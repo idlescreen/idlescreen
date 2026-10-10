@@ -9,13 +9,11 @@ fn is_systemd_service_active() -> bool {
     std::process::Command::new("systemctl")
         .args(["--user", "is-active", "--quiet", "idlescreen.service"])
         .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+        .is_ok_and(|s| s.success())
         || std::process::Command::new("systemctl")
             .args(["--user", "is-active", "--quiet", "idle-daemon.service"])
             .status()
-            .map(|s| s.success())
-            .unwrap_or(false)
+            .is_ok_and(|s| s.success())
 }
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,7 +38,10 @@ pub fn execute_args(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         } else {
             println!("IdleScreen Daemon: active (via D-Bus)");
             println!("Status: {status}");
-            println!("Service (systemd): {}", if service_active { "active" } else { "inactive" });
+            println!(
+                "Service (systemd): {}",
+                if service_active { "active" } else { "inactive" }
+            );
         }
         return Ok(());
     }
@@ -54,7 +55,10 @@ pub fn execute_args(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         } else {
             println!("IdleScreen Daemon: active (via control socket)");
             println!("Response: {resp}");
-            println!("Service (systemd): {}", if service_active { "active" } else { "inactive" });
+            println!(
+                "Service (systemd): {}",
+                if service_active { "active" } else { "inactive" }
+            );
         }
         return Ok(());
     }
@@ -67,12 +71,13 @@ pub fn execute_args(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     {
         if json_mode {
             let pid = content.trim();
-            println!(
-                r#"{{"active":true,"service_active":{service_active},"pid":"{pid}"}}"#
-            );
+            println!(r#"{{"active":true,"service_active":{service_active},"pid":"{pid}"}}"#);
         } else {
             println!("IdleScreen Daemon: running (PID {})", content.trim());
-            println!("Service (systemd): {}", if service_active { "active" } else { "inactive" });
+            println!(
+                "Service (systemd): {}",
+                if service_active { "active" } else { "inactive" }
+            );
         }
         return Ok(());
     }
@@ -83,7 +88,10 @@ pub fn execute_args(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         );
     } else {
         println!("IdleScreen Daemon: inactive (not running)");
-        println!("Service (systemd): {}", if service_active { "active" } else { "inactive" });
+        println!(
+            "Service (systemd): {}",
+            if service_active { "active" } else { "inactive" }
+        );
     }
     Ok(())
 }
