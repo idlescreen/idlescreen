@@ -49,6 +49,7 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
                                 drop(guard);
                                 let preview_args = vec![
                                     "ascii".to_string(),
+                                    "--terminal".to_string(),
                                     "--mode".to_string(),
                                     model.mode.to_config_str().to_string(),
                                     "--dwell".to_string(),

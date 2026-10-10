@@ -547,7 +547,19 @@ pub fn run_wayland_fullscreen_preview(
         return Err("No layer shell or xdg_wm_base available".into());
     }
 
-    event_queue.roundtrip(&mut state)?;
+    let configure_start = Instant::now();
+    let configure_timeout = Duration::from_millis(500);
+    while !state.configured {
+        if configure_start.elapsed() >= configure_timeout {
+            return Err("Wayland surface configure negotiation timed out".into());
+        }
+        poll_and_read_events(
+            &connection,
+            &mut event_queue,
+            &mut state,
+            Duration::from_millis(50),
+        )?;
+    }
 
     let width = if state.configured_width > 0 {
         state.configured_width
