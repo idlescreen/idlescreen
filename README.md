@@ -26,28 +26,74 @@
 
 </div>
 
-The front door — one binary that routes to every IdleScreen component.
-Part of [IdleScreen](https://idlescreen.github.io) — modular Wayland
-screensavers for Linux.
+**IdleScreen** is a high-performance, resource-efficient screensaver and idle management suite for Linux.
 
-## Install
+- **0.00% CPU at idle**: Pure event-driven epoll reactor sleeping with zero periodic wakeups.
+- **Native Wayland presentation**: Hardware destination scaling via `wp_viewporter` and direct software font rasterization into `wl_shm` (<0.5ms frame time).
+- **Pure in-process default**: Built-in ASCII screensaver engine with dynamic Host OS, Desktop Environment, and Linux Kernel tri-rotation mutation across 37 effects.
+- **Multi-init first class**: Native support for systemd, OpenRC, runit, dinit, s6, and standalone supervisor.
+- **Clean split**: Optional `idlescreen-extras` helper package housing 11 legacy mathematical screensavers over anonymous kernel `socketpair` and sealed `memfd_create`.
+
+---
+
+## Installation
 
 ```sh
 curl -fsSL https://idlescreen.github.io/install.sh | sh
 ```
 
+To install the optional legacy mathematical screensavers:
+
+```sh
+sudo dnf install idlescreen-extras    # Fedora / RHEL
+sudo apt install idlescreen-extras    # Debian / Ubuntu
+```
+
+---
+
 ## Commands
 
 ```text
-idlescreen install <comp>...   install components ('all' for everything)
-idlescreen doctor [--fix]      diagnostics + repair
-idlescreen preview <name>      fullscreen saver preview
-idlescreen update              upgrade IdleScreen packages
-idlescreen tui                 runtime configuration
+idlescreen daemon            Run event-driven screensaver daemon (or start idlescreen-daemon)
+idlescreen status            Check active screensaver and daemon status
+idlescreen preview [saver]   Preview screensaver in terminal (crossterm)
+idlescreen list              List available built-in and extras screensavers
+idlescreen set <saver>       Set active screensaver (e.g. ascii, storm, aurora)
+idlescreen stop              Stop running screensaver
+idlescreen doctor            Run diagnostic check on display, sockets, and configuration
+idlescreen version           Show version information
 ```
 
-Component verbs (`components`, `remove`, `versions`) and everything else
-route through to `idle-cli` — `idlescreen --help` lists the full surface.
+---
+
+## Configuration
+
+Located at `~/.config/idlescreen/config.toml`:
+
+```toml
+[general]
+idle_timeout_secs = 300
+primary_output = ""       # Auto-detects largest resolution or compositor hint
+
+[saver.ascii]
+# Mode options:
+#  - "cycle"  (default): Randomly mutates between OS, DE, and Kernel across effects
+#  - "os":     Locks text strictly to detected Host OS (e.g., "Fedora Linux")
+#  - "de":     Locks text strictly to detected Desktop Environment (e.g., "GNOME")
+#  - "kernel": Locks text strictly to detected Linux Kernel (e.g., "Linux 6.13.5")
+#  - "custom": Locks text to user-defined `text` string below
+mode = "cycle"
+
+# Custom text override (active when mode = "custom" or when set)
+text = ""
+
+# Visual pacing & animation
+fps = 60
+dwell_secs = 5.0
+dissolve_duration_secs = 0.7
+```
+
+---
 
 ## License
 
