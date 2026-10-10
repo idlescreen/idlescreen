@@ -176,13 +176,16 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 .args(["--user", "disable", "--now", "idle-daemon.service"])
                 .status();
 
-            let remove_script = std::path::Path::new("/usr/libexec/idlescreen/remove-product-stack");
+            let remove_script =
+                std::path::Path::new("/usr/libexec/idlescreen/remove-product-stack");
             if remove_script.exists() {
                 println!("Executing product stack uninstaller...");
                 let status = std::process::Command::new("sudo")
                     .arg(remove_script)
                     .status();
-                if let Ok(s) = status && s.success() {
+                if let Ok(s) = status
+                    && s.success()
+                {
                     println!("IdleScreen product stack and configuration removed successfully.");
                 }
             } else {
