@@ -66,7 +66,7 @@ fn update_clamps_huge_dt_after_resume() {
     // update() must clamp the simulation step (<=0.1s + first-frame init)
     // rather than lurching curtains or exhausting the surge timer.
     let mut a = Aurora::new();
-    a.update(Duration::from_secs(300), 80, 24);
+    a.update(Duration::from_mins(5), 80, 24);
     assert!(
         a.time_elapsed < 1.0,
         "time_elapsed advanced by {} on a 300s dt — clamp missing",

@@ -87,7 +87,7 @@ fn update_clamps_huge_dt_after_resume() {
     // update() must clamp the simulation step (<=0.1s + first-frame init)
     // rather than teleporting particles or exhausting rockets/timers.
     let mut saver = Bursts::new();
-    saver.update(std::time::Duration::from_secs(300), 80, 24);
+    saver.update(std::time::Duration::from_mins(5), 80, 24);
     assert!(
         saver.time_elapsed < 1.0,
         "time_elapsed advanced by {} on a 300s dt — clamp missing",
