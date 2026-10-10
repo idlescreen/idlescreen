@@ -42,6 +42,21 @@ pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         opts.timeout
     };
 
+    let try_wayland =
+        !opts.terminal && (opts.fullscreen || std::env::var_os("WAYLAND_DISPLAY").is_some());
+    if try_wayland
+        && crate::wayland::presenter::run_wayland_fullscreen_preview(
+            &saver_name,
+            &eff_mode,
+            eff_dwell,
+            &eff_text,
+            timeout,
+        )
+        .is_ok()
+    {
+        return Ok(());
+    }
+
     let _guard = TerminalGuard::enter();
     let mut out = stdout();
     run_preview_loop(

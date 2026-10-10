@@ -2,10 +2,11 @@
 // Copyright 2026 IdleScreen
 
 //! Built-in ASCII screensaver engine with dynamic tri-rotation mutation
-//! and 37 visual text effects.
+//! and 37 genuine ttfx visual text effects.
 
 pub mod draw;
 pub mod effects;
+pub mod engine;
 pub mod layout;
 pub mod state;
 pub mod sys_info;
@@ -15,8 +16,8 @@ pub mod unicode;
 mod tests;
 
 use crate::cell::{LcgRng, TerminalCell};
-use draw::{paint_transition, place_banner_centered};
 use effects::{EffectKind, EffectPlaylist};
+pub use engine::EngineSession;
 use layout::{format_portrait_telemetry, is_portrait};
 use state::{TextMode, TriRotationState};
 use std::time::Duration;
@@ -32,18 +33,23 @@ pub struct Ascii {
     pub effect: EffectKind,
     pub pinned: bool,
     pub dwell_left: f32,
-    pub dwell_duration: f32,
+    pub dwell_duration: Option<f32>,
     pub elapsed_in_effect: f32,
+    pub anim_left: f32,
     pub fg: (u8, u8, u8),
     pub bg: (u8, u8, u8),
     pub last_cols: usize,
     pub last_rows: usize,
-    pub target_grid: Vec<TerminalCell>,
-    pub current_grid: Vec<TerminalCell>,
+    pub art_text: String,
+    pub current_frame: String,
+    pub frame_grid: Vec<TerminalCell>,
     pub transition_active: bool,
     pub transition_left: f32,
     pub transition_duration: f32,
     pub transition_from_grid: Vec<TerminalCell>,
+    pub engine: Option<EngineSession>,
+    pub portrait_top: Vec<String>,
+    pub portrait_bottom: Vec<String>,
 }
 
 impl Default for Ascii {
@@ -70,18 +76,23 @@ impl Ascii {
             effect,
             pinned: false,
             dwell_left: DEFAULT_DWELL_SECS,
-            dwell_duration: DEFAULT_DWELL_SECS,
+            dwell_duration: None,
             elapsed_in_effect: 0.0,
+            anim_left: 20.0,
             fg: (248, 248, 242),
             bg: (0, 0, 0),
             last_cols: 0,
             last_rows: 0,
-            target_grid: Vec::new(),
-            current_grid: Vec::new(),
+            art_text: String::new(),
+            current_frame: String::new(),
+            frame_grid: Vec::new(),
             transition_active: false,
             transition_left: 0.0,
             transition_duration: DEFAULT_DISSOLVE_SECS,
             transition_from_grid: Vec::new(),
+            engine: None,
+            portrait_top: Vec::new(),
+            portrait_bottom: Vec::new(),
         }
     }
 
@@ -93,96 +104,117 @@ impl Ascii {
 
     pub fn with_dwell(mut self, dwell: f32) -> Self {
         let d = dwell.max(0.1);
-        self.dwell_duration = d;
+        self.dwell_duration = Some(d);
         self.dwell_left = d;
         self
+    }
+
+    pub fn dwell_time(&self) -> f32 {
+        self.dwell_duration.unwrap_or_else(|| self.effect.dwell())
     }
 
     pub fn pin_effect(&mut self, effect: EffectKind) {
         self.effect = effect;
         self.pinned = true;
-        self.dwell_left = self.dwell_duration;
+        self.dwell_left = self.dwell_time();
         self.elapsed_in_effect = 0.0;
+        self.start_engine_session();
     }
 
     pub fn init(&mut self, cols: usize, rows: usize) {
         self.last_cols = cols;
         self.last_rows = rows;
         let total = cols.saturating_mul(rows);
-        self.target_grid.resize(total, TerminalCell::default());
-        self.current_grid.resize(total, TerminalCell::default());
-        self.transition_from_grid
-            .resize(total, TerminalCell::default());
-        self.rebuild_target();
+        self.frame_grid.resize(total, TerminalCell::default());
+        self.frame_grid.fill(TerminalCell::default());
+        self.transition_from_grid.clear();
+        self.transition_active = false;
+        self.transition_left = 0.0;
+        self.dwell_left = self.dwell_time();
+        self.start_engine_session();
     }
 
-    pub fn rebuild_target(&mut self) {
-        let cols = self.last_cols;
-        let rows = self.last_rows;
-        if cols == 0 || rows == 0 {
+    pub fn rebuild_art(&mut self) {
+        if self.last_cols == 0 || self.last_rows == 0 {
+            self.art_text.clear();
             return;
         }
-        let total = cols * rows;
-        self.target_grid.fill(TerminalCell::default());
-
         let active_text = self.rotation.active_text();
-        let banner = self
-            .rotation
-            .atlas_cache
-            .get_or_render(&active_text, None, cols, rows);
-
-        let (_bx, _by, _bw, _bh) = place_banner_centered(
-            &mut self.target_grid,
-            cols,
-            rows,
-            &banner.lines,
-            self.fg,
-            self.bg,
+        let banner = self.rotation.atlas_cache.get_or_render(
+            &active_text,
+            None,
+            self.last_cols,
+            self.last_rows,
         );
+        if !banner.lines.is_empty() && banner.lines.iter().any(|l| !l.trim().is_empty()) {
+            self.art_text = banner.lines.join("\n");
+        } else if !active_text.trim().is_empty() {
+            self.art_text = active_text;
+        } else {
+            self.art_text = "IDLESCREEN".to_string();
+        }
+    }
 
-        // Portrait mode telemetry
-        if is_portrait(cols, rows) {
+    pub fn start_engine_session(&mut self) {
+        self.current_frame.clear();
+        self.frame_grid.fill(TerminalCell::default());
+        if self.last_cols == 0 || self.last_rows == 0 {
+            self.engine = None;
+            return;
+        }
+        self.anim_left = (self.dwell_time() * 2.5).clamp(1.0, 30.0);
+        self.rebuild_art();
+        if is_portrait(self.last_cols, self.last_rows) {
             let telemetry = query_telemetry();
-            let (top_lines, bottom_lines) = format_portrait_telemetry(&telemetry, cols);
-            // Place top lines near row 1-2
-            for (i, line) in top_lines.iter().enumerate() {
-                let y = 1 + i;
-                if y < rows {
-                    for (x, ch) in line.chars().enumerate() {
-                        if x < cols {
-                            let idx = y * cols + x;
-                            if idx < total && ch != ' ' {
-                                self.target_grid[idx] = TerminalCell {
-                                    ch,
-                                    fg: (160, 160, 160),
-                                    bg: self.bg,
-                                    bold: false,
-                                };
-                            }
-                        }
-                    }
-                }
+            let (top, bottom) = format_portrait_telemetry(&telemetry, self.last_cols);
+            self.portrait_top = top;
+            self.portrait_bottom = bottom;
+        } else {
+            self.portrait_top.clear();
+            self.portrait_bottom.clear();
+        }
+        if self.art_text.trim().is_empty() {
+            self.engine = None;
+            return;
+        }
+        let seed = self.rng.next_u64();
+        self.engine = EngineSession::new(
+            &self.art_text,
+            self.effect,
+            self.last_cols,
+            self.last_rows,
+            seed,
+        );
+        if let Some(ref mut session) = self.engine {
+            if let Some(frame) = session.next_frame() {
+                self.current_frame.clear();
+                self.current_frame.push_str(&frame);
+                draw::paint_frame(
+                    &self.current_frame,
+                    &mut self.frame_grid,
+                    self.last_cols,
+                    self.last_rows,
+                    self.fg,
+                    self.bg,
+                );
             }
-            // Place bottom lines near rows - 3
-            let start_bottom = rows.saturating_sub(bottom_lines.len() + 1);
-            for (i, line) in bottom_lines.iter().enumerate() {
-                let y = start_bottom + i;
-                if y < rows {
-                    for (x, ch) in line.chars().enumerate() {
-                        if x < cols {
-                            let idx = y * cols + x;
-                            if idx < total && ch != ' ' {
-                                self.target_grid[idx] = TerminalCell {
-                                    ch,
-                                    fg: (160, 160, 160),
-                                    bg: self.bg,
-                                    bold: false,
-                                };
-                            }
-                        }
-                    }
-                }
-            }
+        } else {
+            // Fallback for dimensions where ttfx cannot initialize: place centered banner
+            let active_text = self.rotation.active_text();
+            let banner = self.rotation.atlas_cache.get_or_render(
+                &active_text,
+                None,
+                self.last_cols,
+                self.last_rows,
+            );
+            let _ = draw::place_banner_centered(
+                &mut self.frame_grid,
+                self.last_cols,
+                self.last_rows,
+                &banner.lines,
+                self.fg,
+                self.bg,
+            );
         }
     }
 
@@ -199,55 +231,138 @@ impl Ascii {
             if self.transition_left <= 0.0 {
                 self.transition_active = false;
                 self.transition_left = 0.0;
+                self.transition_from_grid.clear();
             }
         }
 
-        self.dwell_left -= dt_secs;
-        if self.dwell_left <= 0.0 && !self.pinned {
-            // Initiate transition to next effect and next brand target
-            self.transition_active = true;
-            self.transition_left = self.transition_duration;
-            self.transition_from_grid
-                .copy_from_slice(&self.current_grid);
-
-            self.rotation.advance_mutation(&mut self.rng);
-            self.effect = self.playlist.next_effect(&mut self.rng);
-            self.dwell_left = self.dwell_duration;
-            self.elapsed_in_effect = 0.0;
-            self.rebuild_target();
+        if let Some(ref mut session) = self.engine {
+            self.anim_left -= dt_secs;
+            let frame = if self.anim_left > 0.0 {
+                session.next_frame()
+            } else {
+                None
+            };
+            if let Some(frame) = frame {
+                self.current_frame.clear();
+                self.current_frame.push_str(&frame);
+                draw::paint_frame(
+                    &self.current_frame,
+                    &mut self.frame_grid,
+                    cols,
+                    rows,
+                    self.fg,
+                    self.bg,
+                );
+            } else {
+                // Animation complete: drop session and dwell on settled frame
+                self.engine = None;
+                self.dwell_left = self.dwell_time();
+            }
+        } else {
+            // Banner is settled: countdown dwell
+            self.dwell_left -= dt_secs;
+            if self.dwell_left <= 0.0 && !self.transition_active && !self.pinned {
+                self.begin_transition();
+            }
         }
+    }
 
-        // Render the current effect into current_grid
-        self.effect.render(
-            &self.target_grid,
-            &mut self.current_grid,
-            cols,
-            rows,
-            self.elapsed_in_effect,
-        );
+    pub fn begin_transition(&mut self) {
+        if self.frame_grid.is_empty() {
+            self.cycle_effect();
+            return;
+        }
+        self.transition_from_grid.clone_from(&self.frame_grid);
+        let dur = DEFAULT_DISSOLVE_SECS.min(self.dwell_time() * 0.4);
+        self.transition_duration = dur;
+        self.transition_left = dur;
+        self.transition_active = true;
+        self.cycle_effect();
+    }
+
+    pub fn cycle_effect(&mut self) {
+        self.rotation.advance_mutation(&mut self.rng);
+        if !self.pinned {
+            self.effect = self.playlist.next_effect(&mut self.rng);
+        }
+        self.dwell_left = self.dwell_time();
+        self.elapsed_in_effect = 0.0;
+        self.start_engine_session();
     }
 
     pub fn draw(&self, grid: &mut [TerminalCell], cols: usize, rows: usize) {
         let total = cols * rows;
-        let n = total.min(grid.len()).min(self.current_grid.len());
+        let n = total.min(grid.len()).min(self.frame_grid.len());
         if n == 0 {
+            grid.fill(TerminalCell::default());
             return;
         }
 
-        if self.transition_active && !self.transition_from_grid.is_empty() {
-            let t = 1.0 - (self.transition_left / self.transition_duration).clamp(0.0, 1.0);
-            paint_transition(
+        if self.transition_active
+            && !self.transition_from_grid.is_empty()
+            && self.transition_from_grid.len() == grid.len()
+            && self.frame_grid.len() == grid.len()
+        {
+            let t = if self.transition_duration > 0.0 {
+                (1.0 - (self.transition_left / self.transition_duration)).clamp(0.0, 1.0)
+            } else {
+                1.0
+            };
+            draw::paint_transition(
                 &self.transition_from_grid,
-                &self.current_grid,
+                &self.frame_grid,
                 grid,
                 t,
                 cols,
                 rows,
             );
-        } else {
-            grid[..n].copy_from_slice(&self.current_grid[..n]);
+        } else if !self.frame_grid.is_empty() {
+            let n = self.frame_grid.len().min(grid.len());
+            grid[..n].copy_from_slice(&self.frame_grid[..n]);
             if grid.len() > n {
                 grid[n..].fill(TerminalCell::default());
+            }
+        } else {
+            grid.fill(TerminalCell::default());
+        }
+
+        if is_portrait(cols, rows) {
+            for (i, line) in self.portrait_top.iter().enumerate() {
+                let y = 1 + i;
+                if y < rows {
+                    for (x, ch) in line.chars().enumerate() {
+                        if x < cols {
+                            let idx = y * cols + x;
+                            if idx < grid.len() && ch != ' ' {
+                                grid[idx] = TerminalCell {
+                                    ch,
+                                    fg: (160, 160, 160),
+                                    bg: self.bg,
+                                    bold: false,
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            let start_bottom = rows.saturating_sub(self.portrait_bottom.len() + 1);
+            for (i, line) in self.portrait_bottom.iter().enumerate() {
+                let y = start_bottom + i;
+                if y < rows {
+                    for (x, ch) in line.chars().enumerate() {
+                        if x < cols {
+                            let idx = y * cols + x;
+                            if idx < grid.len() && ch != ' ' {
+                                grid[idx] = TerminalCell {
+                                    ch,
+                                    fg: (160, 160, 160),
+                                    bg: self.bg,
+                                    bold: false,
+                                };
+                            }
+                        }
+                    }
+                }
             }
         }
     }

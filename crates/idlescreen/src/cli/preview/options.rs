@@ -13,6 +13,8 @@ pub struct PreviewOptions {
     pub mode: Option<String>,
     pub dwell: Option<f32>,
     pub text: Option<String>,
+    pub fullscreen: bool,
+    pub terminal: bool,
 }
 
 /// Parses CLI arguments for the preview subcommand.
@@ -24,6 +26,8 @@ pub fn parse_preview_args(
     let mut mode = None;
     let mut dwell = None;
     let mut text = None;
+    let mut fullscreen = false;
+    let mut terminal = false;
     let mut iter = args.iter().peekable();
 
     while let Some(arg) = iter.next() {
@@ -31,6 +35,12 @@ pub fn parse_preview_args(
             "-h" | "--help" => {
                 print_preview_help();
                 return Ok(None);
+            }
+            "-f" | "--fullscreen" => {
+                fullscreen = true;
+            }
+            "--terminal" => {
+                terminal = true;
             }
             "-t" | "--timeout" => {
                 let val = iter
@@ -99,16 +109,20 @@ pub fn parse_preview_args(
         mode,
         dwell,
         text,
+        fullscreen,
+        terminal,
     }))
 }
 
 fn print_preview_help() {
-    println!("idlescreen preview — Preview screensavers in terminal");
+    println!("idlescreen preview — Preview screensavers on display or in terminal");
     println!();
     println!("Usage:");
     println!("  idlescreen preview [saver] [options]");
     println!();
     println!("Options:");
+    println!("  -f, --fullscreen       Open borderless fullscreen Wayland surface across monitor");
+    println!("      --terminal         Force terminal crossterm mode (skip Wayland surface)");
     println!("  -t, --timeout <secs>   Automatically exit after <secs> seconds");
     println!("  -d, --dwell <secs>     Dwell duration in seconds per effect/mutation");
     println!("  -m, --mode <mode>      Text mode: cycle (default), os, de, kernel, custom");
@@ -116,7 +130,10 @@ fn print_preview_help() {
     println!("  -h, --help             Show this help message");
     println!();
     println!("Examples:");
-    println!("  idlescreen preview                 # Preview active screensaver");
+    println!(
+        "  idlescreen preview                 # Preview active screensaver (Wayland fullscreen)"
+    );
+    println!("  idlescreen preview --terminal      # Preview in terminal crossterm grid");
     println!("  idlescreen preview --dwell 2       # Rotate text/effects every 2s");
     println!("  idlescreen preview --mode kernel   # Preview kernel version text");
     println!("  idlescreen preview storm           # Preview 'storm' screensaver");
@@ -136,6 +153,8 @@ mod tests {
         assert_eq!(opts.mode, None);
         assert_eq!(opts.dwell, None);
         assert_eq!(opts.text, None);
+        assert!(!opts.fullscreen);
+        assert!(!opts.terminal);
     }
 
     #[test]
@@ -148,6 +167,8 @@ mod tests {
     #[test]
     fn test_parse_preview_args_all_flags() {
         let args = vec![
+            "--fullscreen".to_string(),
+            "--terminal".to_string(),
             "--timeout".to_string(),
             "3.5".to_string(),
             "--dwell".to_string(),
@@ -158,6 +179,8 @@ mod tests {
             "hello".to_string(),
         ];
         let opts = parse_preview_args(&args).unwrap().unwrap();
+        assert!(opts.fullscreen);
+        assert!(opts.terminal);
         assert_eq!(opts.timeout, Some(Duration::from_millis(3500)));
         assert_eq!(opts.dwell, Some(2.0));
         assert_eq!(opts.mode.as_deref(), Some("kernel"));

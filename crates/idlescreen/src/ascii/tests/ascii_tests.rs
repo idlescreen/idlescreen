@@ -5,10 +5,19 @@ use super::super::Ascii;
 use super::super::effects::EffectKind;
 use super::super::state::{BrandTarget, TextMode};
 use crate::cell::{LcgRng, TerminalCell};
+use clap::Parser;
 use std::time::Duration;
 
 const COLS: usize = 80;
 const ROWS: usize = 24;
+
+fn step(saver: &mut Ascii, frames: usize) {
+    let mut grid = vec![TerminalCell::default(); COLS * ROWS];
+    for _ in 0..frames {
+        saver.update(Duration::from_millis(16), COLS, ROWS);
+        saver.draw(&mut grid, COLS, ROWS);
+    }
+}
 
 #[test]
 fn every_effect_survives_running_without_panicking() {
@@ -103,4 +112,103 @@ fn non_custom_mode_ignores_custom_text() {
     let mut saver = Ascii::new().with_mode(TextMode::Os, Some("IGNORED_CUSTOM".to_string()));
     saver.init(COLS, ROWS);
     assert_eq!(saver.rotation.active_text(), saver.rotation.os_name);
+}
+
+#[rustfmt::skip]
+const ALL_37_NAMES: &[&str] = &[
+    "beams", "binarypath", "blackhole", "bouncyballs", "bubbles", "burn",
+    "colorshift", "crumble", "decrypt", "errorcorrect", "expand", "fireworks",
+    "highlight", "laseretch", "matrix", "middleout", "orbittingvolley",
+    "overflow", "pour", "print", "rain", "randomsequence", "rings",
+    "scattered", "slice", "slide", "smoke", "spotlights", "spray",
+    "swarm", "sweep", "synthgrid", "thunderstorm", "unstable", "vhstape",
+    "waves", "wipe",
+];
+
+#[test]
+fn all_37_effects_can_be_parsed() {
+    assert_eq!(ALL_37_NAMES.len(), 37);
+    for name in ALL_37_NAMES {
+        let cli = ttfx::cli::Cli::try_parse_from(["ttfx", name]).unwrap();
+        assert!(cli.effect.is_some(), "failed to parse effect: {name}");
+        let kind = EffectKind::parse(name);
+        assert!(kind.is_some(), "EffectKind::parse failed for {name}");
+    }
+}
+
+#[test]
+fn all_37_effects_can_build_and_render_frames() {
+    let art_data = "IDLESCREEN\nSCREENSAVER";
+    for name in ALL_37_NAMES {
+        let cli = ttfx::cli::Cli::try_parse_from(["ttfx", name]).unwrap();
+        let mut config = cli.terminal_config();
+        let cmd = cli.effect.unwrap();
+        let mut effect = cmd.build_effect();
+        config.canvas_width = 80;
+        config.canvas_height = 24;
+        config.ignore_terminal_dimensions = true;
+        config.anchor_text = ttfx::engine::canvas::Anchor::C;
+        let clock = ttfx::engine::ctx::Clock::virtual_with_frame_rate(60);
+        let rng = ttfx::utils::rng::Rng::seeded(42);
+        let mut ctx = ttfx::engine::ctx::EngineCtx::new(art_data, config, rng, clock).unwrap();
+        effect.build(&mut ctx).unwrap();
+        for _ in 0..5 {
+            let _ = effect.next_frame(&mut ctx);
+        }
+    }
+}
+
+#[test]
+fn effect_dwells_on_settled_frame_before_restarting() {
+    let mut saver = Ascii::new().with_dwell(5.0);
+    saver.init(COLS, ROWS);
+    saver.pin_effect(EffectKind::Wipe);
+    let mut grid = vec![TerminalCell::default(); COLS * ROWS];
+    for _ in 0..160 {
+        saver.update(Duration::from_millis(16), COLS, ROWS);
+        saver.draw(&mut grid, COLS, ROWS);
+    }
+    assert!(saver.engine.is_none());
+    assert!(!saver.current_frame.is_empty());
+    assert!(grid.iter().any(|c| c.ch != ' '));
+}
+
+#[test]
+fn playlist_rotates_all_37_effects_without_immediate_repeats() {
+    let mut rng = LcgRng::new(42);
+    let mut playlist = super::super::effects::EffectPlaylist::new();
+    let mut last = None;
+    for _ in 0..50 {
+        let mut cycle = Vec::with_capacity(37);
+        for _ in 0..37 {
+            let eff = playlist.next_effect(&mut rng);
+            if let Some(prev) = last {
+                assert_ne!(eff, prev, "no immediate repeat across cycles");
+            }
+            last = Some(eff);
+            cycle.push(eff);
+        }
+        cycle.sort_by_key(EffectKind::name);
+        cycle.dedup();
+        assert_eq!(cycle.len(), 37, "all 37 effects must play in each cycle");
+    }
+}
+
+#[test]
+fn smooth_transition_and_resize_without_panics() {
+    let mut saver = Ascii::new().with_dwell(5.0);
+    saver.init(COLS, ROWS);
+    saver.pin_effect(EffectKind::Wipe);
+    step(&mut saver, 160);
+    saver.begin_transition();
+    assert!(saver.transition_active);
+    let mut grid = vec![TerminalCell::default(); COLS * ROWS];
+    saver.draw(&mut grid, COLS, ROWS);
+    assert!(grid.iter().any(|c| c.ch != ' '));
+
+    // Resize during active transition must not panic
+    saver.update(Duration::from_millis(16), 100, 30);
+    let mut new_grid = vec![TerminalCell::default(); 100 * 30];
+    saver.draw(&mut new_grid, 100, 30);
+    assert_eq!(new_grid.len(), 3000);
 }

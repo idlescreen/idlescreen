@@ -71,7 +71,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Connect to session D-Bus and register interfaces if available
-    let _dbus_conn = zbus::blocking::connection::Builder::session()
+    let dbus_conn = zbus::blocking::connection::Builder::session()
         .ok()
         .and_then(|builder| {
             builder
@@ -97,13 +97,19 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                 .ok()
         });
 
+    let mutter_proxy = dbus_conn
+        .as_ref()
+        .and_then(|conn| crate::daemon::gnome::MutterIdleMonitorProxyBlocking::new(conn).ok());
+
     let mut events = [libc::epoll_event { events: 0, u64: 0 }; 16];
     let mut running = true;
+    let mut presenter_handle: Option<std::thread::JoinHandle<()>> = None;
+    let idle_timeout_ms = config.general.idle_timeout_secs * 1000;
 
     // Main event loop
     while running && reactor.running {
-        // Sleep in epoll_wait indefinitely (-1) for pure event-driven reactor (0.00% CPU at idle)
-        let num_events = match reactor.poll_events(&mut events, -1) {
+        // Sleep in epoll_wait (1000ms timeout for periodic idle check and heartbeat)
+        let num_events = match reactor.poll_events(&mut events, 1000) {
             Ok(n) => n,
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
             Err(e) => {
@@ -162,13 +168,46 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                 break;
             }
         }
+
+        // Periodic Mutter idle check on GNOME
+        if mutter_proxy
+            .as_ref()
+            .and_then(|m| m.get_idletime().ok())
+            .is_some_and(|t| t >= idle_timeout_ms)
+            && !state.is_inhibited()
+        {
+            state
+                .active
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+
+        // Launch Wayland screensaver presentation when active
+        if state.active.load(std::sync::atomic::Ordering::SeqCst) {
+            let needs_spawn = presenter_handle
+                .as_ref()
+                .is_none_or(std::thread::JoinHandle::is_finished);
+            if needs_spawn {
+                let st = state.clone();
+                let dwell = config.saver.ascii.dwell_secs;
+                let mode = config.saver.ascii.mode.clone();
+                let text = config.saver.ascii.text.clone();
+                presenter_handle = Some(std::thread::spawn(move || {
+                    let _ = crate::wayland::run_wayland_daemon_presenter(st, dwell, &mode, &text);
+                }));
+            }
+        }
+    }
+
+    // Clean shutdown - notify systemd immediately upon exit signal
+    notify_stopping();
+    state.stop();
+    if let Some(h) = presenter_handle.take() {
+        let _ = h.join();
     }
 
     if sfd >= 0 {
         unsafe { libc::close(sfd) };
     }
 
-    // Clean shutdown
-    notify_stopping();
     Ok(())
 }

@@ -7,11 +7,13 @@
 pub mod blit;
 pub mod dpms;
 pub mod fractional;
+pub mod presenter;
 pub mod surface;
 pub mod viewport;
 
 pub use blit::blit_cells_to_argb;
 pub use dpms::{DpmsController, OutputPowerMode};
 pub use fractional::calculate_buffer_size;
+pub use presenter::{run_wayland_daemon_presenter, run_wayland_fullscreen_preview};
 pub use surface::{OutputInfo, OutputRegistry, PresentationSession, SessionState};
 pub use viewport::SurfaceViewport;
