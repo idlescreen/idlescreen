@@ -74,10 +74,8 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     let dbus_conn = zbus::blocking::connection::Builder::session()
         .ok()
         .and_then(|builder| {
-            builder
+            let conn = builder
                 .name("io.github.idlescreen.Idle")
-                .ok()?
-                .name("org.freedesktop.ScreenSaver")
                 .ok()?
                 .serve_at(
                     "/io/github/idlescreen/Idle",
@@ -94,7 +92,12 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .ok()?
                 .build()
-                .ok()
+                .ok()?;
+            // Best-effort registration of generic org.freedesktop.ScreenSaver name.
+            // On desktops like GNOME, gsd-screensaver-proxy already owns this name;
+            // failure to acquire it is normal and must not prevent idlescreen from running.
+            let _ = conn.request_name("org.freedesktop.ScreenSaver");
+            Some(conn)
         });
 
     let mutter_proxy = dbus_conn
