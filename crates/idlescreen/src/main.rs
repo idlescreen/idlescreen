@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match bin_name {
         "idlescreen-daemon" | "idle-daemon" => idlescreen::daemon::run_daemon(),
+        "idlescreen-tui" | "idle-tui" => idlescreen::tui::run_tui(),
         _ => {
             let cli_args = if args.len() > 1 { &args[1..] } else { &[] };
             idlescreen::cli::run_cli(cli_args)

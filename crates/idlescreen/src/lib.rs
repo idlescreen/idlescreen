@@ -8,4 +8,5 @@ pub mod cell;
 pub mod cli;
 pub mod daemon;
 pub mod extras_ipc;
+pub mod tui;
 pub mod wayland;

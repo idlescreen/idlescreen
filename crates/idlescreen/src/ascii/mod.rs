@@ -91,6 +91,13 @@ impl Ascii {
         self
     }
 
+    pub fn with_dwell(mut self, dwell: f32) -> Self {
+        let d = dwell.max(0.1);
+        self.dwell_duration = d;
+        self.dwell_left = d;
+        self
+    }
+
     pub fn pin_effect(&mut self, effect: EffectKind) {
         self.effect = effect;
         self.pinned = true;

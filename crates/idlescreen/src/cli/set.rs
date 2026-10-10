@@ -16,14 +16,14 @@ pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>
     let Some(saver) = saver_arg else {
         eprintln!("Usage: idlescreen set <saver_name>");
         eprintln!("Available savers: {}", ALL_KNOWN_SAVERS.join(", "));
-        std::process::exit(1);
+        return Err("missing screensaver name argument".into());
     };
 
     let saver_clean = saver.trim().to_lowercase();
     if !ALL_KNOWN_SAVERS.contains(&saver_clean.as_str()) {
         eprintln!("Unknown screensaver: '{saver}'");
         eprintln!("Available savers: {}", ALL_KNOWN_SAVERS.join(", "));
-        std::process::exit(1);
+        return Err(format!("unknown screensaver '{saver}'").into());
     }
 
     let mut notified_daemon = false;

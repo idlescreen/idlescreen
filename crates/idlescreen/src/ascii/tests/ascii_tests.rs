@@ -80,3 +80,27 @@ fn custom_mode_locks_text() {
     saver.init(COLS, ROWS);
     assert_eq!(saver.rotation.active_text(), "CUSTOM_BRAND");
 }
+
+#[test]
+fn text_mode_parse_and_labels() {
+    assert_eq!(TextMode::parse("os"), TextMode::Os);
+    assert_eq!(TextMode::parse("Host OS"), TextMode::Os);
+    assert_eq!(TextMode::parse("de"), TextMode::De);
+    assert_eq!(TextMode::parse("kernel"), TextMode::Kernel);
+    assert_eq!(TextMode::parse("Linux Kernel"), TextMode::Kernel);
+    assert_eq!(TextMode::parse("custom"), TextMode::Custom);
+    assert_eq!(TextMode::parse("cycle"), TextMode::Cycle);
+
+    assert_eq!(TextMode::Os.as_str(), "os");
+    assert_eq!(TextMode::De.as_str(), "de");
+    assert_eq!(TextMode::Kernel.as_str(), "kernel");
+    assert_eq!(TextMode::Cycle.as_str(), "cycle");
+    assert_eq!(TextMode::Custom.as_str(), "custom");
+}
+
+#[test]
+fn non_custom_mode_ignores_custom_text() {
+    let mut saver = Ascii::new().with_mode(TextMode::Os, Some("IGNORED_CUSTOM".to_string()));
+    saver.init(COLS, ROWS);
+    assert_eq!(saver.rotation.active_text(), saver.rotation.os_name);
+}

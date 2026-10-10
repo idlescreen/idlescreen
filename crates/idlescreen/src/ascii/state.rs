@@ -19,11 +19,31 @@ pub enum TextMode {
 impl TextMode {
     pub fn parse(s: &str) -> Self {
         match s.trim().to_ascii_lowercase().as_str() {
-            "os" => TextMode::Os,
-            "de" => TextMode::De,
-            "kernel" => TextMode::Kernel,
-            "custom" => TextMode::Custom,
+            "os" | "host os" | "host" => TextMode::Os,
+            "de" | "desktop" | "desktop env" | "desktop environment" => TextMode::De,
+            "kernel" | "linux kernel" | "linux" => TextMode::Kernel,
+            "custom" | "custom text" | "text" => TextMode::Custom,
             _ => TextMode::Cycle,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TextMode::Cycle => "cycle",
+            TextMode::Os => "os",
+            TextMode::De => "de",
+            TextMode::Kernel => "kernel",
+            TextMode::Custom => "custom",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            TextMode::Cycle => "All 3 (Cycle)",
+            TextMode::Os => "Host OS",
+            TextMode::De => "Desktop Environment",
+            TextMode::Kernel => "Linux Kernel",
+            TextMode::Custom => "Custom Text",
         }
     }
 }
@@ -175,16 +195,16 @@ impl TriRotationState {
     }
 
     pub fn active_text(&self) -> String {
-        if let Some(ref custom) = self.custom_text
-            && !custom.trim().is_empty()
-        {
-            return custom.trim().to_string();
-        }
         match self.mode {
-            TextMode::Custom => self
-                .custom_text
-                .clone()
-                .unwrap_or_else(|| self.os_name.clone()),
+            TextMode::Custom => {
+                if let Some(ref custom) = self.custom_text
+                    && !custom.trim().is_empty()
+                {
+                    custom.trim().to_string()
+                } else {
+                    self.os_name.clone()
+                }
+            }
             TextMode::Os => self.os_name.clone(),
             TextMode::De => self.de_name.clone(),
             TextMode::Kernel => self.kernel_version.clone(),
