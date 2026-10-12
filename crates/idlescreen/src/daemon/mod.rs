@@ -139,10 +139,10 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
 
     // Main event loop
     while running && reactor.running {
-        // When driven by Mutter watch signals, sleep with long timeout (5s idle, 4s watchdog keeper refresh).
-        // Eliminates 95% of wakeups, keeping the CPU in deep C6/C7 sleep states while state changes wake via eventfd.
+        // When driven by Mutter watch signals, sleep indefinitely (-1) or refresh watchdog keeper (4s).
+        // Eliminates up to 100% of periodic polling wakeups, allowing CPU to stay in deep C6/C7 sleep states.
         let poll_timeout = if mutter_idle_active {
-            if watchdog_active { 4000 } else { 5000 }
+            if watchdog_active { 4000 } else { -1 }
         } else {
             250
         };

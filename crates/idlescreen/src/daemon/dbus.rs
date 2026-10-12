@@ -103,6 +103,7 @@ impl ScreenSaverState {
     pub fn set_text_targets(&self, targets: &[String]) {
         if let Ok(mut t) = self.text_targets.lock() {
             *t = targets.to_vec();
+            self.custom_text_epoch.fetch_add(1, Ordering::Release);
         }
         let cfg_dir = crate::daemon::config::resolve_config_dir();
         let toml_path = cfg_dir.join("config.toml");

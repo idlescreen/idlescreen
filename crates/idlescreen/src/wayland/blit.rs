@@ -116,14 +116,28 @@ pub fn blit_cells_to_argb(
     let char_w = (pixel_w / cols).max(1);
     let char_h = (pixel_h / rows).max(1);
 
-    // Precompute glyph row and column coordinate lookup tables
-    // Eliminates millions of inner-loop divisions per frame
-    let row_lut: Vec<usize> = (0..char_h)
-        .map(|dy| ((dy * GLYPH_HEIGHT) / char_h).min(GLYPH_HEIGHT - 1))
-        .collect();
-    let col_lut: Vec<usize> = (0..char_w)
-        .map(|dx| ((dx * GLYPH_WIDTH) / char_w).min(7))
-        .collect();
+    // Precompute glyph row and column coordinate lookup tables without heap allocations
+    // Eliminates per-frame heap churn and millions of inner-loop divisions
+    let mut row_lut_stack = [0usize; 512];
+    let mut col_lut_stack = [0usize; 512];
+    let (row_lut_heap, col_lut_heap);
+    let (row_lut, col_lut): (&[usize], &[usize]) = if char_h <= 512 && char_w <= 512 {
+        for dy in 0..char_h {
+            row_lut_stack[dy] = ((dy * GLYPH_HEIGHT) / char_h).min(GLYPH_HEIGHT - 1);
+        }
+        for dx in 0..char_w {
+            col_lut_stack[dx] = ((dx * GLYPH_WIDTH) / char_w).min(7);
+        }
+        (&row_lut_stack[..char_h], &col_lut_stack[..char_w])
+    } else {
+        row_lut_heap = (0..char_h)
+            .map(|dy| ((dy * GLYPH_HEIGHT) / char_h).min(GLYPH_HEIGHT - 1))
+            .collect::<Vec<_>>();
+        col_lut_heap = (0..char_w)
+            .map(|dx| ((dx * GLYPH_WIDTH) / char_w).min(7))
+            .collect::<Vec<_>>();
+        (&row_lut_heap[..], &col_lut_heap[..])
+    };
 
     for cy in 0..rows {
         for cx in 0..cols {
@@ -194,5 +208,48 @@ mod tests {
 
         // Check that top-left pixel is painted white (0xFFFFFFFF)
         assert_eq!(buffer[0], 0xFFFF_FFFF);
+    }
+
+    #[test]
+    fn test_blit_zero_dimensions() {
+        let mut buffer = vec![0u32; 100];
+        let cells = vec![TerminalCell::default(); 10];
+        blit_cells_to_argb(&cells, 0, 5, &mut buffer, 10, 10);
+        blit_cells_to_argb(&cells, 5, 0, &mut buffer, 10, 10);
+        blit_cells_to_argb(&cells, 5, 5, &mut buffer, 0, 10);
+        blit_cells_to_argb(&cells, 5, 5, &mut buffer, 10, 0);
+        assert_eq!(buffer[0], 0);
+    }
+
+    #[test]
+    fn test_blit_scaled_dimensions() {
+        let cols = 4;
+        let rows = 4;
+        let pixel_w = 80; // 20 px/char
+        let pixel_h = 120; // 30 px/char
+        let mut buffer = vec![0u32; pixel_w * pixel_h];
+        let mut cells = vec![TerminalCell::default(); cols * rows];
+        cells[0].ch = '█';
+        cells[0].fg = (200, 100, 50);
+
+        blit_cells_to_argb(&cells, cols, rows, &mut buffer, pixel_w, pixel_h);
+        // Verify pixel within first cell has expected color (0xFFC86432)
+        assert_eq!(buffer[0], 0xFFC8_6432);
+        assert_eq!(buffer[pixel_w * 15 + 10], 0xFFC8_6432);
+    }
+
+    #[test]
+    fn test_blit_extreme_resolution_fallback() {
+        let cols = 1;
+        let rows = 1;
+        let pixel_w = 600; // > 512 triggers heap fallback
+        let pixel_h = 600;
+        let mut buffer = vec![0u32; pixel_w * pixel_h];
+        let mut cells = vec![TerminalCell::default(); 1];
+        cells[0].ch = '█';
+        cells[0].fg = (255, 0, 0);
+
+        blit_cells_to_argb(&cells, cols, rows, &mut buffer, pixel_w, pixel_h);
+        assert_eq!(buffer[0], 0xFFFF_0000);
     }
 }
