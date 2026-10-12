@@ -8,6 +8,7 @@ pub mod list;
 pub mod preview;
 pub mod set;
 pub mod status;
+pub mod text;
 
 use crate::daemon::control_sock::ControlClient;
 
@@ -24,6 +25,7 @@ pub fn print_help() {
     println!("  status            Check active screensaver and daemon status");
     println!("  tui               Interactive settings dashboard for screensaver and timeouts");
     println!("  preview [saver]   Preview screensaver in terminal (crossterm)");
+    println!("  text [targets]    Set or inspect ASCII text targets (e.g. fedora, os,de, idlescreen, status)");
     println!("  list              List available built-in and extras screensavers");
     println!("  set <saver>       Set active screensaver (e.g. ascii, storm, aurora)");
     println!("  start             Activate screensaver immediately");
@@ -56,6 +58,10 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         "preview" => {
             let preview_args = if args.len() > 1 { &args[1..] } else { &[] };
             preview::execute(preview_args)
+        }
+        "text" => {
+            let text_args = if args.len() > 1 { &args[1..] } else { &[] };
+            text::execute(text_args)
         }
         "list" => list::execute(),
         "set" => {

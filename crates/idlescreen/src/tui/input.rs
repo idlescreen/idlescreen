@@ -105,7 +105,7 @@ fn handle_normal_navigation(model: &mut TuiModel, key: KeyEvent) -> TuiAction {
             TuiAction::None
         }
         KeyCode::Char('4') => {
-            model.select_mode(ModeChoice::All3Cycle);
+            model.select_mode(ModeChoice::Wordmark);
             TuiAction::None
         }
         KeyCode::Char('5') => {
@@ -120,8 +120,7 @@ fn handle_normal_navigation(model: &mut TuiModel, key: KeyEvent) -> TuiAction {
         KeyCode::Char('q' | 'Q') | KeyCode::Esc => TuiAction::Quit,
         KeyCode::Char(' ') | KeyCode::Enter => match model.current_field() {
             TuiField::ModeChoice(idx) => {
-                model.mode = ModeChoice::ALL[idx];
-                model.dirty = true;
+                model.toggle_target(idx);
                 TuiAction::None
             }
             TuiField::CustomText => {

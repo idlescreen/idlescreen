@@ -21,6 +21,8 @@ pub struct ScreenSaverState {
     pub inhibitors: Mutex<Vec<InhibitEntry>>,
     pub cookie_counter: AtomicU32,
     pub current_saver: Mutex<String>,
+    pub text_targets: Mutex<Vec<String>>,
+    pub custom_text: Mutex<String>,
 }
 
 impl Default for ScreenSaverState {
@@ -31,12 +33,15 @@ impl Default for ScreenSaverState {
 
 impl ScreenSaverState {
     pub fn new() -> Self {
+        let cfg = crate::daemon::config::Config::load_or_migrate();
         Self {
             active: AtomicBool::new(false),
             started_at: Mutex::new(None),
             inhibitors: Mutex::new(Vec::new()),
             cookie_counter: AtomicU32::new(1),
-            current_saver: Mutex::new("ascii".to_string()),
+            current_saver: Mutex::new(cfg.saver.active.unwrap_or_else(|| "ascii".to_string())),
+            text_targets: Mutex::new(cfg.saver.ascii.targets),
+            custom_text: Mutex::new(cfg.saver.ascii.text),
         }
     }
 
@@ -58,6 +63,39 @@ impl ScreenSaverState {
     pub fn set_saver(&self, name: String) {
         if let Ok(mut saver) = self.current_saver.lock() {
             *saver = name;
+        }
+    }
+
+    pub fn get_text_targets(&self) -> Vec<String> {
+        self.text_targets.lock().map(|t| t.clone()).unwrap_or_default()
+    }
+
+    pub fn set_text_targets(&self, targets: &[String]) {
+        if let Ok(mut t) = self.text_targets.lock() {
+            *t = targets.to_vec();
+        }
+        let cfg_dir = crate::daemon::config::resolve_config_dir();
+        let toml_path = cfg_dir.join("config.toml");
+        let mut config = crate::daemon::config::Config::load_or_migrate();
+        config.saver.ascii.targets = targets.to_vec();
+        config.saver.ascii.mode = targets.join(",");
+        if let Ok(s) = toml::to_string_pretty(&config) {
+            let _ = std::fs::create_dir_all(&cfg_dir);
+            let _ = std::fs::write(&toml_path, s);
+        }
+    }
+
+    pub fn set_text(&self, text: &str) {
+        if let Ok(mut t) = self.custom_text.lock() {
+            *t = text.to_string();
+        }
+        let cfg_dir = crate::daemon::config::resolve_config_dir();
+        let toml_path = cfg_dir.join("config.toml");
+        let mut config = crate::daemon::config::Config::load_or_migrate();
+        config.saver.ascii.text = text.to_string();
+        if let Ok(s) = toml::to_string_pretty(&config) {
+            let _ = std::fs::create_dir_all(&cfg_dir);
+            let _ = std::fs::write(&toml_path, s);
         }
     }
 }
@@ -153,6 +191,20 @@ impl IdleInterface {
         }
     }
 
+    #[allow(clippy::needless_pass_by_value)]
+    fn set_text_targets(&self, targets: Vec<String>) {
+        self.state.set_text_targets(&targets);
+    }
+
+    fn get_text_targets(&self) -> Vec<String> {
+        self.state.get_text_targets()
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn set_text(&self, text: String) {
+        self.state.set_text(&text);
+    }
+
     fn list_savers(&self) -> Vec<String> {
         let mut list = vec!["ascii".to_string()];
         if crate::extras_ipc::ExtrasSession::is_available() {
@@ -176,5 +228,8 @@ pub trait IdleClient {
     fn get_status(&self) -> zbus::Result<String>;
     fn stop(&self) -> zbus::Result<()>;
     fn set_saver(&self, name: &str) -> zbus::Result<()>;
+    fn set_text_targets(&self, targets: &[String]) -> zbus::Result<()>;
+    fn get_text_targets(&self) -> zbus::Result<Vec<String>>;
+    fn set_text(&self, text: &str) -> zbus::Result<()>;
     fn list_savers(&self) -> zbus::Result<Vec<String>>;
 }

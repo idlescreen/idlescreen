@@ -15,7 +15,9 @@ pub fn save_settings(model: &TuiModel) -> Result<String, String> {
 
     let mut config = Config::load_or_migrate();
 
-    config.saver.ascii.mode = model.mode.to_config_str().to_string();
+    let targets = model.active_targets();
+    config.saver.ascii.targets.clone_from(&targets);
+    config.saver.ascii.mode = targets.join(",");
     config.saver.ascii.text.clone_from(&model.custom_text);
     config.saver.ascii.dwell_secs = model.dwell_secs;
     config.general.idle_timeout_secs = model.idle_timeout_secs;
@@ -39,12 +41,17 @@ pub fn save_settings(model: &TuiModel) -> Result<String, String> {
     let mut notified = false;
     if let Ok(conn) = zbus::blocking::Connection::session()
         && let Ok(proxy) = crate::daemon::dbus::IdleClientProxyBlocking::new(&conn)
-        && proxy.set_saver("ascii").is_ok()
     {
-        notified = true;
+        let _ = proxy.set_text_targets(&targets);
+        let _ = proxy.set_text(&model.custom_text);
+        if proxy.set_saver("ascii").is_ok() {
+            notified = true;
+        }
     }
 
-    if !notified && let Ok(_resp) = ControlClient::send_command("set ascii") {
+    if !notified && let Ok(_resp) = ControlClient::send_command(&format!("text_targets {}", targets.join(","))) {
+        let _ = ControlClient::send_command(&format!("set_text {}", model.custom_text));
+        let _ = ControlClient::send_command("set ascii");
         notified = true;
     }
 

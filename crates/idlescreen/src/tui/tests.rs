@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! Unit tests for settings TUI state and navigation logic.
+//! Unit tests for settings TUI state, checklist toggling, and navigation logic.
 
 use super::input::{TuiAction, handle_key_event};
 use super::model::{ModeChoice, TuiModel};
@@ -13,7 +13,7 @@ fn test_mode_choice_conversions() {
     assert_eq!(ModeChoice::from_config_str("os"), ModeChoice::HostOs);
     assert_eq!(ModeChoice::from_config_str("de"), ModeChoice::DesktopEnv);
     assert_eq!(ModeChoice::from_config_str("kernel"), ModeChoice::Kernel);
-    assert_eq!(ModeChoice::from_config_str("cycle"), ModeChoice::All3Cycle);
+    assert_eq!(ModeChoice::from_config_str("idlescreen"), ModeChoice::Wordmark);
     assert_eq!(
         ModeChoice::from_config_str("custom"),
         ModeChoice::CustomText
@@ -22,7 +22,7 @@ fn test_mode_choice_conversions() {
     assert_eq!(ModeChoice::HostOs.to_config_str(), "os");
     assert_eq!(ModeChoice::DesktopEnv.to_config_str(), "de");
     assert_eq!(ModeChoice::Kernel.to_config_str(), "kernel");
-    assert_eq!(ModeChoice::All3Cycle.to_config_str(), "cycle");
+    assert_eq!(ModeChoice::Wordmark.to_config_str(), "idlescreen");
     assert_eq!(ModeChoice::CustomText.to_config_str(), "custom");
 }
 
@@ -30,16 +30,16 @@ fn test_mode_choice_conversions() {
 fn test_model_navigation_and_adjustment() {
     let config = Config::default();
     let mut model = TuiModel::from_config(&config);
-    assert_eq!(model.focused_index, 3); // Cycle is index 3
+    assert_eq!(model.focused_index, 0);
 
     model.nav_next();
-    assert_eq!(model.focused_index, 4); // CustomText is index 4
+    assert_eq!(model.focused_index, 1);
 
     model.nav_next();
-    assert_eq!(model.focused_index, 5); // CustomText input box
+    assert_eq!(model.focused_index, 2);
 
     model.nav_prev();
-    assert_eq!(model.focused_index, 4);
+    assert_eq!(model.focused_index, 1);
 
     // Adjust timeout
     model.focused_index = 6;
@@ -48,6 +48,45 @@ fn test_model_navigation_and_adjustment() {
     assert_eq!(model.idle_timeout_secs, old_timeout + 30);
     model.adjust_left();
     assert_eq!(model.idle_timeout_secs, old_timeout);
+}
+
+#[test]
+fn test_checklist_toggle_and_at_least_one_constraint() {
+    let config = Config::default();
+    let mut model = TuiModel::from_config(&config);
+    // Initially host OS (0) and DE (1) are checked
+    assert!(model.target_checked[0]);
+    assert!(model.target_checked[1]);
+    assert!(!model.target_checked[2]);
+
+    // Uncheck DE (1) -> succeeds, leaving Host OS (0)
+    model.toggle_target(1);
+    assert!(!model.target_checked[1]);
+    assert!(model.target_checked[0]);
+
+    // Try to uncheck Host OS (0) -> should be prevented by at-least-one constraint
+    model.toggle_target(0);
+    assert!(model.target_checked[0], "Cannot uncheck the only remaining selected target");
+
+    // Toggle Kernel (2) -> now checked
+    model.toggle_target(2);
+    assert!(model.target_checked[2]);
+    let active = model.active_targets();
+    assert_eq!(active, vec!["os", "kernel"]);
+}
+
+#[test]
+fn test_checklist_sequence_summary() {
+    let config = Config::default();
+    let mut model = TuiModel::from_config(&config);
+    model.detected_os = "FEDORA".to_string();
+    model.detected_de = "GNOME".to_string();
+
+    model.target_checked = [true, true, false, false, false];
+    assert_eq!(model.sequence_summary(), "FEDORA -> GNOME -> FEDORA");
+
+    model.target_checked = [true, false, false, false, false];
+    assert_eq!(model.sequence_summary(), "Single (FEDORA)");
 }
 
 #[test]
@@ -93,30 +132,29 @@ fn test_numeric_mode_selection() {
 
     let k1 = KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE);
     handle_key_event(&mut model, k1);
-    assert_eq!(model.mode, ModeChoice::HostOs);
+    assert_eq!(model.focused_index, 0);
 
     let k2 = KeyEvent::new(KeyCode::Char('2'), KeyModifiers::NONE);
     handle_key_event(&mut model, k2);
-    assert_eq!(model.mode, ModeChoice::DesktopEnv);
+    assert_eq!(model.focused_index, 1);
 
     let k3 = KeyEvent::new(KeyCode::Char('3'), KeyModifiers::NONE);
     handle_key_event(&mut model, k3);
-    assert_eq!(model.mode, ModeChoice::Kernel);
+    assert_eq!(model.focused_index, 2);
 
     let k4 = KeyEvent::new(KeyCode::Char('4'), KeyModifiers::NONE);
     handle_key_event(&mut model, k4);
-    assert_eq!(model.mode, ModeChoice::All3Cycle);
+    assert_eq!(model.focused_index, 3);
 
     let k5 = KeyEvent::new(KeyCode::Char('5'), KeyModifiers::NONE);
     handle_key_event(&mut model, k5);
-    assert_eq!(model.mode, ModeChoice::CustomText);
+    assert_eq!(model.focused_index, 4);
 }
 
 #[test]
 fn test_custom_text_auto_switches_mode() {
     let config = Config::default();
     let mut model = TuiModel::from_config(&config);
-    assert_eq!(model.mode, ModeChoice::All3Cycle);
 
     // Nav to custom text box and press Enter to start editing
     model.focused_index = 5;
@@ -125,9 +163,10 @@ fn test_custom_text_auto_switches_mode() {
     assert!(model.editing_text);
     assert_eq!(model.mode, ModeChoice::CustomText);
 
-    // Typing a character keeps CustomText
+    // Typing a character keeps CustomText and marks custom_text checked
     model.insert_char('Z');
     assert_eq!(model.mode, ModeChoice::CustomText);
+    assert!(model.target_checked[4]);
 
     // Pressing Enter finishes editing and retains CustomText
     handle_key_event(&mut model, enter);

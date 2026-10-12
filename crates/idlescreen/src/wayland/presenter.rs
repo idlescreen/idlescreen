@@ -615,8 +615,10 @@ pub fn run_wayland_fullscreen_preview(
 
     let text_mode = TextMode::parse(mode_str);
     let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
+    let targets = crate::daemon::config::parse_targets_from_mode(mode_str);
     let mut ascii_saver = Ascii::new()
         .with_mode(text_mode, custom_opt)
+        .with_targets(targets)
         .with_dwell(dwell_secs)
         .with_fps(target_fps);
     if let Some(effect) = effect_kind {
@@ -829,9 +831,21 @@ pub fn run_wayland_daemon_presenter(
     let frame_dur = Duration::from_nanos(1_000_000_000 / target_fps as u64);
 
     let text_mode = TextMode::parse(mode_str);
-    let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
+    let custom_opt = if let Ok(guard) = state.custom_text.lock() {
+        (!guard.trim().is_empty()).then(|| guard.clone())
+    } else {
+        (!custom_text.trim().is_empty()).then(|| custom_text.to_string())
+    };
+    let targets = if let Ok(guard) = state.text_targets.lock()
+        && !guard.is_empty()
+    {
+        guard.clone()
+    } else {
+        crate::daemon::config::parse_targets_from_mode(mode_str)
+    };
     let mut ascii_saver = Ascii::new()
         .with_mode(text_mode, custom_opt)
+        .with_targets(targets)
         .with_dwell(dwell_secs)
         .with_fps(target_fps);
     if let Some(effect) = effect_kind {
@@ -843,6 +857,20 @@ pub fn run_wayland_daemon_presenter(
     let mut last_frame = Instant::now();
 
     while state.active.load(Ordering::SeqCst) && !state_wl.exit_requested {
+        // Sync live target and custom text changes from D-Bus / socket
+        if let Ok(guard) = state.text_targets.try_lock()
+            && *guard != ascii_saver.rotation.targets
+            && !guard.is_empty()
+        {
+            ascii_saver.rotation.set_targets(guard.clone());
+        }
+        if let Ok(guard) = state.custom_text.try_lock() {
+            let opt = (!guard.trim().is_empty()).then(|| guard.clone());
+            if opt != ascii_saver.rotation.custom_text {
+                ascii_saver.rotation.custom_text = opt;
+            }
+        }
+
         let now = Instant::now();
         let dt = now.duration_since(last_frame);
         if dt >= frame_dur {

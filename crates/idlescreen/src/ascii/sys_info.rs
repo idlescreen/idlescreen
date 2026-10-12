@@ -47,13 +47,13 @@ pub fn detect_os_name() -> String {
     if let Ok(content) = fs::read_to_string("/etc/alpine-release") {
         let first = content.lines().next().unwrap_or("").trim();
         if !first.is_empty() {
-            return format!("Alpine Linux {first}");
+            return clean_os_name("Alpine");
         }
     }
     if let Ok(content) = fs::read_to_string("/etc/debian_version") {
         let first = content.lines().next().unwrap_or("").trim();
         if !first.is_empty() {
-            return format!("Debian {first}");
+            return clean_os_name("Debian");
         }
     }
 
@@ -130,65 +130,118 @@ fn uname_sysname() -> Option<String> {
     }
 }
 
-/// Calls `libc::uname` to get kernel release.
-fn uname_release() -> Option<String> {
-    let mut uts: libc::utsname = unsafe { std::mem::zeroed() };
-    if unsafe { libc::uname(&raw mut uts) } == 0 {
-        let c_str = unsafe { std::ffi::CStr::from_ptr(uts.release.as_ptr()) };
-        c_str.to_str().ok().map(std::string::ToString::to_string)
-    } else {
-        None
-    }
-}
-
-/// Cleans raw OS name by stripping edition markers (LTS, Server Edition, Workstation, GNU/Linux).
+/// Cleans raw OS name to crisp uppercase single brand words (e.g. "FEDORA", "ARCH", "UBUNTU").
 pub fn clean_os_name(raw: &str) -> String {
     let mut s = raw.split(" (").next().unwrap_or(raw).trim();
-    // Strip trailing parenthesis content if any remained
     if let Some(idx) = s.find('(') {
         s = s[..idx].trim();
     }
 
-    // Strip edition markers
-    let markers = [
-        " Server Edition",
-        " Workstation Edition",
-        " Desktop Edition",
-        " Enterprise Linux",
-        " GNU/Linux",
-        " LTS",
+    let upper = s.to_ascii_uppercase();
+    if upper.is_empty() || upper == "UNKNOWN" {
+        return "IDLESCREEN".to_string();
+    }
+
+    let words: Vec<&str> = upper
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .collect();
+
+    // Check known Linux distribution brands with exact word matches
+    if words.contains(&"FEDORA") {
+        return "FEDORA".to_string();
+    }
+    if words.contains(&"ARCH") {
+        return "ARCH".to_string();
+    }
+    if words.contains(&"UBUNTU") {
+        return "UBUNTU".to_string();
+    }
+    if words.contains(&"DEBIAN") {
+        return "DEBIAN".to_string();
+    }
+    if words.contains(&"ALPINE") {
+        return "ALPINE".to_string();
+    }
+    if words.contains(&"OPENSUSE") || words.contains(&"SUSE") {
+        return "OPENSUSE".to_string();
+    }
+    if words.contains(&"VOID") {
+        return "VOID".to_string();
+    }
+    if words.contains(&"GENTOO") {
+        return "GENTOO".to_string();
+    }
+    if words.contains(&"MANJARO") {
+        return "MANJARO".to_string();
+    }
+    if words.contains(&"NIXOS") {
+        return "NIXOS".to_string();
+    }
+    if words.contains(&"POP") || words.contains(&"POPOS") {
+        return "POP".to_string();
+    }
+    if words.contains(&"RHEL") || (words.contains(&"RED") && words.contains(&"HAT")) {
+        return "RHEL".to_string();
+    }
+    if words.contains(&"CENTOS") {
+        return "CENTOS".to_string();
+    }
+    if words.contains(&"ROCKY") {
+        return "ROCKY".to_string();
+    }
+    if words.contains(&"ALMA") {
+        return "ALMA".to_string();
+    }
+    if words.contains(&"SOLUS") {
+        return "SOLUS".to_string();
+    }
+    if words.contains(&"ARCO") || words.contains(&"ARCOLINUX") {
+        return "ARCO".to_string();
+    }
+    if words.contains(&"PARCH") {
+        return "PARCH".to_string();
+    }
+    if words.contains(&"ARCHCRAFT") {
+        return "ARCHCRAFT".to_string();
+    }
+    if words.contains(&"KDE") || words.contains(&"NEON") {
+        return "KDE".to_string();
+    }
+
+    // Generic fallback: take first word that is not a generic edition marker
+    let ignore_words = [
+        "LINUX",
+        "GNU",
+        "SERVER",
+        "WORKSTATION",
+        "DESKTOP",
+        "ENTERPRISE",
+        "EDITION",
+        "LTS",
+        "RELEASE",
+        "THE",
+        "PROJECT",
     ];
 
-    let mut cleaned = s.to_string();
-    for marker in &markers {
-        if let Some(pos) = cleaned
-            .to_ascii_lowercase()
-            .find(&marker.to_ascii_lowercase())
-        {
-            cleaned = format!("{}{}", &cleaned[..pos], &cleaned[pos + marker.len()..]);
+    for w in &words {
+        if !ignore_words.contains(w) {
+            return (*w).to_string();
         }
     }
 
-    // If string ends with version number like "Fedora 40" or "Ubuntu 24.04", keep distro or clean
-    let trimmed = cleaned.trim();
-    if let Some(pos) = trimmed.rfind(' ') {
-        let suffix = &trimmed[pos + 1..];
-        if suffix.chars().all(|c| c.is_ascii_digit() || c == '.')
-            && !trimmed[..pos].trim().is_empty()
-        {
-            return trimmed[..pos].trim().to_string();
-        }
-    }
-
-    if trimmed.is_empty() {
-        "IdleScreen".to_string()
-    } else {
-        trimmed.to_string()
-    }
+    "IDLESCREEN".to_string()
 }
 
-/// Detects Desktop Environment name.
+/// Detects Desktop Environment name, cleaned to crisp uppercase brand words (e.g. "GNOME", "KDE").
 pub fn detect_desktop_env() -> String {
+    if let Ok(v) = std::env::var("IDLE_DESKTOP_ENV").or_else(|_| std::env::var("IDLE_DE_NAME")) {
+        let t = v.trim();
+        if !t.is_empty() {
+            return clean_desktop_env(t);
+        }
+    }
+
     for key in &[
         "XDG_CURRENT_DESKTOP",
         "DESKTOP_SESSION",
@@ -198,31 +251,81 @@ pub fn detect_desktop_env() -> String {
         if let Ok(v) = std::env::var(key) {
             let t = v.trim();
             if !t.is_empty() {
-                // Often XDG_CURRENT_DESKTOP is e.g. "ubuntu:GNOME" or "pop:GNOME"
-                let clean = t.split(':').next_back().unwrap_or(t).trim();
-                if !clean.is_empty() {
-                    return match clean.to_ascii_uppercase().as_str() {
-                        "GNOME" => "GNOME",
-                        "KDE" | "KDE PLASMA" | "PLASMA" => "KDE Plasma",
-                        "COSMIC" => "COSMIC",
-                        "X-CINNAMON" | "CINNAMON" => "Cinnamon",
-                        "MATE" => "MATE",
-                        "XFCE" => "XFCE",
-                        "SWAY" => "Sway",
-                        "HYPRLAND" => "Hyprland",
-                        "WAYFIRE" => "Wayfire",
-                        "I3" => "i3",
-                        other => return other.to_string(),
-                    }
-                    .to_string();
+                let clean = clean_desktop_env(t);
+                if clean != "DESKTOP" && clean != "UNKNOWN" {
+                    return clean;
                 }
             }
         }
     }
-    "Desktop".to_string()
+    "DESKTOP".to_string()
 }
 
-/// Detects Linux Kernel version string (e.g. "Linux 6.13.5").
+/// Cleans raw desktop environment string to uppercase single brand word.
+pub fn clean_desktop_env(raw: &str) -> String {
+    let t = raw.split(':').next_back().unwrap_or(raw).trim();
+    let upper = t.to_ascii_uppercase();
+
+    let words: Vec<&str> = upper
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .collect();
+
+    if words.contains(&"GNOME") || words.contains(&"MUTTER") {
+        return "GNOME".to_string();
+    }
+    if words.contains(&"KDE") || words.contains(&"PLASMA") {
+        return "KDE".to_string();
+    }
+    if words.contains(&"COSMIC") {
+        return "COSMIC".to_string();
+    }
+    if words.contains(&"HYPRLAND") {
+        return "HYPRLAND".to_string();
+    }
+    if words.contains(&"SWAY") {
+        return "SWAY".to_string();
+    }
+    if words.contains(&"WAYFIRE") {
+        return "WAYFIRE".to_string();
+    }
+    if words.contains(&"RIVER") {
+        return "RIVER".to_string();
+    }
+    if words.contains(&"LABWC") {
+        return "LABWC".to_string();
+    }
+    if words.contains(&"CINNAMON") {
+        return "CINNAMON".to_string();
+    }
+    if words.contains(&"MATE") {
+        return "MATE".to_string();
+    }
+    if words.contains(&"XFCE") {
+        return "XFCE".to_string();
+    }
+    if words.contains(&"I3") {
+        return "I3".to_string();
+    }
+    if words.contains(&"LXQT") {
+        return "LXQT".to_string();
+    }
+    if words.contains(&"LXDE") {
+        return "LXDE".to_string();
+    }
+
+    if let Some(&first) = words.first() {
+        if first.is_empty() || first == "UNKNOWN" {
+            "DESKTOP".to_string()
+        } else {
+            first.to_string()
+        }
+    } else {
+        "DESKTOP".to_string()
+    }
+}
+
+/// Detects Linux Kernel version string, standardized to single uppercase brand word "LINUX".
 pub fn detect_kernel_version() -> String {
     if let Ok(v) = std::env::var("IDLE_KERNEL_VERSION") {
         let t = v.trim();
@@ -231,33 +334,12 @@ pub fn detect_kernel_version() -> String {
         }
     }
 
-    if let Ok(content) = fs::read_to_string("/proc/sys/kernel/osrelease") {
-        let t = content.trim();
-        if !t.is_empty() {
-            return clean_kernel_version(t);
-        }
-    }
-
-    if let Some(release) = uname_release() {
-        return clean_kernel_version(&release);
-    }
-
-    "Linux".to_string()
+    "LINUX".to_string()
 }
 
-/// Cleans kernel version into format "Linux X.Y.Z".
-pub fn clean_kernel_version(raw: &str) -> String {
-    let trimmed = raw.trim();
-    let stripped = trimmed
-        .strip_prefix("Linux ")
-        .or_else(|| trimmed.strip_prefix("linux "))
-        .unwrap_or(trimmed);
-    let ver = stripped.split('-').next().unwrap_or(stripped).trim();
-    if ver.is_empty() || ver == "unknown" {
-        "Linux".to_string()
-    } else {
-        format!("Linux {ver}")
-    }
+/// Cleans kernel version into single uppercase brand word "LINUX".
+pub fn clean_kernel_version(_raw: &str) -> String {
+    "LINUX".to_string()
 }
 
 /// System telemetry for portrait telemetry display.

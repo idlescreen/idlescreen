@@ -163,6 +163,21 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                                 state.set_saver(saver.to_string());
                                 (format!("OK: saver set to {saver}"), false)
                             }
+                            _ if cmd.starts_with("text_targets ") => {
+                                let targets_str = cmd["text_targets ".len()..].trim();
+                                let targets: Vec<String> = targets_str
+                                    .split(',')
+                                    .map(|s| s.trim().to_string())
+                                    .filter(|s| !s.is_empty())
+                                    .collect();
+                                state.set_text_targets(&targets);
+                                ("OK: text targets updated".to_string(), false)
+                            }
+                            _ if cmd.starts_with("set_text ") => {
+                                let text = cmd["set_text ".len()..].trim();
+                                state.set_text(text);
+                                ("OK: custom text updated".to_string(), false)
+                            }
                             _ => ("UNKNOWN_COMMAND".to_string(), false),
                         };
                         let _ = writeln!(stream, "{resp}");
@@ -218,7 +233,10 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                 let st = state.clone();
                 let dwell = config.saver.ascii.dwell_secs;
                 let mode = config.saver.ascii.mode.clone();
-                let text = config.saver.ascii.text.clone();
+                let text = st
+                    .custom_text
+                    .lock()
+                    .map_or_else(|_| config.saver.ascii.text.clone(), |t| t.clone());
                 let fps = config.saver.ascii.fps;
                 presenter_handle = Some(std::thread::spawn(move || {
                     let _ =

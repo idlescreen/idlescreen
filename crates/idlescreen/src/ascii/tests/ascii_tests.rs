@@ -115,6 +115,34 @@ fn non_custom_mode_ignores_custom_text() {
     assert_eq!(saver.rotation.active_text(), saver.rotation.os_name);
 }
 
+#[test]
+fn multi_target_scene_handoff_and_single_lock() {
+    // 1. Single target locks
+    let mut single = Ascii::new().with_targets(vec!["FEDORA".to_string()]);
+    single.init(COLS, ROWS);
+    assert_eq!(single.rotation.current_text(), "FEDORA");
+    assert_eq!(single.rotation.peek_next_text(), "FEDORA");
+    single.rotation.advance_scene();
+    assert_eq!(single.rotation.current_text(), "FEDORA");
+
+    // 2. Multi-target handoff: FEDORA -> GNOME -> FEDORA
+    let mut multi = Ascii::new().with_targets(vec!["FEDORA".to_string(), "GNOME".to_string()]);
+    multi.init(COLS, ROWS);
+    // Scene 1: Starts on FEDORA, peeks GNOME for transition
+    assert_eq!(multi.rotation.current_text(), "FEDORA");
+    assert_eq!(multi.rotation.peek_next_text(), "GNOME");
+
+    // Transition concludes: advances to Scene 2 (GNOME)
+    multi.rotation.advance_scene();
+    assert_eq!(multi.rotation.current_text(), "GNOME");
+    assert_eq!(multi.rotation.peek_next_text(), "FEDORA");
+
+    // Next transition: advances back to Scene 3 (FEDORA)
+    multi.rotation.advance_scene();
+    assert_eq!(multi.rotation.current_text(), "FEDORA");
+    assert_eq!(multi.rotation.peek_next_text(), "GNOME");
+}
+
 #[rustfmt::skip]
 const ALL_37_NAMES: &[&str] = &[
     "beams", "binarypath", "blackhole", "bouncyballs", "bubbles", "burn",

@@ -3,7 +3,7 @@
 
 use super::super::layout::{LayoutTier, is_portrait, render_banner};
 use super::super::state::LruFontAtlasCache;
-use super::super::sys_info::clean_os_name;
+use super::super::sys_info::{clean_desktop_env, clean_kernel_version, clean_os_name};
 use super::super::unicode::{
     GridCellChar, normalize_to_ascii_fold, place_unicode_str, string_width,
 };
@@ -12,11 +12,35 @@ use super::super::unicode::{
 fn test_clean_os_name() {
     assert_eq!(
         clean_os_name("Fedora Linux 40 (Workstation Edition)"),
-        "Fedora Linux"
+        "FEDORA"
     );
-    assert_eq!(clean_os_name("Ubuntu 24.04 LTS"), "Ubuntu");
-    assert_eq!(clean_os_name("Debian GNU/Linux 12 (bookworm)"), "Debian");
-    assert_eq!(clean_os_name("Arch Linux"), "Arch Linux");
+    assert_eq!(clean_os_name("Ubuntu 24.04 LTS"), "UBUNTU");
+    assert_eq!(clean_os_name("Debian GNU/Linux 12 (bookworm)"), "DEBIAN");
+    assert_eq!(clean_os_name("Arch Linux"), "ARCH");
+    assert_eq!(clean_os_name("Alpine Linux v3.21 (musl)"), "ALPINE");
+    assert_eq!(clean_os_name("openSUSE Tumbleweed"), "OPENSUSE");
+    assert_eq!(clean_os_name("Parch Linux"), "PARCH");
+    assert_eq!(clean_os_name("Archcraft"), "ARCHCRAFT");
+    assert_eq!(clean_os_name("ArcoLinux"), "ARCO");
+    assert_eq!(clean_os_name(""), "IDLESCREEN");
+    assert_eq!(clean_os_name("unknown"), "IDLESCREEN");
+}
+
+#[test]
+fn test_clean_desktop_env() {
+    assert_eq!(clean_desktop_env("GNOME"), "GNOME");
+    assert_eq!(clean_desktop_env("GNOME:Mutter"), "GNOME");
+    assert_eq!(clean_desktop_env("mutter"), "GNOME");
+    assert_eq!(clean_desktop_env("KDE Plasma"), "KDE");
+    assert_eq!(clean_desktop_env("Hyprland"), "HYPRLAND");
+    assert_eq!(clean_desktop_env("Sway"), "SWAY");
+    assert_eq!(clean_desktop_env(""), "DESKTOP");
+}
+
+#[test]
+fn test_clean_kernel_version() {
+    assert_eq!(clean_kernel_version("Linux 6.13.5-arch1-1"), "LINUX");
+    assert_eq!(clean_kernel_version(""), "LINUX");
 }
 
 #[test]

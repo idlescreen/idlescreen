@@ -100,8 +100,10 @@ fn run_preview_loop(
     let target_fps = if fps > 0 { fps } else { 60 };
     let text_mode = TextMode::parse(mode_str);
     let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
+    let targets = crate::daemon::config::parse_targets_from_mode(mode_str);
     let mut ascii_saver = Ascii::new()
         .with_mode(text_mode, custom_opt)
+        .with_targets(targets)
         .with_dwell(dwell_secs)
         .with_fps(target_fps);
     if let Some(effect) = effect_kind {

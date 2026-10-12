@@ -108,6 +108,12 @@ impl Ascii {
     pub fn with_mode(mut self, mode: TextMode, custom_text: Option<String>) -> Self {
         self.rotation.mode = mode;
         self.rotation.custom_text = custom_text;
+        self.rotation.sync_targets_from_mode();
+        self
+    }
+
+    pub fn with_targets(mut self, targets: Vec<String>) -> Self {
+        self.rotation.set_targets(targets);
         self
     }
 

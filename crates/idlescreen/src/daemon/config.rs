@@ -33,6 +33,8 @@ impl Default for GeneralConfig {
 pub struct AsciiSaverConfig {
     #[serde(default = "default_mode")]
     pub mode: String,
+    #[serde(default = "default_targets")]
+    pub targets: Vec<String>,
     #[serde(default)]
     pub text: String,
     #[serde(default = "default_fps")]
@@ -46,6 +48,9 @@ pub struct AsciiSaverConfig {
 fn default_mode() -> String {
     "cycle".to_string()
 }
+fn default_targets() -> Vec<String> {
+    Vec::new()
+}
 fn default_fps() -> u32 {
     0
 }
@@ -56,10 +61,35 @@ fn default_dissolve_duration_secs() -> f32 {
     0.7
 }
 
+pub fn parse_targets_from_mode(mode: &str) -> Vec<String> {
+    let t = mode.trim();
+    if t.contains(',') {
+        let parts: Vec<String> = t
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        if !parts.is_empty() {
+            return parts;
+        }
+    }
+    match t.to_ascii_lowercase().as_str() {
+        "os" | "host" => vec!["os".to_string()],
+        "de" | "desktop" => vec!["de".to_string()],
+        "kernel" | "linux" => vec!["kernel".to_string()],
+        "idlescreen" | "wordmark" => vec!["idlescreen".to_string()],
+        "custom" | "text" => vec!["custom".to_string()],
+        "cycle" => vec!["os".to_string(), "de".to_string()],
+        other if !other.is_empty() => vec![other.to_string()],
+        _ => vec!["os".to_string(), "de".to_string()],
+    }
+}
+
 impl Default for AsciiSaverConfig {
     fn default() -> Self {
         Self {
             mode: default_mode(),
+            targets: default_targets(),
             text: String::new(),
             fps: default_fps(),
             dwell_secs: default_dwell_secs(),
@@ -93,8 +123,11 @@ impl Config {
 
         if toml_path.exists()
             && let Ok(content) = fs::read_to_string(&toml_path)
-            && let Ok(cfg) = toml::from_str::<Config>(&content)
+            && let Ok(mut cfg) = toml::from_str::<Config>(&content)
         {
+            if cfg.saver.ascii.targets.is_empty() {
+                cfg.saver.ascii.targets = parse_targets_from_mode(&cfg.saver.ascii.mode);
+            }
             return cfg;
         }
 
@@ -177,6 +210,14 @@ pub fn migrate_yaml_to_toml(yaml_path: &Path, toml_path: &Path) -> std::io::Resu
             {
                 config.saver.ascii.dissolve_duration_secs = dissolve as f32;
             }
+            if let Some(targets) = ascii.get("targets").and_then(|v| v.as_sequence()) {
+                config.saver.ascii.targets = targets
+                    .iter()
+                    .filter_map(|v| v.as_str().map(std::string::ToString::to_string))
+                    .collect();
+            } else {
+                config.saver.ascii.targets = parse_targets_from_mode(&config.saver.ascii.mode);
+            }
         }
     }
 
@@ -238,6 +279,7 @@ saver:
         assert_eq!(cfg.general.primary_output, "DP-1");
         assert_eq!(cfg.saver.active.as_deref(), Some("aurora"));
         assert_eq!(cfg.saver.ascii.mode, "os");
+        assert_eq!(cfg.saver.ascii.targets, vec!["os"]);
         assert_eq!(cfg.saver.ascii.text, "MyFedora");
         assert_eq!(cfg.saver.ascii.fps, 30);
 

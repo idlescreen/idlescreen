@@ -27,12 +27,12 @@ pub fn render_view(model: &TuiModel) -> std::io::Result<()> {
     );
     b.push_str("\x1b[1;36m└──────────────────────────────────────────────────────────────────┘\x1b[0m\r\n\r\n");
 
-    // 2. Mode Selection
-    b.push_str("\x1b[1m[1] Target Display Mode:\x1b[0m\r\n");
+    // 2. Target Selection Checklist
+    b.push_str("\x1b[1m[1] ASCII Text Selection (Space to toggle):\x1b[0m\r\n");
     for (i, &m) in ModeChoice::ALL.iter().enumerate() {
-        let is_selected = model.mode == m;
+        let is_checked = model.target_checked[i];
         let is_focused = f == TuiField::ModeChoice(i);
-        let radio = if is_selected { "(*)" } else { "( )" };
+        let check_box = if is_checked { "[x]" } else { "[ ]" };
         let pointer = if is_focused {
             " \x1b[1;33m▸\x1b[0m"
         } else {
@@ -43,7 +43,7 @@ pub fn render_view(model: &TuiModel) -> std::io::Result<()> {
             ModeChoice::HostOs => &model.detected_os,
             ModeChoice::DesktopEnv => &model.detected_de,
             ModeChoice::Kernel => &model.detected_kernel,
-            ModeChoice::All3Cycle => "Rotates OS, DE, Kernel",
+            ModeChoice::Wordmark => "IDLESCREEN",
             ModeChoice::CustomText => {
                 if model.custom_text.trim().is_empty() {
                     "(Custom text below)"
@@ -64,27 +64,31 @@ pub fn render_view(model: &TuiModel) -> std::io::Result<()> {
         if is_focused {
             let _ = writeln!(
                 b,
-                "{pointer} \x1b[7m {radio} {:<24} [{:<28}] \x1b[0m\r",
+                "{pointer} \x1b[7m {check_box} {:<24} [{:<28}] \x1b[0m\r",
                 m.label(),
                 sample_str
             );
-        } else if is_selected {
+        } else if is_checked {
             let _ = writeln!(
                 b,
-                "{pointer} \x1b[1;32m{radio} {:<24} [{:<28}]\x1b[0m\r",
+                "{pointer} \x1b[1;32m{check_box} {:<24} [{:<28}]\x1b[0m\r",
                 m.label(),
                 sample_str
             );
         } else {
             let _ = writeln!(
                 b,
-                "{pointer} \x1b[2m{radio}\x1b[0m {:<24} \x1b[2m[{:<28}]\x1b[0m\r",
+                "{pointer} \x1b[2m{check_box}\x1b[0m {:<24} \x1b[2m[{:<28}]\x1b[0m\r",
                 m.label(),
                 sample_str
             );
         }
     }
-    b.push_str("\r\n");
+    let seq = model.sequence_summary();
+    let _ = writeln!(
+        b,
+        "    \x1b[1;36m↳ Scene Cycle:\x1b[0m \x1b[1m{seq}\x1b[0m\r\n"
+    );
 
     // 3. Custom Text Input Box
     let is_text_focused = f == TuiField::CustomText;
@@ -191,7 +195,7 @@ pub fn render_view(model: &TuiModel) -> std::io::Result<()> {
         ""
     };
     let _ = writeln!(b, "  Status: {dirty_indicator}{}\r", model.status);
-    b.push_str("  \x1b[2mKeys: [Tab/↑↓] Navigate   [←→] Adjust   [Enter] Select/Edit   [S] Save   [P] Preview   [Q] Quit\x1b[0m\r\n");
+    b.push_str("  \x1b[2mKeys: [Tab/↑↓] Navigate   [Space/Enter] Toggle   [←→] Adjust   [S] Save   [P] Preview   [Q] Quit\x1b[0m\r\n");
 
     let _ = write!(out, "{b}");
     let _ = out.flush();

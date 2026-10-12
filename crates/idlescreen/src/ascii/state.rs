@@ -157,6 +157,8 @@ impl LruFontAtlasCache {
 
 pub struct TriRotationState {
     pub mode: TextMode,
+    pub targets: Vec<String>,
+    pub current_index: usize,
     pub custom_text: Option<String>,
     pub current_target: BrandTarget,
     pub os_name: String,
@@ -182,9 +184,18 @@ impl TriRotationState {
         let os_name = detect_os_name();
         let de_name = detect_desktop_env();
         let kernel_version = detect_kernel_version();
+        let targets = match mode {
+            TextMode::Os => vec!["os".to_string()],
+            TextMode::De => vec!["de".to_string()],
+            TextMode::Kernel => vec!["kernel".to_string()],
+            TextMode::Custom => vec!["custom".to_string()],
+            TextMode::Cycle => vec!["os".to_string(), "de".to_string()],
+        };
 
         Self {
             mode,
+            targets,
+            current_index: 0,
             custom_text,
             current_target,
             os_name,
@@ -194,7 +205,83 @@ impl TriRotationState {
         }
     }
 
+    pub fn sync_targets_from_mode(&mut self) {
+        self.targets = match self.mode {
+            TextMode::Os => vec!["os".to_string()],
+            TextMode::De => vec!["de".to_string()],
+            TextMode::Kernel => vec!["kernel".to_string()],
+            TextMode::Custom => vec!["custom".to_string()],
+            TextMode::Cycle => vec!["os".to_string(), "de".to_string()],
+        };
+        self.current_index = 0;
+    }
+
+    pub fn set_targets(&mut self, targets: Vec<String>) {
+        if !targets.is_empty() {
+            self.targets = targets;
+            self.current_index = 0;
+        }
+    }
+
+    pub fn targets(&self) -> &[String] {
+        &self.targets
+    }
+
+    pub fn resolve_target_text(&self, target: &str) -> String {
+        let t = target.trim();
+        match t.to_ascii_lowercase().as_str() {
+            "os" | "host" | "host os" => self.os_name.clone(),
+            "de" | "desktop" | "desktop env" | "desktop environment" => self.de_name.clone(),
+            "kernel" | "linux kernel" | "linux" => "LINUX".to_string(),
+            "idlescreen" | "wordmark" => "IDLESCREEN".to_string(),
+            "custom" | "text" => {
+                if let Some(ref c) = self.custom_text {
+                    let trimmed = c.trim();
+                    if !trimmed.is_empty() {
+                        return trimmed.to_string();
+                    }
+                }
+                self.os_name.clone()
+            }
+            other => {
+                if other.eq_ignore_ascii_case(&self.os_name) {
+                    self.os_name.clone()
+                } else if other.eq_ignore_ascii_case(&self.de_name) {
+                    self.de_name.clone()
+                } else {
+                    t.to_ascii_uppercase()
+                }
+            }
+        }
+    }
+
+    pub fn current_text(&self) -> String {
+        if self.targets.is_empty() {
+            return self.fallback_text();
+        }
+        let idx = self.current_index % self.targets.len();
+        self.resolve_target_text(&self.targets[idx])
+    }
+
+    pub fn peek_next_text(&self) -> String {
+        if self.targets.is_empty() {
+            return self.fallback_text();
+        }
+        let next_idx = (self.current_index + 1) % self.targets.len();
+        self.resolve_target_text(&self.targets[next_idx])
+    }
+
+    pub fn advance_scene(&mut self) {
+        if !self.targets.is_empty() {
+            self.current_index = (self.current_index + 1) % self.targets.len();
+        }
+    }
+
     pub fn active_text(&self) -> String {
+        self.current_text()
+    }
+
+    fn fallback_text(&self) -> String {
         match self.mode {
             TextMode::Custom => {
                 if let Some(ref custom) = self.custom_text
@@ -217,6 +304,7 @@ impl TriRotationState {
     }
 
     pub fn advance_mutation(&mut self, rng: &mut LcgRng) {
+        self.advance_scene();
         if self.mode == TextMode::Cycle {
             self.current_target = BrandTarget::random_excluding(rng, Some(self.current_target));
         }

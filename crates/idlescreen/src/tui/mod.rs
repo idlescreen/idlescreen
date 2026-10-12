@@ -51,7 +51,7 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
                                     "ascii".to_string(),
                                     "--terminal".to_string(),
                                     "--mode".to_string(),
-                                    model.mode.to_config_str().to_string(),
+                                    model.selected_targets().join(","),
                                     "--dwell".to_string(),
                                     model.dwell_secs.to_string(),
                                     "--text".to_string(),
