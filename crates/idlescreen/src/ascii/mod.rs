@@ -128,6 +128,20 @@ impl Ascii {
         self.dwell_duration.unwrap_or_else(|| self.effect.dwell())
     }
 
+    /// Returns true when the scene is settled in its post-transition dwell period (zero motion).
+    pub fn is_settled(&self) -> bool {
+        self.engine.is_none() && !self.transition_active
+    }
+
+    /// Returns the remaining dwell duration if currently settled.
+    pub fn dwell_remaining(&self) -> Option<Duration> {
+        if self.is_settled() && self.dwell_left > 0.0 {
+            Some(Duration::from_secs_f32(self.dwell_left))
+        } else {
+            None
+        }
+    }
+
     pub fn pin_effect(&mut self, effect: EffectKind) {
         self.effect = effect;
         self.pinned = true;

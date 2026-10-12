@@ -53,13 +53,98 @@ pub trait LogindManager {
     fn prepare_for_sleep(&self, start: bool) -> zbus::Result<()>;
 }
 
+#[derive(Clone, Debug)]
+pub struct WakeHandle {
+    pub fd: std::sync::Arc<std::sync::atomic::AtomicI32>,
+}
+
+impl WakeHandle {
+    pub fn new(fd: std::os::fd::RawFd) -> Self {
+        Self {
+            fd: std::sync::Arc::new(std::sync::atomic::AtomicI32::new(fd)),
+        }
+    }
+
+    pub fn raw_fd(&self) -> std::os::fd::RawFd {
+        self.fd.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    pub fn close(&self) {
+        let fd = self.fd.swap(-1, std::sync::atomic::Ordering::SeqCst);
+        if fd >= 0 {
+            unsafe { libc::close(fd) };
+        }
+    }
+
+    pub fn wake(&self) {
+        let fd = self.fd.load(std::sync::atomic::Ordering::SeqCst);
+        if fd >= 0 {
+            let val: u64 = 1;
+            unsafe {
+                libc::write(
+                    fd,
+                    &val as *const _ as *const libc::c_void,
+                    std::mem::size_of::<u64>(),
+                );
+            }
+        }
+    }
+}
+
+/// Spawns background thread monitoring GNOME Mutter IdleMonitor watch signals.
+/// Returns true if idle and active watches were successfully registered over D-Bus.
+pub fn spawn_mutter_idle_watcher(
+    state: std::sync::Arc<crate::daemon::dbus::ScreenSaverState>,
+    idle_timeout_ms: u64,
+    wake: WakeHandle,
+) -> bool {
+    let Ok(conn) = zbus::blocking::Connection::session() else {
+        return false;
+    };
+    let Ok(proxy) = MutterIdleMonitorProxyBlocking::new(&conn) else {
+        return false;
+    };
+    let Ok(idle_watch_id) = proxy.add_idle_watch(idle_timeout_ms) else {
+        return false;
+    };
+    let Ok(active_watch_id) = proxy.add_user_active_watch() else {
+        return false;
+    };
+
+    let st = state;
+    std::thread::Builder::new()
+        .name("idle-mutter-mon".to_string())
+        .spawn(move || {
+            if let Ok(stream) = proxy.receive_watch_fired() {
+                for signal in stream {
+                    if let Ok(args) = signal.args() {
+                        if args.id == idle_watch_id {
+                            if !st.is_inhibited() {
+                                st.active.store(true, std::sync::atomic::Ordering::SeqCst);
+                                wake.wake();
+                            }
+                        } else if args.id == active_watch_id {
+                            if st.active.load(std::sync::atomic::Ordering::SeqCst) {
+                                st.stop();
+                                wake.wake();
+                            }
+                        }
+                    }
+                }
+            }
+        })
+        .is_ok()
+}
+
 /// Spawns background threads monitoring GNOME screensaver and logind signals to ensure
 /// the screensaver is immediately dismissed on lock, unlock, wake-up, or sleep/resume.
 pub fn spawn_gnome_session_watchers(
     state: std::sync::Arc<crate::daemon::dbus::ScreenSaverState>,
+    wake: WakeHandle,
 ) {
     // 1. Session bus watcher: org.gnome.ScreenSaver ActiveChanged & WakeUpScreen
     let st_session = state.clone();
+    let wake_session = wake.clone();
     std::thread::Builder::new()
         .name("idle-gnome-mon".to_string())
         .spawn(move || {
@@ -78,6 +163,7 @@ pub fn spawn_gnome_session_watchers(
                         // On both lock (active=true) and unlock (active=false),
                         // dismiss any running presentation so it never lingers.
                         st_session.stop();
+                        wake_session.wake();
                         if is_active {
                             idle_log_info!("GNOME screen locked/blanked — presentation stopped");
                         } else {
@@ -91,6 +177,7 @@ pub fn spawn_gnome_session_watchers(
 
     // 2. System bus watcher: logind PrepareForSleep
     let st_system = state;
+    let wake_system = wake;
     std::thread::Builder::new()
         .name("idle-sleep-mon".to_string())
         .spawn(move || {
@@ -105,6 +192,7 @@ pub fn spawn_gnome_session_watchers(
                 for signal in stream {
                     if let Ok(args) = signal.args() {
                         st_system.stop();
+                        wake_system.wake();
                         if args.start {
                             idle_log_info!("System suspending — screensaver stopped");
                         } else {

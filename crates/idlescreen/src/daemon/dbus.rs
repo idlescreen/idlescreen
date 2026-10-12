@@ -23,6 +23,8 @@ pub struct ScreenSaverState {
     pub current_saver: Mutex<String>,
     pub text_targets: Mutex<Vec<String>>,
     pub custom_text: Mutex<String>,
+    pub custom_text_epoch: std::sync::atomic::AtomicU64,
+    pub wake_handle: Mutex<Option<crate::daemon::gnome::WakeHandle>>,
 }
 
 impl Default for ScreenSaverState {
@@ -46,6 +48,28 @@ impl ScreenSaverState {
             current_saver: Mutex::new(cfg.saver.active.unwrap_or_else(|| "ascii".to_string())),
             text_targets: Mutex::new(text_targets),
             custom_text: Mutex::new(cfg.saver.ascii.text),
+            custom_text_epoch: std::sync::atomic::AtomicU64::new(1),
+            wake_handle: Mutex::new(None),
+        }
+    }
+
+    pub fn set_wake_handle(&self, handle: crate::daemon::gnome::WakeHandle) {
+        if let Ok(mut guard) = self.wake_handle.lock() {
+            *guard = Some(handle);
+        }
+    }
+
+    pub fn clear_wake_handle(&self) {
+        if let Ok(mut guard) = self.wake_handle.lock() {
+            *guard = None;
+        }
+    }
+
+    pub fn wake(&self) {
+        if let Ok(guard) = self.wake_handle.lock() {
+            if let Some(ref h) = *guard {
+                h.wake();
+            }
         }
     }
 
@@ -62,12 +86,14 @@ impl ScreenSaverState {
         if let Ok(mut start) = self.started_at.lock() {
             *start = None;
         }
+        self.wake();
     }
 
     pub fn set_saver(&self, name: String) {
         if let Ok(mut saver) = self.current_saver.lock() {
             *saver = name;
         }
+        self.wake();
     }
 
     pub fn get_text_targets(&self) -> Vec<String> {
@@ -87,11 +113,13 @@ impl ScreenSaverState {
             let _ = std::fs::create_dir_all(&cfg_dir);
             let _ = std::fs::write(&toml_path, s);
         }
+        self.wake();
     }
 
     pub fn set_text(&self, text: &str) {
         if let Ok(mut t) = self.custom_text.lock() {
             *t = text.to_string();
+            self.custom_text_epoch.fetch_add(1, Ordering::Release);
         }
         let cfg_dir = crate::daemon::config::resolve_config_dir();
         let toml_path = cfg_dir.join("config.toml");
@@ -101,6 +129,7 @@ impl ScreenSaverState {
             let _ = std::fs::create_dir_all(&cfg_dir);
             let _ = std::fs::write(&toml_path, s);
         }
+        self.wake();
     }
 }
 
@@ -115,6 +144,7 @@ impl ScreenSaverInterface {
         if let Ok(mut start) = self.state.started_at.lock() {
             *start = Some(Instant::now());
         }
+        self.state.wake();
     }
 
     fn simulate_user_activity(&self) {
@@ -122,6 +152,7 @@ impl ScreenSaverInterface {
         if let Ok(mut start) = self.state.started_at.lock() {
             *start = None;
         }
+        self.state.wake();
     }
 
     fn get_active(&self) -> bool {
@@ -146,6 +177,7 @@ impl ScreenSaverInterface {
                 reason: reason_for_inhibit,
             });
         }
+        self.state.wake();
         cookie
     }
 
@@ -153,6 +185,7 @@ impl ScreenSaverInterface {
         if let Ok(mut guard) = self.state.inhibitors.lock() {
             guard.retain(|e| e.cookie != cookie);
         }
+        self.state.wake();
     }
 
     fn throttle(&self, application_name: String, reason_for_inhibit: String) -> u32 {

@@ -108,18 +108,45 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
         .as_ref()
         .and_then(|conn| crate::daemon::gnome::GnomeScreenSaverProxyBlocking::new(conn).ok());
 
+    let idle_timeout_ms = config.general.idle_timeout_secs * 1000;
+
+    let wake_fd = unsafe { libc::eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK) };
+    let wake_handle = crate::daemon::gnome::WakeHandle::new(wake_fd);
+    if wake_fd >= 0 {
+        state.set_wake_handle(wake_handle.clone());
+    }
+    let wake_registered = if wake_fd >= 0 {
+        reactor.add_fd(wake_fd, libc::EPOLLIN as u32, 3).is_ok()
+    } else {
+        false
+    };
+
     // Spawn background watchers for GNOME ScreenSaver (ActiveChanged, WakeUpScreen) and logind (PrepareForSleep)
-    crate::daemon::gnome::spawn_gnome_session_watchers(state.clone());
+    crate::daemon::gnome::spawn_gnome_session_watchers(state.clone(), wake_handle.clone());
+
+    // Register Mutter IdleMonitor watch signals to eliminate periodic polling wakeups
+    let mutter_idle_active = wake_registered
+        && crate::daemon::gnome::spawn_mutter_idle_watcher(
+            state.clone(),
+            idle_timeout_ms,
+            wake_handle.clone(),
+        );
 
     let mut events = [libc::epoll_event { events: 0, u64: 0 }; 16];
     let mut running = true;
     let mut presenter_handle: Option<std::thread::JoinHandle<()>> = None;
-    let idle_timeout_ms = config.general.idle_timeout_secs * 1000;
+    let watchdog_active = std::env::var("WATCHDOG_USEC").is_ok();
 
     // Main event loop
     while running && reactor.running {
-        // Sleep in epoll_wait (250ms timeout for snappy idle/activity check and heartbeat)
-        let num_events = match reactor.poll_events(&mut events, 250) {
+        // When driven by Mutter watch signals, sleep with long timeout (5s idle, 4s watchdog keeper refresh).
+        // Eliminates 95% of wakeups, keeping the CPU in deep C6/C7 sleep states while state changes wake via eventfd.
+        let poll_timeout = if mutter_idle_active {
+            if watchdog_active { 4000 } else { 5000 }
+        } else {
+            250
+        };
+        let num_events = match reactor.poll_events(&mut events, poll_timeout) {
             Ok(n) => n,
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
             Err(e) => {
@@ -191,29 +218,38 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                 // Signal received on signalfd
                 running = false;
                 break;
+            } else if token == 3 {
+                // Wakeup from Mutter idle monitor or session watcher
+                let mut buf = 0u64;
+                unsafe {
+                    libc::read(
+                        wake_fd,
+                        &mut buf as *mut _ as *mut libc::c_void,
+                        std::mem::size_of::<u64>(),
+                    );
+                }
             }
         }
 
-        // Periodic Mutter idle and lock check on GNOME
-        let is_locked = gnome_screensaver_proxy
-            .as_ref()
-            .and_then(|g| g.get_active().ok())
-            .unwrap_or(false);
+        // Periodic Mutter idle and lock check on GNOME (fallback when signal watches not available)
+        if !mutter_idle_active {
+            let is_locked = gnome_screensaver_proxy
+                .as_ref()
+                .and_then(|g| g.get_active().ok())
+                .unwrap_or(false);
 
-        if let Some(t) = mutter_proxy.as_ref().and_then(|m| m.get_idletime().ok()) {
-            if t >= idle_timeout_ms && !state.is_inhibited() && !is_locked {
-                state
-                    .active
-                    .store(true, std::sync::atomic::Ordering::SeqCst);
-            } else if (t < idle_timeout_ms || is_locked)
-                && state.active.load(std::sync::atomic::Ordering::SeqCst)
-            {
-                // User activity (trackpad/key movement) or screen lock/DPMS power-off detected.
-                // Dismiss active screensaver immediately so it never lingers after unlock.
-                state.stop();
+            if let Some(t) = mutter_proxy.as_ref().and_then(|m| m.get_idletime().ok()) {
+                if t >= idle_timeout_ms && !state.is_inhibited() && !is_locked {
+                    state
+                        .active
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                } else if (t < idle_timeout_ms || is_locked)
+                    && state.active.load(std::sync::atomic::Ordering::SeqCst)
+                {
+                    // User activity or screen lock detected
+                    state.stop();
+                }
             }
-        } else if is_locked && state.active.load(std::sync::atomic::Ordering::SeqCst) {
-            state.stop();
         }
 
         // Reap finished presenter thread when inactive
@@ -248,6 +284,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
 
     // Clean shutdown - notify systemd immediately upon exit signal
     notify_stopping();
+    state.clear_wake_handle();
     state.stop();
     if let Some(h) = presenter_handle.take() {
         let _ = h.join();
@@ -256,6 +293,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     if sfd >= 0 {
         unsafe { libc::close(sfd) };
     }
+    wake_handle.close();
 
     Ok(())
 }

@@ -116,6 +116,15 @@ pub fn blit_cells_to_argb(
     let char_w = (pixel_w / cols).max(1);
     let char_h = (pixel_h / rows).max(1);
 
+    // Precompute glyph row and column coordinate lookup tables
+    // Eliminates millions of inner-loop divisions per frame
+    let row_lut: Vec<usize> = (0..char_h)
+        .map(|dy| ((dy * GLYPH_HEIGHT) / char_h).min(GLYPH_HEIGHT - 1))
+        .collect();
+    let col_lut: Vec<usize> = (0..char_w)
+        .map(|dx| ((dx * GLYPH_WIDTH) / char_w).min(7))
+        .collect();
+
     for cy in 0..rows {
         for cx in 0..cols {
             let cell_idx = cy * cols + cx;
@@ -143,8 +152,8 @@ pub fn blit_cells_to_argb(
                 if py >= pixel_h {
                     break;
                 }
-                let glyph_row = (dy * GLYPH_HEIGHT) / char_h;
-                let bits = glyph[glyph_row.min(GLYPH_HEIGHT - 1)];
+                let glyph_row = row_lut[dy];
+                let bits = glyph[glyph_row];
                 let row_offset = py * pixel_w;
 
                 for dx in 0..char_w {
@@ -152,8 +161,8 @@ pub fn blit_cells_to_argb(
                     if px >= pixel_w {
                         break;
                     }
-                    let glyph_col = (dx * GLYPH_WIDTH) / char_w;
-                    let is_fg = (bits & (0x80 >> glyph_col.min(7))) != 0;
+                    let glyph_col = col_lut[dx];
+                    let is_fg = (bits & (0x80 >> glyph_col)) != 0;
                     let color = if is_fg { fg_color } else { bg_color };
                     let pixel_idx = row_offset + px;
                     if pixel_idx < buffer.len() {

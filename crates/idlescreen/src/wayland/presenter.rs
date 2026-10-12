@@ -155,6 +155,7 @@ pub struct WaylandState {
     pub exit_requested: bool,
     pub initial_pointer_pos: Option<(f64, f64)>,
     pub start_time: Instant,
+    pub dpms: crate::wayland::dpms::DpmsController,
 }
 
 impl WaylandState {
@@ -181,6 +182,7 @@ impl WaylandState {
             exit_requested: false,
             initial_pointer_pos: None,
             start_time: Instant::now(),
+            dpms: crate::wayland::dpms::DpmsController::new(),
         }
     }
 }
@@ -855,6 +857,7 @@ pub fn run_wayland_daemon_presenter(
 
     let mut cells = vec![TerminalCell::default(); cols * rows];
     let mut last_frame = Instant::now();
+    let mut last_custom_epoch = state.custom_text_epoch.load(Ordering::Acquire);
 
     while state.active.load(Ordering::SeqCst) && !state_wl.exit_requested {
         // Sync live target and custom text changes from D-Bus / socket
@@ -864,11 +867,36 @@ pub fn run_wayland_daemon_presenter(
         {
             ascii_saver.rotation.set_targets(guard.clone());
         }
-        if let Ok(guard) = state.custom_text.try_lock() {
-            let opt = (!guard.trim().is_empty()).then(|| guard.clone());
-            if opt != ascii_saver.rotation.custom_text {
-                ascii_saver.rotation.custom_text = opt;
+        let cur_epoch = state.custom_text_epoch.load(Ordering::Acquire);
+        if cur_epoch != last_custom_epoch {
+            if let Ok(guard) = state.custom_text.lock() {
+                let opt = (!guard.trim().is_empty()).then(|| guard.clone());
+                if opt != ascii_saver.rotation.custom_text {
+                    ascii_saver.rotation.custom_text = opt;
+                    if !is_extras {
+                        let cur_w = if state_wl.configured_width > 0 {
+                            state_wl.configured_width
+                        } else {
+                            width
+                        };
+                        let cur_h = if state_wl.configured_height > 0 {
+                            state_wl.configured_height
+                        } else {
+                            height
+                        };
+                        let c = (cur_w as usize / 8).max(10);
+                        let r = (cur_h as usize / 16).max(5);
+                        ascii_saver.init(c, r);
+                    }
+                }
+                last_custom_epoch = cur_epoch;
             }
+        }
+
+        // Park rendering immediately when output power is off (DPMS)
+        if state_wl.dpms.is_sleeping() {
+            poll_and_read_events(&connection, &mut event_queue, &mut state_wl, Duration::from_millis(50))?;
+            continue;
         }
 
         let now = Instant::now();
@@ -927,6 +955,29 @@ pub fn run_wayland_daemon_presenter(
             connection.flush()?;
 
             current_buf ^= 1;
+
+            if !is_extras && ascii_saver.is_settled() {
+                // Zero-FPS settled dwell: commit settled frame once, then park presenter thread
+                while ascii_saver.is_settled()
+                    && ascii_saver.dwell_left > 0.0
+                    && state.active.load(Ordering::SeqCst)
+                    && !state_wl.exit_requested
+                    && !state_wl.dpms.is_sleeping()
+                {
+                    let slice = Duration::from_secs_f32(ascii_saver.dwell_left.min(0.05));
+                    let slice_start = Instant::now();
+                    poll_and_read_events(&connection, &mut event_queue, &mut state_wl, slice)?;
+                    let slice_elapsed = slice_start.elapsed();
+                    ascii_saver.dwell_left = (ascii_saver.dwell_left - slice_elapsed.as_secs_f32()).max(0.0);
+
+                    if state.custom_text_epoch.load(Ordering::Acquire) != last_custom_epoch {
+                        ascii_saver.dwell_left = 0.0;
+                        break;
+                    }
+                }
+                last_frame = Instant::now() - frame_dur;
+                continue;
+            }
         }
 
         let elapsed = last_frame.elapsed();
