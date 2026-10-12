@@ -31,7 +31,13 @@ pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         .or_else(|| config.saver.active.clone().filter(|s| !s.trim().is_empty()))
         .unwrap_or_else(|| "ascii".to_string());
 
-    let eff_mode = opts.mode.unwrap_or_else(|| config.saver.ascii.mode.clone());
+    let eff_mode = opts.mode.unwrap_or_else(|| {
+        if config.saver.ascii.targets.is_empty() {
+            config.saver.ascii.mode.clone()
+        } else {
+            config.saver.ascii.targets.join(",")
+        }
+    });
     let eff_dwell = opts.dwell.unwrap_or(config.saver.ascii.dwell_secs);
     let eff_text = opts.text.unwrap_or_else(|| config.saver.ascii.text.clone());
     let eff_fps = config.saver.ascii.fps;

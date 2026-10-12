@@ -248,6 +248,9 @@ impl Ascii {
                 self.transition_active = false;
                 self.transition_left = 0.0;
                 self.transition_from_grid.clear();
+                if self.rotation.targets.len() > 1 {
+                    self.cycle_effect();
+                }
             }
         }
 
@@ -274,10 +277,10 @@ impl Ascii {
                 self.engine = None;
                 self.dwell_left = self.dwell_time();
             }
-        } else {
+        } else if !self.transition_active {
             // Banner is settled: countdown dwell
             self.dwell_left -= dt_secs;
-            if self.dwell_left <= 0.0 && !self.transition_active && !self.pinned {
+            if self.dwell_left <= 0.0 && !self.pinned {
                 self.begin_transition();
             }
         }
@@ -293,7 +296,29 @@ impl Ascii {
         self.transition_duration = dur;
         self.transition_left = dur;
         self.transition_active = true;
-        self.cycle_effect();
+
+        if self.rotation.targets.len() > 1 {
+            // Conclude scene by transitioning directly to the next target banner.
+            self.engine = None;
+            let next_text = self.rotation.peek_next_text();
+            let banner = self.rotation.atlas_cache.get_or_render(
+                &next_text,
+                None,
+                self.last_cols,
+                self.last_rows,
+            );
+            self.frame_grid.fill(TerminalCell::default());
+            let _ = draw::place_banner_centered(
+                &mut self.frame_grid,
+                self.last_cols,
+                self.last_rows,
+                &banner.lines,
+                self.fg,
+                self.bg,
+            );
+        } else {
+            self.cycle_effect();
+        }
     }
 
     pub fn cycle_effect(&mut self) {

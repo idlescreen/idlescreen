@@ -61,6 +61,7 @@ idlescreen status            Check active screensaver and daemon status
 idlescreen preview [saver]   Preview screensaver in terminal or fullscreen (e.g. fireworks, matrix, synthgrid)
 idlescreen list              List available built-in and extras screensavers
 idlescreen set <saver>       Set active screensaver (e.g. ascii, storm, aurora)
+idlescreen text <targets>     Set ASCII text targets (e.g. fedora, gnome, os,de, idlescreen, status)
 idlescreen tui               Interactive configuration dashboard
 idlescreen config            Show configuration path and active TOML settings
 idlescreen stop              Stop running screensaver
@@ -80,15 +81,18 @@ idle_timeout_secs = 120
 primary_output = ""       # Auto-detects largest resolution or compositor hint
 
 [saver.ascii]
-# Mode options:
-#  - "cycle"  (default): Randomly mutates between OS, DE, and Kernel across effects
-#  - "os":     Locks text strictly to detected Host OS (e.g., "Fedora Linux")
-#  - "de":     Locks text strictly to detected Desktop Environment (e.g., "GNOME")
-#  - "kernel": Locks text strictly to detected Linux Kernel (e.g., "Linux 6.13.5")
-#  - "custom": Locks text to user-defined `text` string below
-mode = "cycle"
+# Ordered list of ASCII targets cycled across consecutive scenes:
+# e.g., ["os", "de"], ["fedora"], ["fedora", "gnome"], ["idlescreen"]
+targets = ["os", "de"]
 
-# Custom text override (active when mode = "custom" or when set)
+# Mode options / target shortcuts:
+#  - "os":     Locks text strictly to detected Host OS (e.g., "FEDORA", "ARCH", "UBUNTU")
+#  - "de":     Locks text strictly to detected Desktop Environment (e.g., "GNOME", "KDE")
+#  - "kernel": Locks text strictly to detected Linux Kernel ("LINUX")
+#  - "custom": Locks text to user-defined `text` string below
+mode = "os,de"
+
+# Custom text override (active when mode = "custom" or when "custom" target is selected)
 text = ""
 
 # Visual pacing & animation

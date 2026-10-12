@@ -34,13 +34,17 @@ impl Default for ScreenSaverState {
 impl ScreenSaverState {
     pub fn new() -> Self {
         let cfg = crate::daemon::config::Config::load_or_migrate();
+        let mut text_targets = cfg.saver.ascii.targets;
+        if text_targets.is_empty() {
+            text_targets = crate::daemon::config::parse_targets_from_mode(&cfg.saver.ascii.mode);
+        }
         Self {
             active: AtomicBool::new(false),
             started_at: Mutex::new(None),
             inhibitors: Mutex::new(Vec::new()),
             cookie_counter: AtomicU32::new(1),
             current_saver: Mutex::new(cfg.saver.active.unwrap_or_else(|| "ascii".to_string())),
-            text_targets: Mutex::new(cfg.saver.ascii.targets),
+            text_targets: Mutex::new(text_targets),
             custom_text: Mutex::new(cfg.saver.ascii.text),
         }
     }

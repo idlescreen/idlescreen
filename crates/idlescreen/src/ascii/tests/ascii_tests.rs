@@ -126,19 +126,36 @@ fn multi_target_scene_handoff_and_single_lock() {
     assert_eq!(single.rotation.current_text(), "FEDORA");
 
     // 2. Multi-target handoff: FEDORA -> GNOME -> FEDORA
-    let mut multi = Ascii::new().with_targets(vec!["FEDORA".to_string(), "GNOME".to_string()]);
+    let mut multi = Ascii::new().with_targets(vec!["fedora linux".to_string(), "gnome mutter".to_string()]);
     multi.init(COLS, ROWS);
     // Scene 1: Starts on FEDORA, peeks GNOME for transition
     assert_eq!(multi.rotation.current_text(), "FEDORA");
     assert_eq!(multi.rotation.peek_next_text(), "GNOME");
 
-    // Transition concludes: advances to Scene 2 (GNOME)
-    multi.rotation.advance_scene();
+    // Conclude Scene 1: begin_transition renders GNOME banner and activates transition
+    multi.begin_transition();
+    assert!(multi.transition_active);
+    assert_eq!(multi.rotation.current_text(), "FEDORA");
+    assert_eq!(multi.rotation.peek_next_text(), "GNOME");
+
+    // Advance through the transition duration (0.7s) to conclude handoff
+    // Note: Ascii::update clamps dt to 0.1s max per frame, so step across multiple frames
+    for _ in 0..10 {
+        multi.update(Duration::from_millis(100), COLS, ROWS);
+    }
+    assert!(!multi.transition_active);
+    // Scene 2 is now active on GNOME, peeking FEDORA
     assert_eq!(multi.rotation.current_text(), "GNOME");
     assert_eq!(multi.rotation.peek_next_text(), "FEDORA");
 
-    // Next transition: advances back to Scene 3 (FEDORA)
-    multi.rotation.advance_scene();
+    // Conclude Scene 2: transition back to FEDORA
+    multi.begin_transition();
+    assert!(multi.transition_active);
+    for _ in 0..10 {
+        multi.update(Duration::from_millis(100), COLS, ROWS);
+    }
+    assert!(!multi.transition_active);
+    // Scene 3 is active on FEDORA again
     assert_eq!(multi.rotation.current_text(), "FEDORA");
     assert_eq!(multi.rotation.peek_next_text(), "GNOME");
 }

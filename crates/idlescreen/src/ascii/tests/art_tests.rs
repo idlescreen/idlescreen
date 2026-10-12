@@ -19,9 +19,15 @@ fn test_clean_os_name() {
     assert_eq!(clean_os_name("Arch Linux"), "ARCH");
     assert_eq!(clean_os_name("Alpine Linux v3.21 (musl)"), "ALPINE");
     assert_eq!(clean_os_name("openSUSE Tumbleweed"), "OPENSUSE");
+    assert_eq!(
+        clean_os_name("SUSE Linux Enterprise Server 15 SP6"),
+        "SLES"
+    );
     assert_eq!(clean_os_name("Parch Linux"), "PARCH");
     assert_eq!(clean_os_name("Archcraft"), "ARCHCRAFT");
     assert_eq!(clean_os_name("ArcoLinux"), "ARCO");
+    assert_eq!(clean_os_name("Linux"), "LINUX");
+    assert_eq!(clean_os_name("GNU/Linux"), "LINUX");
     assert_eq!(clean_os_name(""), "IDLESCREEN");
     assert_eq!(clean_os_name("unknown"), "IDLESCREEN");
 }
@@ -32,8 +38,10 @@ fn test_clean_desktop_env() {
     assert_eq!(clean_desktop_env("GNOME:Mutter"), "GNOME");
     assert_eq!(clean_desktop_env("mutter"), "GNOME");
     assert_eq!(clean_desktop_env("KDE Plasma"), "KDE");
+    assert_eq!(clean_desktop_env("kwin_wayland"), "KDE");
     assert_eq!(clean_desktop_env("Hyprland"), "HYPRLAND");
     assert_eq!(clean_desktop_env("Sway"), "SWAY");
+    assert_eq!(clean_desktop_env("default"), "DESKTOP");
     assert_eq!(clean_desktop_env(""), "DESKTOP");
 }
 

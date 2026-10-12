@@ -121,6 +121,7 @@ fn parse_lsb_release(path: impl AsRef<Path>) -> Option<String> {
 
 /// Calls `libc::uname` to get system name.
 fn uname_sysname() -> Option<String> {
+    // SAFETY: uts is zeroed memory passed to libc::uname. uts.sysname is null-terminated by the kernel on success.
     let mut uts: libc::utsname = unsafe { std::mem::zeroed() };
     if unsafe { libc::uname(&raw mut uts) } == 0 {
         let c_str = unsafe { std::ffi::CStr::from_ptr(uts.sysname.as_ptr()) };
@@ -130,9 +131,9 @@ fn uname_sysname() -> Option<String> {
     }
 }
 
-/// Cleans raw OS name to crisp uppercase single brand words (e.g. "FEDORA", "ARCH", "UBUNTU").
+/// Cleans raw OS name to crisp uppercase single brand words (e.g. "FEDORA", "ARCH", "UBUNTU", "LINUX").
 pub fn clean_os_name(raw: &str) -> String {
-    let mut s = raw.split(" (").next().unwrap_or(raw).trim();
+    let mut s = raw.trim();
     if let Some(idx) = s.find('(') {
         s = s[..idx].trim();
     }
@@ -163,8 +164,14 @@ pub fn clean_os_name(raw: &str) -> String {
     if words.contains(&"ALPINE") {
         return "ALPINE".to_string();
     }
-    if words.contains(&"OPENSUSE") || words.contains(&"SUSE") {
+    if words.contains(&"OPENSUSE") {
         return "OPENSUSE".to_string();
+    }
+    if words.contains(&"SLES") || (words.contains(&"SUSE") && words.contains(&"ENTERPRISE")) {
+        return "SLES".to_string();
+    }
+    if words.contains(&"SUSE") {
+        return "SUSE".to_string();
     }
     if words.contains(&"VOID") {
         return "VOID".to_string();
@@ -230,6 +237,11 @@ pub fn clean_os_name(raw: &str) -> String {
         }
     }
 
+    // If only generic markers like "Linux" or "GNU/Linux" are present, return "LINUX"
+    if words.contains(&"LINUX") {
+        return "LINUX".to_string();
+    }
+
     "IDLESCREEN".to_string()
 }
 
@@ -274,7 +286,7 @@ pub fn clean_desktop_env(raw: &str) -> String {
     if words.contains(&"GNOME") || words.contains(&"MUTTER") {
         return "GNOME".to_string();
     }
-    if words.contains(&"KDE") || words.contains(&"PLASMA") {
+    if words.contains(&"KDE") || words.contains(&"PLASMA") || words.contains(&"KWIN") {
         return "KDE".to_string();
     }
     if words.contains(&"COSMIC") {
@@ -315,7 +327,12 @@ pub fn clean_desktop_env(raw: &str) -> String {
     }
 
     if let Some(&first) = words.first() {
-        if first.is_empty() || first == "UNKNOWN" {
+        if first.is_empty()
+            || first == "UNKNOWN"
+            || first == "DEFAULT"
+            || first == "NONE"
+            || first == "STANDARD"
+        {
             "DESKTOP".to_string()
         } else {
             first.to_string()

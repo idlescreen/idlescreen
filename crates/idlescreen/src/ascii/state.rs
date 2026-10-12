@@ -249,7 +249,17 @@ impl TriRotationState {
                 } else if other.eq_ignore_ascii_case(&self.de_name) {
                     self.de_name.clone()
                 } else {
-                    t.to_ascii_uppercase()
+                    let cleaned_os = super::sys_info::clean_os_name(t);
+                    if cleaned_os == "IDLESCREEN" {
+                        let cleaned_de = super::sys_info::clean_desktop_env(t);
+                        if cleaned_de == "DESKTOP" {
+                            t.to_ascii_uppercase()
+                        } else {
+                            cleaned_de
+                        }
+                    } else {
+                        cleaned_os
+                    }
                 }
             }
         }
@@ -305,7 +315,7 @@ impl TriRotationState {
 
     pub fn advance_mutation(&mut self, rng: &mut LcgRng) {
         self.advance_scene();
-        if self.mode == TextMode::Cycle {
+        if self.mode == TextMode::Cycle && self.targets.is_empty() {
             self.current_target = BrandTarget::random_excluding(rng, Some(self.current_target));
         }
     }
