@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 // `Ripple` constructor + small public/internal helpers (Default,
 // new, prepare_for_bench, impact, pick_weather). The Screensaver

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 use super::blips;
 use super::draw_hud::{draw_datalinks, draw_hud, draw_laser_beam, draw_lock_line};

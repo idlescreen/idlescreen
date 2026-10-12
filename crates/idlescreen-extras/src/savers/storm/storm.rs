@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 // `Storm` constructor + small helpers (Default, new,
 // prepare_for_bench). The `Screensaver` trait impl (init /

@@ -104,6 +104,13 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
         .as_ref()
         .and_then(|conn| crate::daemon::gnome::MutterIdleMonitorProxyBlocking::new(conn).ok());
 
+    let gnome_screensaver_proxy = dbus_conn
+        .as_ref()
+        .and_then(|conn| crate::daemon::gnome::GnomeScreenSaverProxyBlocking::new(conn).ok());
+
+    // Spawn background watchers for GNOME ScreenSaver (ActiveChanged, WakeUpScreen) and logind (PrepareForSleep)
+    crate::daemon::gnome::spawn_gnome_session_watchers(state.clone());
+
     let mut events = [libc::epoll_event { events: 0, u64: 0 }; 16];
     let mut running = true;
     let mut presenter_handle: Option<std::thread::JoinHandle<()>> = None;
@@ -111,8 +118,8 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
 
     // Main event loop
     while running && reactor.running {
-        // Sleep in epoll_wait (1000ms timeout for periodic idle check and heartbeat)
-        let num_events = match reactor.poll_events(&mut events, 1000) {
+        // Sleep in epoll_wait (250ms timeout for snappy idle/activity check and heartbeat)
+        let num_events = match reactor.poll_events(&mut events, 250) {
             Ok(n) => n,
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
             Err(e) => {
@@ -172,16 +179,33 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        // Periodic Mutter idle check on GNOME
-        if mutter_proxy
+        // Periodic Mutter idle and lock check on GNOME
+        let is_locked = gnome_screensaver_proxy
             .as_ref()
-            .and_then(|m| m.get_idletime().ok())
-            .is_some_and(|t| t >= idle_timeout_ms)
-            && !state.is_inhibited()
-        {
-            state
-                .active
-                .store(true, std::sync::atomic::Ordering::SeqCst);
+            .and_then(|g| g.get_active().ok())
+            .unwrap_or(false);
+
+        if let Some(t) = mutter_proxy.as_ref().and_then(|m| m.get_idletime().ok()) {
+            if t >= idle_timeout_ms && !state.is_inhibited() && !is_locked {
+                state
+                    .active
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+            } else if (t < idle_timeout_ms || is_locked)
+                && state.active.load(std::sync::atomic::Ordering::SeqCst)
+            {
+                // User activity (trackpad/key movement) or screen lock/DPMS power-off detected.
+                // Dismiss active screensaver immediately so it never lingers after unlock.
+                state.stop();
+            }
+        } else if is_locked && state.active.load(std::sync::atomic::Ordering::SeqCst) {
+            state.stop();
+        }
+
+        // Reap finished presenter thread when inactive
+        if let Some(ref h) = presenter_handle {
+            if h.is_finished() {
+                let _ = presenter_handle.take().unwrap().join();
+            }
         }
 
         // Launch Wayland screensaver presentation when active

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 use super::types::{EnemyShip, GoodShip, RadarJet};
 use crate::runner::ScreenPalette;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 use super::types::Attractor;
 use crate::runner::hsl_to_rgb;

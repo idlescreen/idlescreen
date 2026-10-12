@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 use super::collision::{
     init_jets, spawn_enemy, spawn_nuke_and_boss, spawn_scouts, update_defenders,

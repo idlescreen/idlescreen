@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 // `Screensaver` trait impl for `Storm` — init, update_frame_time,
 // update, draw. Each method is a self-contained entry point; they
 // live in one page because the trait requires them co-located and

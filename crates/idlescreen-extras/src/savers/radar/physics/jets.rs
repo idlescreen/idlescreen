@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 use super::particles::{spawn_massive_explosion, spawn_nuke_explosion};
 use crate::radar::types::{EnemyShip, ExplosionParticle, LaserBeam, RadarJet};

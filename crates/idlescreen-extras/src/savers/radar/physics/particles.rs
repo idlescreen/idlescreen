@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 use crate::radar::types::ExplosionParticle;
 use crate::runner::LcgRng;
