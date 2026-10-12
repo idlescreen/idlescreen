@@ -202,10 +202,11 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Reap finished presenter thread when inactive
-        if let Some(ref h) = presenter_handle {
-            if h.is_finished() {
-                let _ = presenter_handle.take().unwrap().join();
-            }
+        if presenter_handle
+            .as_ref()
+            .is_some_and(std::thread::JoinHandle::is_finished)
+        {
+            let _ = presenter_handle.take().unwrap().join();
         }
 
         // Launch Wayland screensaver presentation when active

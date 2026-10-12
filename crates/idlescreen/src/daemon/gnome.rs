@@ -71,18 +71,17 @@ pub fn spawn_gnome_session_watchers(
             };
 
             // Listen for ActiveChanged signals
-            if let Ok(mut stream) = proxy.receive_active_changed() {
-                use std::iter::Iterator;
-                while let Some(signal) = stream.next() {
+            if let Ok(stream) = proxy.receive_active_changed() {
+                for signal in stream {
                     if let Ok(args) = signal.args() {
                         let is_active = args.new_value;
                         // On both lock (active=true) and unlock (active=false),
                         // dismiss any running presentation so it never lingers.
                         st_session.stop();
-                        if !is_active {
-                            idle_log_info!("GNOME session unlocked — screensaver dismissed");
-                        } else {
+                        if is_active {
                             idle_log_info!("GNOME screen locked/blanked — presentation stopped");
+                        } else {
+                            idle_log_info!("GNOME session unlocked — screensaver dismissed");
                         }
                     }
                 }
@@ -102,9 +101,8 @@ pub fn spawn_gnome_session_watchers(
                 return;
             };
 
-            if let Ok(mut stream) = proxy.receive_prepare_for_sleep() {
-                use std::iter::Iterator;
-                while let Some(signal) = stream.next() {
+            if let Ok(stream) = proxy.receive_prepare_for_sleep() {
+                for signal in stream {
                     if let Ok(args) = signal.args() {
                         st_system.stop();
                         if args.start {
