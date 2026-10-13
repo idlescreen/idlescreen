@@ -83,7 +83,7 @@ impl WakeHandle {
             unsafe {
                 libc::write(
                     fd,
-                    &val as *const _ as *const libc::c_void,
+                    (&raw const val).cast::<libc::c_void>(),
                     std::mem::size_of::<u64>(),
                 );
             }
@@ -123,11 +123,11 @@ pub fn spawn_mutter_idle_watcher(
                                 st.active.store(true, std::sync::atomic::Ordering::SeqCst);
                                 wake.wake();
                             }
-                        } else if args.id == active_watch_id {
-                            if st.active.load(std::sync::atomic::Ordering::SeqCst) {
-                                st.stop();
-                                wake.wake();
-                            }
+                        } else if args.id == active_watch_id
+                            && st.active.load(std::sync::atomic::Ordering::SeqCst)
+                        {
+                            st.stop();
+                            wake.wake();
                         }
                     }
                 }
@@ -289,5 +289,3 @@ mod tests {
         assert!(!state.active.load(Ordering::SeqCst));
     }
 }
-
-

@@ -25,7 +25,9 @@ pub fn print_help() {
     println!("  status            Check active screensaver and daemon status");
     println!("  tui               Interactive settings dashboard for screensaver and timeouts");
     println!("  preview [saver]   Preview screensaver in terminal (crossterm)");
-    println!("  text [targets]    Set or inspect ASCII text targets (e.g. fedora, os,de, idlescreen, status)");
+    println!(
+        "  text [targets]    Set or inspect ASCII text targets (e.g. fedora, os,de, idlescreen, status)"
+    );
     println!("  list              List available built-in and extras screensavers");
     println!("  set <saver>       Set active screensaver (e.g. ascii, storm, aurora)");
     println!("  start             Activate screensaver immediately");
@@ -80,25 +82,32 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             }
         },
         "start" => {
-            let mut started = false;
-            if let Ok(conn) = zbus::blocking::Connection::session()
-                && conn
-                    .call_method(
-                        Some("org.freedesktop.ScreenSaver"),
-                        "/org/freedesktop/ScreenSaver",
-                        Some("org.freedesktop.ScreenSaver"),
-                        "Lock",
-                        &(),
-                    )
-                    .is_ok()
-            {
-                println!("Daemon response: Triggered screensaver lock (via D-Bus)");
-                started = true;
-            }
-            if !started {
+            // Prefer our own bus name: on Hyprland/sway the generic
+            // org.freedesktop.ScreenSaver name is usually owned by hypridle
+            // or swayidle, which do not implement Lock for IdleScreen.
+            let started = zbus::blocking::Connection::session().is_ok_and(|conn| {
+                ["io.github.idlescreen.Idle", "org.freedesktop.ScreenSaver"]
+                    .iter()
+                    .any(|dest| {
+                        conn.call_method(
+                            Some(*dest),
+                            "/org/freedesktop/ScreenSaver",
+                            Some("org.freedesktop.ScreenSaver"),
+                            "Lock",
+                            &(),
+                        )
+                        .is_ok()
+                    })
+            });
+            if started {
+                println!("Daemon response: Activated screensaver (via D-Bus)");
+            } else if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
                 println!("Daemon not active; running interactive preview instead:");
                 let preview_args = if args.len() > 1 { &args[1..] } else { &[] };
                 preview::execute(preview_args)?;
+            } else {
+                eprintln!("idlescreen: daemon not reachable on D-Bus; screensaver not started");
+                std::process::exit(69);
             }
             Ok(())
         }

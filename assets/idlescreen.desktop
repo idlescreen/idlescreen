@@ -6,4 +6,6 @@ Exec=idlescreen daemon
 Terminal=false
 NoDisplay=true
 X-GNOME-Autostart-enabled=true
+X-GNOME-HiddenUnderSystemd=true
+X-systemd-skip=true
 Categories=Utility;Screensaver;

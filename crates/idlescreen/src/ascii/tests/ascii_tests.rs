@@ -126,7 +126,8 @@ fn multi_target_scene_handoff_and_single_lock() {
     assert_eq!(single.rotation.current_text(), "FEDORA");
 
     // 2. Multi-target handoff: FEDORA -> GNOME -> FEDORA
-    let mut multi = Ascii::new().with_targets(vec!["fedora linux".to_string(), "gnome mutter".to_string()]);
+    let mut multi =
+        Ascii::new().with_targets(vec!["fedora linux".to_string(), "gnome mutter".to_string()]);
     multi.init(COLS, ROWS);
     // Scene 1: Starts on FEDORA, peeks GNOME for transition
     assert_eq!(multi.rotation.current_text(), "FEDORA");

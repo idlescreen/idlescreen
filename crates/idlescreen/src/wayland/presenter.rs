@@ -895,7 +895,12 @@ pub fn run_wayland_daemon_presenter(
 
         // Park rendering immediately when output power is off (DPMS)
         if state_wl.dpms.is_sleeping() {
-            poll_and_read_events(&connection, &mut event_queue, &mut state_wl, Duration::from_millis(50))?;
+            poll_and_read_events(
+                &connection,
+                &mut event_queue,
+                &mut state_wl,
+                Duration::from_millis(50),
+            )?;
             continue;
         }
 
@@ -968,7 +973,8 @@ pub fn run_wayland_daemon_presenter(
                     let slice_start = Instant::now();
                     poll_and_read_events(&connection, &mut event_queue, &mut state_wl, slice)?;
                     let slice_elapsed = slice_start.elapsed();
-                    ascii_saver.dwell_left = (ascii_saver.dwell_left - slice_elapsed.as_secs_f32()).max(0.0);
+                    ascii_saver.dwell_left =
+                        (ascii_saver.dwell_left - slice_elapsed.as_secs_f32()).max(0.0);
 
                     if state.custom_text_epoch.load(Ordering::Acquire) != last_custom_epoch {
                         ascii_saver.dwell_left = 0.0;

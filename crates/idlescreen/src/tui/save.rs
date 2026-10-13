@@ -49,7 +49,10 @@ pub fn save_settings(model: &TuiModel) -> Result<String, String> {
         }
     }
 
-    if !notified && let Ok(_resp) = ControlClient::send_command(&format!("text_targets {}", targets.join(","))) {
+    if !notified
+        && let Ok(_resp) =
+            ControlClient::send_command(&format!("text_targets {}", targets.join(",")))
+    {
         let _ = ControlClient::send_command(&format!("set_text {}", model.custom_text));
         let _ = ControlClient::send_command("set ascii");
         notified = true;

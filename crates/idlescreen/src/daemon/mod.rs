@@ -33,11 +33,36 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    // 1b. Check if an active daemon already owns our unique D-Bus interface
+    if let Ok(conn) = zbus::blocking::Connection::session()
+        && let Ok(reply) = conn.call_method(
+            Some("org.freedesktop.DBus"),
+            "/org/freedesktop/DBus",
+            Some("org.freedesktop.DBus"),
+            "NameHasOwner",
+            &("io.github.idlescreen.Idle",),
+        )
+        && let Ok(has_owner) = reply.body().deserialize::<bool>()
+        && has_owner
+    {
+        eprintln!(
+            "idlescreen-daemon is already running (D-Bus name io.github.idlescreen.Idle is already owned)"
+        );
+        return Ok(());
+    }
+
     // 2. Load or migrate configuration
     let config = Config::load_or_migrate();
 
     // 3. Bind direct control socket
-    let control_listener = ControlListener::bind()?;
+    let control_listener = match ControlListener::bind() {
+        Ok(l) => l,
+        Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+            eprintln!("idlescreen-daemon is already running (control socket active)");
+            return Ok(());
+        }
+        Err(e) => return Err(e.into()),
+    };
 
     // 4. Setup signal handling via Linux signalfd (SIGTERM, SIGINT)
     let mut mask: libc::sigset_t = unsafe { std::mem::zeroed() };
@@ -137,14 +162,23 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     let mut presenter_handle: Option<std::thread::JoinHandle<()>> = None;
     let watchdog_active = std::env::var("WATCHDOG_USEC").is_ok();
 
+    // Mutter polling is only useful on GNOME without signal watches. Probe once:
+    // on Hyprland/sway the proxy exists but every call fails, so polling it
+    // would wake the CPU 4x/s for nothing.
+    let mutter_poll_available = !mutter_idle_active
+        && mutter_proxy
+            .as_ref()
+            .is_some_and(|m| m.get_idletime().is_ok());
+
     // Main event loop
     while running && reactor.running {
-        // When driven by Mutter watch signals, sleep indefinitely (-1) or refresh watchdog keeper (4s).
-        // Eliminates up to 100% of periodic polling wakeups, allowing CPU to stay in deep C6/C7 sleep states.
-        let poll_timeout = if mutter_idle_active {
-            if watchdog_active { 4000 } else { -1 }
-        } else {
+        // Event-driven sleep (-1) unless we must poll Mutter; 4s when a systemd watchdog is armed.
+        let poll_timeout = if mutter_poll_available {
             250
+        } else if watchdog_active {
+            4000
+        } else {
+            -1
         };
         let num_events = match reactor.poll_events(&mut events, poll_timeout) {
             Ok(n) => n,
@@ -181,8 +215,13 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                                 )
                             }
                             "stop" => {
+                                // Stop the active screensaver only; the daemon keeps running.
                                 state.stop();
-                                ("OK".to_string(), true)
+                                ("OK".to_string(), false)
+                            }
+                            "quit" => {
+                                state.stop();
+                                ("OK: daemon exiting".to_string(), true)
                             }
                             "ping" | "PING" => ("PONG".to_string(), false),
                             _ if cmd.starts_with("set ") => {
@@ -224,7 +263,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                 unsafe {
                     libc::read(
                         wake_fd,
-                        &mut buf as *mut _ as *mut libc::c_void,
+                        (&raw mut buf).cast::<libc::c_void>(),
                         std::mem::size_of::<u64>(),
                     );
                 }
@@ -232,7 +271,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Periodic Mutter idle and lock check on GNOME (fallback when signal watches not available)
-        if !mutter_idle_active {
+        if mutter_poll_available {
             let is_locked = gnome_screensaver_proxy
                 .as_ref()
                 .and_then(|g| g.get_active().ok())

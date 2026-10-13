@@ -66,10 +66,10 @@ impl ScreenSaverState {
     }
 
     pub fn wake(&self) {
-        if let Ok(guard) = self.wake_handle.lock() {
-            if let Some(ref h) = *guard {
-                h.wake();
-            }
+        if let Ok(guard) = self.wake_handle.lock()
+            && let Some(ref h) = *guard
+        {
+            h.wake();
         }
     }
 
@@ -97,7 +97,10 @@ impl ScreenSaverState {
     }
 
     pub fn get_text_targets(&self) -> Vec<String> {
-        self.text_targets.lock().map(|t| t.clone()).unwrap_or_default()
+        self.text_targets
+            .lock()
+            .map(|t| t.clone())
+            .unwrap_or_default()
     }
 
     pub fn set_text_targets(&self, targets: &[String]) {

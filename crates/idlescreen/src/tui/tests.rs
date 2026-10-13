@@ -13,7 +13,10 @@ fn test_mode_choice_conversions() {
     assert_eq!(ModeChoice::from_config_str("os"), ModeChoice::HostOs);
     assert_eq!(ModeChoice::from_config_str("de"), ModeChoice::DesktopEnv);
     assert_eq!(ModeChoice::from_config_str("kernel"), ModeChoice::Kernel);
-    assert_eq!(ModeChoice::from_config_str("idlescreen"), ModeChoice::Wordmark);
+    assert_eq!(
+        ModeChoice::from_config_str("idlescreen"),
+        ModeChoice::Wordmark
+    );
     assert_eq!(
         ModeChoice::from_config_str("custom"),
         ModeChoice::CustomText
@@ -66,7 +69,10 @@ fn test_checklist_toggle_and_at_least_one_constraint() {
 
     // Try to uncheck Host OS (0) -> should be prevented by at-least-one constraint
     model.toggle_target(0);
-    assert!(model.target_checked[0], "Cannot uncheck the only remaining selected target");
+    assert!(
+        model.target_checked[0],
+        "Cannot uncheck the only remaining selected target"
+    );
 
     // Toggle Kernel (2) -> now checked
     model.toggle_target(2);

@@ -19,10 +19,7 @@ fn test_clean_os_name() {
     assert_eq!(clean_os_name("Arch Linux"), "ARCH");
     assert_eq!(clean_os_name("Alpine Linux v3.21 (musl)"), "ALPINE");
     assert_eq!(clean_os_name("openSUSE Tumbleweed"), "OPENSUSE");
-    assert_eq!(
-        clean_os_name("SUSE Linux Enterprise Server 15 SP6"),
-        "SLES"
-    );
+    assert_eq!(clean_os_name("SUSE Linux Enterprise Server 15 SP6"), "SLES");
     assert_eq!(clean_os_name("Parch Linux"), "PARCH");
     assert_eq!(clean_os_name("Archcraft"), "ARCHCRAFT");
     assert_eq!(clean_os_name("ArcoLinux"), "ARCO");

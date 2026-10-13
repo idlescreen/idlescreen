@@ -55,25 +55,34 @@ pub fn sd_notify(state: &str) -> std::io::Result<bool> {
     Ok(true)
 }
 
-/// Signals readiness via fd 3 (standard s6 / dinit readiness protocol).
+/// Signals readiness via an open FIFO/pipe (standard s6 / dinit readiness protocol).
 ///
-/// If fd 3 is open, writes a newline `\n` to fd 3 and closes it.
-pub fn notify_fd3() -> bool {
-    let fd = 3;
-    // Check if fd 3 is open
-    let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
-    if flags < 0 {
+/// If fd is an open FIFO/pipe, writes a newline `\n` to fd and closes it.
+/// If fd is a regular file (e.g. PID lock file) or other descriptor, it is left untouched.
+pub fn notify_fd(fd: libc::c_int) -> bool {
+    let mut st: libc::stat = unsafe { std::mem::zeroed() };
+    if unsafe { libc::fstat(fd, &raw mut st) } < 0 {
+        return false;
+    }
+
+    // Only notify if fd is an actual FIFO / pipe passed by s6 or dinit
+    if (st.st_mode & libc::S_IFMT) != libc::S_IFIFO {
         return false;
     }
 
     let byte = *b"\n";
-    let res = unsafe { libc::write(fd, byte.as_ptr().cast(), 1) };
+    let res = unsafe { libc::write(fd, (&raw const byte).cast(), 1) };
     if res > 0 {
         unsafe { libc::close(fd) };
         true
     } else {
         false
     }
+}
+
+/// Signals readiness via fd 3 (standard s6 / dinit readiness protocol).
+pub fn notify_fd3() -> bool {
+    notify_fd(3)
 }
 
 /// Signals overall daemon readiness across all protocols.
@@ -90,4 +99,44 @@ pub fn notify_watchdog() {
 /// Signals daemon shutdown to the supervisor.
 pub fn notify_stopping() {
     let _ = sd_notify("STOPPING=1\n");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_notify_fd_ignores_regular_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("test.txt");
+        let file = std::fs::File::create(&file_path).unwrap();
+        use std::os::fd::AsRawFd;
+        let fd = file.as_raw_fd();
+
+        assert!(!notify_fd(fd));
+        // Verify fd is still open and valid
+        let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        assert!(flags >= 0);
+    }
+
+    #[test]
+    fn test_notify_fd_signals_pipe() {
+        let mut pipe_fds = [0; 2];
+        let res = unsafe { libc::pipe(pipe_fds.as_mut_ptr()) };
+        assert_eq!(res, 0);
+
+        let read_fd = pipe_fds[0];
+        let write_fd = pipe_fds[1];
+
+        // Should successfully write '\n' and close write_fd
+        assert!(notify_fd(write_fd));
+
+        // Read from read_fd to verify '\n' was received
+        let mut buf = [0u8; 4];
+        let bytes_read = unsafe { libc::read(read_fd, buf.as_mut_ptr().cast(), 4) };
+        assert_eq!(bytes_read, 1);
+        assert_eq!(buf[0], b'\n');
+
+        unsafe { libc::close(read_fd) };
+    }
 }

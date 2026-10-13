@@ -63,12 +63,16 @@ Exec=idlescreen daemon
 Terminal=false
 NoDisplay=true
 X-GNOME-Autostart-enabled=true
+X-GNOME-HiddenUnderSystemd=true
+X-systemd-skip=true
 Categories=Utility;Screensaver;
 "#;
 
     assert!(desktop_entry.contains("[Desktop Entry]"));
     assert!(desktop_entry.contains("Type=Application"));
     assert!(desktop_entry.contains("Exec=idlescreen daemon"));
+    assert!(desktop_entry.contains("X-GNOME-HiddenUnderSystemd=true"));
+    assert!(desktop_entry.contains("X-systemd-skip=true"));
 }
 
 #[test]
