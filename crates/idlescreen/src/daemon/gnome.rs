@@ -53,6 +53,19 @@ pub trait LogindManager {
     fn prepare_for_sleep(&self, start: bool) -> zbus::Result<()>;
 }
 
+#[proxy(
+    interface = "org.freedesktop.login1.Session",
+    default_service = "org.freedesktop.login1",
+    default_path = "/org/freedesktop/login1/session/auto"
+)]
+pub trait LogindSession {
+    #[zbus(signal)]
+    fn lock(&self) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    fn unlock(&self) -> zbus::Result<()>;
+}
+
 #[derive(Clone, Debug)]
 pub struct WakeHandle {
     pub fd: std::sync::Arc<std::sync::atomic::AtomicI32>,
@@ -175,7 +188,50 @@ pub fn spawn_gnome_session_watchers(
         })
         .ok();
 
-    // 2. System bus watcher: logind PrepareForSleep
+    // 2. System bus watcher: logind Session Lock / Unlock (for loginctl lock-session on Hyprland/Sway/COSMIC)
+    let st_lock = state.clone();
+    let wake_lock = wake.clone();
+    std::thread::Builder::new()
+        .name("idle-lock-mon".to_string())
+        .spawn(move || {
+            let Ok(conn) = zbus::blocking::Connection::system() else {
+                return;
+            };
+            let Ok(proxy) = LogindSessionProxyBlocking::new(&conn) else {
+                return;
+            };
+            if let Ok(stream) = proxy.receive_lock() {
+                for _ in stream {
+                    st_lock.stop();
+                    wake_lock.wake();
+                    idle_log_info!("logind Session.Lock — presentation stopped immediately");
+                }
+            }
+        })
+        .ok();
+
+    let st_unlock = state.clone();
+    let wake_unlock = wake.clone();
+    std::thread::Builder::new()
+        .name("idle-unlock-mon".to_string())
+        .spawn(move || {
+            let Ok(conn) = zbus::blocking::Connection::system() else {
+                return;
+            };
+            let Ok(proxy) = LogindSessionProxyBlocking::new(&conn) else {
+                return;
+            };
+            if let Ok(stream) = proxy.receive_unlock() {
+                for _ in stream {
+                    st_unlock.stop();
+                    wake_unlock.wake();
+                    idle_log_info!("logind Session.Unlock — screensaver dismissed");
+                }
+            }
+        })
+        .ok();
+
+    // 3. System bus watcher: logind PrepareForSleep
     let st_system = state;
     let wake_system = wake;
     std::thread::Builder::new()

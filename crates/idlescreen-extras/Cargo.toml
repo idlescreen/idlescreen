@@ -1,6 +1,6 @@
 [package]
 name = "idlescreen-extras"
-version = "4.1.28"
+version = "4.1.29"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["idlescreen developers"]
