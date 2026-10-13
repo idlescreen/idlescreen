@@ -11,6 +11,8 @@ fn test_collect_diagnostics() {
     assert!(!report.active_saver.is_empty());
     assert!(report.timeout_secs > 0);
     assert!(report.dwell_secs > 0.0);
+    assert_eq!(report.input_debounce_ms, 500);
+    assert!(!report.wayland_presenter_note.is_empty());
 }
 
 #[test]
@@ -65,8 +67,13 @@ fn test_report_fields() {
         config_is_toml: true,
         extras_bin: None,
         shm_writable: true,
+        input_debounce_ms: 500,
+        wayland_presenter_ok: true,
+        wayland_presenter_note: "layer-shell + wl_shm ready, 500ms debounce active".to_string(),
     };
     assert_eq!(report.active_saver, "ascii");
     assert!(report.daemon_running);
     assert!(report.dbus_service_active);
+    assert_eq!(report.input_debounce_ms, 500);
+    assert!(report.wayland_presenter_ok);
 }

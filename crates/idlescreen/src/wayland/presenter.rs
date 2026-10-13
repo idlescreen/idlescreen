@@ -133,6 +133,9 @@ pub fn allocate_shm_buffer(
     })
 }
 
+pub const INPUT_DEBOUNCE_WINDOW: Duration = Duration::from_millis(500);
+pub const POINTER_DRIFT_THRESHOLD_PX: f64 = 15.0;
+
 pub struct WaylandState {
     pub compositor: Option<wl_compositor::WlCompositor>,
     pub shm: Option<wl_shm::WlShm>,
@@ -183,6 +186,48 @@ impl WaylandState {
             initial_pointer_pos: None,
             start_time: Instant::now(),
             dpms: crate::wayland::dpms::DpmsController::new(),
+        }
+    }
+
+    pub fn handle_key_event(&mut self, key_state: WEnum<wl_keyboard::KeyState>) {
+        if matches!(key_state, WEnum::Value(wl_keyboard::KeyState::Pressed))
+            && self.start_time.elapsed() >= INPUT_DEBOUNCE_WINDOW
+        {
+            self.exit_requested = true;
+        }
+    }
+
+    pub fn handle_pointer_button(&mut self, btn_state: WEnum<wl_pointer::ButtonState>) {
+        if matches!(btn_state, WEnum::Value(wl_pointer::ButtonState::Pressed))
+            && self.start_time.elapsed() >= INPUT_DEBOUNCE_WINDOW
+        {
+            self.exit_requested = true;
+        }
+    }
+
+    pub fn handle_pointer_motion(&mut self, surface_x: f64, surface_y: f64) {
+        if self.start_time.elapsed() < INPUT_DEBOUNCE_WINDOW {
+            self.initial_pointer_pos = Some((surface_x, surface_y));
+        } else if let Some((init_x, init_y)) = self.initial_pointer_pos {
+            let dx = (surface_x - init_x).abs();
+            let dy = (surface_y - init_y).abs();
+            if dx > POINTER_DRIFT_THRESHOLD_PX || dy > POINTER_DRIFT_THRESHOLD_PX {
+                self.exit_requested = true;
+            }
+        } else {
+            self.initial_pointer_pos = Some((surface_x, surface_y));
+        }
+    }
+
+    pub fn handle_pointer_enter(&mut self, surface_x: f64, surface_y: f64) {
+        if self.start_time.elapsed() < INPUT_DEBOUNCE_WINDOW || self.initial_pointer_pos.is_none() {
+            self.initial_pointer_pos = Some((surface_x, surface_y));
+        }
+    }
+
+    pub fn handle_pointer_axis(&mut self) {
+        if self.start_time.elapsed() >= INPUT_DEBOUNCE_WINDOW {
+            self.exit_requested = true;
         }
     }
 }
@@ -367,8 +412,11 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for WaylandState {
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
-        if let wl_keyboard::Event::Key { .. } = event {
-            state.exit_requested = true;
+        if let wl_keyboard::Event::Key {
+            state: key_state, ..
+        } = event
+        {
+            state.handle_key_event(key_state);
         }
     }
 }
@@ -388,34 +436,22 @@ impl Dispatch<wl_pointer::WlPointer, ()> for WaylandState {
                 surface_y,
                 ..
             } => {
-                if state.initial_pointer_pos.is_none() {
-                    state.initial_pointer_pos = Some((surface_x, surface_y));
-                }
+                state.handle_pointer_enter(surface_x, surface_y);
             }
-            wl_pointer::Event::Button { .. } => {
-                state.exit_requested = true;
+            wl_pointer::Event::Button {
+                state: btn_state, ..
+            } => {
+                state.handle_pointer_button(btn_state);
             }
             wl_pointer::Event::Motion {
                 surface_x,
                 surface_y,
                 ..
             } => {
-                if let Some((init_x, init_y)) = state.initial_pointer_pos {
-                    if state.start_time.elapsed() > Duration::from_millis(300) {
-                        let dx = (surface_x - init_x).abs();
-                        let dy = (surface_y - init_y).abs();
-                        if dx > 15.0 || dy > 15.0 {
-                            state.exit_requested = true;
-                        }
-                    }
-                } else {
-                    state.initial_pointer_pos = Some((surface_x, surface_y));
-                }
+                state.handle_pointer_motion(surface_x, surface_y);
             }
             wl_pointer::Event::Axis { .. } => {
-                if state.start_time.elapsed() > Duration::from_millis(300) {
-                    state.exit_requested = true;
-                }
+                state.handle_pointer_axis();
             }
             _ => {}
         }
@@ -640,6 +676,8 @@ pub fn run_wayland_fullscreen_preview(
 
     let mut cells = vec![TerminalCell::default(); cols * rows];
     let mut last_frame = Instant::now();
+    state.start_time = Instant::now();
+    state.initial_pointer_pos = None;
 
     while !state.exit_requested {
         if let Some(limit) = timeout {
@@ -878,6 +916,8 @@ pub fn run_wayland_daemon_presenter(
     let mut cells = vec![TerminalCell::default(); cols * rows];
     let mut last_frame = Instant::now();
     let mut last_custom_epoch = state.custom_text_epoch.load(Ordering::Acquire);
+    state_wl.start_time = Instant::now();
+    state_wl.initial_pointer_pos = None;
 
     while state.active.load(Ordering::SeqCst) && !state_wl.exit_requested {
         // Sync live target and custom text changes from D-Bus / socket
@@ -1032,4 +1072,109 @@ pub fn run_wayland_daemon_presenter(
     let _ = event_queue.roundtrip(&mut state_wl);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_input_debounce_constants() {
+        assert_eq!(INPUT_DEBOUNCE_WINDOW, Duration::from_millis(500));
+        assert_eq!(POINTER_DRIFT_THRESHOLD_PX, 15.0);
+    }
+
+    #[test]
+    fn test_key_debounce_ignores_release_and_early_press() {
+        let mut state = WaylandState::new();
+
+        // Release event should always be ignored
+        state.handle_key_event(WEnum::Value(wl_keyboard::KeyState::Released));
+        assert!(!state.exit_requested);
+
+        // Early press during the 500ms debounce window should be ignored
+        state.handle_key_event(WEnum::Value(wl_keyboard::KeyState::Pressed));
+        assert!(!state.exit_requested);
+
+        // Release event after debounce window should also be ignored
+        state.start_time = Instant::now() - Duration::from_millis(600);
+        state.handle_key_event(WEnum::Value(wl_keyboard::KeyState::Released));
+        assert!(!state.exit_requested);
+
+        // Press event after debounce window triggers exit
+        state.handle_key_event(WEnum::Value(wl_keyboard::KeyState::Pressed));
+        assert!(state.exit_requested);
+    }
+
+    #[test]
+    fn test_pointer_button_debounce() {
+        let mut state = WaylandState::new();
+
+        // Release event ignored
+        state.handle_pointer_button(WEnum::Value(wl_pointer::ButtonState::Released));
+        assert!(!state.exit_requested);
+
+        // Early press during debounce window ignored
+        state.handle_pointer_button(WEnum::Value(wl_pointer::ButtonState::Pressed));
+        assert!(!state.exit_requested);
+
+        // Release after debounce window ignored
+        state.start_time = Instant::now() - Duration::from_millis(600);
+        state.handle_pointer_button(WEnum::Value(wl_pointer::ButtonState::Released));
+        assert!(!state.exit_requested);
+
+        // Press after debounce window triggers exit
+        state.handle_pointer_button(WEnum::Value(wl_pointer::ButtonState::Pressed));
+        assert!(state.exit_requested);
+    }
+
+    #[test]
+    fn test_pointer_motion_settling_and_drift() {
+        let mut state = WaylandState::new();
+
+        // Motion during 500ms startup grace period continually updates initial_pointer_pos
+        state.handle_pointer_motion(100.0, 100.0);
+        assert_eq!(state.initial_pointer_pos, Some((100.0, 100.0)));
+        assert!(!state.exit_requested);
+
+        state.handle_pointer_motion(120.0, 120.0);
+        assert_eq!(state.initial_pointer_pos, Some((120.0, 120.0)));
+        assert!(!state.exit_requested);
+
+        // After 500ms debounce window has elapsed:
+        state.start_time = Instant::now() - Duration::from_millis(600);
+
+        // Small drift <= 15px relative to settled position does NOT trigger exit
+        state.handle_pointer_motion(125.0, 128.0);
+        assert!(!state.exit_requested);
+
+        // Intentional motion > 15px triggers exit
+        state.handle_pointer_motion(140.0, 120.0);
+        assert!(state.exit_requested);
+    }
+
+    #[test]
+    fn test_pointer_enter_settles_position() {
+        let mut state = WaylandState::new();
+
+        state.handle_pointer_enter(50.0, 50.0);
+        assert_eq!(state.initial_pointer_pos, Some((50.0, 50.0)));
+
+        state.handle_pointer_enter(60.0, 60.0);
+        assert_eq!(state.initial_pointer_pos, Some((60.0, 60.0)));
+    }
+
+    #[test]
+    fn test_pointer_axis_debounce() {
+        let mut state = WaylandState::new();
+
+        // Early scroll during debounce window ignored
+        state.handle_pointer_axis();
+        assert!(!state.exit_requested);
+
+        // Scroll after debounce window triggers exit
+        state.start_time = Instant::now() - Duration::from_millis(600);
+        state.handle_pointer_axis();
+        assert!(state.exit_requested);
+    }
 }

@@ -32,6 +32,9 @@ pub struct DoctorReport {
     pub config_is_toml: bool,
     pub extras_bin: Option<PathBuf>,
     pub shm_writable: bool,
+    pub input_debounce_ms: u64,
+    pub wayland_presenter_ok: bool,
+    pub wayland_presenter_note: String,
 }
 
 pub fn collect_diagnostics() -> DoctorReport {
@@ -48,6 +51,8 @@ pub fn collect_diagnostics() -> DoctorReport {
     let runtime_dir_ok = xdg_runtime_dir
         .as_ref()
         .is_some_and(|d| Path::new(d).is_dir());
+
+    let (wayland_presenter_ok, wayland_presenter_note) = check_wayland_presenter_sanity();
 
     let pid_path = resolve_pid_path().ok();
     let (daemon_pid, mut daemon_running) = if let Some(ref p) = pid_path {
@@ -132,6 +137,67 @@ pub fn collect_diagnostics() -> DoctorReport {
         config_is_toml,
         extras_bin: resolve_extras_binary(),
         shm_writable: test_shm_writable(),
+        input_debounce_ms: crate::wayland::presenter::INPUT_DEBOUNCE_WINDOW.as_millis() as u64,
+        wayland_presenter_ok,
+        wayland_presenter_note,
+    }
+}
+
+pub(crate) fn check_wayland_presenter_sanity() -> (bool, String) {
+    if std::env::var("WAYLAND_DISPLAY").map_or(true, |v| v.trim().is_empty()) {
+        return (
+            true,
+            format!(
+                "headless session ({}ms input debounce configured)",
+                crate::wayland::presenter::INPUT_DEBOUNCE_WINDOW.as_millis()
+            ),
+        );
+    }
+
+    match wayland_client::Connection::connect_to_env() {
+        Ok(connection) => {
+            let mut event_queue = connection.new_event_queue();
+            let qh = event_queue.handle();
+            let _registry = connection.display().get_registry(&qh, ());
+            let mut state = crate::wayland::presenter::WaylandState::new();
+            if event_queue.roundtrip(&mut state).is_ok() {
+                let has_comp = state.compositor.is_some();
+                let has_shm = state.shm.is_some();
+                let has_shell = state.layer_shell.is_some() || state.xdg_wm_base.is_some();
+                if has_comp && has_shm && has_shell {
+                    let shell_desc = if state.layer_shell.is_some() {
+                        "layer-shell"
+                    } else {
+                        "xdg_wm_base"
+                    };
+                    (
+                        true,
+                        format!(
+                            "{shell_desc} + wl_shm ready, {}ms debounce active",
+                            crate::wayland::presenter::INPUT_DEBOUNCE_WINDOW.as_millis()
+                        ),
+                    )
+                } else {
+                    let mut missing = Vec::new();
+                    if !has_comp {
+                        missing.push("wl_compositor");
+                    }
+                    if !has_shm {
+                        missing.push("wl_shm");
+                    }
+                    if !has_shell {
+                        missing.push("layer_shell/xdg_wm_base");
+                    }
+                    (
+                        false,
+                        format!("missing required Wayland protocols: {}", missing.join(", ")),
+                    )
+                }
+            } else {
+                (false, "Wayland roundtrip failed".to_string())
+            }
+        }
+        Err(err) => (false, format!("cannot connect to Wayland display: {err}")),
     }
 }
 

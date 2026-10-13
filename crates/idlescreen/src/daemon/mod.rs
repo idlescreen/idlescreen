@@ -296,7 +296,12 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
             .as_ref()
             .is_some_and(std::thread::JoinHandle::is_finished)
         {
-            let _ = presenter_handle.take().unwrap().join();
+            let res = presenter_handle.take().unwrap().join();
+            if let Err(panic_payload) = res {
+                eprintln!(
+                    "[idlescreen::daemon] Wayland presenter thread panicked: {panic_payload:?}"
+                );
+            }
         }
 
         // Launch Wayland screensaver presentation when active
@@ -305,6 +310,14 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                 .as_ref()
                 .is_none_or(std::thread::JoinHandle::is_finished);
             if needs_spawn {
+                if let Some(h) = presenter_handle.take() {
+                    let res = h.join();
+                    if let Err(panic_payload) = res {
+                        eprintln!(
+                            "[idlescreen::daemon] Wayland presenter thread panicked: {panic_payload:?}"
+                        );
+                    }
+                }
                 let st = state.clone();
                 let dwell = config.saver.ascii.dwell_secs;
                 let mode = config.saver.ascii.mode.clone();
@@ -314,8 +327,11 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                     .map_or_else(|_| config.saver.ascii.text.clone(), |t| t.clone());
                 let fps = config.saver.ascii.fps;
                 presenter_handle = Some(std::thread::spawn(move || {
-                    let _ =
-                        crate::wayland::run_wayland_daemon_presenter(st, dwell, &mode, &text, fps);
+                    if let Err(err) =
+                        crate::wayland::run_wayland_daemon_presenter(st, dwell, &mode, &text, fps)
+                    {
+                        eprintln!("[idlescreen::daemon] Wayland presenter error: {err}");
+                    }
                 }));
             }
         }
@@ -326,7 +342,10 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     state.clear_wake_handle();
     state.stop();
     if let Some(h) = presenter_handle.take() {
-        let _ = h.join();
+        let res = h.join();
+        if let Err(panic_payload) = res {
+            eprintln!("[idlescreen::daemon] Wayland presenter thread panicked: {panic_payload:?}");
+        }
     }
 
     if sfd >= 0 {

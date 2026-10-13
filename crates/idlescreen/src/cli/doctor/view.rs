@@ -19,8 +19,17 @@ pub fn print_concise(r: &DoctorReport) {
         let de = r.desktop_env.as_deref().unwrap_or("Desktop");
         let dir_status = if r.runtime_dir_ok { "OK" } else { "missing" };
         println!("  [✓] Wayland Session : {disp} ({de}) [runtime dir {dir_status}]");
+        let pres_mark = if r.wayland_presenter_ok { "✓" } else { "!" };
+        println!(
+            "  [{pres_mark}] Presenter Sanity: {}",
+            r.wayland_presenter_note
+        );
     } else {
         println!("  [!] Wayland Session : not set (headless or X11 environment)");
+        println!(
+            "  [-] Presenter Sanity: headless ({}ms input debounce configured)",
+            r.input_debounce_ms
+        );
     }
 
     if r.daemon_running {
@@ -88,8 +97,10 @@ pub fn print_concise(r: &DoctorReport) {
     };
     println!("  [✓] System & IPC    : {shm_str}, {ipc_str}\n");
 
-    if r.wayland_display.is_some() && r.runtime_dir_ok && r.shm_writable {
+    if r.wayland_display.is_some() && r.runtime_dir_ok && r.shm_writable && r.wayland_presenter_ok {
         println!("Diagnostics complete. All core systems nominal.");
+    } else if r.wayland_display.is_some() && !r.wayland_presenter_ok {
+        println!("Diagnostics complete. Issues detected with Wayland presentation.");
     } else {
         println!("Diagnostics complete.");
     }
@@ -117,6 +128,15 @@ pub fn print_verbose(r: &DoctorReport) {
         };
         println!("  [{dir_mark}] XDG_RUNTIME_DIR: {dir} ({dir_desc})");
     }
+    let pres_mark = if r.wayland_presenter_ok { "✓" } else { "!" };
+    println!(
+        "  [{pres_mark}] Presenter Sanity: {}",
+        r.wayland_presenter_note
+    );
+    println!(
+        "  [✓] Input Debounce Window: {}ms (motion settling & key release ignore)",
+        r.input_debounce_ms
+    );
 
     println!("\nDaemon & Service:");
     let proc_mark = if r.daemon_running { "✓" } else { "-" };
@@ -214,7 +234,8 @@ pub fn print_verbose(r: &DoctorReport) {
 }
 
 pub fn print_json(r: &DoctorReport) {
-    let nominal = r.wayland_display.is_some() && r.shm_writable && r.runtime_dir_ok;
+    let nominal =
+        r.wayland_display.is_some() && r.shm_writable && r.runtime_dir_ok && r.wayland_presenter_ok;
     let disp = r.wayland_display.as_deref().unwrap_or("");
     let de = r.desktop_env.as_deref().unwrap_or("");
     let cfg = r
@@ -228,11 +249,14 @@ pub fn print_json(r: &DoctorReport) {
         .map(|p| p.display().to_string())
         .unwrap_or_default();
     println!(
-        r#"{{"nominal":{},"session":{{"wayland_display":"{}","desktop":"{}","runtime_dir_ok":{}}},"daemon":{{"running":{},"pid":{},"control_active":{},"dbus_service_active":{},"systemd_active":{},"inhibited":{}}},"config":{{"path":"{}","is_toml":{},"active_saver":"{}","timeout_secs":{},"dwell_secs":{:.1}}},"savers":{{"builtin_ascii":true,"extras_helper":"{}"}},"system":{{"shm_writable":{},"session_bus_connected":{}}}}}"#,
+        r#"{{"nominal":{},"session":{{"wayland_display":"{}","desktop":"{}","runtime_dir_ok":{}}},"presenter":{{"ok":{},"debounce_ms":{},"note":"{}"}},"daemon":{{"running":{},"pid":{},"control_active":{},"dbus_service_active":{},"systemd_active":{},"inhibited":{}}},"config":{{"path":"{}","is_toml":{},"active_saver":"{}","timeout_secs":{},"dwell_secs":{:.1}}},"savers":{{"builtin_ascii":true,"extras_helper":"{}"}},"system":{{"shm_writable":{},"session_bus_connected":{}}}}}"#,
         nominal,
         disp,
         de,
         r.runtime_dir_ok,
+        r.wayland_presenter_ok,
+        r.input_debounce_ms,
+        r.wayland_presenter_note,
         r.daemon_running,
         r.daemon_pid.unwrap_or(0),
         r.control_sock_active,
