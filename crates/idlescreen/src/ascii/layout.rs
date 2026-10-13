@@ -504,9 +504,7 @@ pub fn calculate_banner_scale(text: &str, cols: usize, rows: usize) -> usize {
         return 1;
     }
 
-    if trimmed.eq_ignore_ascii_case("SUPERFEDORA")
-        || trimmed.eq_ignore_ascii_case("SUPER FEDORA")
-    {
+    if trimmed.eq_ignore_ascii_case("SUPERFEDORA") || trimmed.eq_ignore_ascii_case("SUPER FEDORA") {
         return 1;
     }
 
