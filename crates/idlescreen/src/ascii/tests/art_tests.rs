@@ -191,7 +191,8 @@ fn test_is_superfedora_machine_probe() {
 #[test]
 fn test_superfedora_banner_stacked_rendering() {
     // Wide tier: 22 lines from website pixel art (6 for SUPER, 1 blank divider, 15 for FEDORA)
-    let wide = render_banner("SUPERFEDORA", None, 80, 24);
+    // Requires cols >= 90 and rows >= 22
+    let wide = render_banner("SUPERFEDORA", None, 120, 30);
     assert_eq!(wide.height, 22);
     assert_eq!(wide.width, 90);
     // SUPER is positioned in upper-left (starts with 3 spaces in row 0)
@@ -201,15 +202,21 @@ fn test_superfedora_banner_stacked_rendering() {
     // FEDORA starts at col 0 in row 7
     assert!(wide.lines[7].starts_with("████████████"));
 
-    println!("\n--- WIDE TIER (80x24) ---");
+    println!("\n--- WIDE TIER (120x30) ---");
     for l in &wide.lines {
         println!("{l}");
     }
 
-    // Wide tier with subtitle
-    let wide_sub = render_banner("SUPERFEDORA", Some("WORKSTATION"), 80, 24);
+    // Wide tier with subtitle (requires rows >= 24)
+    let wide_sub = render_banner("SUPERFEDORA", Some("WORKSTATION"), 120, 30);
     assert_eq!(wide_sub.height, 24);
     assert!(wide_sub.lines.last().unwrap().contains("WORKSTATION"));
+
+    // Standard 80x24 terminal: below 90 cols threshold, drops to Medium tier gracefully
+    let std_term = render_banner("SUPERFEDORA", None, 80, 24);
+    assert_eq!(std_term.height, 7);
+    assert_eq!(std_term.width, 23);
+    assert!(std_term.lines[0].starts_with("█▀▀")); // Left-aligned at upper-left of FEDORA
 
     // Medium tier: 7 lines (3 for SUPER, 1 blank, 3 for FEDORA) positioned upper-left
     let med = render_banner("SUPERFEDORA", None, 40, 24);
@@ -239,20 +246,21 @@ fn test_ascii_new_superfedora() {
     assert_eq!(saver.effect, super::super::effects::EffectKind::Spotlights);
     assert_eq!(saver.rotation.targets, vec!["superfedora".to_string()]);
 
-    // Verify it initializes, loads the website banner, and steps frames cleanly
-    saver.init(80, 24);
-    assert!(saver.art_text.contains("FEDORA") || saver.art_text.contains("████"));
-    let mut grid = vec![crate::cell::TerminalCell::default(); 80 * 24];
-    for _ in 0..5 {
-        saver.update(std::time::Duration::from_millis(16), 80, 24);
-        saver.draw(&mut grid, 80, 24);
-    }
-
-    // Also verify fullscreen dimensions (e.g. 240x67)
+    // Verify it initializes, loads the website banner, and steps frames cleanly at fullscreen (240x67)
     saver.init(240, 67);
+    assert!(saver.art_text.contains("FEDORA") || saver.art_text.contains("████"));
     let mut grid_wide = vec![crate::cell::TerminalCell::default(); 240 * 67];
     for _ in 0..5 {
         saver.update(std::time::Duration::from_millis(16), 240, 67);
         saver.draw(&mut grid_wide, 240, 67);
+    }
+
+    // Also verify standard 80x24 terminal gracefully draws Medium tier without clipping
+    saver.init(80, 24);
+    assert!(saver.art_text.contains("FEDORA") || saver.art_text.contains("█▀▀"));
+    let mut grid = vec![crate::cell::TerminalCell::default(); 80 * 24];
+    for _ in 0..5 {
+        saver.update(std::time::Duration::from_millis(16), 80, 24);
+        saver.draw(&mut grid, 80, 24);
     }
 }

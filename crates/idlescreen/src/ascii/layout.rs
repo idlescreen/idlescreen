@@ -181,7 +181,18 @@ pub fn render_superfedora_banner(
     cols: usize,
     rows: usize,
 ) -> RenderedBanner {
-    match tier {
+    let wide_min_rows = if subtitle.is_some() { 24 } else { 22 };
+    let med_min_rows = if subtitle.is_some() { 9 } else { 7 };
+
+    let effective_tier = match tier {
+        LayoutTier::Wide if cols >= 90 && rows >= wide_min_rows => LayoutTier::Wide,
+        LayoutTier::Wide | LayoutTier::Medium if cols >= 23 && rows >= med_min_rows => {
+            LayoutTier::Medium
+        }
+        _ => LayoutTier::Narrow,
+    };
+
+    match effective_tier {
         LayoutTier::Wide => {
             let mut lines: Vec<String> = SUPERFEDORA_WEBSITE_ART
                 .iter()
