@@ -159,6 +159,7 @@ pub struct TriRotationState {
     pub mode: TextMode,
     pub targets: Vec<String>,
     pub current_index: usize,
+    pub next_index: usize,
     pub custom_text: Option<String>,
     pub current_target: BrandTarget,
     pub os_name: String,
@@ -191,11 +192,13 @@ impl TriRotationState {
             TextMode::Custom => vec!["custom".to_string()],
             TextMode::Cycle => vec!["os".to_string(), "de".to_string()],
         };
+        let next_index = usize::from(targets.len() > 1);
 
         Self {
             mode,
             targets,
             current_index: 0,
+            next_index,
             custom_text,
             current_target,
             os_name,
@@ -214,12 +217,14 @@ impl TriRotationState {
             TextMode::Cycle => vec!["os".to_string(), "de".to_string()],
         };
         self.current_index = 0;
+        self.next_index = usize::from(self.targets.len() > 1);
     }
 
     pub fn set_targets(&mut self, targets: Vec<String>) {
         if !targets.is_empty() {
             self.targets = targets;
             self.current_index = 0;
+            self.next_index = usize::from(self.targets.len() > 1);
         }
     }
 
@@ -284,13 +289,26 @@ impl TriRotationState {
         if self.targets.is_empty() {
             return self.fallback_text();
         }
-        let next_idx = (self.current_index + 1) % self.targets.len();
+        let next_idx = self.next_index % self.targets.len();
         self.resolve_target_text(&self.targets[next_idx])
+    }
+
+    fn pick_next_index(&self, rng: &mut LcgRng) -> usize {
+        if self.targets.len() <= 1 {
+            0
+        } else if self.targets.len() == 2 {
+            1 - (self.current_index % 2)
+        } else {
+            let offset = 1 + rng.next_usize(self.targets.len() - 1);
+            (self.current_index + offset) % self.targets.len()
+        }
     }
 
     pub fn advance_scene(&mut self) {
         if !self.targets.is_empty() {
-            self.current_index = (self.current_index + 1) % self.targets.len();
+            self.current_index = self.next_index % self.targets.len();
+            let mut rng = LcgRng::new_random();
+            self.next_index = self.pick_next_index(&mut rng);
         }
     }
 
@@ -321,7 +339,10 @@ impl TriRotationState {
     }
 
     pub fn advance_mutation(&mut self, rng: &mut LcgRng) {
-        self.advance_scene();
+        if !self.targets.is_empty() {
+            self.current_index = self.next_index % self.targets.len();
+            self.next_index = self.pick_next_index(rng);
+        }
         if self.mode == TextMode::Cycle && self.targets.is_empty() {
             self.current_target = BrandTarget::random_excluding(rng, Some(self.current_target));
         }

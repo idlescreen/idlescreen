@@ -75,7 +75,9 @@ impl Ascii {
         saver.rotation.mode = TextMode::Custom;
         saver.rotation.custom_text = Some("SUPERFEDORA".to_string());
         saver.rotation.set_targets(vec!["superfedora".to_string()]);
-        saver.pin_effect(EffectKind::Spotlights);
+        saver.effect = EffectKind::Spotlights;
+        saver.pinned = false;
+        saver.playlist.set_last(EffectKind::Spotlights);
         saver.dwell_duration = Some(6.0);
         saver.dwell_left = 6.0;
         saver

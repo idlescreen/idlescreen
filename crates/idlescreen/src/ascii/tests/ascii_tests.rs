@@ -374,3 +374,45 @@ fn wayland_refresh_rate_to_fps_and_duration_calculation() {
     let fps_5994 = ((mhz_5994 + 500) / 1000).max(1) as u32;
     assert_eq!(fps_5994, 60);
 }
+
+#[test]
+fn superfedora_rotates_scenes_past_dwell_without_pinning() {
+    let mut saver = Ascii::new_superfedora();
+    assert!(!saver.pinned);
+    assert_eq!(saver.effect, EffectKind::Spotlights);
+    saver.init(COLS, ROWS);
+
+    // Fast-forward animation to settled state, then fast-forward dwell
+    saver.engine = None;
+    saver.dwell_left = 0.0;
+    saver.update(Duration::from_millis(50), COLS, ROWS);
+    assert!(saver.transition_active);
+
+    // Conclude transition
+    for _ in 0..10 {
+        saver.update(Duration::from_millis(100), COLS, ROWS);
+    }
+    // Effect has rotated to another scene in the playlist
+    assert_ne!(saver.effect, EffectKind::Spotlights);
+}
+
+#[test]
+fn multi_target_random_rotation_no_immediate_repeat() {
+    let mut rotation =
+        super::super::state::TriRotationState::new_with_seed(TextMode::Custom, None, 999);
+    rotation.set_targets(vec![
+        "A".to_string(),
+        "B".to_string(),
+        "C".to_string(),
+        "D".to_string(),
+    ]);
+    let mut rng = LcgRng::new(12345);
+
+    let mut last_text = rotation.current_text();
+    for _ in 0..100 {
+        rotation.advance_mutation(&mut rng);
+        let cur_text = rotation.current_text();
+        assert_ne!(cur_text, last_text, "targets must never immediately repeat");
+        last_text = cur_text;
+    }
+}

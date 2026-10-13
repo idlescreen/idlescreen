@@ -301,6 +301,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!(
                     "[idlescreen::daemon] Wayland presenter thread panicked: {panic_payload:?}"
                 );
+                state.stop();
             }
         }
 
@@ -316,7 +317,11 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                         eprintln!(
                             "[idlescreen::daemon] Wayland presenter thread panicked: {panic_payload:?}"
                         );
+                        state.stop();
                     }
+                }
+                if !state.active.load(std::sync::atomic::Ordering::SeqCst) {
+                    continue;
                 }
                 let st = state.clone();
                 let dwell = config.saver.ascii.dwell_secs;
@@ -327,10 +332,15 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
                     .map_or_else(|_| config.saver.ascii.text.clone(), |t| t.clone());
                 let fps = config.saver.ascii.fps;
                 presenter_handle = Some(std::thread::spawn(move || {
-                    if let Err(err) =
-                        crate::wayland::run_wayland_daemon_presenter(st, dwell, &mode, &text, fps)
-                    {
+                    if let Err(err) = crate::wayland::run_wayland_daemon_presenter(
+                        st.clone(),
+                        dwell,
+                        &mode,
+                        &text,
+                        fps,
+                    ) {
                         eprintln!("[idlescreen::daemon] Wayland presenter error: {err}");
+                        st.stop();
                     }
                 }));
             }
