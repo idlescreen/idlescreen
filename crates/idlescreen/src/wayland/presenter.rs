@@ -490,6 +490,15 @@ impl Dispatch<wl_output::WlOutput, ()> for WaylandState {
                     out.height = height as u32;
                     out.refresh_mhz = refresh;
                 }
+                for surf in state
+                    .surfaces
+                    .iter_mut()
+                    .filter(|s| s.output.as_ref() == Some(output))
+                {
+                    surf.width = width as u32;
+                    surf.height = height as u32;
+                    surf.refresh_mhz = refresh;
+                }
                 if state.output.as_ref() == Some(output) || state.output_width == 0 {
                     state.output_width = width as u32;
                     state.output_height = height as u32;

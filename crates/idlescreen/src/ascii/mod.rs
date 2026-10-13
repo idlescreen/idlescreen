@@ -69,7 +69,12 @@ impl Ascii {
     /// Dedicated 16-bit SuperFedora screensaver preset with Tokyo Night jewel colors,
     /// stacked 2D pixel art banner, and orbiting spotlights effect.
     pub fn new_superfedora() -> Self {
-        let mut saver = Self::new();
+        let seed = LcgRng::new_random().next_u64();
+        let mut rng = LcgRng::new(seed);
+        let playlist = EffectPlaylist::new_with_first(EffectKind::Spotlights, &mut rng);
+        let mut saver = Self::new_with_seed(seed);
+        saver.rng = rng;
+        saver.playlist = playlist;
         saver.fg = (81, 162, 218); // Fedora Cyan #51a2da
         saver.bg = (0, 0, 0);
         saver.rotation.mode = TextMode::Custom;
@@ -77,7 +82,6 @@ impl Ascii {
         saver.rotation.set_targets(vec!["superfedora".to_string()]);
         saver.effect = EffectKind::Spotlights;
         saver.pinned = false;
-        saver.playlist.set_last(EffectKind::Spotlights);
         saver.dwell_duration = Some(6.0);
         saver.dwell_left = 6.0;
         saver
@@ -389,10 +393,32 @@ impl Ascii {
                 rows,
             );
         } else if !self.frame_grid.is_empty() {
-            let n = self.frame_grid.len().min(grid.len());
-            grid[..n].copy_from_slice(&self.frame_grid[..n]);
-            if grid.len() > n {
-                grid[n..].fill(TerminalCell::default());
+            if self.last_cols == cols && self.last_rows == rows {
+                let n = self.frame_grid.len().min(grid.len());
+                grid[..n].copy_from_slice(&self.frame_grid[..n]);
+                if grid.len() > n {
+                    grid[n..].fill(TerminalCell::default());
+                }
+            } else if self.last_cols > 0 && cols > 0 {
+                grid.fill(TerminalCell::default());
+                let copy_cols = cols.min(self.last_cols);
+                let copy_rows = rows.min(self.last_rows);
+                for y in 0..copy_rows {
+                    let src_start = y * self.last_cols;
+                    let dst_start = y * cols;
+                    if src_start + copy_cols <= self.frame_grid.len()
+                        && dst_start + copy_cols <= grid.len()
+                    {
+                        grid[dst_start..dst_start + copy_cols]
+                            .copy_from_slice(&self.frame_grid[src_start..src_start + copy_cols]);
+                    }
+                }
+            } else {
+                let n = self.frame_grid.len().min(grid.len());
+                grid[..n].copy_from_slice(&self.frame_grid[..n]);
+                if grid.len() > n {
+                    grid[n..].fill(TerminalCell::default());
+                }
             }
         } else {
             grid.fill(TerminalCell::default());

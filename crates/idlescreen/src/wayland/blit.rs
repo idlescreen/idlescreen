@@ -186,6 +186,25 @@ pub fn blit_cells_to_argb(
             }
         }
     }
+
+    let drawn_w = cols * char_w;
+    let drawn_h = rows * char_h;
+    if drawn_h < pixel_h {
+        let start = drawn_h * pixel_w;
+        let end = (pixel_w * pixel_h).min(buffer.len());
+        if start < end {
+            buffer[start..end].fill(0xFF00_0000);
+        }
+    }
+    if drawn_w < pixel_w {
+        for y in 0..drawn_h.min(pixel_h) {
+            let row_start = y * pixel_w + drawn_w;
+            let row_end = ((y + 1) * pixel_w).min(buffer.len());
+            if row_start < row_end {
+                buffer[row_start..row_end].fill(0xFF00_0000);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -251,5 +270,26 @@ mod tests {
 
         blit_cells_to_argb(&cells, cols, rows, &mut buffer, pixel_w, pixel_h);
         assert_eq!(buffer[0], 0xFFFF_0000);
+    }
+
+    #[test]
+    fn test_blit_margin_filling() {
+        let cols = 10;
+        let rows = 5;
+        // pixel dimensions that leave 4px right margin and 6px bottom margin
+        let pixel_w = 84; // char_w = 8, 10 * 8 = 80, margin = 4
+        let pixel_h = 86; // char_h = 16, 5 * 16 = 80, margin = 6
+        let mut buffer = vec![0u32; pixel_w * pixel_h];
+        let cells = vec![TerminalCell::default(); cols * rows];
+
+        blit_cells_to_argb(&cells, cols, rows, &mut buffer, pixel_w, pixel_h);
+
+        // Bottom margin row should be filled with opaque black 0xFF000000
+        let bottom_pixel = buffer[85 * pixel_w + 5];
+        assert_eq!(bottom_pixel, 0xFF00_0000);
+
+        // Right margin column should be filled with opaque black 0xFF000000
+        let right_pixel = buffer[10 * pixel_w + 82];
+        assert_eq!(right_pixel, 0xFF00_0000);
     }
 }

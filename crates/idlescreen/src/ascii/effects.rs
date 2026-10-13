@@ -6,7 +6,7 @@
 use crate::cell::LcgRng;
 
 /// The 37 visual effects supported by ttfx and IdleScreen.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum EffectKind {
     Beams,
     Binarypath,
@@ -211,6 +211,22 @@ impl EffectPlaylist {
             cursor: 37,
             last,
         }
+    }
+
+    pub fn new_with_first(first: EffectKind, rng: &mut LcgRng) -> Self {
+        let mut playlist = Self {
+            order: EffectKind::ALL,
+            cursor: 1,
+            last: Some(first),
+        };
+        if let Some(pos) = playlist.order.iter().position(|&e| e == first) {
+            playlist.order.swap(0, pos);
+        }
+        for i in (2..playlist.order.len()).rev() {
+            let j = 1 + rng.next_usize(i);
+            playlist.order.swap(i, j);
+        }
+        playlist
     }
 
     pub fn set_last(&mut self, last: EffectKind) {

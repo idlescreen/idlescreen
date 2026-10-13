@@ -416,3 +416,29 @@ fn multi_target_random_rotation_no_immediate_repeat() {
         last_text = cur_text;
     }
 }
+
+#[test]
+fn superfedora_rotates_through_all_37_distinct_scenes_in_first_cycle() {
+    let mut saver = Ascii::new_superfedora();
+    assert_eq!(saver.effect, EffectKind::Spotlights);
+
+    let mut seen = std::collections::HashSet::new();
+    seen.insert(saver.effect);
+
+    for _ in 1..37 {
+        saver.cycle_effect();
+        assert!(
+            seen.insert(saver.effect),
+            "effect {:?} was repeated before all 37 played",
+            saver.effect
+        );
+    }
+    assert_eq!(seen.len(), 37);
+
+    let last_effect = saver.effect;
+    saver.cycle_effect();
+    assert_ne!(
+        saver.effect, last_effect,
+        "cycle boundary must not immediately repeat"
+    );
+}
