@@ -240,6 +240,10 @@ fn test_superfedora_banner_stacked_rendering() {
 
 #[test]
 fn test_ascii_new_superfedora() {
+    unsafe {
+        std::env::set_var("IDLE_SUPERFEDORA", "1");
+    }
+
     let mut saver = super::super::Ascii::new_superfedora();
     assert_eq!(saver.fg, (81, 162, 218)); // Fedora Cyan
     assert_eq!(saver.bg, (0, 0, 0));
@@ -262,5 +266,9 @@ fn test_ascii_new_superfedora() {
     for _ in 0..5 {
         saver.update(std::time::Duration::from_millis(16), 80, 24);
         saver.draw(&mut grid, 80, 24);
+    }
+
+    unsafe {
+        std::env::remove_var("IDLE_SUPERFEDORA");
     }
 }
