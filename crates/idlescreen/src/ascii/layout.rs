@@ -130,52 +130,32 @@ fn get_3x3(ch: char) -> Option<[&'static str; 3]> {
     }
 }
 
-/// Renders a single word using 5x5 ASCII block patterns scaled horizontally and vertically.
-fn render_word_5x5(word: &str, scale: usize) -> (Vec<String>, usize) {
-    let count = word.chars().count();
-    let spacing = if scale == 1 { 1 } else { 2 };
-    let spacing_str = " ".repeat(spacing);
-    let mut lines = vec![String::new(); 5 * scale];
-
-    for (ci, ch) in word.chars().enumerate() {
-        let pattern = get_5x5(ch).unwrap_or(["     "; 5]);
-        let max_w = pattern.iter().map(|r| r.chars().count()).max().unwrap_or(5);
-
-        for (r, base_row) in pattern.iter().enumerate() {
-            let mut scaled_row = String::with_capacity(max_w * scale);
-            for c in base_row.chars() {
-                match c {
-                    '█' | '▀' | '▄' => {
-                        for _ in 0..scale {
-                            scaled_row.push('█');
-                        }
-                    }
-                    _ => {
-                        for _ in 0..scale {
-                            scaled_row.push(' ');
-                        }
-                    }
-                }
-            }
-            let cur_len = scaled_row.chars().count();
-            if cur_len < max_w * scale {
-                for _ in 0..(max_w * scale - cur_len) {
-                    scaled_row.push(' ');
-                }
-            }
-            if ci + 1 < count {
-                scaled_row.push_str(&spacing_str);
-            }
-
-            for sr in 0..scale {
-                lines[r * scale + sr].push_str(&scaled_row);
-            }
-        }
-    }
-
-    let width = lines.first().map_or(0, |l| l.chars().count());
-    (lines, width)
-}
+/// Official 16-bit SuperFedora website pixel art banner matching superfedora.github.io intro stage (`WM_ROWS`).
+/// "SUPER" is positioned in the upper-left directly over the "FEDORA" wordmark.
+const SUPERFEDORA_WEBSITE_ART: [&str; 22] = [
+    "   █████ ██  ██ █████  ██████ █████",
+    "  ██     ██  ██ ██  ██ ██     ██  ██",
+    "  █████  ██  ██ ██████ █████  ██████",
+    "      ██ ██  ██ ██     ██     ██ ██",
+    "      ██ ██  ██ ██     ██     ██  ██",
+    "  █████   ████  ██     ██████ ██  ██",
+    "",
+    "████████████   ████████████   █████████         ████████      █████████           ████",
+    "████████████   ████████████   ███████████      ██████████     ███████████       ████████",
+    "████████████   ████████████   ████████████    ████████████    ███████████       ████████",
+    "███            ███            ███      ███    ███      ███    ███     ███     █████  █████",
+    "███            ███            ███      ███    ███      ███    ███     ███     ███      ███",
+    "███            ███            ███      ███    ███      ███    ███████████     ███      ███",
+    "█████████      █████████      ███      ███    ███      ███    █████████       ███      ███",
+    "█████████      █████████      ███      ███    ███      ███    █████████       ████████████",
+    "█████████      █████████      ███      ███    ███      ███    ███   ███       ████████████",
+    "███            ███            ███      ███    ███      ███    ███     ███     ████████████",
+    "███            ███            ███      ███    ███      ███    ███     ███     ███      ███",
+    "███            ███            ███      ███    ███      ███    ███     ███     ███      ███",
+    "███            ████████████   ████████████    ████████████    ███       ███   ███      ███",
+    "███            ████████████   ███████████      ██████████     ███       ███   ███      ███",
+    "███            ████████████   █████████         ████████      ███       ███   ███      ███",
+];
 
 /// Renders a single word using 3x3 condensed ASCII block patterns.
 fn render_word_3x3(word: &str) -> (Vec<String>, usize) {
@@ -203,25 +183,10 @@ pub fn render_superfedora_banner(
 ) -> RenderedBanner {
     match tier {
         LayoutTier::Wide => {
-            let scale = if cols >= 76 && rows >= 26 { 2 } else { 1 };
-            let (mut super_lines, super_w) = render_word_5x5("SUPER", scale);
-            let (fedora_lines, fedora_w) = render_word_5x5("FEDORA", scale);
-
-            let max_w = super_w.max(fedora_w);
-            if max_w > super_w {
-                let pad = " ".repeat((max_w - super_w) / 2);
-                for line in &mut super_lines {
-                    let mut s = pad.clone();
-                    s.push_str(line);
-                    *line = s;
-                }
-            }
-
-            let mut lines = super_lines;
-            for _ in 0..scale {
-                lines.push(String::new());
-            }
-            lines.extend(fedora_lines);
+            let mut lines: Vec<String> = SUPERFEDORA_WEBSITE_ART
+                .iter()
+                .map(|&s| s.to_string())
+                .collect();
 
             if let Some(sub) = subtitle {
                 let sub_budget = cols.saturating_sub(4);
@@ -250,19 +215,10 @@ pub fn render_superfedora_banner(
             }
         }
         LayoutTier::Medium => {
-            let (mut super_lines, super_w) = render_word_3x3("SUPER");
-            let (fedora_lines, fedora_w) = render_word_3x3("FEDORA");
+            let (super_lines, _) = render_word_3x3("SUPER");
+            let (fedora_lines, _) = render_word_3x3("FEDORA");
 
-            let max_w = super_w.max(fedora_w);
-            if max_w > super_w {
-                let pad = " ".repeat((max_w - super_w) / 2);
-                for line in &mut super_lines {
-                    let mut s = pad.clone();
-                    s.push_str(line);
-                    *line = s;
-                }
-            }
-
+            // Left-aligned at upper-left of FEDORA matching website styling
             let mut lines = super_lines;
             lines.push(String::new());
             lines.extend(fedora_lines);
@@ -325,7 +281,9 @@ pub fn render_banner(
     };
 
     let trimmed_eff = effective_text.trim();
-    if trimmed_eff == "SUPERFEDORA" || trimmed_eff == "SUPER FEDORA" {
+    if trimmed_eff.eq_ignore_ascii_case("SUPERFEDORA")
+        || trimmed_eff.eq_ignore_ascii_case("SUPER FEDORA")
+    {
         return render_superfedora_banner(tier, subtitle, cols, rows);
     }
 
@@ -546,8 +504,10 @@ pub fn calculate_banner_scale(text: &str, cols: usize, rows: usize) -> usize {
         return 1;
     }
 
-    if trimmed == "SUPERFEDORA" || trimmed == "SUPER FEDORA" {
-        return if cols >= 76 && rows >= 26 { 2 } else { 1 };
+    if trimmed.eq_ignore_ascii_case("SUPERFEDORA")
+        || trimmed.eq_ignore_ascii_case("SUPER FEDORA")
+    {
+        return 1;
     }
 
     let effective_rows = if is_portrait(cols, rows) {

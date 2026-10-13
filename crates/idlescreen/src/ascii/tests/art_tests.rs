@@ -190,12 +190,16 @@ fn test_is_superfedora_machine_probe() {
 
 #[test]
 fn test_superfedora_banner_stacked_rendering() {
-    // Wide tier: 11 lines (5 for SUPER, 1 blank, 5 for FEDORA)
+    // Wide tier: 22 lines from website pixel art (6 for SUPER, 1 blank divider, 15 for FEDORA)
     let wide = render_banner("SUPERFEDORA", None, 80, 24);
-    assert_eq!(wide.height, 11);
-    assert_eq!(wide.width, 35);
-    assert!(wide.lines[0].starts_with("   ")); // Padded 3 spaces to center over FEDORA
-    assert!(wide.lines[5].is_empty()); // Blank divider line
+    assert_eq!(wide.height, 22);
+    assert_eq!(wide.width, 90);
+    // SUPER is positioned in upper-left (starts with 3 spaces in row 0)
+    assert!(wide.lines[0].starts_with("   █████"));
+    // Row 6 is blank divider
+    assert!(wide.lines[6].is_empty());
+    // FEDORA starts at col 0 in row 7
+    assert!(wide.lines[7].starts_with("████████████"));
 
     println!("\n--- WIDE TIER (80x24) ---");
     for l in &wide.lines {
@@ -204,14 +208,14 @@ fn test_superfedora_banner_stacked_rendering() {
 
     // Wide tier with subtitle
     let wide_sub = render_banner("SUPERFEDORA", Some("WORKSTATION"), 80, 24);
-    assert_eq!(wide_sub.height, 13);
+    assert_eq!(wide_sub.height, 24);
     assert!(wide_sub.lines.last().unwrap().contains("WORKSTATION"));
 
-    // Medium tier: 7 lines (3 for SUPER, 1 blank, 3 for FEDORA)
+    // Medium tier: 7 lines (3 for SUPER, 1 blank, 3 for FEDORA) positioned upper-left
     let med = render_banner("SUPERFEDORA", None, 40, 24);
     assert_eq!(med.height, 7);
     assert_eq!(med.width, 23);
-    assert!(med.lines[0].starts_with("  ")); // Padded 2 spaces
+    assert!(med.lines[0].starts_with("█▀▀")); // Left-aligned at upper-left of FEDORA
     assert!(med.lines[3].is_empty()); // Blank divider line
 
     println!("\n--- MEDIUM TIER (40x24) ---");
@@ -229,9 +233,26 @@ fn test_superfedora_banner_stacked_rendering() {
 
 #[test]
 fn test_ascii_new_superfedora() {
-    let saver = super::super::Ascii::new_superfedora();
+    let mut saver = super::super::Ascii::new_superfedora();
     assert_eq!(saver.fg, (81, 162, 218)); // Fedora Cyan
     assert_eq!(saver.bg, (0, 0, 0));
     assert_eq!(saver.effect, super::super::effects::EffectKind::Spotlights);
     assert_eq!(saver.rotation.targets, vec!["superfedora".to_string()]);
+
+    // Verify it initializes, loads the website banner, and steps frames cleanly
+    saver.init(80, 24);
+    assert!(saver.art_text.contains("FEDORA") || saver.art_text.contains("████"));
+    let mut grid = vec![crate::cell::TerminalCell::default(); 80 * 24];
+    for _ in 0..5 {
+        saver.update(std::time::Duration::from_millis(16), 80, 24);
+        saver.draw(&mut grid, 80, 24);
+    }
+
+    // Also verify fullscreen dimensions (e.g. 240x67)
+    saver.init(240, 67);
+    let mut grid_wide = vec![crate::cell::TerminalCell::default(); 240 * 67];
+    for _ in 0..5 {
+        saver.update(std::time::Duration::from_millis(16), 240, 67);
+        saver.draw(&mut grid_wide, 240, 67);
+    }
 }
