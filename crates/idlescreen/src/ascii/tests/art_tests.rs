@@ -197,6 +197,11 @@ fn test_superfedora_banner_stacked_rendering() {
     assert!(wide.lines[0].starts_with("   ")); // Padded 3 spaces to center over FEDORA
     assert!(wide.lines[5].is_empty()); // Blank divider line
 
+    println!("\n--- WIDE TIER (80x24) ---");
+    for l in &wide.lines {
+        println!("{l}");
+    }
+
     // Wide tier with subtitle
     let wide_sub = render_banner("SUPERFEDORA", Some("WORKSTATION"), 80, 24);
     assert_eq!(wide_sub.height, 13);
@@ -208,6 +213,11 @@ fn test_superfedora_banner_stacked_rendering() {
     assert_eq!(med.width, 23);
     assert!(med.lines[0].starts_with("  ")); // Padded 2 spaces
     assert!(med.lines[3].is_empty()); // Blank divider line
+
+    println!("\n--- MEDIUM TIER (40x24) ---");
+    for l in &med.lines {
+        println!("{l}");
+    }
 
     // Narrow tier: vertical stack
     let narrow = render_banner("SUPERFEDORA", None, 15, 24);
