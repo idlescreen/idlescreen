@@ -593,7 +593,10 @@ pub fn run_wayland_fullscreen_preview(
     let mut current_buf = 0;
 
     let effect_kind = EffectKind::parse(saver_name);
-    let is_extras_cand = effect_kind.is_none() && saver_name != "ascii";
+    let is_superfedora = saver_name == "superfedora";
+    let is_superfedora_unlocked =
+        is_superfedora && crate::ascii::sys_info::is_superfedora_machine();
+    let is_extras_cand = effect_kind.is_none() && saver_name != "ascii" && !is_superfedora;
     let mut is_extras = is_extras_cand && ExtrasSession::is_available();
     let cols = (width as usize / 8).max(10);
     let rows = (height as usize / 16).max(5);
@@ -618,14 +621,21 @@ pub fn run_wayland_fullscreen_preview(
     let text_mode = TextMode::parse(mode_str);
     let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
     let targets = crate::daemon::config::parse_targets_from_mode(mode_str);
-    let mut ascii_saver = Ascii::new()
-        .with_mode(text_mode, custom_opt)
-        .with_targets(targets)
-        .with_dwell(dwell_secs)
-        .with_fps(target_fps);
-    if let Some(effect) = effect_kind {
-        ascii_saver.pin_effect(effect);
-    }
+    let mut ascii_saver = if is_superfedora_unlocked {
+        Ascii::new_superfedora()
+            .with_dwell(dwell_secs)
+            .with_fps(target_fps)
+    } else {
+        let mut saver = Ascii::new()
+            .with_mode(text_mode, custom_opt)
+            .with_targets(targets)
+            .with_dwell(dwell_secs)
+            .with_fps(target_fps);
+        if let Some(effect) = effect_kind {
+            saver.pin_effect(effect);
+        }
+        saver
+    };
     ascii_saver.init(cols, rows);
 
     let mut cells = vec![TerminalCell::default(); cols * rows];
@@ -810,7 +820,10 @@ pub fn run_wayland_daemon_presenter(
         .lock()
         .map_or_else(|_| "ascii".to_string(), |s| s.clone());
     let effect_kind = EffectKind::parse(&saver_name);
-    let is_extras_cand = effect_kind.is_none() && saver_name != "ascii";
+    let is_superfedora = saver_name == "superfedora";
+    let is_superfedora_unlocked =
+        is_superfedora && crate::ascii::sys_info::is_superfedora_machine();
+    let is_extras_cand = effect_kind.is_none() && saver_name != "ascii" && !is_superfedora;
     let mut is_extras = is_extras_cand && ExtrasSession::is_available();
     let cols = (width as usize / 8).max(10);
     let rows = (height as usize / 16).max(5);
@@ -845,14 +858,21 @@ pub fn run_wayland_daemon_presenter(
     } else {
         crate::daemon::config::parse_targets_from_mode(mode_str)
     };
-    let mut ascii_saver = Ascii::new()
-        .with_mode(text_mode, custom_opt)
-        .with_targets(targets)
-        .with_dwell(dwell_secs)
-        .with_fps(target_fps);
-    if let Some(effect) = effect_kind {
-        ascii_saver.pin_effect(effect);
-    }
+    let mut ascii_saver = if is_superfedora_unlocked {
+        Ascii::new_superfedora()
+            .with_dwell(dwell_secs)
+            .with_fps(target_fps)
+    } else {
+        let mut saver = Ascii::new()
+            .with_mode(text_mode, custom_opt)
+            .with_targets(targets)
+            .with_dwell(dwell_secs)
+            .with_fps(target_fps);
+        if let Some(effect) = effect_kind {
+            saver.pin_effect(effect);
+        }
+        saver
+    };
     ascii_saver.init(cols, rows);
 
     let mut cells = vec![TerminalCell::default(); cols * rows];

@@ -130,6 +130,178 @@ fn get_3x3(ch: char) -> Option<[&'static str; 3]> {
     }
 }
 
+/// Renders a single word using 5x5 ASCII block patterns scaled horizontally and vertically.
+fn render_word_5x5(word: &str, scale: usize) -> (Vec<String>, usize) {
+    let count = word.chars().count();
+    let spacing = if scale == 1 { 1 } else { 2 };
+    let spacing_str = " ".repeat(spacing);
+    let mut lines = vec![String::new(); 5 * scale];
+
+    for (ci, ch) in word.chars().enumerate() {
+        let pattern = get_5x5(ch).unwrap_or(["     "; 5]);
+        let max_w = pattern.iter().map(|r| r.chars().count()).max().unwrap_or(5);
+
+        for (r, base_row) in pattern.iter().enumerate() {
+            let mut scaled_row = String::with_capacity(max_w * scale);
+            for c in base_row.chars() {
+                match c {
+                    '█' | '▀' | '▄' => {
+                        for _ in 0..scale {
+                            scaled_row.push('█');
+                        }
+                    }
+                    _ => {
+                        for _ in 0..scale {
+                            scaled_row.push(' ');
+                        }
+                    }
+                }
+            }
+            let cur_len = scaled_row.chars().count();
+            if cur_len < max_w * scale {
+                for _ in 0..(max_w * scale - cur_len) {
+                    scaled_row.push(' ');
+                }
+            }
+            if ci + 1 < count {
+                scaled_row.push_str(&spacing_str);
+            }
+
+            for sr in 0..scale {
+                lines[r * scale + sr].push_str(&scaled_row);
+            }
+        }
+    }
+
+    let width = lines.first().map_or(0, |l| l.chars().count());
+    (lines, width)
+}
+
+/// Renders a single word using 3x3 condensed ASCII block patterns.
+fn render_word_3x3(word: &str) -> (Vec<String>, usize) {
+    let count = word.chars().count();
+    let mut lines = vec![String::new(); 3];
+    for (ci, ch) in word.chars().enumerate() {
+        let pattern = get_3x3(ch).unwrap_or(["   "; 3]);
+        for (i, row) in pattern.iter().enumerate() {
+            lines[i].push_str(row);
+            if ci + 1 < count {
+                lines[i].push(' ');
+            }
+        }
+    }
+    let width = lines.first().map_or(0, |l| l.chars().count());
+    (lines, width)
+}
+
+/// Renders the 16-bit SuperFedora stacked pixel art banner ("SUPER" stacked over "FEDORA").
+pub fn render_superfedora_banner(
+    tier: LayoutTier,
+    subtitle: Option<&str>,
+    cols: usize,
+    rows: usize,
+) -> RenderedBanner {
+    match tier {
+        LayoutTier::Wide => {
+            let scale = if cols >= 76 && rows >= 26 { 2 } else { 1 };
+            let (mut super_lines, super_w) = render_word_5x5("SUPER", scale);
+            let (fedora_lines, fedora_w) = render_word_5x5("FEDORA", scale);
+
+            let max_w = super_w.max(fedora_w);
+            if max_w > super_w {
+                let pad = " ".repeat((max_w - super_w) / 2);
+                for line in &mut super_lines {
+                    let mut s = pad.clone();
+                    s.push_str(line);
+                    *line = s;
+                }
+            }
+
+            let mut lines = super_lines;
+            for _ in 0..scale {
+                lines.push(String::new());
+            }
+            lines.extend(fedora_lines);
+
+            if let Some(sub) = subtitle {
+                let sub_budget = cols.saturating_sub(4);
+                let sub_trimmed: String = sub.trim().chars().take(sub_budget).collect();
+                if !sub_trimmed.is_empty() {
+                    lines.push(String::new());
+                    let banner_w = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+                    let sub_len = sub_trimmed.chars().count();
+                    if banner_w > sub_len {
+                        let pad = (banner_w - sub_len) / 2;
+                        let mut centered = " ".repeat(pad);
+                        centered.push_str(&sub_trimmed);
+                        lines.push(centered);
+                    } else {
+                        lines.push(sub_trimmed);
+                    }
+                }
+            }
+
+            let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+            let height = lines.len();
+            RenderedBanner {
+                lines,
+                width,
+                height,
+            }
+        }
+        LayoutTier::Medium => {
+            let (mut super_lines, super_w) = render_word_3x3("SUPER");
+            let (fedora_lines, fedora_w) = render_word_3x3("FEDORA");
+
+            let max_w = super_w.max(fedora_w);
+            if max_w > super_w {
+                let pad = " ".repeat((max_w - super_w) / 2);
+                for line in &mut super_lines {
+                    let mut s = pad.clone();
+                    s.push_str(line);
+                    *line = s;
+                }
+            }
+
+            let mut lines = super_lines;
+            lines.push(String::new());
+            lines.extend(fedora_lines);
+
+            if let Some(sub) = subtitle {
+                let sub_budget = cols.saturating_sub(2);
+                let sub_trimmed: String = sub.trim().chars().take(sub_budget).collect();
+                if !sub_trimmed.is_empty() {
+                    lines.push(String::new());
+                    lines.push(sub_trimmed);
+                }
+            }
+
+            let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+            let height = lines.len();
+            RenderedBanner {
+                lines,
+                width,
+                height,
+            }
+        }
+        LayoutTier::Narrow => {
+            let chars = ["S", "U", "P", "E", "R", " ", "F", "E", "D", "O", "R", "A"];
+            let max_v = rows.saturating_sub(4).max(1);
+            let mut lines = Vec::new();
+            for &c in chars.iter().take(max_v) {
+                lines.push(c.to_string());
+            }
+            let width = 1;
+            let height = lines.len();
+            RenderedBanner {
+                lines,
+                width,
+                height,
+            }
+        }
+    }
+}
+
 /// Renders banner lines using the 3-tier progressive layout.
 pub fn render_banner(
     raw_text: &str,
@@ -151,6 +323,11 @@ pub fn render_banner(
     } else {
         folded
     };
+
+    let trimmed_eff = effective_text.trim();
+    if trimmed_eff == "SUPERFEDORA" || trimmed_eff == "SUPER FEDORA" {
+        return render_superfedora_banner(tier, subtitle, cols, rows);
+    }
 
     match tier {
         LayoutTier::Wide => {
@@ -367,6 +544,10 @@ pub fn calculate_banner_scale(text: &str, cols: usize, rows: usize) -> usize {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return 1;
+    }
+
+    if trimmed == "SUPERFEDORA" || trimmed == "SUPER FEDORA" {
+        return if cols >= 76 && rows >= 26 { 2 } else { 1 };
     }
 
     let effective_rows = if is_portrait(cols, rows) {

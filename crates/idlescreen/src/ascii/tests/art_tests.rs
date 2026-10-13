@@ -167,3 +167,61 @@ fn test_banner_responsive_scaling_up_to_400_percent() {
     assert_eq!(b_b.width, 5);
     assert_eq!(b_d.width, 5);
 }
+
+#[test]
+fn test_clean_os_name_superfedora() {
+    assert_eq!(clean_os_name("SuperFedora"), "SUPERFEDORA");
+    assert_eq!(clean_os_name("Super Fedora 40"), "SUPERFEDORA");
+    assert_eq!(clean_os_name("SUPERFEDORA"), "SUPERFEDORA");
+}
+
+#[test]
+fn test_is_superfedora_machine_probe() {
+    // Test with explicit environment override
+    // SAFETY: tests run single-threaded per-process or set scoped env
+    unsafe {
+        std::env::set_var("IDLE_SUPERFEDORA", "1");
+    }
+    assert!(super::super::sys_info::is_superfedora_machine());
+    unsafe {
+        std::env::remove_var("IDLE_SUPERFEDORA");
+    }
+}
+
+#[test]
+fn test_superfedora_banner_stacked_rendering() {
+    // Wide tier: 11 lines (5 for SUPER, 1 blank, 5 for FEDORA)
+    let wide = render_banner("SUPERFEDORA", None, 80, 24);
+    assert_eq!(wide.height, 11);
+    assert_eq!(wide.width, 35);
+    assert!(wide.lines[0].starts_with("   ")); // Padded 3 spaces to center over FEDORA
+    assert!(wide.lines[5].is_empty()); // Blank divider line
+
+    // Wide tier with subtitle
+    let wide_sub = render_banner("SUPERFEDORA", Some("WORKSTATION"), 80, 24);
+    assert_eq!(wide_sub.height, 13);
+    assert!(wide_sub.lines.last().unwrap().contains("WORKSTATION"));
+
+    // Medium tier: 7 lines (3 for SUPER, 1 blank, 3 for FEDORA)
+    let med = render_banner("SUPERFEDORA", None, 40, 24);
+    assert_eq!(med.height, 7);
+    assert_eq!(med.width, 23);
+    assert!(med.lines[0].starts_with("  ")); // Padded 2 spaces
+    assert!(med.lines[3].is_empty()); // Blank divider line
+
+    // Narrow tier: vertical stack
+    let narrow = render_banner("SUPERFEDORA", None, 15, 24);
+    assert_eq!(narrow.width, 1);
+    assert!(narrow.height >= 10);
+    assert_eq!(narrow.lines[0], "S");
+    assert_eq!(narrow.lines[1], "U");
+}
+
+#[test]
+fn test_ascii_new_superfedora() {
+    let saver = super::super::Ascii::new_superfedora();
+    assert_eq!(saver.fg, (81, 162, 218)); // Fedora Cyan
+    assert_eq!(saver.bg, (0, 0, 0));
+    assert_eq!(saver.effect, super::super::effects::EffectKind::Spotlights);
+    assert_eq!(saver.rotation.targets, vec!["superfedora".to_string()]);
+}

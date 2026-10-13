@@ -31,6 +31,15 @@ pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         .or_else(|| config.saver.active.clone().filter(|s| !s.trim().is_empty()))
         .unwrap_or_else(|| "ascii".to_string());
 
+    if saver_name == "superfedora" && !crate::ascii::sys_info::is_superfedora_machine() {
+        eprintln!("error: screensaver 'superfedora' is locked.");
+        eprintln!(
+            "It only unlocks when IdleScreen is installed and run on a SuperFedora workstation."
+        );
+        eprintln!("Visit https://superfedora.github.io for installation instructions.");
+        return Err("screensaver 'superfedora' is locked on this machine".into());
+    }
+
     let eff_mode = opts.mode.unwrap_or_else(|| {
         if config.saver.ascii.targets.is_empty() {
             config.saver.ascii.mode.clone()
@@ -92,7 +101,17 @@ fn run_preview_loop(
     let mut rows = (raw_rows as usize).max(5);
 
     let effect_kind = EffectKind::parse(saver_name);
-    let is_extras_cand = effect_kind.is_none() && saver_name != "ascii";
+    let is_superfedora = saver_name == "superfedora";
+    if is_superfedora && !crate::ascii::sys_info::is_superfedora_machine() {
+        eprintln!("error: screensaver 'superfedora' is locked.");
+        eprintln!(
+            "It only unlocks when IdleScreen is installed and run on a SuperFedora workstation."
+        );
+        eprintln!("Visit https://superfedora.github.io for installation instructions.");
+        return Err("screensaver 'superfedora' is locked on this machine".into());
+    }
+
+    let is_extras_cand = effect_kind.is_none() && saver_name != "ascii" && !is_superfedora;
     let mut is_extras = is_extras_cand && ExtrasSession::is_available();
     let mut extras_session = if is_extras {
         ExtrasSession::spawn(saver_name, cols, rows).ok()
@@ -107,14 +126,21 @@ fn run_preview_loop(
     let text_mode = TextMode::parse(mode_str);
     let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
     let targets = crate::daemon::config::parse_targets_from_mode(mode_str);
-    let mut ascii_saver = Ascii::new()
-        .with_mode(text_mode, custom_opt)
-        .with_targets(targets)
-        .with_dwell(dwell_secs)
-        .with_fps(target_fps);
-    if let Some(effect) = effect_kind {
-        ascii_saver.pin_effect(effect);
-    }
+    let mut ascii_saver = if is_superfedora {
+        Ascii::new_superfedora()
+            .with_dwell(dwell_secs)
+            .with_fps(target_fps)
+    } else {
+        let mut saver = Ascii::new()
+            .with_mode(text_mode, custom_opt)
+            .with_targets(targets)
+            .with_dwell(dwell_secs)
+            .with_fps(target_fps);
+        if let Some(effect) = effect_kind {
+            saver.pin_effect(effect);
+        }
+        saver
+    };
     ascii_saver.init(cols, rows);
 
     let mut grid = vec![TerminalCell::default(); cols * rows];

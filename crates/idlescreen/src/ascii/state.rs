@@ -234,6 +234,13 @@ impl TriRotationState {
             "de" | "desktop" | "desktop env" | "desktop environment" => self.de_name.clone(),
             "kernel" | "linux kernel" | "linux" => "LINUX".to_string(),
             "idlescreen" | "wordmark" => "IDLESCREEN".to_string(),
+            "superfedora" | "sf" => {
+                if super::sys_info::is_superfedora_machine() {
+                    "SUPERFEDORA".to_string()
+                } else {
+                    self.os_name.clone()
+                }
+            }
             "custom" | "text" => {
                 if let Some(ref c) = self.custom_text {
                     let trimmed = c.trim();

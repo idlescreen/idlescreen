@@ -66,6 +66,21 @@ impl Ascii {
         Self::new_with_seed(LcgRng::new_random().next_u64())
     }
 
+    /// Dedicated 16-bit SuperFedora screensaver preset with Tokyo Night jewel colors,
+    /// stacked 2D pixel art banner, and orbiting spotlights effect.
+    pub fn new_superfedora() -> Self {
+        let mut saver = Self::new();
+        saver.fg = (81, 162, 218); // Fedora Cyan #51a2da
+        saver.bg = (0, 0, 0);
+        saver.rotation.mode = TextMode::Custom;
+        saver.rotation.custom_text = Some("SUPERFEDORA".to_string());
+        saver.rotation.set_targets(vec!["superfedora".to_string()]);
+        saver.pin_effect(EffectKind::Spotlights);
+        saver.dwell_duration = Some(6.0);
+        saver.dwell_left = 6.0;
+        saver
+    }
+
     pub fn new_with_seed(seed: u64) -> Self {
         let mut rng = LcgRng::new(seed);
         let mut playlist = EffectPlaylist::new();

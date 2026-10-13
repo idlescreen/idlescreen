@@ -8,8 +8,19 @@ use crate::daemon::control_sock::ControlClient;
 use std::fs;
 
 pub const ALL_KNOWN_SAVERS: &[&str] = &[
-    "ascii", "aurora", "beams", "bursts", "chaos", "cosmos", "glyphs", "gnats", "hearth", "radar",
-    "ripple", "storm",
+    "ascii",
+    "superfedora",
+    "aurora",
+    "beams",
+    "bursts",
+    "chaos",
+    "cosmos",
+    "glyphs",
+    "gnats",
+    "hearth",
+    "radar",
+    "ripple",
+    "storm",
 ];
 
 pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
@@ -24,6 +35,15 @@ pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>
         eprintln!("Unknown screensaver: '{saver}'");
         eprintln!("Available savers: {}", ALL_KNOWN_SAVERS.join(", "));
         return Err(format!("unknown screensaver '{saver}'").into());
+    }
+
+    if saver_clean == "superfedora" && !crate::ascii::sys_info::is_superfedora_machine() {
+        eprintln!("error: screensaver 'superfedora' is locked.");
+        eprintln!(
+            "It only unlocks when IdleScreen is installed and run on a SuperFedora workstation."
+        );
+        eprintln!("Visit https://superfedora.github.io for installation instructions.");
+        return Err("screensaver 'superfedora' is locked on this machine".into());
     }
 
     let mut notified_daemon = false;
@@ -75,9 +95,21 @@ mod tests {
 
     #[test]
     fn test_all_known_savers_contains_ascii_and_11_extras() {
-        assert_eq!(ALL_KNOWN_SAVERS.len(), 12);
+        assert_eq!(ALL_KNOWN_SAVERS.len(), 13);
         assert!(ALL_KNOWN_SAVERS.contains(&"ascii"));
+        assert!(ALL_KNOWN_SAVERS.contains(&"superfedora"));
         assert!(ALL_KNOWN_SAVERS.contains(&"storm"));
         assert!(ALL_KNOWN_SAVERS.contains(&"aurora"));
+    }
+
+    #[test]
+    fn test_superfedora_unlock_gate_enforcement() {
+        unsafe {
+            std::env::set_var("IDLE_SUPERFEDORA", "1");
+        }
+        assert!(crate::ascii::sys_info::is_superfedora_machine());
+        unsafe {
+            std::env::remove_var("IDLE_SUPERFEDORA");
+        }
     }
 }

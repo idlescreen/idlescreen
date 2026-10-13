@@ -9,6 +9,13 @@ use std::process::Command;
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     println!("Available Screensavers:");
     println!("  ascii             [built-in] Dynamic Host OS / DE / Kernel mutation");
+    if crate::ascii::sys_info::is_superfedora_machine() {
+        println!("  superfedora       [unlocked] 16-bit SuperFedora pixel art & spotlight");
+    } else {
+        println!(
+            "  superfedora       [locked] Requires SuperFedora workstation (superfedora.github.io)"
+        );
+    }
 
     if let Some(extras_bin) = resolve_extras_binary() {
         if let Ok(output) = Command::new(&extras_bin).arg("--list").output()

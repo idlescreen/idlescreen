@@ -25,7 +25,12 @@ pub fn detect_os_name() -> String {
         }
     }
 
-    // 2. /etc/os-release or /usr/lib/os-release
+    // 2. SuperFedora workstation detection
+    if is_superfedora_machine() {
+        return "SUPERFEDORA".to_string();
+    }
+
+    // 3. /etc/os-release or /usr/lib/os-release
     for path in &["/etc/os-release", "/usr/lib/os-release"] {
         if let Some(name) = parse_os_release(path) {
             return clean_os_name(&name);
@@ -131,6 +136,65 @@ fn uname_sysname() -> Option<String> {
     }
 }
 
+/// Probes system markers to determine if IdleScreen is installed and run on a SuperFedora workstation.
+pub fn is_superfedora_machine() -> bool {
+    // 1. Environment variables
+    if let Ok(v) = std::env::var("SUPERFEDORA") {
+        let t = v.trim();
+        if t == "1" || t.eq_ignore_ascii_case("true") {
+            return true;
+        }
+    }
+    if let Ok(v) = std::env::var("IDLE_SUPERFEDORA") {
+        let t = v.trim();
+        if t == "1" || t.eq_ignore_ascii_case("true") {
+            return true;
+        }
+    }
+    if let Ok(v) = std::env::var("IDLE_OS_NAME") {
+        let t = v.trim();
+        if t.eq_ignore_ascii_case("superfedora") {
+            return true;
+        }
+    }
+
+    // 2. Canonical system-level release/marker files
+    for p in &[
+        "/etc/superfedora/release",
+        "/etc/superfedora/version",
+        "/etc/superfedora-release",
+        "/usr/share/superfedora/release",
+        "/etc/superfedora",
+    ] {
+        if Path::new(p).exists() {
+            return true;
+        }
+    }
+
+    // 3. User-level installation and configuration paths
+    if let Ok(home) = std::env::var("HOME") {
+        let home_p = Path::new(&home);
+        if home_p.join(".local/share/superfedora").exists()
+            || home_p.join(".config/superfedora").exists()
+            || home_p.join(".local/bin/superfedora").exists()
+            || home_p.join(".local/bin/sf").exists()
+        {
+            return true;
+        }
+    }
+
+    // 4. PATH lookup for sf or superfedora binary
+    if let Ok(path_var) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path_var) {
+            if dir.join("superfedora").is_file() || dir.join("sf").is_file() {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
 /// Cleans raw OS name to crisp uppercase single brand words (e.g. "FEDORA", "ARCH", "UBUNTU", "LINUX").
 pub fn clean_os_name(raw: &str) -> String {
     let mut s = raw.trim();
@@ -149,6 +213,9 @@ pub fn clean_os_name(raw: &str) -> String {
         .collect();
 
     // Check known Linux distribution brands with exact word matches
+    if words.contains(&"SUPERFEDORA") || (words.contains(&"SUPER") && words.contains(&"FEDORA")) {
+        return "SUPERFEDORA".to_string();
+    }
     if words.contains(&"FEDORA") {
         return "FEDORA".to_string();
     }

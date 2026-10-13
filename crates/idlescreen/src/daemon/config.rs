@@ -78,6 +78,7 @@ pub fn parse_targets_from_mode(mode: &str) -> Vec<String> {
         "de" | "desktop" => vec!["de".to_string()],
         "kernel" | "linux" => vec!["kernel".to_string()],
         "idlescreen" | "wordmark" => vec!["idlescreen".to_string()],
+        "superfedora" | "sf" => vec!["superfedora".to_string()],
         "custom" | "text" => vec!["custom".to_string()],
         "cycle" => vec!["os".to_string(), "de".to_string()],
         other if !other.is_empty() => vec![other.to_string()],
