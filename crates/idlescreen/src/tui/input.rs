@@ -49,7 +49,7 @@ fn handle_text_editing(model: &mut TuiModel, key: KeyEvent) -> TuiAction {
             TuiAction::None
         }
         KeyCode::End => {
-            model.cursor_pos = model.custom_text.len();
+            model.cursor_pos = model.custom_text.chars().count();
             TuiAction::None
         }
         KeyCode::Enter | KeyCode::Esc => {

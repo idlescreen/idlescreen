@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! D-Bus / systemd helpers for talking to `idle-daemon` from the panel applet.
-//! Unit management lives in `idle_dbus::service` (shared with cli/tui).
+//! D-Bus / CLI / systemd helpers for talking to `idlescreen` from the panel applet.
+
+#![allow(unsafe_code)]
 
 use std::process::Command;
 use std::time::Duration;
 
-use idle_dbus::{DaemonStatus, TranceClient, daemon_available, service};
-use idle_err::{Context, Result, bail};
+use crate::config::ThemeConfig;
+use crate::dbus_bridge::{
+    Context, DaemonStatus, Result, daemon_available, detect_screensavers, err_msg, run_idlescreen,
+    start_service, stop_service,
+};
 
 pub fn is_running() -> bool {
     daemon_available()
@@ -16,110 +20,107 @@ pub fn is_running() -> bool {
 
 /// Start the user unit and enable it so it returns after login/upgrades.
 pub fn start_daemon_service() -> Result<()> {
-    service::start_daemon_service().context("could not start idle-daemon")
+    start_service().context("could not start idlescreen.service")
 }
 
 /// Stop the running user unit (does **not** disable — keeps login autostart).
 pub fn stop_daemon_service() -> Result<()> {
-    service::stop_daemon_service().context("could not stop idle-daemon")
+    stop_service().context("could not stop idlescreen.service")
 }
 
 pub fn fetch_status() -> Result<DaemonStatus> {
-    let client = TranceClient::connect().context("failed to connect to idle daemon")?;
-    client.get_status().context("failed to fetch daemon status")
+    let cfg = ThemeConfig::load();
+    let mut status = DaemonStatus {
+        idle_enabled: cfg.idle_enabled,
+        idle_timeout_mins: cfg.idle_timeout_mins,
+        active_saver: cfg.active_saver.unwrap_or_else(|| "ascii".to_string()),
+        show_fps_overlay: cfg.show_fps_overlay,
+        render_scale: cfg
+            .render_scale
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "null".to_string()),
+    };
+    if let Ok(json) = run_idlescreen(&["status", "--json"])
+        && let Some(idx) = json.find("\"active_saver\":\"")
+    {
+        let rest = &json[idx + 16..];
+        if let Some(end) = rest.find('"') {
+            status.active_saver = rest[..end].to_string();
+        }
+    }
+    Ok(status)
 }
 
 pub fn set_idle_enabled(enabled: bool) -> Result<()> {
-    let client = TranceClient::connect().context("failed to connect to idle daemon")?;
-    if enabled {
-        client.enable().context("failed to enable idle activation")
-    } else {
-        client
-            .disable()
-            .context("failed to disable idle activation")
-    }
+    let mut cfg = ThemeConfig::load();
+    cfg.idle_enabled = enabled;
+    cfg.save_field("idle_enabled")
+        .context("failed to save idle_enabled")
 }
 
 pub fn set_timeout(minutes: u32) -> Result<()> {
-    TranceClient::connect()
-        .context("failed to connect to idle daemon")?
-        .set_timeout(minutes)
+    let mins_str = minutes.to_string();
+    run_idlescreen(&["timeout", &mins_str])
+        .map(|_| ())
         .context("failed to set idle timeout")
 }
 
 pub fn set_active_saver(name: Option<&str>) -> Result<()> {
-    TranceClient::connect()
-        .context("failed to connect to idle daemon")?
-        .set_saver(name.unwrap_or(""))
+    let target = name.unwrap_or("ascii");
+    run_idlescreen(&["set", target])
+        .map(|_| ())
         .context("failed to set active screensaver")
 }
 
 pub fn set_show_fps_overlay(enabled: bool) -> Result<()> {
-    TranceClient::connect()
-        .context("failed to connect to idle daemon")?
-        .set_show_fps_overlay(enabled)
+    let mut cfg = ThemeConfig::load();
+    cfg.show_fps_overlay = enabled;
+    cfg.save_field("show_fps_overlay")
         .context("failed to set FPS overlay")
 }
 
 pub fn list_savers() -> Result<Vec<String>> {
-    TranceClient::connect()
-        .context("failed to connect to idle daemon")?
-        .list_savers()
-        .context("failed to list installed screensavers")
+    Ok(detect_screensavers())
 }
 
 pub fn set_render_scale(scale: f32) -> Result<()> {
-    TranceClient::connect()
-        .context("failed to connect to idle daemon")?
-        .set_render_scale(scale)
+    let mut cfg = ThemeConfig::load();
+    cfg.render_scale = Some(scale);
+    cfg.save_field("render_scale")
         .context("failed to set render scale")
 }
 
-/// Preview a saver: prefer the daemon D-Bus path (layer-shell overlay).
-///
-/// If the daemon is down, try to start it first. As a last resort, run the
-/// packaged `idle-daemon run-plugin <name>` fullscreen helper.
+/// Preview a saver: prefer `idlescreen start` or `idlescreen preview <name>`.
 pub fn preview_saver(name: &str) -> Result<()> {
     if !is_running() {
-        idle_log::info!("daemon offline; starting before preview");
-        if let Err(e) = start_daemon_service() {
-            idle_log::warn!("could not start daemon for preview: {e:#}");
-        }
+        let _ = start_daemon_service();
     }
-
-    if is_running() {
-        match TranceClient::connect()
-            .context("connect for preview")
-            .and_then(|c| c.preview(name).context("D-Bus preview"))
+    let _ = set_active_saver(Some(name));
+    if run_idlescreen(&["start"]).is_ok() {
+        return Ok(());
+    }
+    if let Ok(mut child) = Command::new("idlescreen").args(["preview", name]).spawn() {
+        std::thread::sleep(Duration::from_millis(200));
+        if let Ok(Some(status)) = child.try_wait()
+            && !status.success()
         {
-            Ok(()) => return Ok(()),
-            Err(e) => idle_log::warn!("D-Bus preview failed: {e:#}; trying run-plugin fallback"),
+            return Err(err_msg(format!(
+                "preview process exited early with status: {status}"
+            )));
         }
+        return Ok(());
     }
-
-    for bin in ["idle-daemon", "idlescreen-daemon", "trance-daemon"] {
-        if let Ok(mut child) = Command::new(bin).args(["run-plugin", name]).spawn() {
-            std::thread::sleep(Duration::from_millis(200));
-            if let Ok(Some(status)) = child.try_wait()
-                && !status.success()
-            {
-                bail!("preview process exited early with status: {}", status);
-            }
-            return Ok(());
-        }
-    }
-    bail!("could not spawn idle-daemon run-plugin for preview")
+    Err(err_msg("could not launch idlescreen preview"))
 }
 
 /// Launch the IdleScreen TUI in a terminal (requires a real TTY).
 pub fn open_tui_dashboard() -> bool {
     let programs: &[&[&str]] = &[
-        &["idle-tui"],
-        &["idlescreen-tui"],
         &["idlescreen", "tui"],
+        &["idlescreen-tui"],
+        &["idle-tui"],
         &["idle", "tui"],
     ];
-    // cosmic-term: `-e` / `--` then program + args
     let terminals: &[(&str, &[&str])] = &[
         ("cosmic-term", &["-e"]),
         ("cosmic-term", &["--"]),
@@ -149,7 +150,8 @@ pub fn open_tui_dashboard() -> bool {
             #[cfg(unix)]
             {
                 use std::os::unix::process::CommandExt;
-                // SAFETY: start a new session so the terminal outlives the applet.
+                // SAFETY: `setsid()` is async-signal-safe in POSIX and detaches the
+                // spawned terminal session before `exec` without mutating Rust state.
                 unsafe {
                     cmd.pre_exec(|| {
                         libc::setsid();

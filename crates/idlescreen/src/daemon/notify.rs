@@ -3,6 +3,8 @@
 
 //! Multi-protocol readiness notifications (systemd NOTIFY_SOCKET, fd 3 pipe, D-Bus).
 
+#![allow(unsafe_code)]
+
 use std::os::unix::net::UnixDatagram;
 use std::path::Path;
 
@@ -19,21 +21,22 @@ pub fn sd_notify(state: &str) -> std::io::Result<bool> {
     let payload = state.as_bytes();
 
     if let Some(abstract_path) = notify_socket.strip_prefix('@') {
-        // Abstract socket address: sun_path starts with null byte
+        // SAFETY: `sockaddr_un` is a plain C struct safe to zero-initialize.
         let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
         addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
 
         let bytes = abstract_path.as_bytes();
-        let max_len = addr.sun_path.len() - 1; // 1 byte reserved for leading null
+        let max_len = addr.sun_path.len() - 1;
         let copy_len = bytes.len().min(max_len);
 
-        addr.sun_path[0] = 0; // null byte indicates abstract socket
+        addr.sun_path[0] = 0;
         for i in 0..copy_len {
             addr.sun_path[1 + i] = bytes[i] as libc::c_char;
         }
 
         let addr_len = (std::mem::size_of::<libc::sa_family_t>() + 1 + copy_len) as libc::socklen_t;
         use std::os::fd::AsRawFd;
+        // SAFETY: `sock` is valid and `addr` is properly sized for the abstract socket path.
         let res = unsafe {
             libc::sendto(
                 sock.as_raw_fd(),
@@ -48,7 +51,6 @@ pub fn sd_notify(state: &str) -> std::io::Result<bool> {
             return Err(std::io::Error::last_os_error());
         }
     } else {
-        // Standard filesystem path
         sock.send_to(payload, Path::new(&notify_socket))?;
     }
 
@@ -56,23 +58,23 @@ pub fn sd_notify(state: &str) -> std::io::Result<bool> {
 }
 
 /// Signals readiness via an open FIFO/pipe (standard s6 / dinit readiness protocol).
-///
-/// If fd is an open FIFO/pipe, writes a newline `\n` to fd and closes it.
-/// If fd is a regular file (e.g. PID lock file) or other descriptor, it is left untouched.
 pub fn notify_fd(fd: libc::c_int) -> bool {
+    // SAFETY: `libc::stat` is a plain C struct safe to zero-initialize.
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
+    // SAFETY: `fstat` safely probes `fd` and returns -1 on EBADF.
     if unsafe { libc::fstat(fd, &raw mut st) } < 0 {
         return false;
     }
 
-    // Only notify if fd is an actual FIFO / pipe passed by s6 or dinit
     if (st.st_mode & libc::S_IFMT) != libc::S_IFIFO {
         return false;
     }
 
     let byte = *b"\n";
+    // SAFETY: `fd` was verified to be an open FIFO and `byte` is a 1-byte buffer.
     let res = unsafe { libc::write(fd, (&raw const byte).cast(), 1) };
     if res > 0 {
+        // SAFETY: Closing the s6/dinit readiness FIFO completes the readiness handshake.
         unsafe { libc::close(fd) };
         true
     } else {
@@ -114,7 +116,7 @@ mod tests {
         let fd = file.as_raw_fd();
 
         assert!(!notify_fd(fd));
-        // Verify fd is still open and valid
+        // SAFETY: `fd` is owned by `file`.
         let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
         assert!(flags >= 0);
     }
@@ -122,21 +124,22 @@ mod tests {
     #[test]
     fn test_notify_fd_signals_pipe() {
         let mut pipe_fds = [0; 2];
+        // SAFETY: `pipe_fds` is a valid 2-element int array.
         let res = unsafe { libc::pipe(pipe_fds.as_mut_ptr()) };
         assert_eq!(res, 0);
 
         let read_fd = pipe_fds[0];
         let write_fd = pipe_fds[1];
 
-        // Should successfully write '\n' and close write_fd
         assert!(notify_fd(write_fd));
 
-        // Read from read_fd to verify '\n' was received
         let mut buf = [0u8; 4];
+        // SAFETY: `read_fd` is valid and `buf` is 4 bytes.
         let bytes_read = unsafe { libc::read(read_fd, buf.as_mut_ptr().cast(), 4) };
         assert_eq!(bytes_read, 1);
         assert_eq!(buf[0], b'\n');
 
+        // SAFETY: `read_fd` is owned by this test.
         unsafe { libc::close(read_fd) };
     }
 }

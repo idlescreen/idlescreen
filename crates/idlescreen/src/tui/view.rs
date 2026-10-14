@@ -115,9 +115,9 @@ pub fn render_view(model: &TuiModel) -> std::io::Result<()> {
     // Render text with cursor clamped to exactly 60 visible columns
     let mut disp_text = model.custom_text.clone();
     if model.editing_text {
-        if model.cursor_pos <= disp_text.len() {
-            disp_text.insert(model.cursor_pos, '│');
-        }
+        let pos = model.cursor_pos.min(disp_text.chars().count());
+        let byte_idx = super::model::char_to_byte_idx(&disp_text, pos);
+        disp_text.insert(byte_idx, '│');
     } else if disp_text.is_empty() {
         disp_text = "(Press Enter to type custom banner)".to_string();
     }

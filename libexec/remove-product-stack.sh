@@ -172,7 +172,11 @@ if command -v pacman >/dev/null 2>&1 && [ -d /var/lib/pacman ]; then
     erase_pacman
 fi
 remove_repo_dropins
-remove_user_data
+if [ "${1:-}" = "--purge" ]; then
+    remove_user_data
+else
+    rm -rf /run/user/*/idlescreen* /tmp/idlescreen* 2>/dev/null || true
+fi
 remove_empty_dirs
 
 # Second pass after packages (and unit files) are gone.

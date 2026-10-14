@@ -3,6 +3,8 @@
 
 //! Multi-call binary for IdleScreen mathematical screensaver collection.
 
+#![deny(unsafe_code)]
+
 pub mod protocol;
 pub mod runner;
 pub mod savers;
@@ -44,6 +46,13 @@ fn usage() -> ExitCode {
     ExitCode::SUCCESS
 }
 
+#[allow(unsafe_code)]
+fn open_ipc_socket(fd: i32) -> UnixStream {
+    // SAFETY: `fd` is the inherited socketpair descriptor (default fd 3) passed by
+    // the parent `idlescreen` process exclusively to this child process.
+    unsafe { UnixStream::from_raw_fd(fd) }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.is_empty() {
@@ -69,7 +78,7 @@ fn main() -> ExitCode {
                 3
             };
 
-            let socket = unsafe { UnixStream::from_raw_fd(fd) };
+            let socket = open_ipc_socket(fd);
             if let Err(e) = server::run(saver_name, socket) {
                 eprintln!("idlescreen-extras error: {e}");
                 return ExitCode::FAILURE;

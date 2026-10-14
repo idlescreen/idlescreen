@@ -39,15 +39,13 @@ impl AppModel {
                             self.daemon_running = true;
                             self.last_error = None;
                         }
-                        Err(e) => {
-                            idle_log::error!("failed to start idle-daemon: {e:#}");
+                        Err(_e) => {
                             self.last_error = Some(fl!("error-start"));
                             self.daemon_running = crate::daemon_client::is_running();
                         }
                     }
                     self.refresh_daemon_state();
-                } else if let Err(e) = crate::daemon_client::stop_daemon_service() {
-                    idle_log::error!("failed to stop idle-daemon: {e:#}");
+                } else if let Err(_e) = crate::daemon_client::stop_daemon_service() {
                     self.last_error = Some(fl!("error-stop"));
                     self.daemon_running = crate::daemon_client::is_running();
                 } else {
@@ -134,8 +132,7 @@ impl AppModel {
             }
             Message::MiddleClick => {
                 let saver = self.pick_preview_saver(/* random_if_unset */ true);
-                if let Err(e) = crate::daemon_client::preview_saver(&saver) {
-                    idle_log::error!("preview failed for '{saver}': {e:#}");
+                if crate::daemon_client::preview_saver(&saver).is_err() {
                     self.last_error = Some(fl!("error-preview"));
                 } else {
                     self.last_error = None;
@@ -143,8 +140,7 @@ impl AppModel {
             }
             Message::TriggerPreview => {
                 let saver = self.pick_preview_saver(/* random_if_unset */ false);
-                if let Err(e) = crate::daemon_client::preview_saver(&saver) {
-                    idle_log::error!("preview failed for '{saver}': {e:#}");
+                if crate::daemon_client::preview_saver(&saver).is_err() {
                     self.last_error = Some(fl!("error-preview"));
                 } else {
                     self.last_error = None;
@@ -199,7 +195,7 @@ impl AppModel {
                 })
                 .unwrap_or_default(),
             local_config: crate::config::ThemeConfig::load(),
-            screensavers: idle_runner::discovery::detect_screensavers(),
+            screensavers: crate::dbus_bridge::detect_screensavers(),
             daemon_running: false,
             show_fps_overlay: false,
             show_advanced: false,

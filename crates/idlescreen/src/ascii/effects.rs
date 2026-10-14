@@ -49,178 +49,141 @@ pub enum EffectKind {
 
 impl EffectKind {
     pub const ALL: [EffectKind; 37] = [
-        EffectKind::Beams,
-        EffectKind::Binarypath,
-        EffectKind::Blackhole,
-        EffectKind::Bouncyballs,
-        EffectKind::Bubbles,
-        EffectKind::Burn,
-        EffectKind::Colorshift,
-        EffectKind::Crumble,
-        EffectKind::Decrypt,
-        EffectKind::Errorcorrect,
-        EffectKind::Expand,
-        EffectKind::Fireworks,
-        EffectKind::Highlight,
-        EffectKind::Laseretch,
-        EffectKind::Matrix,
-        EffectKind::Middleout,
-        EffectKind::Orbittingvolley,
-        EffectKind::Overflow,
-        EffectKind::Pour,
-        EffectKind::Print,
-        EffectKind::Rain,
-        EffectKind::Randomsequence,
-        EffectKind::Rings,
-        EffectKind::Scattered,
-        EffectKind::Slice,
-        EffectKind::Slide,
-        EffectKind::Smoke,
-        EffectKind::Spotlights,
-        EffectKind::Spray,
-        EffectKind::Swarm,
-        EffectKind::Sweep,
-        EffectKind::Synthgrid,
-        EffectKind::Thunderstorm,
-        EffectKind::Unstable,
-        EffectKind::Vhstape,
-        EffectKind::Waves,
-        EffectKind::Wipe,
+        Self::Beams,
+        Self::Binarypath,
+        Self::Blackhole,
+        Self::Bouncyballs,
+        Self::Bubbles,
+        Self::Burn,
+        Self::Colorshift,
+        Self::Crumble,
+        Self::Decrypt,
+        Self::Errorcorrect,
+        Self::Expand,
+        Self::Fireworks,
+        Self::Highlight,
+        Self::Laseretch,
+        Self::Matrix,
+        Self::Middleout,
+        Self::Orbittingvolley,
+        Self::Overflow,
+        Self::Pour,
+        Self::Print,
+        Self::Rain,
+        Self::Randomsequence,
+        Self::Rings,
+        Self::Scattered,
+        Self::Slice,
+        Self::Slide,
+        Self::Smoke,
+        Self::Spotlights,
+        Self::Spray,
+        Self::Swarm,
+        Self::Sweep,
+        Self::Synthgrid,
+        Self::Thunderstorm,
+        Self::Unstable,
+        Self::Vhstape,
+        Self::Waves,
+        Self::Wipe,
     ];
 
     pub fn parse(name: &str) -> Option<Self> {
-        let key = name.trim().to_ascii_lowercase();
-        let stripped = key.replace(['-', '_'], "");
-        match stripped.as_str() {
-            "beams" => Some(EffectKind::Beams),
-            "binarypath" => Some(EffectKind::Binarypath),
-            "blackhole" => Some(EffectKind::Blackhole),
-            "bouncyballs" => Some(EffectKind::Bouncyballs),
-            "bubbles" => Some(EffectKind::Bubbles),
-            "burn" => Some(EffectKind::Burn),
-            "colorshift" => Some(EffectKind::Colorshift),
-            "crumble" => Some(EffectKind::Crumble),
-            "decrypt" => Some(EffectKind::Decrypt),
-            "errorcorrect" => Some(EffectKind::Errorcorrect),
-            "expand" => Some(EffectKind::Expand),
-            "fireworks" => Some(EffectKind::Fireworks),
-            "highlight" => Some(EffectKind::Highlight),
-            "laseretch" => Some(EffectKind::Laseretch),
-            "matrix" => Some(EffectKind::Matrix),
-            "middleout" => Some(EffectKind::Middleout),
-            "orbittingvolley" => Some(EffectKind::Orbittingvolley),
-            "overflow" => Some(EffectKind::Overflow),
-            "pour" => Some(EffectKind::Pour),
-            "print" => Some(EffectKind::Print),
-            "rain" | "shower" => Some(EffectKind::Rain),
-            "randomsequence" => Some(EffectKind::Randomsequence),
-            "rings" => Some(EffectKind::Rings),
-            "scattered" | "scramble" => Some(EffectKind::Scattered),
-            "slice" => Some(EffectKind::Slice),
-            "slide" => Some(EffectKind::Slide),
-            "smoke" => Some(EffectKind::Smoke),
-            "spotlights" => Some(EffectKind::Spotlights),
-            "spray" => Some(EffectKind::Spray),
-            "swarm" => Some(EffectKind::Swarm),
-            "sweep" | "led" => Some(EffectKind::Sweep),
-            "synthgrid" => Some(EffectKind::Synthgrid),
-            "thunderstorm" => Some(EffectKind::Thunderstorm),
-            "unstable" => Some(EffectKind::Unstable),
-            "vhstape" => Some(EffectKind::Vhstape),
-            "waves" | "wave" => Some(EffectKind::Waves),
-            "wipe" => Some(EffectKind::Wipe),
-            _ => None,
+        let key = name.trim().to_ascii_lowercase().replace(['-', '_'], "");
+        match key.as_str() {
+            "shower" => Some(Self::Rain),
+            "scramble" => Some(Self::Scattered),
+            "led" => Some(Self::Sweep),
+            "wave" => Some(Self::Waves),
+            k => Self::ALL.into_iter().find(|e| e.name() == k),
         }
     }
 
     pub fn name(&self) -> &'static str {
         match self {
-            EffectKind::Beams => "beams",
-            EffectKind::Binarypath => "binarypath",
-            EffectKind::Blackhole => "blackhole",
-            EffectKind::Bouncyballs => "bouncyballs",
-            EffectKind::Bubbles => "bubbles",
-            EffectKind::Burn => "burn",
-            EffectKind::Colorshift => "colorshift",
-            EffectKind::Crumble => "crumble",
-            EffectKind::Decrypt => "decrypt",
-            EffectKind::Errorcorrect => "errorcorrect",
-            EffectKind::Expand => "expand",
-            EffectKind::Fireworks => "fireworks",
-            EffectKind::Highlight => "highlight",
-            EffectKind::Laseretch => "laseretch",
-            EffectKind::Matrix => "matrix",
-            EffectKind::Middleout => "middleout",
-            EffectKind::Orbittingvolley => "orbittingvolley",
-            EffectKind::Overflow => "overflow",
-            EffectKind::Pour => "pour",
-            EffectKind::Print => "print",
-            EffectKind::Rain => "rain",
-            EffectKind::Randomsequence => "randomsequence",
-            EffectKind::Rings => "rings",
-            EffectKind::Scattered => "scattered",
-            EffectKind::Slice => "slice",
-            EffectKind::Slide => "slide",
-            EffectKind::Smoke => "smoke",
-            EffectKind::Spotlights => "spotlights",
-            EffectKind::Spray => "spray",
-            EffectKind::Swarm => "swarm",
-            EffectKind::Sweep => "sweep",
-            EffectKind::Synthgrid => "synthgrid",
-            EffectKind::Thunderstorm => "thunderstorm",
-            EffectKind::Unstable => "unstable",
-            EffectKind::Vhstape => "vhstape",
-            EffectKind::Waves => "waves",
-            EffectKind::Wipe => "wipe",
+            Self::Beams => "beams",
+            Self::Binarypath => "binarypath",
+            Self::Blackhole => "blackhole",
+            Self::Bouncyballs => "bouncyballs",
+            Self::Bubbles => "bubbles",
+            Self::Burn => "burn",
+            Self::Colorshift => "colorshift",
+            Self::Crumble => "crumble",
+            Self::Decrypt => "decrypt",
+            Self::Errorcorrect => "errorcorrect",
+            Self::Expand => "expand",
+            Self::Fireworks => "fireworks",
+            Self::Highlight => "highlight",
+            Self::Laseretch => "laseretch",
+            Self::Matrix => "matrix",
+            Self::Middleout => "middleout",
+            Self::Orbittingvolley => "orbittingvolley",
+            Self::Overflow => "overflow",
+            Self::Pour => "pour",
+            Self::Print => "print",
+            Self::Rain => "rain",
+            Self::Randomsequence => "randomsequence",
+            Self::Rings => "rings",
+            Self::Scattered => "scattered",
+            Self::Slice => "slice",
+            Self::Slide => "slide",
+            Self::Smoke => "smoke",
+            Self::Spotlights => "spotlights",
+            Self::Spray => "spray",
+            Self::Swarm => "swarm",
+            Self::Sweep => "sweep",
+            Self::Synthgrid => "synthgrid",
+            Self::Thunderstorm => "thunderstorm",
+            Self::Unstable => "unstable",
+            Self::Vhstape => "vhstape",
+            Self::Waves => "waves",
+            Self::Wipe => "wipe",
         }
     }
 
     pub fn dwell(&self) -> f32 {
         match self {
-            EffectKind::Decrypt | EffectKind::Sweep => 1.6,
-            EffectKind::Fireworks => 1.8,
-            EffectKind::Thunderstorm => 2.0,
+            Self::Decrypt | Self::Sweep => 1.6,
+            Self::Fireworks => 1.8,
+            Self::Thunderstorm => 2.0,
             _ => 1.8,
         }
     }
 
-    /// Number of simulation ticks advanced per rendered frame for snappy 16-bit arcade energy.
     pub fn arcade_steps_per_frame(&self) -> usize {
         match self {
-            EffectKind::Wipe => 1,
-            EffectKind::Slide
-            | EffectKind::Slice
-            | EffectKind::Sweep
-            | EffectKind::Expand
-            | EffectKind::Middleout
-            | EffectKind::Highlight
-            | EffectKind::Overflow => 2,
-            EffectKind::Spotlights
-            | EffectKind::Matrix
-            | EffectKind::Thunderstorm
-            | EffectKind::Rings
-            | EffectKind::Synthgrid
-            | EffectKind::Beams
-            | EffectKind::Fireworks
-            | EffectKind::Rain
-            | EffectKind::Orbittingvolley
-            | EffectKind::Crumble
-            | EffectKind::Decrypt => 4,
-            EffectKind::Binarypath
-            | EffectKind::Print
-            | EffectKind::Pour
-            | EffectKind::Burn
-            | EffectKind::Errorcorrect
-            | EffectKind::Bouncyballs => 5,
-            EffectKind::Bubbles | EffectKind::Swarm => 6,
-            EffectKind::Blackhole => 7,
+            Self::Wipe => 1,
+            Self::Slide
+            | Self::Slice
+            | Self::Sweep
+            | Self::Expand
+            | Self::Middleout
+            | Self::Highlight
+            | Self::Overflow => 2,
+            Self::Spotlights
+            | Self::Matrix
+            | Self::Thunderstorm
+            | Self::Rings
+            | Self::Synthgrid
+            | Self::Beams
+            | Self::Fireworks
+            | Self::Rain
+            | Self::Orbittingvolley
+            | Self::Crumble
+            | Self::Decrypt => 4,
+            Self::Binarypath
+            | Self::Print
+            | Self::Pour
+            | Self::Burn
+            | Self::Errorcorrect
+            | Self::Bouncyballs => 5,
+            Self::Bubbles | Self::Swarm => 6,
+            Self::Blackhole => 7,
             _ => 3,
         }
     }
 }
 
-/// Shuffled playlist of all 37 effects ensuring randomized rotation without
-/// immediate repeats across cycle boundaries.
 #[derive(Clone, Debug)]
 pub struct EffectPlaylist {
     order: [EffectKind; 37],

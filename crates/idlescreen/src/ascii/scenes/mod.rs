@@ -1,57 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-#![allow(clippy::all, unused)]
+#![allow(clippy::all, clippy::pedantic, unused)]
 
-macro_rules! declare_scenes {
-    ($($name:ident),* $(,)?) => {
-        $(
-            #[allow(clippy::all, clippy::pedantic, unused)]
-            pub mod $name;
-        )*
-    };
-}
+pub mod beams_light;
+pub mod canvas_ops;
+pub mod matrix_cyber;
+pub mod motion_wipe;
+pub mod particles_fire;
+pub mod physics_fields;
+pub mod weather_nature;
 
-declare_scenes!(
-    common,
-    beams,
-    binarypath,
-    blackhole,
-    bouncyballs,
-    bubbles,
-    burn,
-    colorshift,
-    crumble,
-    decrypt,
-    errorcorrect,
-    expand,
-    fireworks,
-    highlight,
-    laseretch,
-    matrix,
-    middleout,
-    orbittingvolley,
-    overflow,
-    pour,
-    print_effect,
-    rain,
-    random_sequence,
-    rings,
-    scattered,
-    slice,
-    slide,
-    smoke,
-    spotlights,
-    spray,
-    swarm,
-    sweep,
-    synthgrid,
-    thunderstorm,
-    unstable,
-    vhstape,
-    waves,
-    wipe,
-);
+pub use beams_light::{beams, highlight, laseretch, rings, spotlights, synthgrid};
+pub use matrix_cyber::{
+    binarypath, decrypt, errorcorrect, matrix, print_effect, random_sequence, vhstape,
+};
+pub use motion_wipe::{colorshift, expand, middleout, slice, slide, sweep, wipe};
+pub use particles_fire::{bubbles, burn, crumble, fireworks, pour, smoke};
+pub use physics_fields::{
+    blackhole, bouncyballs, orbittingvolley, overflow, scattered, swarm, unstable,
+};
+pub use weather_nature::{rain, spray, thunderstorm, waves};
 
 use super::effects::EffectKind;
 use ttfx::engine::effect::Effect;

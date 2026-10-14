@@ -3,137 +3,60 @@
 
 //! D-Bus service interfaces for org.freedesktop.ScreenSaver and io.github.idlescreen.Idle.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+pub use super::state::ScreenSaverState;
+
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Instant;
 use zbus::interface;
 
-#[derive(Clone)]
+pub const VALID_SAVERS: &[&str] = &[
+    "ascii", "aurora", "beams", "bursts", "chaos", "cosmos", "glyphs", "gnats", "hearth", "radar",
+    "ripple", "storm",
+];
+
+pub fn is_valid_saver(name: &str) -> bool {
+    let trimmed = name.trim();
+    VALID_SAVERS.contains(&trimmed)
+        || crate::ascii::effects::EffectKind::parse(trimmed).is_some()
+        || trimmed == "superfedora"
+}
+
+#[derive(Clone, Debug)]
 pub struct InhibitEntry {
     pub cookie: u32,
     pub app_name: String,
     pub reason: String,
-}
-
-pub struct ScreenSaverState {
-    pub active: AtomicBool,
-    pub started_at: Mutex<Option<Instant>>,
-    pub inhibitors: Mutex<Vec<InhibitEntry>>,
-    pub cookie_counter: AtomicU32,
-    pub current_saver: Mutex<String>,
-    pub text_targets: Mutex<Vec<String>>,
-    pub custom_text: Mutex<String>,
-    pub custom_text_epoch: std::sync::atomic::AtomicU64,
-    pub wake_handle: Mutex<Option<crate::daemon::gnome::WakeHandle>>,
-}
-
-impl Default for ScreenSaverState {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub sender: Option<String>,
 }
 
 impl ScreenSaverState {
-    pub fn new() -> Self {
-        let cfg = crate::daemon::config::Config::load_or_migrate();
-        let mut text_targets = cfg.saver.ascii.targets;
-        if text_targets.is_empty() {
-            text_targets = crate::daemon::config::parse_targets_from_mode(&cfg.saver.ascii.mode);
-        }
-        Self {
-            active: AtomicBool::new(false),
-            started_at: Mutex::new(None),
-            inhibitors: Mutex::new(Vec::new()),
-            cookie_counter: AtomicU32::new(1),
-            current_saver: Mutex::new(cfg.saver.active.unwrap_or_else(|| "ascii".to_string())),
-            text_targets: Mutex::new(text_targets),
-            custom_text: Mutex::new(cfg.saver.ascii.text),
-            custom_text_epoch: std::sync::atomic::AtomicU64::new(1),
-            wake_handle: Mutex::new(None),
-        }
-    }
-
-    pub fn set_wake_handle(&self, handle: crate::daemon::gnome::WakeHandle) {
-        if let Ok(mut guard) = self.wake_handle.lock() {
-            *guard = Some(handle);
-        }
-    }
-
-    pub fn clear_wake_handle(&self) {
-        if let Ok(mut guard) = self.wake_handle.lock() {
-            *guard = None;
-        }
-    }
-
-    pub fn wake(&self) {
-        if let Ok(guard) = self.wake_handle.lock()
-            && let Some(ref h) = *guard
-        {
-            h.wake();
-        }
-    }
-
     pub fn is_inhibited(&self) -> bool {
-        if let Ok(guard) = self.inhibitors.lock() {
-            !guard.is_empty()
-        } else {
-            false
-        }
+        self.inhibitors.lock().is_ok_and(|g| !g.is_empty())
     }
 
-    pub fn stop(&self) {
-        self.active.store(false, Ordering::SeqCst);
-        if let Ok(mut start) = self.started_at.lock() {
-            *start = None;
-        }
-        self.wake();
+    pub fn list_inhibitors(&self) -> Vec<(u32, String, String)> {
+        self.inhibitors.lock().map_or_else(
+            |_| Vec::new(),
+            |g| {
+                g.iter()
+                    .map(|e| (e.cookie, e.app_name.clone(), e.reason.clone()))
+                    .collect()
+            },
+        )
     }
 
-    pub fn set_saver(&self, name: String) {
-        if let Ok(mut saver) = self.current_saver.lock() {
-            *saver = name;
+    pub fn remove_inhibitors_by_sender(&self, sender: &str) {
+        if !sender.is_empty()
+            && let Ok(mut g) = self.inhibitors.lock()
+        {
+            let before = g.len();
+            g.retain(|e| e.sender.as_deref() != Some(sender));
+            if g.len() != before {
+                drop(g);
+                self.wake();
+            }
         }
-        self.wake();
-    }
-
-    pub fn get_text_targets(&self) -> Vec<String> {
-        self.text_targets
-            .lock()
-            .map(|t| t.clone())
-            .unwrap_or_default()
-    }
-
-    pub fn set_text_targets(&self, targets: &[String]) {
-        if let Ok(mut t) = self.text_targets.lock() {
-            *t = targets.to_vec();
-            self.custom_text_epoch.fetch_add(1, Ordering::Release);
-        }
-        let cfg_dir = crate::daemon::config::resolve_config_dir();
-        let toml_path = cfg_dir.join("config.toml");
-        let mut config = crate::daemon::config::Config::load_or_migrate();
-        config.saver.ascii.targets = targets.to_vec();
-        config.saver.ascii.mode = targets.join(",");
-        if let Ok(s) = toml::to_string_pretty(&config) {
-            let _ = std::fs::create_dir_all(&cfg_dir);
-            let _ = std::fs::write(&toml_path, s);
-        }
-        self.wake();
-    }
-
-    pub fn set_text(&self, text: &str) {
-        if let Ok(mut t) = self.custom_text.lock() {
-            *t = text.to_string();
-            self.custom_text_epoch.fetch_add(1, Ordering::Release);
-        }
-        let cfg_dir = crate::daemon::config::resolve_config_dir();
-        let toml_path = cfg_dir.join("config.toml");
-        let mut config = crate::daemon::config::Config::load_or_migrate();
-        config.saver.ascii.text = text.to_string();
-        if let Ok(s) = toml::to_string_pretty(&config) {
-            let _ = std::fs::create_dir_all(&cfg_dir);
-            let _ = std::fs::write(&toml_path, s);
-        }
-        self.wake();
     }
 }
 
@@ -144,19 +67,17 @@ pub struct ScreenSaverInterface {
 #[interface(name = "org.freedesktop.ScreenSaver")]
 impl ScreenSaverInterface {
     fn lock(&self) {
-        self.state.active.store(true, Ordering::SeqCst);
-        if let Ok(mut start) = self.state.started_at.lock() {
-            *start = Some(Instant::now());
+        if !self.state.is_inhibited() {
+            self.state.active.store(true, Ordering::SeqCst);
+            if let Ok(mut start) = self.state.started_at.lock() {
+                *start = Some(Instant::now());
+            }
+            self.state.wake();
         }
-        self.state.wake();
     }
 
     fn simulate_user_activity(&self) {
-        self.state.active.store(false, Ordering::SeqCst);
-        if let Ok(mut start) = self.state.started_at.lock() {
-            *start = None;
-        }
-        self.state.wake();
+        self.state.stop();
     }
 
     fn get_active(&self) -> bool {
@@ -172,13 +93,21 @@ impl ScreenSaverInterface {
         0
     }
 
-    fn inhibit(&self, application_name: String, reason_for_inhibit: String) -> u32 {
+    #[allow(clippy::needless_pass_by_value)]
+    fn inhibit(
+        &self,
+        #[zbus(header)] hdr: zbus::message::Header<'_>,
+        application_name: String,
+        reason_for_inhibit: String,
+    ) -> u32 {
         let cookie = self.state.cookie_counter.fetch_add(1, Ordering::SeqCst);
+        let sender = hdr.sender().map(std::string::ToString::to_string);
         if let Ok(mut guard) = self.state.inhibitors.lock() {
             guard.push(InhibitEntry {
                 cookie,
                 app_name: application_name,
                 reason: reason_for_inhibit,
+                sender,
             });
         }
         self.state.wake();
@@ -192,8 +121,14 @@ impl ScreenSaverInterface {
         self.state.wake();
     }
 
-    fn throttle(&self, application_name: String, reason_for_inhibit: String) -> u32 {
-        self.inhibit(application_name, reason_for_inhibit)
+    #[allow(clippy::needless_pass_by_value)]
+    fn throttle(
+        &self,
+        #[zbus(header)] hdr: zbus::message::Header<'_>,
+        application_name: String,
+        reason_for_inhibit: String,
+    ) -> u32 {
+        self.inhibit(hdr, application_name, reason_for_inhibit)
     }
 
     fn un_throttle(&self, cookie: u32) {
@@ -216,20 +151,27 @@ impl IdleInterface {
             .map(|s| s.clone())
             .unwrap_or_default();
         let inhibited = self.state.is_inhibited();
-        format!("{{\"active\":{active},\"saver\":\"{saver}\",\"inhibited\":{inhibited}}}")
+        let timeout = self.state.idle_timeout_secs.load(Ordering::SeqCst);
+        format!(
+            "{{\"running\":true,\"active\":{active},\"saver\":\"{saver}\",\"inhibited\":{inhibited},\"timeout\":{timeout}}}"
+        )
     }
 
     fn stop(&self) {
-        self.state.active.store(false, Ordering::SeqCst);
-        if let Ok(mut start) = self.state.started_at.lock() {
-            *start = None;
-        }
+        self.state.stop();
     }
 
-    fn set_saver(&self, name: String) {
-        if let Ok(mut saver) = self.state.current_saver.lock() {
-            *saver = name;
-        }
+    #[allow(clippy::needless_pass_by_value)]
+    fn set_saver(&self, name: String) -> bool {
+        self.state.set_saver(&name)
+    }
+
+    fn set_timeout(&self, secs: u64) {
+        self.state.set_timeout(secs);
+    }
+
+    fn list_inhibitors(&self) -> Vec<(u32, String, String)> {
+        self.state.list_inhibitors()
     }
 
     #[allow(clippy::needless_pass_by_value)]
@@ -249,10 +191,7 @@ impl IdleInterface {
     fn list_savers(&self) -> Vec<String> {
         let mut list = vec!["ascii".to_string()];
         if crate::extras_ipc::ExtrasSession::is_available() {
-            for &s in &[
-                "aurora", "beams", "bursts", "chaos", "cosmos", "glyphs", "gnats", "hearth",
-                "radar", "ripple", "storm",
-            ] {
+            for &s in &VALID_SAVERS[1..] {
                 list.push(s.to_string());
             }
         }
@@ -268,9 +207,34 @@ impl IdleInterface {
 pub trait IdleClient {
     fn get_status(&self) -> zbus::Result<String>;
     fn stop(&self) -> zbus::Result<()>;
-    fn set_saver(&self, name: &str) -> zbus::Result<()>;
+    fn set_saver(&self, name: &str) -> zbus::Result<bool>;
+    fn set_timeout(&self, secs: u64) -> zbus::Result<()>;
+    fn list_inhibitors(&self) -> zbus::Result<Vec<(u32, String, String)>>;
     fn set_text_targets(&self, targets: &[String]) -> zbus::Result<()>;
     fn get_text_targets(&self) -> zbus::Result<Vec<String>>;
     fn set_text(&self, text: &str) -> zbus::Result<()>;
     fn list_savers(&self) -> zbus::Result<Vec<String>>;
+}
+
+pub fn register_dbus_services(state: Arc<ScreenSaverState>) -> Option<zbus::blocking::Connection> {
+    let builder = zbus::blocking::connection::Builder::session().ok()?;
+    let conn = builder
+        .name("io.github.idlescreen.Idle")
+        .ok()?
+        .serve_at(
+            "/io/github/idlescreen/Idle",
+            IdleInterface {
+                state: state.clone(),
+            },
+        )
+        .ok()?
+        .serve_at(
+            "/org/freedesktop/ScreenSaver",
+            ScreenSaverInterface { state },
+        )
+        .ok()?
+        .build()
+        .ok()?;
+    let _ = conn.request_name("org.freedesktop.ScreenSaver");
+    Some(conn)
 }

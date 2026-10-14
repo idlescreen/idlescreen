@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! Tri-rotation text mutation state and 8-entry LRU font atlas cache.
+//! Tri-rotation text mutation state and LRU font atlas cache re-export.
 
-use super::layout::{RenderedBanner, render_banner};
+pub use super::layout::LruFontAtlasCache;
 use super::sys_info::{detect_desktop_env, detect_kernel_version, detect_os_name};
 use crate::cell::LcgRng;
 
@@ -19,31 +19,31 @@ pub enum TextMode {
 impl TextMode {
     pub fn parse(s: &str) -> Self {
         match s.trim().to_ascii_lowercase().as_str() {
-            "os" | "host os" | "host" => TextMode::Os,
-            "de" | "desktop" | "desktop env" | "desktop environment" => TextMode::De,
-            "kernel" | "linux kernel" | "linux" => TextMode::Kernel,
-            "custom" | "custom text" | "text" => TextMode::Custom,
-            _ => TextMode::Cycle,
+            "os" | "host os" | "host" => Self::Os,
+            "de" | "desktop" | "desktop env" | "desktop environment" => Self::De,
+            "kernel" | "linux kernel" | "linux" => Self::Kernel,
+            "custom" | "custom text" | "text" => Self::Custom,
+            _ => Self::Cycle,
         }
     }
 
     pub fn as_str(self) -> &'static str {
         match self {
-            TextMode::Cycle => "cycle",
-            TextMode::Os => "os",
-            TextMode::De => "de",
-            TextMode::Kernel => "kernel",
-            TextMode::Custom => "custom",
+            Self::Cycle => "cycle",
+            Self::Os => "os",
+            Self::De => "de",
+            Self::Kernel => "kernel",
+            Self::Custom => "custom",
         }
     }
 
     pub fn label(self) -> &'static str {
         match self {
-            TextMode::Cycle => "All 3 (Cycle)",
-            TextMode::Os => "Host OS",
-            TextMode::De => "Desktop Environment",
-            TextMode::Kernel => "Linux Kernel",
-            TextMode::Custom => "Custom Text",
+            Self::Cycle => "All 3 (Cycle)",
+            Self::Os => "Host OS",
+            Self::De => "Desktop Environment",
+            Self::Kernel => "Linux Kernel",
+            Self::Custom => "Custom Text",
         }
     }
 }
@@ -57,100 +57,20 @@ pub enum BrandTarget {
 
 impl BrandTarget {
     pub fn random_excluding(rng: &mut LcgRng, exclude: Option<BrandTarget>) -> Self {
+        let idx = usize::from(((rng.next_u64() >> 33) & 1) != 0);
         match exclude {
-            Some(BrandTarget::Os) => match (rng.next_u64() >> 33) & 1 {
-                0 => BrandTarget::De,
-                _ => BrandTarget::Kernel,
-            },
-            Some(BrandTarget::De) => match (rng.next_u64() >> 33) & 1 {
-                0 => BrandTarget::Os,
-                _ => BrandTarget::Kernel,
-            },
-            Some(BrandTarget::Kernel) => match (rng.next_u64() >> 33) & 1 {
-                0 => BrandTarget::Os,
-                _ => BrandTarget::De,
-            },
-            None => match (rng.next_u64() >> 33) % 3 {
-                0 => BrandTarget::Os,
-                1 => BrandTarget::De,
-                _ => BrandTarget::Kernel,
-            },
+            Some(Self::Os) => [Self::De, Self::Kernel][idx],
+            Some(Self::De) => [Self::Os, Self::Kernel][idx],
+            Some(Self::Kernel) => [Self::Os, Self::De][idx],
+            None => [Self::Os, Self::De, Self::Kernel][((rng.next_u64() >> 33) % 3) as usize],
         }
     }
 
     pub fn next(self) -> Self {
         match self {
-            BrandTarget::Os => BrandTarget::De,
-            BrandTarget::De => BrandTarget::Kernel,
-            BrandTarget::Kernel => BrandTarget::Os,
-        }
-    }
-}
-
-/// 8-entry LRU cache storing pre-rendered banners to avoid re-computations and allocations.
-pub struct LruFontAtlasCache {
-    entries: Vec<((String, usize, usize), Vec<String>, usize, usize)>,
-    capacity: usize,
-}
-
-impl Default for LruFontAtlasCache {
-    fn default() -> Self {
-        Self::new(8)
-    }
-}
-
-impl LruFontAtlasCache {
-    pub fn new(capacity: usize) -> Self {
-        Self {
-            entries: Vec::with_capacity(capacity),
-            capacity: capacity.max(1),
-        }
-    }
-
-    pub fn get(&mut self, key: &(String, usize, usize)) -> Option<RenderedBanner> {
-        if let Some(pos) = self.entries.iter().position(|(k, _, _, _)| k == key) {
-            let entry = self.entries.remove(pos);
-            let res = RenderedBanner {
-                lines: entry.1.clone(),
-                width: entry.2,
-                height: entry.3,
-            };
-            self.entries.push(entry);
-            Some(res)
-        } else {
-            None
-        }
-    }
-
-    pub fn put(&mut self, key: (String, usize, usize), banner: RenderedBanner) {
-        if let Some(pos) = self.entries.iter().position(|(k, _, _, _)| k == &key) {
-            self.entries.remove(pos);
-        } else if self.entries.len() >= self.capacity {
-            self.entries.remove(0);
-        }
-        self.entries
-            .push((key, banner.lines, banner.width, banner.height));
-    }
-
-    pub fn get_or_render(
-        &mut self,
-        text: &str,
-        subtitle: Option<&str>,
-        cols: usize,
-        rows: usize,
-    ) -> RenderedBanner {
-        let key = (text.to_string(), cols, rows);
-        if let Some(cached) = self.get(&key) {
-            cached
-        } else {
-            let rendered = render_banner(text, subtitle, cols, rows);
-            let copy = RenderedBanner {
-                lines: rendered.lines.clone(),
-                width: rendered.width,
-                height: rendered.height,
-            };
-            self.put(key, rendered);
-            copy
+            Self::Os => Self::De,
+            Self::De => Self::Kernel,
+            Self::Kernel => Self::Os,
         }
     }
 }
@@ -170,7 +90,7 @@ pub struct TriRotationState {
 
 impl Default for TriRotationState {
     fn default() -> Self {
-        Self::new(TextMode::Cycle, None)
+        Self::new(TextMode::Os, None)
     }
 }
 
@@ -181,40 +101,28 @@ impl TriRotationState {
 
     pub fn new_with_seed(mode: TextMode, custom_text: Option<String>, seed: u64) -> Self {
         let mut rng = LcgRng::new(seed);
-        let current_target = BrandTarget::random_excluding(&mut rng, None);
-        let os_name = detect_os_name();
-        let de_name = detect_desktop_env();
-        let kernel_version = detect_kernel_version();
-        let targets = match mode {
-            TextMode::Os => vec!["os".to_string()],
-            TextMode::De => vec!["de".to_string()],
-            TextMode::Kernel => vec!["kernel".to_string()],
-            TextMode::Custom => vec!["custom".to_string()],
-            TextMode::Cycle => vec!["os".to_string(), "de".to_string()],
-        };
-        let next_index = usize::from(targets.len() > 1);
-
-        Self {
+        let mut state = Self {
             mode,
-            targets,
+            targets: Vec::new(),
             current_index: 0,
-            next_index,
+            next_index: 0,
             custom_text,
-            current_target,
-            os_name,
-            de_name,
-            kernel_version,
+            current_target: BrandTarget::random_excluding(&mut rng, None),
+            os_name: detect_os_name(),
+            de_name: detect_desktop_env(),
+            kernel_version: detect_kernel_version(),
             atlas_cache: LruFontAtlasCache::new(8),
-        }
+        };
+        state.sync_targets_from_mode();
+        state
     }
 
     pub fn sync_targets_from_mode(&mut self) {
         self.targets = match self.mode {
-            TextMode::Os => vec!["os".to_string()],
+            TextMode::Os | TextMode::Cycle => vec!["os".to_string()],
             TextMode::De => vec!["de".to_string()],
             TextMode::Kernel => vec!["kernel".to_string()],
             TextMode::Custom => vec!["custom".to_string()],
-            TextMode::Cycle => vec!["os".to_string(), "de".to_string()],
         };
         self.current_index = 0;
         self.next_index = usize::from(self.targets.len() > 1);
@@ -246,15 +154,12 @@ impl TriRotationState {
                     self.os_name.clone()
                 }
             }
-            "custom" | "text" => {
-                if let Some(ref c) = self.custom_text {
-                    let trimmed = c.trim();
-                    if !trimmed.is_empty() {
-                        return trimmed.to_string();
-                    }
-                }
-                self.os_name.clone()
-            }
+            "custom" | "text" => self
+                .custom_text
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map_or_else(|| self.os_name.clone(), ToString::to_string),
             other => {
                 if other.eq_ignore_ascii_case(&self.os_name) {
                     self.os_name.clone()
@@ -281,16 +186,14 @@ impl TriRotationState {
         if self.targets.is_empty() {
             return self.fallback_text();
         }
-        let idx = self.current_index % self.targets.len();
-        self.resolve_target_text(&self.targets[idx])
+        self.resolve_target_text(&self.targets[self.current_index % self.targets.len()])
     }
 
     pub fn peek_next_text(&self) -> String {
         if self.targets.is_empty() {
             return self.fallback_text();
         }
-        let next_idx = self.next_index % self.targets.len();
-        self.resolve_target_text(&self.targets[next_idx])
+        self.resolve_target_text(&self.targets[self.next_index % self.targets.len()])
     }
 
     fn pick_next_index(&self, rng: &mut LcgRng) -> usize {
@@ -318,15 +221,12 @@ impl TriRotationState {
 
     fn fallback_text(&self) -> String {
         match self.mode {
-            TextMode::Custom => {
-                if let Some(ref custom) = self.custom_text
-                    && !custom.trim().is_empty()
-                {
-                    custom.trim().to_string()
-                } else {
-                    self.os_name.clone()
-                }
-            }
+            TextMode::Custom => self
+                .custom_text
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map_or_else(|| self.os_name.clone(), ToString::to_string),
             TextMode::Os => self.os_name.clone(),
             TextMode::De => self.de_name.clone(),
             TextMode::Kernel => self.kernel_version.clone(),

@@ -125,7 +125,7 @@ impl Bursts {
 
             let target_y =
                 bounds.start_row as f32 + self.rng.next_range(3.0, bounds.height() as f32 * 0.45);
-            let h = start_y - target_y;
+            let h = (start_y - target_y).max(0.1);
 
             let gravity = 12.0f32;
             let vy = -(2.0 * gravity * h).sqrt();

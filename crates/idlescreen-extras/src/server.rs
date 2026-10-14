@@ -3,6 +3,8 @@
 
 //! Socketpair tick receiver and sealed memfd frame renderer.
 
+#![allow(unsafe_code)]
+
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
@@ -20,6 +22,7 @@ pub fn run(saver_name: &str, mut socket: UnixStream) -> Result<(), Box<dyn std::
 
     // First, receive the sealed shared memory file descriptor from Core
     let raw_shm_fd = recv_fd(std::os::fd::AsRawFd::as_raw_fd(&socket))?;
+    // SAFETY: `raw_shm_fd` was just received via `SCM_RIGHTS` and validated `>= 0`.
     let shm_fd = unsafe { OwnedFd::from_raw_fd(raw_shm_fd) };
 
     // Signal readiness
@@ -29,6 +32,7 @@ pub fn run(saver_name: &str, mut socket: UnixStream) -> Result<(), Box<dyn std::
     let mut rows: usize = 0;
     let mut mapped_ptr: *mut TerminalCell = std::ptr::null_mut();
     let mut mapped_len: usize = 0;
+    let mut sim_rate_hz: Option<f32> = None;
 
     loop {
         let cmd = match IpcCommand::read_from(&mut socket) {
@@ -48,6 +52,7 @@ pub fn run(saver_name: &str, mut socket: UnixStream) -> Result<(), Box<dyn std::
                 }
 
                 if !mapped_ptr.is_null() && mapped_len > 0 {
+                    // SAFETY: `mapped_ptr` was returned by `mmap` with length `mapped_len`.
                     unsafe {
                         libc::munmap(mapped_ptr.cast(), mapped_len);
                     }
@@ -59,12 +64,14 @@ pub fn run(saver_name: &str, mut socket: UnixStream) -> Result<(), Box<dyn std::
                 let needed_bytes = num_cells.saturating_mul(std::mem::size_of::<TerminalCell>());
 
                 let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
+                // SAFETY: `shm_fd` is a valid open file descriptor and `stat` is a valid pointer.
                 if unsafe {
                     libc::fstat(std::os::fd::AsRawFd::as_raw_fd(&shm_fd), stat.as_mut_ptr())
                 } < 0
                 {
                     return Err("fstat failed on shared memory".into());
                 }
+                // SAFETY: `fstat` succeeded, so `stat` is initialized.
                 let file_size = unsafe { stat.assume_init() }.st_size as usize;
                 if needed_bytes > file_size {
                     return Err(format!(
@@ -73,6 +80,7 @@ pub fn run(saver_name: &str, mut socket: UnixStream) -> Result<(), Box<dyn std::
                     .into());
                 }
 
+                // SAFETY: `shm_fd` has at least `needed_bytes` capacity and is sealed against shrink.
                 let ptr = unsafe {
                     libc::mmap(
                         std::ptr::null_mut(),
@@ -91,6 +99,11 @@ pub fn run(saver_name: &str, mut socket: UnixStream) -> Result<(), Box<dyn std::
                 mapped_ptr = ptr.cast();
                 mapped_len = needed_bytes;
 
+                saver.init(cols, rows);
+                if let Some(hz) = sim_rate_hz {
+                    saver.update_frame_time(Duration::from_secs_f32(1.0 / hz));
+                }
+
                 IpcResponse::Ack.write_to(&mut socket)?;
             }
             IpcCommand::TickAndDraw { dt_micros } => {
@@ -100,9 +113,11 @@ pub fn run(saver_name: &str, mut socket: UnixStream) -> Result<(), Box<dyn std::
                 }
 
                 let dt = Duration::from_micros(dt_micros);
+                saver.update_frame_time(dt);
                 saver.update(dt, cols, rows);
 
                 let num_cells = cols.saturating_mul(rows);
+                // SAFETY: `mapped_ptr` points to `num_cells` valid `TerminalCell`s in `MAP_SHARED` memory.
                 let slice = unsafe { std::slice::from_raw_parts_mut(mapped_ptr, num_cells) };
 
                 // Clear/reset cells to default space before drawing
@@ -113,12 +128,17 @@ pub fn run(saver_name: &str, mut socket: UnixStream) -> Result<(), Box<dyn std::
                 saver.draw(slice, cols, rows);
 
                 IpcResponse::FrameReady {
-                    scanlines: false,
+                    scanlines: saver.has_scanlines(),
                     dirty: true,
                 }
                 .write_to(&mut socket)?;
             }
-            IpcCommand::SetSimulationRate { .. } => {
+            IpcCommand::SetSimulationRate { hz } => {
+                if hz.is_finite() && hz > 0.0 {
+                    let clamped = hz.clamp(1.0, 240.0);
+                    sim_rate_hz = Some(clamped);
+                    saver.update_frame_time(Duration::from_secs_f32(1.0 / clamped));
+                }
                 IpcResponse::Ack.write_to(&mut socket)?;
             }
             IpcCommand::Stop => {
@@ -128,6 +148,7 @@ pub fn run(saver_name: &str, mut socket: UnixStream) -> Result<(), Box<dyn std::
     }
 
     if !mapped_ptr.is_null() && mapped_len > 0 {
+        // SAFETY: `mapped_ptr` was mapped with `mapped_len` bytes and is not used after this point.
         unsafe {
             libc::munmap(mapped_ptr.cast(), mapped_len);
         }

@@ -105,12 +105,13 @@ Validate scorecard integrity with `qa/page_score_check.sh` before shipping:
 `idlescreen` operates within active user desktop sessions. It must respect desktop power, smoothness, and security constraints:
 
 ### The "Zero-Wakeup" Idle Invariant
-- When user activity is ongoing and no screensaver is active, `idle-daemon` must consume near-zero CPU.
+- When user activity is ongoing and no screensaver is active, `idlescreen daemon` must consume near-zero CPU.
 - **Zero Polling in Steady State**: All idle monitoring must be kernel-interrupt-driven via `epoll` on the Wayland socket (`ext-idle-notify-v1`) or UPower/D-Bus signals. No periodic `sleep()` loops in background monitoring threads.
 
-### Steady-State Zero Allocation in Render Loops
+### Steady-State Zero Allocation & Native-Grid Scaling
 - In screensavers running at 60 FPS, the frame deadline is 16.6ms.
 - **Zero Heap Allocations ($O(1)$ Memory Rate)**: All frame buffers, particle arrays, and pixel grids must be pre-allocated during initialization or display resize. `render_frame()` must perform zero dynamic heap allocations.
+- **Compositor Viewport Scaling (`wp_viewporter`)**: Shared-memory (`wl_shm`) buffers must be allocated at 1× native glyph-grid resolution (e.g. `120×36` cells = `960×576` pixels) and scaled to output dimensions via `wp_viewporter` (`SurfaceViewport`) whenever supported by the compositor.
 
 ### Power-Adaptive Scaling
 - On battery power, savers must conserve laptop energy by either automatically blanking, capping frame rates (e.g. 30 FPS), or disabling expensive multi-pass shaders.
@@ -126,6 +127,17 @@ Validate scorecard integrity with `qa/page_score_check.sh` before shipping:
 
 ---
 
+## 6. Verification Ladder & QA Gate
+
+Before any change is committed or marked complete, every step of the Verification Ladder must pass in order:
+1. **Formatting**: `cargo fmt --all -- --check` must pass with zero diff.
+2. **Clippy & Zero-Panic Quality**: `cargo clippy --workspace --all-targets -- -D warnings` (with zero non-test `.unwrap()` or `.expect()`) must pass with zero warnings.
+3. **Test Suite**: `cargo test --workspace --all-targets` must pass completely.
+4. **Page Scorecard Gate**: `qa/page_score_check.sh` must pass after regenerating `page-score.json` via `qa/page_score.sh`.
+5. **Structured Tracing**: No bare `println!` or `eprintln!` in daemons; all daemon logging must use structured logging macros.
+
+---
+
 ## 7. Multi-Engine Audit Protocol (Pre-Release)
 
 Advisory tiered audit run before tagging releases, budgeted by token capacity:
@@ -136,4 +148,4 @@ Advisory tiered audit run before tagging releases, budgeted by token capacity:
 3. **`grok`** (Strict quota): High-value referee and final sanity check on critical release diffs.  
    `grok -p "<prompt>" --always-approve`
 
-**Rule:** External audits are strictly advisory; all findings must be verified against source code. External LLMs never gate CI—the §5 Verification Ladder is the sole canonical authority.
+**Rule:** External audits are strictly advisory; all findings must be verified against source code. External LLMs never gate CI—the §6 Verification Ladder is the sole canonical authority.

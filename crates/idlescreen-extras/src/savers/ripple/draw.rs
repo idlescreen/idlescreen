@@ -158,6 +158,9 @@ pub fn draw_impl(
     }
 
     for d in drops {
+        if d.x < 0.0 || d.y < 0.0 {
+            continue;
+        }
         let x = d.x as usize;
         let y = d.y as usize;
         if x >= cols || y >= rows {
@@ -184,6 +187,9 @@ pub fn draw_impl(
     }
 
     for s in splashes {
+        if s.x < 0.0 || s.y < 0.0 {
+            continue;
+        }
         let x = s.x as usize;
         let y = s.y as usize;
         if x >= cols || y >= rows {

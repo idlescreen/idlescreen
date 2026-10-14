@@ -1,0 +1,213 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 IdleScreen
+
+//! 16-bit SNES arcade post-processing (bevel, specular gleam, drop shadow, parallax starfield)
+//! and scene dissolve transitions.
+
+use super::{banner_bevel_color, find_solid_banner_bounds};
+use crate::cell::TerminalCell;
+
+/// Applies 16-bit SNES arcade post-processing, scanning bounds if `settled` is true.
+pub fn apply_arcade_fx(
+    grid: &mut [TerminalCell],
+    cols: usize,
+    rows: usize,
+    frame_tick: u64,
+    settled: bool,
+    bg: (u8, u8, u8),
+) {
+    let bounds = settled
+        .then(|| find_solid_banner_bounds(grid, cols, rows))
+        .flatten();
+    apply_arcade_fx_with_bounds(grid, cols, rows, frame_tick, bounds, false, bg);
+}
+
+/// Applies 16-bit SNES arcade post-processing using pre-cached `settled_bounds` to avoid
+/// full-grid bounds rescanning during static dwell (§3.2 #3).
+pub fn apply_arcade_fx_with_bounds(
+    grid: &mut [TerminalCell],
+    cols: usize,
+    rows: usize,
+    frame_tick: u64,
+    settled_bounds: Option<(usize, usize)>,
+    is_stacked_superfedora: bool,
+    bg: (u8, u8, u8),
+) {
+    let total = cols.saturating_mul(rows).min(grid.len());
+    if total == 0 || cols == 0 || rows == 0 {
+        return;
+    }
+
+    let tick = frame_tick as usize;
+    let gleam_span = (cols + rows * 2 + 28).max(1);
+    let gleam_pos = (tick * 3) % gleam_span;
+
+    for y in 0..rows {
+        let row_off = y * cols;
+        for x in 0..cols {
+            let idx = row_off + x;
+            if idx >= total {
+                break;
+            }
+            let cell = grid[idx];
+            if cell.ch == '█' || cell.ch == '▀' || cell.ch == '▄' {
+                let diag = x + y * 2;
+                let dist = diag.abs_diff(gleam_pos);
+                let new_fg = if dist == 0 {
+                    (245, 255, 255)
+                } else if dist == 1 {
+                    (255, 225, 110)
+                } else if dist == 2 {
+                    (130, 235, 255)
+                } else if let Some((min_y, max_y)) = settled_bounds {
+                    banner_bevel_color(y, min_y, max_y, is_stacked_superfedora)
+                } else {
+                    cell.fg
+                };
+                grid[idx].fg = new_fg;
+                grid[idx].bold = true;
+
+                if x + 1 < cols && y + 1 < rows {
+                    let shadow_idx = (y + 1) * cols + (x + 1);
+                    if shadow_idx < total && grid[shadow_idx].ch == ' ' {
+                        grid[shadow_idx] = TerminalCell {
+                            ch: '░',
+                            fg: (36, 66, 138),
+                            bg,
+                            bold: false,
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    for y in 0..rows {
+        let row_off = y * cols;
+        for x in 0..cols {
+            let idx = row_off + x;
+            if idx >= total {
+                break;
+            }
+            if grid[idx].ch != ' ' {
+                continue;
+            }
+
+            let sx1 = x.wrapping_add(tick * 2);
+            let h1 = (sx1.wrapping_mul(2_654_435_761) ^ y.wrapping_mul(2_246_822_519)) & 0xFFFF;
+            if h1 < 72 {
+                let is_gold = h1.trailing_zeros() >= 2;
+                grid[idx] = TerminalCell {
+                    ch: if (h1 & 1) == 0 { '▘' } else { '▝' },
+                    fg: if is_gold {
+                        (255, 200, 60)
+                    } else {
+                        (95, 220, 255)
+                    },
+                    bg,
+                    bold: true,
+                };
+                continue;
+            }
+
+            let sy2 = y.wrapping_add(tick / 2);
+            let h2 = (x.wrapping_mul(3_266_489_917) ^ sy2.wrapping_mul(668_265_263)) & 0xFFFF;
+            if h2 < 96 {
+                grid[idx] = TerminalCell {
+                    ch: if (h2 & 1) == 0 { '▗' } else { '▖' },
+                    fg: if (h2 & 2) == 0 {
+                        (215, 85, 210)
+                    } else {
+                        (130, 95, 255)
+                    },
+                    bg,
+                    bold: false,
+                };
+                continue;
+            }
+
+            let sx3 = x.wrapping_add(tick / 3);
+            let h3 = (sx3.wrapping_mul(374_761_393) ^ y.wrapping_mul(1_103_515_245)) & 0xFFFF;
+            if h3 < 130 {
+                grid[idx] = TerminalCell {
+                    ch: '░',
+                    fg: (40, 78, 156),
+                    bg,
+                    bold: false,
+                };
+            }
+        }
+    }
+}
+
+/// Blends the outgoing frame and incoming frame over progress `t` in `[0.0, 1.0]`.
+pub fn paint_transition(
+    from: &[TerminalCell],
+    to: &[TerminalCell],
+    out: &mut [TerminalCell],
+    t: f32,
+    cols: usize,
+    rows: usize,
+) {
+    let t = t.clamp(0.0, 1.0);
+    let total = cols * rows;
+    let n = total.min(from.len()).min(to.len()).min(out.len());
+    if n == 0 {
+        return;
+    }
+
+    let inv_t = 1.0 - t;
+    let out_factor = (inv_t * 256.0) as u16;
+    let in_factor = (t * 256.0) as u16;
+    let t_byte = (t * 255.0) as u8;
+
+    for y in 0..rows {
+        let row_offset = y * cols;
+        for x in 0..cols {
+            let idx = row_offset + x;
+            if idx >= n {
+                break;
+            }
+            let from_cell = from[idx];
+            let to_cell = to[idx];
+
+            let thresh = ((x.wrapping_mul(137) ^ y.wrapping_mul(149) ^ ((x + y).wrapping_mul(31)))
+                & 0xFF) as u8;
+            let pick_to = t >= 1.0 || (t > 0.0 && t_byte > thresh);
+            let factor = if pick_to {
+                200 + ((in_factor * 56) >> 8)
+            } else {
+                200 + ((out_factor * 56) >> 8)
+            };
+            let src = if pick_to { to_cell } else { from_cell };
+            let on_wavefront = t > 0.0 && t < 1.0 && t_byte.abs_diff(thresh) <= 24;
+            out[idx] = if src.ch == ' ' {
+                TerminalCell::default()
+            } else {
+                TerminalCell {
+                    ch: src.ch,
+                    fg: if on_wavefront {
+                        (185, 248, 255)
+                    } else {
+                        scale_rgb(src.fg, factor)
+                    },
+                    bg: src.bg,
+                    bold: on_wavefront || src.bold,
+                }
+            };
+        }
+    }
+
+    if out.len() > n {
+        out[n..].fill(TerminalCell::default());
+    }
+}
+
+#[inline(always)]
+fn scale_rgb(c: (u8, u8, u8), factor_256: u16) -> (u8, u8, u8) {
+    (
+        ((c.0 as u16 * factor_256) >> 8) as u8,
+        ((c.1 as u16 * factor_256) >> 8) as u8,
+        ((c.2 as u16 * factor_256) >> 8) as u8,
+    )
+}

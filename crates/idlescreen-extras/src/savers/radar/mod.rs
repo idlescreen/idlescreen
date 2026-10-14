@@ -139,7 +139,7 @@ impl Screensaver for Radar {
         }
 
         physics::update_simulation(
-            dt,
+            Duration::from_secs_f32(dt_secs),
             cols,
             rows,
             &mut self.rng,

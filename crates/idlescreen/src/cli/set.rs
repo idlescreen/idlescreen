@@ -3,9 +3,9 @@
 
 //! Sets the active screensaver across D-Bus, control socket, or configuration.
 
+use crate::ascii::effects::EffectKind;
 use crate::daemon::config::{Config, resolve_config_dir};
 use crate::daemon::control_sock::ControlClient;
-use std::fs;
 
 pub const ALL_KNOWN_SAVERS: &[&str] = &[
     "ascii",
@@ -31,7 +31,9 @@ pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>
     };
 
     let saver_clean = saver.trim().to_lowercase();
-    if !ALL_KNOWN_SAVERS.contains(&saver_clean.as_str()) {
+    let is_known = ALL_KNOWN_SAVERS.contains(&saver_clean.as_str())
+        || EffectKind::parse(&saver_clean).is_some();
+    if !is_known {
         eprintln!("Unknown screensaver: '{saver}'");
         eprintln!("Available savers: {}", ALL_KNOWN_SAVERS.join(", "));
         return Err(format!("unknown screensaver '{saver}'").into());
@@ -48,7 +50,6 @@ pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>
 
     let mut notified_daemon = false;
 
-    // 1. Try D-Bus first
     if let Ok(conn) = zbus::blocking::Connection::session()
         && let Ok(proxy) = crate::daemon::dbus::IdleClientProxyBlocking::new(&conn)
         && proxy.set_saver(&saver_clean).is_ok()
@@ -57,30 +58,16 @@ pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>
         notified_daemon = true;
     }
 
-    // 2. Fallback to control socket
     if !notified_daemon && let Ok(resp) = ControlClient::send_command(&format!("set {saver_clean}"))
     {
         println!("Active screensaver set to '{saver_clean}' (via control socket: {resp})");
         notified_daemon = true;
     }
 
-    // 3. Persist to config.toml
-    let cfg_dir = resolve_config_dir();
-    let toml_path = cfg_dir.join("config.toml");
-    let mut config = if toml_path.exists() {
-        fs::read_to_string(&toml_path)
-            .ok()
-            .and_then(|s| toml::from_str::<Config>(&s).ok())
-            .unwrap_or_default()
-    } else {
-        Config::default()
-    };
-
+    let toml_path = resolve_config_dir().join("config.toml");
+    let mut config = Config::load_or_migrate();
     config.saver.active = Some(saver_clean.clone());
-    if let Ok(toml_str) = toml::to_string_pretty(&config) {
-        let _ = fs::create_dir_all(&cfg_dir);
-        let _ = fs::write(&toml_path, toml_str);
-    }
+    let _ = config.save_to_path(&toml_path);
 
     if !notified_daemon {
         println!("Active screensaver set to '{saver_clean}' (saved to config)");
@@ -90,6 +77,7 @@ pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)]
 mod tests {
     use super::*;
 
@@ -104,10 +92,12 @@ mod tests {
 
     #[test]
     fn test_superfedora_unlock_gate_enforcement() {
+        // SAFETY: unit test sets and restores scoped environment variable.
         unsafe {
             std::env::set_var("IDLE_SUPERFEDORA", "1");
         }
         assert!(crate::ascii::sys_info::is_superfedora_machine());
+        // SAFETY: unit test restores environment variable.
         unsafe {
             std::env::remove_var("IDLE_SUPERFEDORA");
         }

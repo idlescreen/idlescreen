@@ -57,15 +57,10 @@ fn test_model_navigation_and_adjustment() {
 fn test_checklist_toggle_and_at_least_one_constraint() {
     let config = Config::default();
     let mut model = TuiModel::from_config(&config);
-    // Initially host OS (0) and DE (1) are checked
+    // Initially only Host OS (0) is checked per OS-only arcade default
     assert!(model.target_checked[0]);
-    assert!(model.target_checked[1]);
-    assert!(!model.target_checked[2]);
-
-    // Uncheck DE (1) -> succeeds, leaving Host OS (0)
-    model.toggle_target(1);
     assert!(!model.target_checked[1]);
-    assert!(model.target_checked[0]);
+    assert!(!model.target_checked[2]);
 
     // Try to uncheck Host OS (0) -> should be prevented by at-least-one constraint
     model.toggle_target(0);
@@ -111,6 +106,15 @@ fn test_text_editing_and_cursor() {
     model.delete_back();
     assert_eq!(model.custom_text, "A");
     assert_eq!(model.cursor_pos, 1);
+
+    // Multi-byte UTF-8 characters must not panic on insert, cursor move, or delete
+    model.insert_char('é');
+    model.insert_char('你');
+    assert_eq!(model.custom_text, "Aé你");
+    assert_eq!(model.cursor_pos, 3);
+    model.delete_back();
+    assert_eq!(model.custom_text, "Aé");
+    assert_eq!(model.cursor_pos, 2);
 }
 
 #[test]

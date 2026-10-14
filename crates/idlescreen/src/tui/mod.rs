@@ -4,6 +4,7 @@
 //! Interactive terminal user interface for ASCII screensaver configuration.
 
 pub mod input;
+pub mod mode_choice;
 pub mod model;
 pub mod save;
 #[cfg(test)]

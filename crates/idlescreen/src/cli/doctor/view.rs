@@ -6,24 +6,20 @@
 use super::inspect::DoctorReport;
 
 pub fn print_help() {
-    println!("Usage: idlescreen doctor [options]\n");
-    println!("Options:");
-    println!("  -v, --verbose, --all   Detailed itemized diagnostic breakdown");
-    println!("  --json                 Machine-readable JSON diagnostic output");
-    println!("  -h, --help             Show this help message");
+    println!(
+        "Usage: idlescreen doctor [options]\n\nOptions:\n  -v, --verbose, --all   Detailed itemized diagnostic breakdown\n  --json                 Machine-readable JSON diagnostic output\n  --fix                  Repair configuration, runtime permissions, and stale locks\n  -h, --help             Show this help message"
+    );
 }
 
 pub fn print_concise(r: &DoctorReport) {
+    let mark = |ok: bool, f: &'static str| if ok { "✓" } else { f };
     println!("=== IdleScreen System Diagnostics ===\n");
     if let Some(ref disp) = r.wayland_display {
         let de = r.desktop_env.as_deref().unwrap_or("Desktop");
-        let dir_status = if r.runtime_dir_ok { "OK" } else { "missing" };
-        println!("  [✓] Wayland Session : {disp} ({de}) [runtime dir {dir_status}]");
-        let pres_mark = if r.wayland_presenter_ok { "✓" } else { "!" };
-        println!(
-            "  [{pres_mark}] Presenter Sanity: {}",
-            r.wayland_presenter_note
-        );
+        let dir_s = if r.runtime_dir_ok { "OK" } else { "missing" };
+        println!("  [✓] Wayland Session : {disp} ({de}) [runtime dir {dir_s}]");
+        let pm = mark(r.wayland_presenter_ok, "!");
+        println!("  [{pm}] Presenter Sanity: {}", r.wayland_presenter_note);
     } else {
         println!("  [!] Wayland Session : not set (headless or X11 environment)");
         println!(
@@ -53,47 +49,45 @@ pub fn print_concise(r: &DoctorReport) {
         println!("  [-] Daemon Status   : inactive (not running)");
     }
 
-    let mins = r.timeout_secs / 60;
     println!(
-        "  [✓] Active Saver    : {} (timeout: {mins}m, dwell: {:.1}s)",
-        r.active_saver, r.dwell_secs
+        "  [✓] Active Saver    : {} (timeout: {}m, dwell: {:.1}s)",
+        r.active_saver,
+        r.timeout_secs / 60,
+        r.dwell_secs
     );
 
+    let tag = if r.config_is_toml {
+        "TOML active"
+    } else {
+        "Legacy YAML"
+    };
     let cfg_str = r.config_path.as_ref().map_or_else(
         || "Default built-in configuration".to_string(),
-        |p| {
-            let tag = if r.config_is_toml {
-                "TOML active"
-            } else {
-                "Legacy YAML"
-            };
-            format!("{} ({tag})", p.display())
-        },
+        |p| format!("{} ({tag})", p.display()),
     );
     println!("  [✓] Configuration   : {cfg_str}");
 
-    let extras_str = if r.extras_bin.is_some() {
+    let ext = if r.extras_bin.is_some() {
         "extras (11 math savers)"
     } else {
         "extras not installed"
     };
-    println!("  [✓] Savers Engine   : built-in ASCII (37 effects) + {extras_str}");
+    println!("  [✓] Savers Engine   : built-in ASCII (37 effects) + {ext}");
 
     let shm_str = if r.shm_writable {
         "/dev/shm writable"
     } else {
         "/dev/shm unwritable"
     };
-    let ipc_str = if r.daemon_running && r.dbus_service_active {
-        if r.inhibited {
-            "D-Bus service connected, inhibited"
-        } else {
-            "D-Bus service connected, uninhibited"
-        }
-    } else if r.session_bus_connected {
-        "D-Bus session bus available"
-    } else {
-        "D-Bus unavailable"
+    let ipc_str = match (
+        r.daemon_running && r.dbus_service_active,
+        r.inhibited,
+        r.session_bus_connected,
+    ) {
+        (true, true, _) => "D-Bus service connected, inhibited",
+        (true, false, _) => "D-Bus service connected, uninhibited",
+        (false, _, true) => "D-Bus session bus available",
+        (false, _, false) => "D-Bus unavailable",
     };
     println!("  [✓] System & IPC    : {shm_str}, {ipc_str}\n");
 
@@ -107,30 +101,30 @@ pub fn print_concise(r: &DoctorReport) {
 }
 
 pub fn print_verbose(r: &DoctorReport) {
-    println!("=== IdleScreen Detailed Diagnostics ===\n");
-    println!("Display & Environment:");
-    let disp = r.wayland_display.as_deref().unwrap_or("not set");
-    let disp_mark = if r.wayland_display.is_some() {
-        "✓"
-    } else {
-        "!"
-    };
-    println!("  [{disp_mark}] WAYLAND_DISPLAY: {disp}");
+    let mark = |ok: bool, f: &'static str| if ok { "✓" } else { f };
+    println!("=== IdleScreen Detailed Diagnostics ===\n\nDisplay & Environment:");
+    println!(
+        "  [{}] WAYLAND_DISPLAY: {}",
+        mark(r.wayland_display.is_some(), "!"),
+        r.wayland_display.as_deref().unwrap_or("not set")
+    );
     if let Some(ref de) = r.desktop_env {
         println!("  [✓] Desktop Environment: {de}");
     }
     if let Some(ref dir) = r.xdg_runtime_dir {
-        let dir_mark = if r.runtime_dir_ok { "✓" } else { "✗" };
-        let dir_desc = if r.runtime_dir_ok {
+        let desc = if r.runtime_dir_ok {
             "accessible"
         } else {
             "invalid"
         };
-        println!("  [{dir_mark}] XDG_RUNTIME_DIR: {dir} ({dir_desc})");
+        println!(
+            "  [{}] XDG_RUNTIME_DIR: {dir} ({desc})",
+            mark(r.runtime_dir_ok, "✗")
+        );
     }
-    let pres_mark = if r.wayland_presenter_ok { "✓" } else { "!" };
     println!(
-        "  [{pres_mark}] Presenter Sanity: {}",
+        "  [{}] Presenter Sanity: {}",
+        mark(r.wayland_presenter_ok, "!"),
         r.wayland_presenter_note
     );
     println!(
@@ -139,39 +133,44 @@ pub fn print_verbose(r: &DoctorReport) {
     );
 
     println!("\nDaemon & Service:");
-    let proc_mark = if r.daemon_running { "✓" } else { "-" };
     let proc_str = if r.daemon_running {
         format!("PID {:?} (running)", r.daemon_pid.unwrap_or(0))
     } else {
         "not running".to_string()
     };
-    println!("  [{proc_mark}] Process Status: {proc_str}");
+    println!(
+        "  [{}] Process Status: {proc_str}",
+        mark(r.daemon_running, "-")
+    );
 
     if let Some(ref sock) = r.control_sock_path {
-        let sock_mark = if r.control_sock_active { "✓" } else { "-" };
-        let sock_desc = if r.control_sock_active {
+        let desc = if r.control_sock_active {
             "active"
         } else {
             "inactive"
         };
         println!(
-            "  [{sock_mark}] Control Socket: {} ({sock_desc})",
+            "  [{}] Control Socket: {} ({desc})",
+            mark(r.control_sock_active, "-"),
             sock.display()
         );
     }
 
-    let dbus_mark = if r.dbus_service_active { "✓" } else { "-" };
     let dbus_desc = if r.dbus_service_active {
         "connected (io.github.idlescreen.Idle)"
     } else {
         "inactive (io.github.idlescreen.Idle not registered)"
     };
-    println!("  [{dbus_mark}] D-Bus Service: {dbus_desc}");
+    println!(
+        "  [{}] D-Bus Service: {dbus_desc}",
+        mark(r.dbus_service_active, "-")
+    );
+    println!(
+        "  [{}] Systemd Service: {}",
+        mark(r.systemd_active, "-"),
+        r.systemd_desc
+    );
 
-    let sysd_mark = if r.systemd_active { "✓" } else { "-" };
-    println!("  [{sysd_mark}] Systemd Service: {}", r.systemd_desc);
-
-    let inhib_mark = if r.daemon_running { "✓" } else { "-" };
     let inhib_desc = if !r.daemon_running {
         "inactive (daemon not running)"
     } else if r.inhibited {
@@ -179,22 +178,20 @@ pub fn print_verbose(r: &DoctorReport) {
     } else {
         "uninhibited (idle can trigger savers)"
     };
-    println!("  [{inhib_mark}] Inhibitor Status: {inhib_desc}");
+    println!(
+        "  [{}] Inhibitor Status: {inhib_desc}",
+        mark(r.daemon_running, "-")
+    );
 
     println!("\nConfiguration & Savers:");
+    let tag = if r.config_is_toml {
+        "TOML active"
+    } else {
+        "YAML"
+    };
     let cfg_str = r.config_path.as_ref().map_or_else(
         || "Default built-in configuration".to_string(),
-        |p| {
-            format!(
-                "{} ({})",
-                p.display(),
-                if r.config_is_toml {
-                    "TOML active"
-                } else {
-                    "YAML"
-                }
-            )
-        },
+        |p| format!("{} ({tag})", p.display()),
     );
     println!("  [✓] Config File: {cfg_str}");
     println!(
@@ -206,31 +203,20 @@ pub fn print_verbose(r: &DoctorReport) {
         || "not installed (built-in ASCII available)".to_string(),
         |e| format!("{} (11 math savers)", e.display()),
     );
-    let ext_mark = if r.extras_bin.is_some() { "✓" } else { "-" };
-    println!("  [{ext_mark}] Extras Helper: {ext_str}");
-
-    println!("\nPermissions & IPC:");
-    let shm_mark = if r.shm_writable { "✓" } else { "✗" };
-    let shm_desc = if r.shm_writable {
-        "writable (wl_shm ready)"
+    let ext_m = mark(r.extras_bin.is_some(), "-");
+    println!("  [{ext_m}] Extras Helper: {ext_str}\n\nPermissions & IPC:");
+    let (shm_m, shm_d) = if r.shm_writable {
+        ("✓", "writable (wl_shm ready)")
     } else {
-        "not writable"
+        ("✗", "not writable")
     };
-    println!("  [{shm_mark}] Shared Memory: /dev/shm {shm_desc}");
-
-    let bus_mark = if r.session_bus_connected {
-        "✓"
+    println!("  [{shm_m}] Shared Memory: /dev/shm {shm_d}");
+    let (bus_m, bus_d) = if r.session_bus_connected {
+        ("✓", "connected")
     } else {
-        "✗"
+        ("✗", "unavailable")
     };
-    let bus_desc = if r.session_bus_connected {
-        "connected"
-    } else {
-        "unavailable"
-    };
-    println!("  [{bus_mark}] D-Bus Session: {bus_desc}");
-
-    println!("\nDetailed diagnostics complete.");
+    println!("  [{bus_m}] D-Bus Session: {bus_d}\n\nDetailed diagnostics complete.");
 }
 
 pub fn print_json(r: &DoctorReport) {
@@ -241,34 +227,27 @@ pub fn print_json(r: &DoctorReport) {
     let cfg = r
         .config_path
         .as_ref()
-        .map(|p| p.display().to_string())
-        .unwrap_or_default();
+        .map_or_else(String::new, |p| p.display().to_string());
     let ext = r
         .extras_bin
         .as_ref()
-        .map(|p| p.display().to_string())
-        .unwrap_or_default();
+        .map_or_else(String::new, |p| p.display().to_string());
+    let pid = r.daemon_pid.unwrap_or(0);
     println!(
-        r#"{{"nominal":{},"session":{{"wayland_display":"{}","desktop":"{}","runtime_dir_ok":{}}},"presenter":{{"ok":{},"debounce_ms":{},"note":"{}"}},"daemon":{{"running":{},"pid":{},"control_active":{},"dbus_service_active":{},"systemd_active":{},"inhibited":{}}},"config":{{"path":"{}","is_toml":{},"active_saver":"{}","timeout_secs":{},"dwell_secs":{:.1}}},"savers":{{"builtin_ascii":true,"extras_helper":"{}"}},"system":{{"shm_writable":{},"session_bus_connected":{}}}}}"#,
-        nominal,
-        disp,
-        de,
+        r#"{{"nominal":{nominal},"session":{{"wayland_display":"{disp}","desktop":"{de}","runtime_dir_ok":{}}},"presenter":{{"ok":{},"debounce_ms":{},"note":"{}"}},"daemon":{{"running":{},"pid":{pid},"control_active":{},"dbus_service_active":{},"systemd_active":{},"inhibited":{}}},"config":{{"path":"{cfg}","is_toml":{},"active_saver":"{}","timeout_secs":{},"dwell_secs":{:.1}}},"savers":{{"builtin_ascii":true,"extras_helper":"{ext}"}},"system":{{"shm_writable":{},"session_bus_connected":{}}}}}"#,
         r.runtime_dir_ok,
         r.wayland_presenter_ok,
         r.input_debounce_ms,
         r.wayland_presenter_note,
         r.daemon_running,
-        r.daemon_pid.unwrap_or(0),
         r.control_sock_active,
         r.dbus_service_active,
         r.systemd_active,
         r.inhibited,
-        cfg,
         r.config_is_toml,
         r.active_saver,
         r.timeout_secs,
         r.dwell_secs,
-        ext,
         r.shm_writable,
         r.session_bus_connected
     );

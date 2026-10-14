@@ -7,6 +7,7 @@ PartOf=graphical-session.target
 [Service]
 Type=dbus
 BusName=io.github.idlescreen.Idle
+ExecStartPre=-/usr/bin/mkdir -p %h/.config/idlescreen
 ExecStart=/usr/bin/idlescreen daemon
 Restart=on-failure
 RestartSec=5
@@ -15,7 +16,7 @@ KillMode=mixed
 
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=%t -%h/.config/idlescreen -%h/.config/idle
+ReadWritePaths=%t -%h/.config -%h/.config/idlescreen -%h/.config/idle
 PrivateTmp=true
 ProtectHome=read-only
 MemoryDenyWriteExecute=true

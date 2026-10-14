@@ -26,7 +26,7 @@ impl AppModel {
             }
         } else {
             self.local_config = ThemeConfig::load();
-            self.screensavers = idle_runner::discovery::detect_screensavers();
+            self.screensavers = crate::dbus_bridge::detect_screensavers();
             self.show_fps_overlay = self.local_config.show_fps_overlay;
         }
     }

@@ -4,6 +4,8 @@
 //! Pure event-driven epoll reactor (0.00% CPU at idle, zero timers when user active),
 //! monotonic suspend detector, and decoupled watchdog keeper thread.
 
+#![allow(unsafe_code)]
+
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -12,7 +14,7 @@ use std::time::Duration;
 
 use super::notify::notify_watchdog;
 
-pub const SUSPEND_THRESHOLD_NS: u64 = 1_000_000_000; // 1.0 second divergence
+pub const SUSPEND_THRESHOLD_NS: u64 = 1_000_000_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ClockSample {
@@ -30,6 +32,7 @@ pub fn read_clocks() -> ClockSample {
         tv_nsec: 0,
     };
 
+    // SAFETY: `ts_boot` and `ts_mono` are valid stack-allocated `timespec` structs.
     unsafe {
         libc::clock_gettime(libc::CLOCK_BOOTTIME, &raw mut ts_boot);
         libc::clock_gettime(libc::CLOCK_MONOTONIC, &raw mut ts_mono);
@@ -72,28 +75,36 @@ impl WatchdogKeeper {
         let last_heartbeat = Arc::new(AtomicU64::new(read_clocks().monotonic_ns));
         let running = Arc::new(AtomicBool::new(true));
 
-        let hb = last_heartbeat.clone();
-        let run = running.clone();
+        let watchdog_usec = std::env::var("WATCHDOG_USEC")
+            .ok()
+            .and_then(|s| s.trim().parse::<u64>().ok())
+            .filter(|&u| u > 0);
 
-        let thread = std::thread::Builder::new()
-            .name("idlescreen-wd".into())
-            .spawn(move || {
-                while run.load(Ordering::SeqCst) {
-                    std::thread::sleep(Duration::from_secs(3));
-                    if !run.load(Ordering::SeqCst) {
-                        break;
-                    }
-                    let now_mono = read_clocks().monotonic_ns;
-                    let last = hb.load(Ordering::SeqCst);
-                    let elapsed = now_mono.saturating_sub(last);
+        let thread = if let Some(usec) = watchdog_usec {
+            let sleep_usec = (usec / 2).clamp(500_000, 30_000_000);
+            let max_stale_ns = usec.saturating_mul(1_000);
+            let hb = last_heartbeat.clone();
+            let run = running.clone();
 
-                    // If reactor heartbeat was updated within 6 seconds, send watchdog ping
-                    if elapsed < 6_000_000_000 {
-                        notify_watchdog();
+            std::thread::Builder::new()
+                .name("idlescreen-wd".into())
+                .spawn(move || {
+                    while run.load(Ordering::SeqCst) {
+                        std::thread::sleep(Duration::from_micros(sleep_usec));
+                        if !run.load(Ordering::SeqCst) {
+                            break;
+                        }
+                        let now_mono = read_clocks().monotonic_ns;
+                        let last = hb.load(Ordering::SeqCst);
+                        if now_mono.saturating_sub(last) < max_stale_ns {
+                            notify_watchdog();
+                        }
                     }
-                }
-            })
-            .ok();
+                })
+                .ok()
+        } else {
+            None
+        };
 
         Self {
             last_heartbeat,
@@ -121,15 +132,18 @@ pub struct EpollReactor {
     epoll_fd: OwnedFd,
     watchdog: WatchdogKeeper,
     last_sample: ClockSample,
+    pub last_poll_suspended: bool,
     pub running: bool,
 }
 
 impl EpollReactor {
     pub fn new() -> std::io::Result<Self> {
+        // SAFETY: `epoll_create1(EPOLL_CLOEXEC)` creates a new epoll fd or returns -1.
         let raw = unsafe { libc::epoll_create1(libc::EPOLL_CLOEXEC) };
         if raw < 0 {
             return Err(std::io::Error::last_os_error());
         }
+        // SAFETY: `raw` is a valid epoll file descriptor.
         let epoll_fd = unsafe { OwnedFd::from_raw_fd(raw) };
         let watchdog = WatchdogKeeper::start();
         let last_sample = read_clocks();
@@ -138,12 +152,14 @@ impl EpollReactor {
             epoll_fd,
             watchdog,
             last_sample,
+            last_poll_suspended: false,
             running: true,
         })
     }
 
     pub fn add_fd(&self, fd: RawFd, events: u32, token: u64) -> std::io::Result<()> {
         let mut ev = libc::epoll_event { events, u64: token };
+        // SAFETY: `self.epoll_fd` is valid and `ev` points to a valid `epoll_event`.
         let res = unsafe {
             libc::epoll_ctl(
                 self.epoll_fd.as_raw_fd(),
@@ -159,6 +175,7 @@ impl EpollReactor {
     }
 
     pub fn remove_fd(&self, fd: RawFd) -> std::io::Result<()> {
+        // SAFETY: `self.epoll_fd` is valid and `EPOLL_CTL_DEL` ignores the event pointer.
         let res = unsafe {
             libc::epoll_ctl(
                 self.epoll_fd.as_raw_fd(),
@@ -173,15 +190,12 @@ impl EpollReactor {
         Ok(())
     }
 
-    /// Waits for events on the registered file descriptors.
-    ///
-    /// When timeout_ms is -1, sleeps indefinitely with 0.00% CPU until an event occurs.
-    /// Automatically checks for suspend divergence and updates watchdog heartbeat.
     pub fn poll_events(
         &mut self,
         events: &mut [libc::epoll_event],
         timeout_ms: i32,
     ) -> std::io::Result<usize> {
+        // SAFETY: `events` is a valid mutable slice of `epoll_event`.
         let res = unsafe {
             libc::epoll_wait(
                 self.epoll_fd.as_raw_fd(),
@@ -191,15 +205,13 @@ impl EpollReactor {
             )
         };
 
-        // Record heartbeat
         self.watchdog.record_heartbeat();
 
-        // Check for suspend divergence
         let current_sample = read_clocks();
         let (suspended, _div) =
             detect_suspend_divergence(self.last_sample, current_sample, SUSPEND_THRESHOLD_NS);
+        self.last_poll_suspended = suspended;
         if suspended {
-            // Immediate resume handling: watchdog ping & display resync flag
             notify_watchdog();
         }
         self.last_sample = current_sample;
@@ -231,10 +243,9 @@ mod tests {
             monotonic_ns: 10_000_000_000,
         };
         let curr = ClockSample {
-            boottime_ns: 15_000_000_000,  // +5s
-            monotonic_ns: 10_050_000_000, // +50ms
+            boottime_ns: 15_000_000_000,
+            monotonic_ns: 10_050_000_000,
         };
-
         let (suspended, div) = detect_suspend_divergence(prev, curr, SUSPEND_THRESHOLD_NS);
         assert!(suspended);
         assert_eq!(div, 4_950_000_000);

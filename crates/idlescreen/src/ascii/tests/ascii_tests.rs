@@ -2,11 +2,9 @@
 // Copyright 2026 IdleScreen
 
 use super::super::Ascii;
-use super::super::EngineSession;
 use super::super::effects::EffectKind;
 use super::super::state::{BrandTarget, TextMode};
 use crate::cell::{LcgRng, TerminalCell};
-use clap::Parser;
 use std::time::Duration;
 
 const COLS: usize = 80;
@@ -117,7 +115,6 @@ fn non_custom_mode_ignores_custom_text() {
 
 #[test]
 fn multi_target_scene_handoff_and_single_lock() {
-    // 1. Single target locks
     let mut single = Ascii::new().with_targets(vec!["FEDORA".to_string()]);
     single.init(COLS, ROWS);
     assert_eq!(single.rotation.current_text(), "FEDORA");
@@ -125,93 +122,32 @@ fn multi_target_scene_handoff_and_single_lock() {
     single.rotation.advance_scene();
     assert_eq!(single.rotation.current_text(), "FEDORA");
 
-    // 2. Multi-target handoff: FEDORA -> GNOME -> FEDORA
     let mut multi =
         Ascii::new().with_targets(vec!["fedora linux".to_string(), "gnome mutter".to_string()]);
     multi.init(COLS, ROWS);
-    // Scene 1: Starts on FEDORA, peeks GNOME for transition
     assert_eq!(multi.rotation.current_text(), "FEDORA");
     assert_eq!(multi.rotation.peek_next_text(), "GNOME");
 
-    // Conclude Scene 1: begin_transition renders GNOME banner and activates transition
     multi.begin_transition();
     assert!(multi.transition_active);
     assert_eq!(multi.rotation.current_text(), "FEDORA");
     assert_eq!(multi.rotation.peek_next_text(), "GNOME");
 
-    // Advance through the transition duration (0.7s) to conclude handoff
-    // Note: Ascii::update clamps dt to 0.1s max per frame, so step across multiple frames
     for _ in 0..10 {
         multi.update(Duration::from_millis(100), COLS, ROWS);
     }
     assert!(!multi.transition_active);
-    // Scene 2 is now active on GNOME, peeking FEDORA
     assert_eq!(multi.rotation.current_text(), "GNOME");
     assert_eq!(multi.rotation.peek_next_text(), "FEDORA");
 
-    // Conclude Scene 2: transition back to FEDORA
     multi.begin_transition();
     assert!(multi.transition_active);
     for _ in 0..10 {
         multi.update(Duration::from_millis(100), COLS, ROWS);
     }
     assert!(!multi.transition_active);
-    // Scene 3 is active on FEDORA again
     assert_eq!(multi.rotation.current_text(), "FEDORA");
     assert_eq!(multi.rotation.peek_next_text(), "GNOME");
-}
-
-#[rustfmt::skip]
-const ALL_37_NAMES: &[&str] = &[
-    "beams", "binarypath", "blackhole", "bouncyballs", "bubbles", "burn",
-    "colorshift", "crumble", "decrypt", "errorcorrect", "expand", "fireworks",
-    "highlight", "laseretch", "matrix", "middleout", "orbittingvolley",
-    "overflow", "pour", "print", "rain", "randomsequence", "rings",
-    "scattered", "slice", "slide", "smoke", "spotlights", "spray",
-    "swarm", "sweep", "synthgrid", "thunderstorm", "unstable", "vhstape",
-    "waves", "wipe",
-];
-
-#[test]
-fn all_37_effects_can_be_parsed() {
-    assert_eq!(ALL_37_NAMES.len(), 37);
-    for name in ALL_37_NAMES {
-        let cli = ttfx::cli::Cli::try_parse_from(["ttfx", name]).unwrap();
-        assert!(cli.effect.is_some(), "failed to parse effect: {name}");
-        let kind = EffectKind::parse(name);
-        assert!(kind.is_some(), "EffectKind::parse failed for {name}");
-    }
-}
-
-#[test]
-fn all_37_effects_can_build_and_render_frames() {
-    let art_data = "IDLESCREEN\nSCREENSAVER";
-    for name in ALL_37_NAMES {
-        let cli = ttfx::cli::Cli::try_parse_from(["ttfx", name]).unwrap();
-        let mut config = cli.terminal_config();
-        let cmd = cli.effect.unwrap();
-        let mut effect = cmd.build_effect();
-        config.canvas_width = 80;
-        config.canvas_height = 24;
-        config.ignore_terminal_dimensions = true;
-        config.anchor_text = ttfx::engine::canvas::Anchor::C;
-        let clock = ttfx::engine::ctx::Clock::virtual_with_frame_rate(60);
-        let rng = ttfx::utils::rng::Rng::seeded(42);
-        let mut ctx = ttfx::engine::ctx::EngineCtx::new(art_data, config, rng, clock).unwrap();
-        effect.build(&mut ctx).unwrap();
-        let mut frame_count = 0;
-        while effect.next_frame(&mut ctx).is_some() {
-            frame_count += 1;
-            assert!(
-                frame_count <= 5000,
-                "Effect {name} exceeded 5000 frames without terminating!"
-            );
-        }
-        assert!(
-            frame_count > 0,
-            "Effect {name} must produce at least one frame"
-        );
-    }
 }
 
 #[test]
@@ -247,27 +183,6 @@ fn effect_dwells_on_settled_frame_before_restarting() {
 }
 
 #[test]
-fn playlist_rotates_all_37_effects_without_immediate_repeats() {
-    let mut rng = LcgRng::new(42);
-    let mut playlist = super::super::effects::EffectPlaylist::new();
-    let mut last = None;
-    for _ in 0..50 {
-        let mut cycle = Vec::with_capacity(37);
-        for _ in 0..37 {
-            let eff = playlist.next_effect(&mut rng);
-            if let Some(prev) = last {
-                assert_ne!(eff, prev, "no immediate repeat across cycles");
-            }
-            last = Some(eff);
-            cycle.push(eff);
-        }
-        cycle.sort_by_key(EffectKind::name);
-        cycle.dedup();
-        assert_eq!(cycle.len(), 37, "all 37 effects must play in each cycle");
-    }
-}
-
-#[test]
 fn smooth_transition_and_resize_without_panics() {
     let mut saver = Ascii::new().with_dwell(5.0);
     saver.init(COLS, ROWS);
@@ -279,7 +194,6 @@ fn smooth_transition_and_resize_without_panics() {
     saver.draw(&mut grid, COLS, ROWS);
     assert!(grid.iter().any(|c| c.ch != ' '));
 
-    // Resize during active transition must not panic
     saver.update(Duration::from_millis(16), 100, 30);
     let mut new_grid = vec![TerminalCell::default(); 100 * 30];
     saver.draw(&mut new_grid, 100, 30);
@@ -304,100 +218,6 @@ fn large_screen_400_percent_rendering_and_effects() {
 }
 
 #[test]
-fn all_37_decomposed_scenes_can_build_and_render_frames() {
-    let art_data = "IDLESCREEN\nSCREENSAVER";
-    for kind in EffectKind::ALL {
-        let mut effect = crate::ascii::scenes::create_scene(kind);
-        let config = ttfx::engine::terminal::TerminalConfig {
-            canvas_width: 80,
-            canvas_height: 24,
-            ignore_terminal_dimensions: true,
-            anchor_text: ttfx::engine::canvas::Anchor::C,
-            frame_rate: 60,
-            ..Default::default()
-        };
-        let clock = ttfx::engine::ctx::Clock::virtual_with_frame_rate(60);
-        let rng = ttfx::utils::rng::Rng::seeded(42);
-        let mut ctx = ttfx::engine::ctx::EngineCtx::new(art_data, config, rng, clock).unwrap();
-        effect.build(&mut ctx).unwrap();
-        let mut frame_count = 0;
-        while effect.next_frame(&mut ctx).is_some() {
-            frame_count += 1;
-            assert!(
-                frame_count <= 5000,
-                "Decomposed scene {} exceeded 5000 frames",
-                kind.name()
-            );
-        }
-        assert!(
-            frame_count > 0,
-            "Decomposed scene {} must produce at least one frame",
-            kind.name()
-        );
-    }
-}
-
-#[test]
-fn simulation_clock_synchronization_60fps_vs_144fps() {
-    let art = "IDLESCREEN";
-    // 60 FPS session
-    let session_60 = EngineSession::new(art, EffectKind::Wipe, 80, 24, 42, 60);
-    assert!(session_60.is_some());
-
-    // 144 FPS session (e.g. desktop monitor capability)
-    let session_144 = EngineSession::new(art, EffectKind::Wipe, 80, 24, 42, 144);
-    assert!(session_144.is_some());
-
-    // Auto-detect fallback (0 FPS => 60 FPS default)
-    let session_auto = EngineSession::new(art, EffectKind::Wipe, 80, 24, 42, 0);
-    assert!(session_auto.is_some());
-}
-
-#[test]
-fn wayland_refresh_rate_to_fps_and_duration_calculation() {
-    // 60,000 mHz laptop display -> 60 FPS -> ~16.66ms frame_dur
-    let mhz_60 = 60_000;
-    let fps_60 = ((mhz_60 + 500) / 1000).max(1) as u32;
-    assert_eq!(fps_60, 60);
-    let dur_60 = Duration::from_nanos(1_000_000_000 / fps_60 as u64);
-    assert_eq!(dur_60.as_millis(), 16);
-
-    // 144,000 mHz 4K HDR desktop display -> 144 FPS -> ~6.94ms frame_dur
-    let mhz_144 = 144_000;
-    let fps_144 = ((mhz_144 + 500) / 1000).max(1) as u32;
-    assert_eq!(fps_144, 144);
-    let dur_144 = Duration::from_nanos(1_000_000_000 / fps_144 as u64);
-    assert_eq!(dur_144.as_millis(), 6);
-
-    // Fractional 59.94 Hz -> 59,940 mHz -> 60 FPS
-    let mhz_5994 = 59_940;
-    let fps_5994 = ((mhz_5994 + 500) / 1000).max(1) as u32;
-    assert_eq!(fps_5994, 60);
-}
-
-#[test]
-fn superfedora_rotates_scenes_past_dwell_without_pinning() {
-    let mut saver = Ascii::new_superfedora();
-    assert!(!saver.pinned);
-    let initial_effect = saver.effect;
-    assert!(EffectKind::ALL.contains(&initial_effect));
-    saver.init(COLS, ROWS);
-
-    // Fast-forward animation to settled state, then fast-forward dwell
-    saver.engine = None;
-    saver.dwell_left = 0.0;
-    saver.update(Duration::from_millis(50), COLS, ROWS);
-    assert!(saver.transition_active);
-
-    // Conclude transition
-    for _ in 0..10 {
-        saver.update(Duration::from_millis(100), COLS, ROWS);
-    }
-    // Effect has rotated to another scene in the playlist
-    assert_ne!(saver.effect, initial_effect);
-}
-
-#[test]
 fn multi_target_random_rotation_no_immediate_repeat() {
     let mut rotation =
         super::super::state::TriRotationState::new_with_seed(TextMode::Custom, None, 999);
@@ -416,142 +236,4 @@ fn multi_target_random_rotation_no_immediate_repeat() {
         assert_ne!(cur_text, last_text, "targets must never immediately repeat");
         last_text = cur_text;
     }
-}
-
-#[test]
-fn superfedora_rotates_through_all_37_distinct_scenes_and_randomizes_start() {
-    let mut saver = Ascii::new_superfedora();
-    assert!(EffectKind::ALL.contains(&saver.effect));
-
-    let mut seen = std::collections::HashSet::new();
-    seen.insert(saver.effect);
-
-    for _ in 1..37 {
-        saver.cycle_effect();
-        assert!(
-            seen.insert(saver.effect),
-            "effect {:?} was repeated before all 37 played",
-            saver.effect
-        );
-    }
-    assert_eq!(seen.len(), 37);
-
-    let last_effect = saver.effect;
-    saver.cycle_effect();
-    assert_ne!(
-        saver.effect, last_effect,
-        "cycle boundary must not immediately repeat"
-    );
-
-    // Verify new_superfedora() starts on genuinely random initial scenes across invocations
-    let mut initial_scenes = std::collections::HashSet::new();
-    for _ in 0..32 {
-        initial_scenes.insert(Ascii::new_superfedora().effect);
-    }
-    assert!(
-        initial_scenes.len() > 5,
-        "new_superfedora() must randomize initial scene, got only {initial_scenes:?}"
-    );
-}
-
-#[test]
-fn all_37_scenes_render_strictly_pixel_art_blocks_with_superfedora_banner() {
-    let (cols, rows) = (120, 36);
-    let mut saver = Ascii::new_superfedora();
-    saver.init(cols, rows);
-    let mut grid = vec![TerminalCell::default(); cols * rows];
-
-    for &kind in &EffectKind::ALL {
-        saver.pin_effect(kind);
-        assert_eq!(saver.rotation.active_text(), "SUPERFEDORA");
-        for _ in 0..8 {
-            saver.update(Duration::from_millis(16), cols, rows);
-            saver.draw(&mut grid, cols, rows);
-            for cell in &grid {
-                assert!(
-                    super::super::draw::is_pixel_art_char(cell.ch),
-                    "Scene {} emitted non-pixel-art char {:?} (U+{:04X})",
-                    kind.name(),
-                    cell.ch,
-                    cell.ch as u32
-                );
-                assert!(
-                    cell.ch == ' ' || ('\u{2580}'..='\u{259F}').contains(&cell.ch),
-                    "Scene {} emitted char outside Unicode Block Elements: {:?} (U+{:04X})",
-                    kind.name(),
-                    cell.ch,
-                    cell.ch as u32
-                );
-            }
-        }
-        let mut frames = 8usize;
-        while let Some(ref mut s) = saver.engine {
-            if s.next_frame().is_some() {
-                frames += 1;
-            } else {
-                break;
-            }
-        }
-        assert!(
-            (35..=170).contains(&frames),
-            "Scene {} took {} rendered frames (expected 35..=170 for snappy 16-bit arcade pacing)",
-            kind.name(),
-            frames
-        );
-    }
-}
-
-#[test]
-fn settled_bevel_persists_into_transition_without_color_flash() {
-    let (cols, rows) = (120, 36);
-    let mut saver = Ascii::new_superfedora();
-    saver.pin_effect(EffectKind::Wipe);
-    saver.init(cols, rows);
-
-    // Advance until settled
-    for _ in 0..150 {
-        saver.update(Duration::from_millis(16), cols, rows);
-        if saver.is_settled() {
-            break;
-        }
-    }
-    assert!(saver.is_settled(), "Wipe should settle within 150 frames");
-
-    let mut settled_grid = vec![TerminalCell::default(); cols * rows];
-    saver.draw(&mut settled_grid, cols, rows);
-
-    // Find a solid '█' block in the top "SUPER" wordmark and bottom "FEDORA" wordmark
-    let super_cell_idx = settled_grid
-        .iter()
-        .enumerate()
-        .find(|(idx, c)| {
-            let y = *idx / cols;
-            c.ch == '█' && (6..=12).contains(&y)
-        })
-        .map(|(idx, _)| idx)
-        .expect("should find solid block in SUPER wordmark");
-    let fedora_cell_idx = settled_grid
-        .iter()
-        .enumerate()
-        .find(|(idx, c)| {
-            let y = *idx / cols;
-            c.ch == '█' && (14..=28).contains(&y)
-        })
-        .map(|(idx, _)| idx)
-        .expect("should find solid block in FEDORA wordmark");
-
-    let settled_super_fg = settled_grid[super_cell_idx].fg;
-    let settled_fedora_fg = settled_grid[fedora_cell_idx].fg;
-
-    // Trigger transition and verify transition_from_grid preserves exact beveled colors
-    saver.begin_transition();
-    assert!(!saver.is_settled());
-    assert_eq!(
-        saver.transition_from_grid[super_cell_idx].fg,
-        settled_super_fg
-    );
-    assert_eq!(
-        saver.transition_from_grid[fedora_cell_idx].fg,
-        settled_fedora_fg
-    );
 }

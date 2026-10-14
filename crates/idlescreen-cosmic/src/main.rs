@@ -3,19 +3,19 @@
 
 //! COSMIC panel applet entry point for IdleScreen.
 //!
-//! Talks to `idle-daemon` over D-Bus when available, or falls back to on-disk
-//! config. Mirrors idle timeout, FPS overlay, render scale, and active saver.
-//! Turning the daemon on uses `systemctl --user enable --now` so it survives
-//! logins; preview prefers D-Bus and falls back to `idle-daemon run-plugin`.
+//! Talks to `idlescreen daemon` over D-Bus/CLI when available, or falls back to
+//! on-disk config. Mirrors idle timeout, FPS overlay, render scale, and active
+//! saver. Turning the daemon on uses `systemctl --user enable --now` so it
+//! survives logins.
+
+#![deny(unsafe_code)]
 
 mod app;
 mod config;
 mod daemon_client;
+mod dbus_bridge;
 mod i18n;
 
-fn main() -> idle_err::Result<()> {
-    idle_log::init("warn");
-    cosmic::applet::run::<app::AppModel>(()).map_err(idle_err::Error::from)
+fn main() -> dbus_bridge::Result<()> {
+    cosmic::applet::run::<app::AppModel>(()).map_err(dbus_bridge::Error::from)
 }
-
-// Applet state is owned by iced; daemon callbacks are synchronous D-Bus calls.

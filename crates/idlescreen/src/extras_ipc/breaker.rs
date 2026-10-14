@@ -3,14 +3,15 @@
 
 //! 60 Hz crash-loop fork-bomb prevention circuit breaker.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub const CIRCUIT_BREAKER_MAX_FAILURES: usize = 3;
 pub const CIRCUIT_BREAKER_WINDOW_SECS: u64 = 60;
+const TRIP_WINDOW: Duration = Duration::from_secs(CIRCUIT_BREAKER_WINDOW_SECS);
 
 pub struct CircuitBreaker {
     failures: Vec<Instant>,
-    tripped: bool,
+    tripped_at: Option<Instant>,
 }
 
 impl Default for CircuitBreaker {
@@ -23,28 +24,31 @@ impl CircuitBreaker {
     pub fn new() -> Self {
         Self {
             failures: Vec::with_capacity(CIRCUIT_BREAKER_MAX_FAILURES + 1),
-            tripped: false,
+            tripped_at: None,
         }
     }
 
     pub fn is_tripped(&self) -> bool {
-        self.tripped
+        self.tripped_at.is_some_and(|t| t.elapsed() < TRIP_WINDOW)
     }
 
     /// Records an abnormal exit or timeout.
     /// Returns true if this failure caused the circuit breaker to trip.
     pub fn record_failure(&mut self) -> bool {
-        if self.tripped {
-            return false;
+        if let Some(t) = self.tripped_at {
+            if t.elapsed() < TRIP_WINDOW {
+                return false;
+            }
+            self.tripped_at = None;
         }
 
         let now = Instant::now();
         self.failures
-            .retain(|&t| now.duration_since(t).as_secs() < CIRCUIT_BREAKER_WINDOW_SECS);
+            .retain(|&t| now.duration_since(t) < TRIP_WINDOW);
         self.failures.push(now);
 
         if self.failures.len() >= CIRCUIT_BREAKER_MAX_FAILURES {
-            self.tripped = true;
+            self.tripped_at = Some(now);
             true
         } else {
             false
@@ -53,7 +57,7 @@ impl CircuitBreaker {
 
     pub fn reset(&mut self) {
         self.failures.clear();
-        self.tripped = false;
+        self.tripped_at = None;
     }
 }
 
@@ -90,15 +94,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_circuit_breaker_tripping() {
+    fn test_circuit_breaker_tripping_and_expiry() {
         let mut cb = CircuitBreaker::new();
         assert!(!cb.is_tripped());
         assert!(!cb.record_failure());
         assert!(!cb.is_tripped());
         assert!(!cb.record_failure());
         assert!(!cb.is_tripped());
-        assert!(cb.record_failure()); // 3rd failure trips
+        assert!(cb.record_failure());
         assert!(cb.is_tripped());
-        assert!(!cb.record_failure()); // already tripped
+        assert!(!cb.record_failure());
+
+        // Simulate cooldown expiration
+        cb.tripped_at = Instant::now().checked_sub(TRIP_WINDOW + Duration::from_secs(1));
+        cb.failures.clear();
+        assert!(!cb.is_tripped());
+        assert!(!cb.record_failure());
     }
 }

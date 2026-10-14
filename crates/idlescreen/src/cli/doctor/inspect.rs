@@ -108,7 +108,7 @@ pub fn collect_diagnostics() -> DoctorReport {
         .clone()
         .unwrap_or_else(|| "ascii".to_string());
     let mode_desc = match config.saver.ascii.mode.as_str() {
-        "os" => "OS only",
+        "os" | "superfedora" | "sf" => "OS only",
         "de" => "DE only",
         "kernel" => "Kernel only",
         "custom" => "Custom text",

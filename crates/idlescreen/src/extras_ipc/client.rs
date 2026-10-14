@@ -3,48 +3,46 @@
 
 //! Host-driven IPC client and supervisor for idlescreen-extras subprocess.
 
-use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+#![allow(unsafe_code)]
+
+use std::os::fd::{AsRawFd, OwnedFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
-use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 
 use super::breaker::{CircuitBreaker, is_circuit_breaker_tripped, record_circuit_breaker_failure};
 use super::pidfd::PidFd;
 use super::protocol::{IpcCommand, IpcResponse, send_fd};
+pub use super::resolve::{DEFAULT_EXTRAS_BINARY, resolve_extras_binary};
+use super::shm::{MAX_CELLS, ShmMapping, create_sealed_shm, create_socketpair};
 use crate::cell::TerminalCell;
 
-pub const DEFAULT_EXTRAS_BINARY: &str = "/usr/libexec/idlescreen/idlescreen-extras";
+const REAP_TIMEOUT: Duration = Duration::from_millis(25);
 
 pub struct ExtrasSession {
     saver_name: String,
     socket: UnixStream,
     pidfd: PidFd,
     _shm_fd: OwnedFd,
-    shm_ptr: *mut TerminalCell,
-    shm_len: usize,
+    shm: ShmMapping,
     cols: usize,
     rows: usize,
     pub breaker: CircuitBreaker,
 }
 
 impl ExtrasSession {
-    /// Checks if the idlescreen-extras binary exists and is executable,
-    /// and the circuit breaker has not been tripped.
     pub fn is_available() -> bool {
         !is_circuit_breaker_tripped() && resolve_extras_binary().is_some()
     }
 
-    /// Spawns a new extras screensaver subprocess.
     pub fn spawn(saver_name: &str, cols: usize, rows: usize) -> std::io::Result<Self> {
-        let max_cells = 512 * 256;
         let count = cols.saturating_mul(rows);
-        if cols == 0 || rows == 0 || count > max_cells || cols > 1000 || rows > 1000 {
+        if cols == 0 || rows == 0 || count > MAX_CELLS || cols > 1000 || rows > 1000 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!(
-                    "invalid grid dimensions: {cols}x{rows} (exceeds shared memory limit of {max_cells} cells)"
+                    "invalid grid dimensions: {cols}x{rows} (exceeds shared memory limit of {MAX_CELLS} cells)"
                 ),
             ));
         }
@@ -63,95 +61,23 @@ impl ExtrasSession {
             )
         })?;
 
-        // 1. Create anonymous socketpair (SOCK_STREAM or SOCK_SEQPACKET with CLOEXEC)
-        let mut fds = [0 as RawFd; 2];
-        let res = unsafe {
-            libc::socketpair(
-                libc::AF_UNIX,
-                libc::SOCK_STREAM | libc::SOCK_CLOEXEC,
-                0,
-                fds.as_mut_ptr(),
-            )
-        };
-        if res < 0 {
-            return Err(std::io::Error::last_os_error());
-        }
+        let (parent_stream, child_fd) = create_socketpair()?;
+        let (shm_fd, shm) = create_sealed_shm()?;
 
-        let parent_stream = unsafe { UnixStream::from_raw_fd(fds[0]) };
-        let child_fd = fds[1];
-
-        // 2. Create anonymous shared memory via memfd_create
-        let memfd_name = c"idlescreen-extras-shm";
-        let raw_shm = unsafe {
-            libc::syscall(
-                libc::SYS_memfd_create,
-                memfd_name.as_ptr(),
-                libc::MFD_CLOEXEC | libc::MFD_ALLOW_SEALING,
-            ) as RawFd
-        };
-        if raw_shm < 0 {
-            unsafe { libc::close(child_fd) };
-            return Err(std::io::Error::last_os_error());
-        }
-
-        // Allocate shared memory for grid (up to 512x256 max cells)
-        let max_cells = 512 * 256;
-        let shm_len = max_cells * std::mem::size_of::<TerminalCell>();
-        if unsafe { libc::ftruncate(raw_shm, shm_len as libc::off_t) } < 0 {
-            unsafe {
-                libc::close(child_fd);
-                libc::close(raw_shm);
-            }
-            return Err(std::io::Error::last_os_error());
-        }
-
-        // Seal the shared memory to prevent shrinking/growing
-        let seals = libc::F_SEAL_SHRINK | libc::F_SEAL_GROW | libc::F_SEAL_SEAL;
-        if unsafe { libc::fcntl(raw_shm, libc::F_ADD_SEALS, seals) } < 0 {
-            unsafe {
-                libc::close(child_fd);
-                libc::close(raw_shm);
-            }
-            return Err(std::io::Error::last_os_error());
-        }
-
-        let shm_ptr = unsafe {
-            libc::mmap(
-                std::ptr::null_mut(),
-                shm_len,
-                libc::PROT_READ | libc::PROT_WRITE,
-                libc::MAP_SHARED,
-                raw_shm,
-                0,
-            )
-        };
-        if shm_ptr == libc::MAP_FAILED {
-            unsafe {
-                libc::close(child_fd);
-                libc::close(raw_shm);
-            }
-            return Err(std::io::Error::other(
-                "failed to mmap shared memory in parent",
-            ));
-        }
-
-        let shm_fd = unsafe { OwnedFd::from_raw_fd(raw_shm) };
-
-        // 3. Spawn child with child_fd cleared of CLOEXEC
+        let raw_child_fd = child_fd.as_raw_fd();
         let mut cmd = Command::new(&bin_path);
         cmd.arg(saver_name);
         cmd.env("IDLE_IPC_FD", "3");
 
+        // SAFETY: `pre_exec` only invokes async-signal-safe `dup2`, `close`, and `fcntl` on `raw_child_fd`.
         unsafe {
             cmd.pre_exec(move || {
-                // Duplicate child_fd onto fd 3
-                if child_fd != 3 {
-                    if libc::dup2(child_fd, 3) < 0 {
+                if raw_child_fd != 3 {
+                    if libc::dup2(raw_child_fd, 3) < 0 {
                         return Err(std::io::Error::last_os_error());
                     }
-                    libc::close(child_fd);
+                    libc::close(raw_child_fd);
                 }
-                // Clear FD_CLOEXEC on fd 3
                 let flags = libc::fcntl(3, libc::F_GETFD);
                 if flags >= 0 {
                     libc::fcntl(3, libc::F_SETFD, flags & !libc::FD_CLOEXEC);
@@ -160,25 +86,37 @@ impl ExtrasSession {
             });
         }
 
-        let child = cmd.spawn()?;
-        // Close child end in parent
-        unsafe { libc::close(child_fd) };
+        let mut child = cmd.spawn()?;
+        drop(child_fd);
 
         let child_pid = child.id() as libc::pid_t;
-        let pidfd = PidFd::open(child_pid)?;
+        let pidfd = match PidFd::open(child_pid) {
+            Ok(p) => p,
+            Err(e) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(e);
+            }
+        };
 
-        // 4. Send shared memory file descriptor to child via SCM_RIGHTS
-        send_fd(parent_stream.as_raw_fd(), shm_fd.as_raw_fd())?;
-
-        // 5. Read IpcResponse::Ready from child
-        parent_stream.set_read_timeout(Some(Duration::from_millis(500)))?;
-        let resp = IpcResponse::read_from(&parent_stream)?;
-        if resp != IpcResponse::Ready {
+        if let Err(e) = send_fd(parent_stream.as_raw_fd(), shm_fd.as_raw_fd())
+            .and_then(|()| parent_stream.set_read_timeout(Some(Duration::from_millis(500))))
+            .and_then(|()| IpcResponse::read_from(&parent_stream))
+            .and_then(|resp| {
+                if resp == IpcResponse::Ready {
+                    Ok(())
+                } else {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "expected Ready response from child",
+                    ))
+                }
+            })
+        {
             let _ = pidfd.kill();
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "expected Ready response from child",
-            ));
+            pidfd.wait_reap(REAP_TIMEOUT);
+            let _ = child.wait();
+            return Err(e);
         }
 
         let mut session = Self {
@@ -186,16 +124,13 @@ impl ExtrasSession {
             socket: parent_stream,
             pidfd,
             _shm_fd: shm_fd,
-            shm_ptr: shm_ptr.cast(),
-            shm_len,
+            shm,
             cols: 0,
             rows: 0,
             breaker: CircuitBreaker::new(),
         };
 
-        // 6. Initialize grid dimensions
         session.init_grid(cols, rows)?;
-
         Ok(session)
     }
 
@@ -207,15 +142,20 @@ impl ExtrasSession {
         &self.pidfd
     }
 
+    fn abort_child(&mut self) {
+        let _ = self.pidfd.kill();
+        self.pidfd.wait_reap(REAP_TIMEOUT);
+        record_circuit_breaker_failure();
+        self.breaker.record_failure();
+    }
+
     pub fn init_grid(&mut self, cols: usize, rows: usize) -> std::io::Result<()> {
-        let max_cells = self.shm_len / std::mem::size_of::<TerminalCell>();
+        let max_cells = self.shm.len / std::mem::size_of::<TerminalCell>();
         let count = cols.saturating_mul(rows);
         if cols == 0 || rows == 0 || count > max_cells || cols > 1000 || rows > 1000 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!(
-                    "invalid grid dimensions: {cols}x{rows} (exceeds shared memory limit of {max_cells} cells)"
-                ),
+                format!("invalid grid dimensions: {cols}x{rows}"),
             ));
         }
 
@@ -224,44 +164,32 @@ impl ExtrasSession {
             rows: rows as u32,
         };
         if let Err(e) = cmd.write_to(&mut self.socket) {
-            let _ = self.pidfd.kill();
-            let _ = self.pidfd.try_wait();
-            record_circuit_breaker_failure();
-            self.breaker.record_failure();
+            self.abort_child();
             return Err(e);
         }
 
         self.socket
             .set_read_timeout(Some(Duration::from_millis(500)))?;
-        let resp = match IpcResponse::read_from(&mut self.socket) {
-            Ok(r) => r,
-            Err(e) => {
-                let _ = self.pidfd.kill();
-                let _ = self.pidfd.try_wait();
-                record_circuit_breaker_failure();
-                self.breaker.record_failure();
-                return Err(e);
+        match IpcResponse::read_from(&mut self.socket) {
+            Ok(IpcResponse::Ack) => {
+                self.cols = cols;
+                self.rows = rows;
+                Ok(())
             }
-        };
-
-        if resp != IpcResponse::Ack {
-            let _ = self.pidfd.kill();
-            let _ = self.pidfd.try_wait();
-            record_circuit_breaker_failure();
-            self.breaker.record_failure();
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "expected Ack response from child Init",
-            ));
+            Ok(_) => {
+                self.abort_child();
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "expected Ack response from child Init",
+                ))
+            }
+            Err(e) => {
+                self.abort_child();
+                Err(e)
+            }
         }
-
-        self.cols = cols;
-        self.rows = rows;
-        Ok(())
     }
 
-    /// Sends TickAndDraw to child with a 500ms deadline timer.
-    /// On success, copies the rendered cells into `grid`.
     pub fn tick_and_draw(
         &mut self,
         dt: Duration,
@@ -284,40 +212,30 @@ impl ExtrasSession {
             dt_micros: dt.as_micros() as u64,
         };
         if let Err(e) = cmd.write_to(&mut self.socket) {
-            let _ = self.pidfd.kill();
-            let _ = self.pidfd.try_wait();
-            record_circuit_breaker_failure();
-            self.breaker.record_failure();
+            self.abort_child();
             return Err(e);
         }
 
-        // 500ms deadline timeout
         self.socket
             .set_read_timeout(Some(Duration::from_millis(500)))?;
         match IpcResponse::read_from(&mut self.socket) {
             Ok(IpcResponse::FrameReady { dirty, .. }) => {
                 let count = cols.saturating_mul(rows);
-                let slice = unsafe { std::slice::from_raw_parts(self.shm_ptr, count) };
+                // SAFETY: `self.shm.ptr` is mapped for `MAX_CELLS` cells and `count <= MAX_CELLS`.
+                let slice = unsafe { std::slice::from_raw_parts(self.shm.ptr, count) };
                 let n = count.min(grid.len());
                 grid[..n].copy_from_slice(&slice[..n]);
                 Ok(dirty)
             }
             Ok(_) => {
-                let _ = self.pidfd.kill();
-                let _ = self.pidfd.try_wait();
-                record_circuit_breaker_failure();
-                self.breaker.record_failure();
+                self.abort_child();
                 Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "unexpected response to TickAndDraw",
                 ))
             }
             Err(e) => {
-                // Trip breaker on timeout or error, kill child and reap
-                let _ = self.pidfd.kill();
-                let _ = self.pidfd.try_wait();
-                record_circuit_breaker_failure();
-                self.breaker.record_failure();
+                self.abort_child();
                 Err(e)
             }
         }
@@ -328,119 +246,6 @@ impl Drop for ExtrasSession {
     fn drop(&mut self) {
         let _ = IpcCommand::Stop.write_to(&mut self.socket);
         let _ = self.pidfd.kill();
-        let _ = self.pidfd.try_wait();
-        if !self.shm_ptr.is_null() && self.shm_len > 0 {
-            unsafe {
-                libc::munmap(self.shm_ptr.cast(), self.shm_len);
-            }
-        }
-    }
-}
-
-/// Resolves path to idlescreen-extras binary.
-pub fn resolve_extras_binary() -> Option<PathBuf> {
-    // 0. Check explicit environment override
-    if let Ok(env_path) = std::env::var("IDLESCREEN_EXTRAS_BIN") {
-        let p = PathBuf::from(env_path);
-        if is_executable(&p) {
-            return Some(p);
-        }
-    }
-
-    // 1. Check default installation locations across Linux distributions
-    for loc in &[
-        DEFAULT_EXTRAS_BINARY,
-        "/usr/lib/idlescreen/idlescreen-extras",
-        "/usr/local/libexec/idlescreen/idlescreen-extras",
-        "/usr/local/lib/idlescreen/idlescreen-extras",
-    ] {
-        let p = Path::new(loc);
-        if is_executable(p) {
-            return Some(p.to_path_buf());
-        }
-    }
-
-    // 2. Check CARGO_BIN_EXE_idlescreen-extras or current exe directory / sibling build dirs (for tests and dev)
-    if let Ok(current) = std::env::current_exe()
-        && let Some(dir) = current.parent()
-    {
-        for candidate in &[
-            dir.join("idlescreen-extras"),
-            dir.join("../release/idlescreen-extras"),
-            dir.join("../debug/idlescreen-extras"),
-        ] {
-            if is_executable(candidate) {
-                return Some(candidate.clone());
-            }
-        }
-    }
-
-    // 3. Check PATH
-    if let Ok(path_var) = std::env::var("PATH") {
-        for dir in std::env::split_paths(&path_var) {
-            let candidate = dir.join("idlescreen-extras");
-            if is_executable(&candidate) {
-                return Some(candidate);
-            }
-        }
-    }
-
-    None
-}
-
-fn is_executable(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-    if let Ok(meta) = path.metadata() {
-        meta.is_file() && (meta.permissions().mode() & 0o111 != 0)
-    } else {
-        false
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::super::breaker::reset_circuit_breaker;
-    use super::*;
-
-    #[test]
-    fn test_spawn_oversized_grid_rejected_immediately() {
-        let res = ExtrasSession::spawn("storm", 600, 300);
-        assert!(res.is_err());
-        let err = res.err().unwrap();
-        assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
-    }
-
-    #[test]
-    fn test_spawn_zero_dimension_grid_rejected_immediately() {
-        let res = ExtrasSession::spawn("storm", 0, 100);
-        assert!(res.is_err());
-        assert_eq!(res.err().unwrap().kind(), std::io::ErrorKind::InvalidInput);
-
-        let res2 = ExtrasSession::spawn("storm", 100, 0);
-        assert!(res2.is_err());
-        assert_eq!(res2.err().unwrap().kind(), std::io::ErrorKind::InvalidInput);
-    }
-
-    #[test]
-    fn test_circuit_breaker_tripping_blocks_availability_and_spawn() {
-        reset_circuit_breaker();
-        assert!(!is_circuit_breaker_tripped());
-
-        record_circuit_breaker_failure();
-        assert!(!is_circuit_breaker_tripped());
-
-        record_circuit_breaker_failure();
-        assert!(!is_circuit_breaker_tripped());
-
-        record_circuit_breaker_failure();
-        assert!(is_circuit_breaker_tripped());
-        assert!(!ExtrasSession::is_available());
-
-        let res = ExtrasSession::spawn("storm", 80, 24);
-        assert!(res.is_err());
-        assert_eq!(res.err().unwrap().kind(), std::io::ErrorKind::BrokenPipe);
-
-        reset_circuit_breaker();
-        assert!(!is_circuit_breaker_tripped());
+        self.pidfd.wait_reap(REAP_TIMEOUT);
     }
 }

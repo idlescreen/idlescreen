@@ -3,6 +3,8 @@
 
 //! Multi-call binary entry point for IdleScreen screensaver suite.
 
+#![deny(unsafe_code)]
+
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

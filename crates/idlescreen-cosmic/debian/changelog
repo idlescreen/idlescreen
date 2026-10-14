@@ -1,3 +1,10 @@
+idle-cosmic (4.2.0-1) unstable; urgency=medium
+
+  * Consolidate into idlescreen monorepo (v4.2.0) with Page Rule refactoring,
+    TOML configuration alignment, and shared D-Bus bridge.
+
+ -- IdleScreen Maintainers <maintainers@idlescreen.dev>  Wed, 14 Oct 2026 00:00:00 +0000
+
 idle-cosmic (3.2.7-1) unstable; urgency=medium
 
   * Remove the ineffective IDLE_REQUIRE_MANIFEST_SIGNATURE=1 from the pkexec

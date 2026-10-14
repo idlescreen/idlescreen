@@ -3,6 +3,8 @@
 
 //! Compact binary IPC protocol definitions and SCM_RIGHTS descriptor passing.
 
+#![allow(unsafe_code)]
+
 use std::io::{Read, Write};
 use std::os::fd::RawFd;
 
@@ -128,12 +130,14 @@ pub fn recv_fd(sock: RawFd) -> std::io::Result<RawFd> {
         iov_len: 1,
     };
     let mut cmsg_buf = [0u8; 64];
+    // SAFETY: `libc::msghdr` is a plain C struct safe to zero-initialize.
     let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
     msg.msg_iov = &raw mut iov;
     msg.msg_iovlen = 1;
     msg.msg_control = cmsg_buf.as_mut_ptr().cast();
     msg.msg_controllen = cmsg_buf.len() as _;
 
+    // SAFETY: `msg` references valid stack buffers `iov` and `cmsg_buf`.
     let res = unsafe { libc::recvmsg(sock, &raw mut msg, 0) };
     if res <= 0 {
         return Err(std::io::Error::new(
@@ -142,25 +146,30 @@ pub fn recv_fd(sock: RawFd) -> std::io::Result<RawFd> {
         ));
     }
 
+    // SAFETY: `msg` was populated by `recvmsg`.
     let cmsg = unsafe { libc::CMSG_FIRSTHDR(&raw const msg) };
     if cmsg.is_null() {
         return Err(std::io::Error::other("missing cmsg in recvmsg"));
     }
 
+    // SAFETY: `cmsg` is non-null and within `cmsg_buf`.
     let level = unsafe { (*cmsg).cmsg_level };
+    // SAFETY: `cmsg` is non-null and within `cmsg_buf`.
     let ctype = unsafe { (*cmsg).cmsg_type };
     if level != libc::SOL_SOCKET || ctype != libc::SCM_RIGHTS {
         return Err(std::io::Error::other("unexpected cmsg type"));
     }
 
+    // SAFETY: `cmsg` is non-null and within `cmsg_buf`.
     let cmsg_len = unsafe { (*cmsg).cmsg_len };
+    // SAFETY: `CMSG_LEN` is a pure size calculation macro.
     let min_len = unsafe { libc::CMSG_LEN(std::mem::size_of::<RawFd>() as u32) as usize };
     if (cmsg_len as usize) < min_len {
         return Err(std::io::Error::other("truncated cmsg for SCM_RIGHTS"));
     }
 
     let mut fd: RawFd = -1;
-    // SAFETY: cmsg is valid, points to SCM_RIGHTS message with at least sizeof(RawFd) payload
+    // SAFETY: `cmsg` is valid and points to an SCM_RIGHTS message with at least `sizeof(RawFd)` bytes.
     unsafe {
         std::ptr::copy_nonoverlapping(
             libc::CMSG_DATA(cmsg),
@@ -184,17 +193,20 @@ pub fn send_fd(sock: RawFd, fd_to_send: RawFd) -> std::io::Result<()> {
         iov_len: 1,
     };
     let mut cmsg_buf = [0u8; 64];
+    // SAFETY: `libc::msghdr` is a plain C struct safe to zero-initialize.
     let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
     msg.msg_iov = &raw mut iov;
     msg.msg_iovlen = 1;
     msg.msg_control = cmsg_buf.as_mut_ptr().cast();
     msg.msg_controllen = cmsg_buf.len() as _;
 
+    // SAFETY: `msg` points to valid `cmsg_buf` of 64 bytes.
     let cmsg = unsafe { libc::CMSG_FIRSTHDR(&raw const msg) };
     if cmsg.is_null() {
         return Err(std::io::Error::other("failed to allocate cmsg header"));
     }
 
+    // SAFETY: `cmsg` points into `cmsg_buf` which is large enough for a single `RawFd` control message.
     unsafe {
         (*cmsg).cmsg_level = libc::SOL_SOCKET;
         (*cmsg).cmsg_type = libc::SCM_RIGHTS;
@@ -207,6 +219,7 @@ pub fn send_fd(sock: RawFd, fd_to_send: RawFd) -> std::io::Result<()> {
         msg.msg_controllen = (*cmsg).cmsg_len as _;
     }
 
+    // SAFETY: `msg` and its referenced buffers remain valid for the duration of `sendmsg`.
     let res = unsafe { libc::sendmsg(sock, &raw const msg, 0) };
     if res < 0 {
         return Err(std::io::Error::last_os_error());

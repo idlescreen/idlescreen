@@ -3,8 +3,6 @@
 
 //! Configuration persistence and daemon notification for the settings TUI.
 
-use std::fs;
-
 use super::model::TuiModel;
 use crate::daemon::config::{Config, resolve_config_dir};
 use crate::daemon::control_sock::ControlClient;
@@ -21,40 +19,36 @@ pub fn save_settings(model: &TuiModel) -> Result<String, String> {
     config.saver.ascii.text.clone_from(&model.custom_text);
     config.saver.ascii.dwell_secs = model.dwell_secs;
     config.general.idle_timeout_secs = model.idle_timeout_secs;
-    config.saver.active = Some("ascii".to_string());
-
-    let toml_str =
-        toml::to_string_pretty(&config).map_err(|e| format!("Failed to serialize TOML: {e}"))?;
-
-    fs::create_dir_all(&cfg_dir).map_err(|e| format!("Failed to create config dir: {e}"))?;
-
-    let tmp_path = cfg_dir.join(".config.toml.tmp");
-    if fs::write(&tmp_path, &toml_str).is_ok() && fs::rename(&tmp_path, &toml_path).is_ok() {
-        // Atomic rename succeeded
-    } else {
-        let _ = fs::remove_file(&tmp_path);
-        fs::write(&toml_path, toml_str)
-            .map_err(|e| format!("Failed to write {}: {e}", toml_path.display()))?;
+    if config.saver.active.is_none() {
+        config.saver.active = Some("ascii".to_string());
     }
 
-    // Notify daemon if running
+    config
+        .save_to_path(&toml_path)
+        .map_err(|e| format!("Failed to write {}: {e}", toml_path.display()))?;
+
     let mut notified = false;
     if let Ok(conn) = zbus::blocking::Connection::session()
         && let Ok(proxy) = crate::daemon::dbus::IdleClientProxyBlocking::new(&conn)
     {
         let _ = proxy.set_text_targets(&targets);
         let _ = proxy.set_text(&model.custom_text);
-        if proxy.set_saver("ascii").is_ok() {
+        let _ = proxy.set_timeout(model.idle_timeout_secs);
+        if let Some(ref active_saver) = config.saver.active
+            && proxy.set_saver(active_saver).is_ok()
+        {
             notified = true;
         }
     }
 
     if !notified
-        && let Ok(_resp) =
-            ControlClient::send_command(&format!("text_targets {}", targets.join(",")))
+        && ControlClient::send_command(&format!("text_targets {}", targets.join(","))).is_ok()
     {
         let _ = ControlClient::send_command(&format!("set_text {}", model.custom_text));
-        let _ = ControlClient::send_command("set ascii");
+        let _ = ControlClient::send_command(&format!("timeout {}", model.idle_timeout_secs));
+        if let Some(ref active_saver) = config.saver.active {
+            let _ = ControlClient::send_command(&format!("set {active_saver}"));
+        }
         notified = true;
     }
 

@@ -3,7 +3,11 @@
 set -e
 
 case "$1" in
-    purge|remove)
+    remove)
+        rmdir /usr/libexec/idlescreen /usr/share/idlescreen 2>/dev/null || true
+        rm -rf /run/user/*/idlescreen* /tmp/idlescreen* 2>/dev/null || true
+        ;;
+    purge)
         rm -f /etc/apt/sources.list.d/idlescreen.list 2>/dev/null || true
         rm -f /etc/apt/keyrings/idlescreen-keyring.gpg 2>/dev/null || true
         rm -rf /etc/xdg/idlescreen /etc/idlescreen /etc/idle 2>/dev/null || true

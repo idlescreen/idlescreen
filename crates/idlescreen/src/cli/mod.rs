@@ -4,8 +4,10 @@
 //! Command line interface subcommands and dispatcher.
 
 pub mod doctor;
+pub mod inhibitors;
 pub mod list;
 pub mod preview;
+pub mod service;
 pub mod set;
 pub mod status;
 pub mod text;
@@ -19,26 +21,23 @@ pub fn print_help() {
     println!("  idlescreen <command> [options]");
     println!();
     println!("Commands:");
-    println!(
-        "  daemon            Run event-driven screensaver daemon (or start idlescreen-daemon)"
-    );
-    println!("  status            Check active screensaver and daemon status");
+    println!("  daemon            Run event-driven screensaver daemon");
+    println!("  status [--json]   Check active screensaver and daemon status");
+    println!("  inhibitors        List active screensaver inhibitors (--json supported)");
     println!("  tui               Interactive settings dashboard for screensaver and timeouts");
-    println!("  preview [saver]   Preview screensaver in terminal (crossterm)");
-    println!(
-        "  text [targets]    Set or inspect ASCII text targets (e.g. fedora, os,de, idlescreen, status)"
-    );
+    println!("  preview [saver]   Preview screensaver on Wayland display or in terminal");
+    println!("  text [targets]    Set or inspect ASCII text targets (e.g. os, custom, status)");
     println!("  list              List available built-in and extras screensavers");
     println!("  set <saver>       Set active screensaver (e.g. ascii, storm, aurora)");
     println!("  start             Activate screensaver immediately");
     println!("  stop              Stop running screensaver");
     println!("  toggle            Toggle stay-awake standby (enable/disable idle service)");
-    println!("  enable            Enable and start IdleScreen service via systemd");
-    println!("  disable           Disable and stop IdleScreen service via systemd");
-    println!("  restart           Restart IdleScreen service via systemd");
+    println!("  enable            Enable and start IdleScreen service");
+    println!("  disable           Disable and stop IdleScreen service");
+    println!("  restart           Restart IdleScreen service");
     println!("  timeout [mins]    Get or set idle timeout in minutes");
     println!("  config            Show configuration path and active TOML settings");
-    println!("  doctor [options]  Run diagnostic check on display, sockets, and configuration");
+    println!("  doctor [options]  Run diagnostic check (--fix, --verbose, --json)");
     println!("  uninstall         Uninstall IdleScreen and clean up configuration");
     println!("  help              Show this help message");
     println!("  version           Show version information");
@@ -50,202 +49,36 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    let sub_args = if args.len() > 1 { &args[1..] } else { &[] };
     match args[0].as_str() {
         "daemon" => crate::daemon::run_daemon(),
-        "status" => {
-            let status_args = if args.len() > 1 { &args[1..] } else { &[] };
-            status::execute_args(status_args)
-        }
+        "status" => status::execute_args(sub_args),
+        "inhibitors" => inhibitors::execute_args(sub_args),
         "tui" | "ui" => crate::tui::run_tui(),
-        "preview" => {
-            let preview_args = if args.len() > 1 { &args[1..] } else { &[] };
-            preview::execute(preview_args)
-        }
-        "text" => {
-            let text_args = if args.len() > 1 { &args[1..] } else { &[] };
-            text::execute(text_args)
-        }
+        "preview" => preview::execute(sub_args),
+        "text" => text::execute(sub_args),
         "list" => list::execute(),
-        "set" => {
-            let saver = args.get(1).map(std::string::String::as_str);
-            set::execute(saver)
-        }
-        "saver" => match args.get(1).map(std::string::String::as_str) {
+        "set" => set::execute(args.get(1).map(String::as_str)),
+        "saver" => match args.get(1).map(String::as_str) {
             Some("list") => list::execute(),
-            Some("set") => {
-                let saver = args.get(2).map(std::string::String::as_str);
-                set::execute(saver)
-            }
+            Some("set") => set::execute(args.get(2).map(String::as_str)),
             _ => {
                 println!("Usage: idlescreen saver <list|set <name>>");
                 Ok(())
             }
         },
-        "start" => {
-            // Prefer our own bus name: on Hyprland/sway the generic
-            // org.freedesktop.ScreenSaver name is usually owned by hypridle
-            // or swayidle, which do not implement Lock for IdleScreen.
-            let started = zbus::blocking::Connection::session().is_ok_and(|conn| {
-                ["io.github.idlescreen.Idle", "org.freedesktop.ScreenSaver"]
-                    .iter()
-                    .any(|dest| {
-                        conn.call_method(
-                            Some(*dest),
-                            "/org/freedesktop/ScreenSaver",
-                            Some("org.freedesktop.ScreenSaver"),
-                            "Lock",
-                            &(),
-                        )
-                        .is_ok()
-                    })
-            });
-            if started {
-                println!("Daemon response: Activated screensaver (via D-Bus)");
-            } else if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
-                println!("Daemon not active; running interactive preview instead:");
-                let preview_args = if args.len() > 1 { &args[1..] } else { &[] };
-                preview::execute(preview_args)?;
-            } else {
-                eprintln!("idlescreen: daemon not reachable on D-Bus; screensaver not started");
-                std::process::exit(69);
-            }
-            Ok(())
-        }
-        "toggle" => {
-            let is_active = std::process::Command::new("systemctl")
-                .args(["--user", "is-active", "--quiet", "idlescreen.service"])
-                .status()
-                .is_ok_and(|s| s.success())
-                || std::process::Command::new("systemctl")
-                    .args(["--user", "is-active", "--quiet", "idle-daemon.service"])
-                    .status()
-                    .is_ok_and(|s| s.success());
-
-            if is_active {
-                let _ = std::process::Command::new("systemctl")
-                    .args(["--user", "disable", "--now", "idlescreen.service"])
-                    .status()
-                    .or_else(|_| {
-                        std::process::Command::new("systemctl")
-                            .args(["--user", "disable", "--now", "idle-daemon.service"])
-                            .status()
-                    });
-                println!("IdleScreen standby: Service disabled (stay-awake ON)");
-            } else {
-                let _ = std::process::Command::new("systemctl")
-                    .args(["--user", "enable", "--now", "idlescreen.service"])
-                    .status()
-                    .or_else(|_| {
-                        std::process::Command::new("systemctl")
-                            .args(["--user", "enable", "--now", "idle-daemon.service"])
-                            .status()
-                    });
-                println!("IdleScreen standby: Service enabled (idle monitoring ACTIVE)");
-            }
-            Ok(())
-        }
-        "enable" => {
-            let status = std::process::Command::new("systemctl")
-                .args(["--user", "enable", "--now", "idlescreen.service"])
-                .status()
-                .or_else(|_| {
-                    std::process::Command::new("systemctl")
-                        .args(["--user", "enable", "--now", "idle-daemon.service"])
-                        .status()
-                });
-            match status {
-                Ok(s) if s.success() => println!("IdleScreen service enabled and started."),
-                _ => println!("Configured systemd service enable command attempted."),
-            }
-            Ok(())
-        }
-        "disable" => {
-            let status = std::process::Command::new("systemctl")
-                .args(["--user", "disable", "--now", "idlescreen.service"])
-                .status()
-                .or_else(|_| {
-                    std::process::Command::new("systemctl")
-                        .args(["--user", "disable", "--now", "idle-daemon.service"])
-                        .status()
-                });
-            match status {
-                Ok(s) if s.success() => println!("IdleScreen service disabled and stopped."),
-                _ => println!("Configured systemd service disable command attempted."),
-            }
-            Ok(())
-        }
-        "restart" => {
-            let status = std::process::Command::new("systemctl")
-                .args(["--user", "restart", "idlescreen.service"])
-                .status()
-                .or_else(|_| {
-                    std::process::Command::new("systemctl")
-                        .args(["--user", "restart", "idle-daemon.service"])
-                        .status()
-                });
-            match status {
-                Ok(s) if s.success() => println!("IdleScreen service restarted."),
-                _ => println!("Configured systemd service restart command attempted."),
-            }
-            Ok(())
-        }
-        "timeout" => {
-            let arg = args.get(1).map(std::string::String::as_str);
-            handle_timeout(arg)
-        }
-        "config" => handle_config(),
-        "doctor" => {
-            let doctor_args = if args.len() > 1 { &args[1..] } else { &[] };
-            doctor::execute_args(doctor_args)
-        }
-        "stop" => {
-            let mut stopped = false;
-            if let Ok(conn) = zbus::blocking::Connection::session()
-                && let Ok(proxy) = crate::daemon::dbus::IdleClientProxyBlocking::new(&conn)
-                && proxy.stop().is_ok()
-            {
-                println!("Daemon response: Stopped active screensaver (via D-Bus)");
-                stopped = true;
-            }
-            if !stopped {
-                match ControlClient::send_command("stop") {
-                    Ok(resp) => println!("Daemon response: {resp}"),
-                    Err(e) => eprintln!("Failed to communicate with daemon: {e}"),
-                }
-            }
-            Ok(())
-        }
+        "start" => handle_start(sub_args),
+        "stop" => handle_stop(),
+        "toggle" => service::toggle_service(),
+        "enable" => service::enable_service(),
+        "disable" => service::disable_service(),
+        "restart" => service::restart_service(),
+        "timeout" => service::handle_timeout(args.get(1).map(String::as_str)),
+        "config" => service::handle_config(),
+        "doctor" => doctor::execute_args(sub_args),
+        "uninstall" | "remove" => service::handle_uninstall(),
         "version" | "--version" | "-V" => {
             println!("idlescreen {}", env!("CARGO_PKG_VERSION"));
-            Ok(())
-        }
-        "uninstall" | "remove" => {
-            println!("IdleScreen removal requested.");
-            let _ = std::process::Command::new("systemctl")
-                .args(["--user", "disable", "--now", "idlescreen.service"])
-                .status();
-            let _ = std::process::Command::new("systemctl")
-                .args(["--user", "disable", "--now", "idle-daemon.service"])
-                .status();
-
-            let remove_script =
-                std::path::Path::new("/usr/libexec/idlescreen/remove-product-stack");
-            if remove_script.exists() {
-                println!("Executing product stack uninstaller...");
-                let status = std::process::Command::new("sudo")
-                    .arg(remove_script)
-                    .status();
-                if let Ok(s) = status
-                    && s.success()
-                {
-                    println!("IdleScreen product stack and configuration removed successfully.");
-                }
-            } else {
-                println!("To complete removal, run your system package manager:");
-                println!("  Fedora/RHEL:   sudo dnf remove idlescreen");
-                println!("  Debian/Ubuntu: sudo apt remove idlescreen");
-                println!("  Arch Linux:    sudo pacman -R idlescreen");
-            }
             Ok(())
         }
         "help" | "--help" | "-h" => {
@@ -260,39 +93,50 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-fn handle_timeout(arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
-    let mut config = crate::daemon::config::Config::load_or_migrate();
-    if let Some(val_str) = arg {
-        let mins: u64 = val_str
-            .parse()
-            .map_err(|_| "Invalid number of minutes for timeout")?;
-        let secs = (mins * 60).clamp(30, 7200);
-        config.general.idle_timeout_secs = secs;
-        let cfg_dir = crate::daemon::config::resolve_config_dir();
-        let toml_path = cfg_dir.join("config.toml");
-        let toml_str = toml::to_string_pretty(&config)?;
-        let _ = std::fs::create_dir_all(&cfg_dir);
-        let _ = std::fs::write(&toml_path, toml_str);
-        println!("Idle timeout set to {mins} minute(s) ({secs}s).");
+fn handle_start(sub_args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let mut started = zbus::blocking::Connection::session().is_ok_and(|conn| {
+        ["io.github.idlescreen.Idle", "org.freedesktop.ScreenSaver"]
+            .iter()
+            .any(|dest| {
+                conn.call_method(
+                    Some(*dest),
+                    "/org/freedesktop/ScreenSaver",
+                    Some("org.freedesktop.ScreenSaver"),
+                    "Lock",
+                    &(),
+                )
+                .is_ok()
+            })
+    });
+    if !started && ControlClient::send_command("start").is_ok() {
+        started = true;
+    }
+    if started {
+        println!("Daemon response: Activated screensaver");
+    } else if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+        println!("Daemon not active; running interactive preview instead:");
+        preview::execute(sub_args)?;
     } else {
-        let secs = config.general.idle_timeout_secs;
-        let mins = secs / 60;
-        let rem = secs % 60;
-        println!("Current idle timeout: {mins}m {rem}s ({secs} seconds)");
+        eprintln!("idlescreen: daemon not reachable; screensaver not started");
+        std::process::exit(69);
     }
     Ok(())
 }
 
-fn handle_config() -> Result<(), Box<dyn std::error::Error>> {
-    let cfg_dir = crate::daemon::config::resolve_config_dir();
-    let toml_path = cfg_dir.join("config.toml");
-    println!("Config file: {}", toml_path.display());
-    if toml_path.exists() {
-        if let Ok(c) = std::fs::read_to_string(&toml_path) {
-            println!("\n{c}");
+fn handle_stop() -> Result<(), Box<dyn std::error::Error>> {
+    let mut stopped = false;
+    if let Ok(conn) = zbus::blocking::Connection::session()
+        && let Ok(proxy) = crate::daemon::dbus::IdleClientProxyBlocking::new(&conn)
+        && proxy.stop().is_ok()
+    {
+        println!("Daemon response: Stopped active screensaver (via D-Bus)");
+        stopped = true;
+    }
+    if !stopped {
+        match ControlClient::send_command("stop") {
+            Ok(resp) => println!("Daemon response: {resp}"),
+            Err(e) => eprintln!("Failed to communicate with daemon: {e}"),
         }
-    } else {
-        println!("(No active config.toml on disk; using defaults)");
     }
     Ok(())
 }

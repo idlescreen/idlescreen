@@ -7,6 +7,7 @@
 pub mod blit;
 pub mod dpms;
 pub mod fractional;
+pub mod glyph_font;
 pub mod presenter;
 pub mod surface;
 pub mod viewport;

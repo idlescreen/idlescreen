@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! Terminal screensaver preview using crossterm for headless and desktop sessions.
+//! Interactive terminal and fullscreen Wayland preview subcommand.
 
+pub mod ansi_out;
 pub mod options;
 pub mod render;
 pub mod term_guard;

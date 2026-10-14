@@ -1,0 +1,2605 @@
+{
+ "repo": "idlescreen",
+ "rev": "ade95c3",
+ "dirty": true,
+ "pages": [
+  {
+   "path": "./crates/idlescreen-cosmic/src/app/actions.rs",
+   "lines": 43,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/app/message.rs",
+   "lines": 27,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/app/mod.rs",
+   "lines": 78,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/app/state.rs",
+   "lines": 33,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/app/update.rs",
+   "lines": 208,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/app/update_tests.rs",
+   "lines": 40,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/app/view.rs",
+   "lines": 216,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/config.rs",
+   "lines": 247,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 5
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/config_tests.rs",
+   "lines": 84,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/daemon_client.rs",
+   "lines": 174,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/dbus_bridge.rs",
+   "lines": 126,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 4
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/i18n.rs",
+   "lines": 74,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-cosmic/src/main.rs",
+   "lines": 21,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/main.rs",
+   "lines": 89,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/protocol.rs",
+   "lines": 225,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/runner/color_rng.rs",
+   "lines": 161,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/runner/logo_block.rs",
+   "lines": 112,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/runner/mod.rs",
+   "lines": 191,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/runner/sys_info.rs",
+   "lines": 173,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 11
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/aurora/aurora_tests.rs",
+   "lines": 97,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/aurora/draw.rs",
+   "lines": 190,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/aurora/mod.rs",
+   "lines": 229,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/aurora/sky.rs",
+   "lines": 124,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/aurora/types.rs",
+   "lines": 32,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/beams_tests/behavior.rs",
+   "lines": 88,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/beams_tests/lifecycle.rs",
+   "lines": 33,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/beams_tests/light.rs",
+   "lines": 124,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/beams_tests/math_proptest.rs",
+   "lines": 98,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/beams_tests/mod.rs",
+   "lines": 24,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/light.rs",
+   "lines": 222,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 6
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/mod.rs",
+   "lines": 255,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/pacing.rs",
+   "lines": 34,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/physics/advection.rs",
+   "lines": 103,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/physics/mod.rs",
+   "lines": 8,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/physics/motion.rs",
+   "lines": 71,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/physics/simulation.rs",
+   "lines": 244,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/physics/star.rs",
+   "lines": 158,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/sys.rs",
+   "lines": 41,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/beams/types.rs",
+   "lines": 158,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 8
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/bursts/bursts_tests.rs",
+   "lines": 96,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/bursts/drawing.rs",
+   "lines": 229,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/bursts/draw.rs",
+   "lines": 213,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/bursts/mod.rs",
+   "lines": 165,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/bursts/physics.rs",
+   "lines": 223,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/bursts/physics_tests.rs",
+   "lines": 139,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/bursts/types.rs",
+   "lines": 58,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 6
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/bursts/update/mod.rs",
+   "lines": 78,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/bursts/update/particles.rs",
+   "lines": 68,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/bursts/update/rockets.rs",
+   "lines": 248,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/chaos/chaos_tests.rs",
+   "lines": 133,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/chaos/draw/effects.rs",
+   "lines": 101,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/chaos/draw/mod.rs",
+   "lines": 139,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/chaos/draw/spike.rs",
+   "lines": 28,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/chaos/draw/stars.rs",
+   "lines": 203,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/chaos/mod.rs",
+   "lines": 122,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/chaos/physics.rs",
+   "lines": 177,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/chaos/screensaver_impl.rs",
+   "lines": 222,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/chaos/types.rs",
+   "lines": 53,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/chaos/update_chaos.rs",
+   "lines": 209,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/cosmos_tests.rs",
+   "lines": 207,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/mod.rs",
+   "lines": 201,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/bounds.rs",
+   "lines": 45,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/drift.rs",
+   "lines": 133,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/history.rs",
+   "lines": 39,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 5
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/logo.rs",
+   "lines": 115,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/merges.rs",
+   "lines": 181,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/particle_cap.rs",
+   "lines": 27,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics.rs",
+   "lines": 85,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 15
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/states/accretion.rs",
+   "lines": 62,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/states/big_bang.rs",
+   "lines": 108,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/states/darkness.rs",
+   "lines": 37,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/states/mod.rs",
+   "lines": 46,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/states/singularity.rs",
+   "lines": 69,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/stellar/accretion.rs",
+   "lines": 87,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/stellar/collapse.rs",
+   "lines": 59,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/stellar/expansion.rs",
+   "lines": 51,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/stellar/gravitation.rs",
+   "lines": 204,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/stellar/ignition.rs",
+   "lines": 111,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/stellar/mod.rs",
+   "lines": 8,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/stellar/singularity.rs",
+   "lines": 102,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/physics/update.rs",
+   "lines": 217,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/render/big_bang_shell.rs",
+   "lines": 80,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/render/black_hole_disk.rs",
+   "lines": 95,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/render/grav_wave.rs",
+   "lines": 86,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/render/life.rs",
+   "lines": 189,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/render/mod.rs",
+   "lines": 22,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/render/particles.rs",
+   "lines": 80,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/render/seeds.rs",
+   "lines": 43,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/render/star_corona.rs",
+   "lines": 168,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/cosmos/types.rs",
+   "lines": 54,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 15
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/glyphs/draw.rs",
+   "lines": 80,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/glyphs/glyphs_tests.rs",
+   "lines": 153,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/glyphs/mod.rs",
+   "lines": 120,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/glyphs/physics.rs",
+   "lines": 70,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/glyphs/screensaver_impl.rs",
+   "lines": 111,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/gnats/mod.rs",
+   "lines": 239,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/gnats/mod_tests.rs",
+   "lines": 27,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/gnats/physics/forces.rs",
+   "lines": 112,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/gnats/physics/mod.rs",
+   "lines": 9,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/gnats/physics/simulation.rs",
+   "lines": 189,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/gnats/physics/tests.rs",
+   "lines": 147,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/gnats/pop.rs",
+   "lines": 45,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/gnats/population.rs",
+   "lines": 111,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/gnats/render_effects.rs",
+   "lines": 196,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/gnats/render.rs",
+   "lines": 243,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/gnats/types.rs",
+   "lines": 39,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 5
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/hearth/background.rs",
+   "lines": 149,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/hearth/draw.rs",
+   "lines": 142,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/hearth/fx.rs",
+   "lines": 140,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/hearth/hearth_tests.rs",
+   "lines": 63,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/hearth/mod.rs",
+   "lines": 247,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/hearth/particles.rs",
+   "lines": 141,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/hearth/setup.rs",
+   "lines": 74,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/hearth/types.rs",
+   "lines": 36,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 5
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/mod.rs",
+   "lines": 62,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/radar/blips.rs",
+   "lines": 162,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/radar/draw_hud.rs",
+   "lines": 223,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/radar/draw.rs",
+   "lines": 244,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/radar/mod.rs",
+   "lines": 181,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/radar/physics/collision.rs",
+   "lines": 246,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/radar/physics/jets.rs",
+   "lines": 118,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/radar/physics/mod.rs",
+   "lines": 9,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/radar/physics/particles.rs",
+   "lines": 79,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/radar/physics/physics.rs",
+   "lines": 249,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/radar/radar_tests.rs",
+   "lines": 103,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/radar/types.rs",
+   "lines": 60,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 8
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/ripple/draw.rs",
+   "lines": 244,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/ripple/mod.rs",
+   "lines": 47,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/ripple/physics/mod.rs",
+   "lines": 145,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/ripple/physics/physics_tests.rs",
+   "lines": 61,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/ripple/physics/update.rs",
+   "lines": 142,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/ripple/ripple.rs",
+   "lines": 146,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 5
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/ripple/ripple_tests.rs",
+   "lines": 92,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/ripple/screensaver_impl.rs",
+   "lines": 154,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/ripple/types.rs",
+   "lines": 133,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 8
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/draw/entities.rs",
+   "lines": 240,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/draw/mod.rs",
+   "lines": 109,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/draw/rain_lightning.rs",
+   "lines": 140,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/draw/scenery.rs",
+   "lines": 184,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/mod.rs",
+   "lines": 90,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/physics/animals.rs",
+   "lines": 124,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/physics/bird.rs",
+   "lines": 144,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/physics/drops.rs",
+   "lines": 227,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/physics/lightning.rs",
+   "lines": 224,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/physics/puddle.rs",
+   "lines": 37,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/physics.rs",
+   "lines": 129,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/physics/scenery.rs",
+   "lines": 168,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/screensaver_impl.rs",
+   "lines": 97,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/storm.rs",
+   "lines": 155,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 14
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/storm_tests.rs",
+   "lines": 83,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/savers/storm/types.rs",
+   "lines": 79,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 8
+  },
+  {
+   "path": "./crates/idlescreen-extras/src/server.rs",
+   "lines": 158,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/draw/ansi.rs",
+   "lines": 170,
+   "bin_bytes": 6630,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/draw/mod.rs",
+   "lines": 239,
+   "bin_bytes": 5447,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/draw/post_fx.rs",
+   "lines": 213,
+   "bin_bytes": 6789,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/effects.rs",
+   "lines": 242,
+   "bin_bytes": 2760,
+   "heat_pct": null,
+   "reach": 12
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/engine.rs",
+   "lines": 78,
+   "bin_bytes": 2464,
+   "heat_pct": null,
+   "reach": 45
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/layout/cache.rs",
+   "lines": 73,
+   "bin_bytes": 2397,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/layout/fonts.rs",
+   "lines": 222,
+   "bin_bytes": 16182,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/layout/mod.rs",
+   "lines": 252,
+   "bin_bytes": 14421,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/mod.rs",
+   "lines": 230,
+   "bin_bytes": 5720,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/runtime.rs",
+   "lines": 249,
+   "bin_bytes": 11055,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/beams/beams_sim.rs",
+   "lines": 85,
+   "bin_bytes": 2332,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/beams/beams_step.rs",
+   "lines": 246,
+   "bin_bytes": 12709,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/beams/mod.rs",
+   "lines": 200,
+   "bin_bytes": 34124,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/highlight.rs",
+   "lines": 227,
+   "bin_bytes": 22257,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/laseretch/laseretch_sim.rs",
+   "lines": 223,
+   "bin_bytes": 12663,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/laseretch/laseretch_step.rs",
+   "lines": 189,
+   "bin_bytes": 9947,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/laseretch/mod.rs",
+   "lines": 160,
+   "bin_bytes": 28002,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/mod.rs",
+   "lines": 11,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/rings/mod.rs",
+   "lines": 171,
+   "bin_bytes": 25332,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/rings/rings_build.rs",
+   "lines": 147,
+   "bin_bytes": 5428,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/rings/rings_sim.rs",
+   "lines": 189,
+   "bin_bytes": 10243,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/rings/rings_step.rs",
+   "lines": 233,
+   "bin_bytes": 11973,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/spotlights/mod.rs",
+   "lines": 225,
+   "bin_bytes": 25939,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/spotlights/spotlights_step.rs",
+   "lines": 252,
+   "bin_bytes": 9846,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/synthgrid/mod.rs",
+   "lines": 168,
+   "bin_bytes": 24834,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/synthgrid/synthgrid_build.rs",
+   "lines": 93,
+   "bin_bytes": 2684,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/synthgrid/synthgrid_sim.rs",
+   "lines": 242,
+   "bin_bytes": 14054,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/beams_light/synthgrid/synthgrid_step.rs",
+   "lines": 123,
+   "bin_bytes": 4613,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/canvas_ops.rs",
+   "lines": 213,
+   "bin_bytes": 13622,
+   "heat_pct": null,
+   "reach": 39
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/binarypath/binarypath_sim.rs",
+   "lines": 207,
+   "bin_bytes": 8493,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/binarypath/binarypath_step.rs",
+   "lines": 194,
+   "bin_bytes": 9899,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/binarypath/mod.rs",
+   "lines": 125,
+   "bin_bytes": 16020,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/decrypt/decrypt_step.rs",
+   "lines": 206,
+   "bin_bytes": 8138,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/decrypt/mod.rs",
+   "lines": 238,
+   "bin_bytes": 20797,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/errorcorrect/errorcorrect_sim.rs",
+   "lines": 178,
+   "bin_bytes": 8182,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/errorcorrect/errorcorrect_step.rs",
+   "lines": 242,
+   "bin_bytes": 13860,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/errorcorrect/mod.rs",
+   "lines": 141,
+   "bin_bytes": 23097,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/matrix/matrix_build.rs",
+   "lines": 154,
+   "bin_bytes": 5024,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/matrix/matrix_sim.rs",
+   "lines": 201,
+   "bin_bytes": 9635,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/matrix/matrix_step.rs",
+   "lines": 247,
+   "bin_bytes": 6300,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/matrix/mod.rs",
+   "lines": 155,
+   "bin_bytes": 34656,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/mod.rs",
+   "lines": 12,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/print_effect/mod.rs",
+   "lines": 95,
+   "bin_bytes": 14971,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/print_effect/print_effect_sim.rs",
+   "lines": 202,
+   "bin_bytes": 6613,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/print_effect/print_effect_step.rs",
+   "lines": 183,
+   "bin_bytes": 9489,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/random_sequence.rs",
+   "lines": 246,
+   "bin_bytes": 21864,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/vhstape/mod.rs",
+   "lines": 127,
+   "bin_bytes": 23461,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/vhstape/vhstape_build.rs",
+   "lines": 188,
+   "bin_bytes": 7331,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/vhstape/vhstape_sim.rs",
+   "lines": 175,
+   "bin_bytes": 6027,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/vhstape/vhstape_step.rs",
+   "lines": 230,
+   "bin_bytes": 14473,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/mod.rs",
+   "lines": 68,
+   "bin_bytes": 6552,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/colorshift/colorshift_step.rs",
+   "lines": 212,
+   "bin_bytes": 11151,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/colorshift/mod.rs",
+   "lines": 113,
+   "bin_bytes": 30887,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/expand.rs",
+   "lines": 250,
+   "bin_bytes": 21429,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/middleout/middleout_step.rs",
+   "lines": 227,
+   "bin_bytes": 10540,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/middleout/mod.rs",
+   "lines": 118,
+   "bin_bytes": 21390,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/mod.rs",
+   "lines": 12,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/slice/mod.rs",
+   "lines": 77,
+   "bin_bytes": 15165,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/slice/slice_step.rs",
+   "lines": 254,
+   "bin_bytes": 20366,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/slide/mod.rs",
+   "lines": 117,
+   "bin_bytes": 25493,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/slide/slide_step.rs",
+   "lines": 256,
+   "bin_bytes": 12759,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/sweep/mod.rs",
+   "lines": 88,
+   "bin_bytes": 14617,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/sweep/sweep_step.rs",
+   "lines": 233,
+   "bin_bytes": 11072,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/motion_wipe/wipe.rs",
+   "lines": 226,
+   "bin_bytes": 24926,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/bubbles/bubbles_sim.rs",
+   "lines": 248,
+   "bin_bytes": 14447,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/bubbles/bubbles_step.rs",
+   "lines": 239,
+   "bin_bytes": 11482,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/bubbles/mod.rs",
+   "lines": 110,
+   "bin_bytes": 24756,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/burn/burn_step.rs",
+   "lines": 207,
+   "bin_bytes": 12697,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/burn/mod.rs",
+   "lines": 232,
+   "bin_bytes": 19684,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/crumble/crumble_sim.rs",
+   "lines": 255,
+   "bin_bytes": 11341,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/crumble/crumble_step.rs",
+   "lines": 222,
+   "bin_bytes": 12984,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/crumble/mod.rs",
+   "lines": 89,
+   "bin_bytes": 8141,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/fireworks/fireworks_step.rs",
+   "lines": 245,
+   "bin_bytes": 13268,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/fireworks/mod.rs",
+   "lines": 225,
+   "bin_bytes": 32133,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/mod.rs",
+   "lines": 11,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/pour/mod.rs",
+   "lines": 119,
+   "bin_bytes": 24848,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/pour/pour_step.rs",
+   "lines": 221,
+   "bin_bytes": 10733,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/smoke/mod.rs",
+   "lines": 92,
+   "bin_bytes": 17738,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/smoke/smoke_step.rs",
+   "lines": 236,
+   "bin_bytes": 12238,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/blackhole/blackhole_build.rs",
+   "lines": 188,
+   "bin_bytes": 10728,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/blackhole/blackhole_fx.rs",
+   "lines": 120,
+   "bin_bytes": 3815,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/blackhole/blackhole_sim.rs",
+   "lines": 98,
+   "bin_bytes": 6347,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/blackhole/blackhole_step.rs",
+   "lines": 216,
+   "bin_bytes": 13422,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/blackhole/mod.rs",
+   "lines": 95,
+   "bin_bytes": 12756,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/bouncyballs/bouncyballs_step.rs",
+   "lines": 216,
+   "bin_bytes": 11454,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/bouncyballs/mod.rs",
+   "lines": 92,
+   "bin_bytes": 20192,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/mod.rs",
+   "lines": 12,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/orbittingvolley/mod.rs",
+   "lines": 229,
+   "bin_bytes": 35421,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/orbittingvolley/orbittingvolley_step.rs",
+   "lines": 254,
+   "bin_bytes": 11592,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/overflow/mod.rs",
+   "lines": 128,
+   "bin_bytes": 15952,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/overflow/overflow_step.rs",
+   "lines": 208,
+   "bin_bytes": 9202,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/scattered.rs",
+   "lines": 239,
+   "bin_bytes": 23066,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/swarm/mod.rs",
+   "lines": 130,
+   "bin_bytes": 21023,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/swarm/swarm_build.rs",
+   "lines": 62,
+   "bin_bytes": 2700,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/swarm/swarm_sim.rs",
+   "lines": 253,
+   "bin_bytes": 15977,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/swarm/swarm_step.rs",
+   "lines": 146,
+   "bin_bytes": 7181,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/unstable/mod.rs",
+   "lines": 114,
+   "bin_bytes": 19527,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/unstable/unstable_build.rs",
+   "lines": 17,
+   "bin_bytes": 96,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/unstable/unstable_sim.rs",
+   "lines": 256,
+   "bin_bytes": 12584,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/physics_fields/unstable/unstable_step.rs",
+   "lines": 203,
+   "bin_bytes": 9764,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/mod.rs",
+   "lines": 9,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/rain/mod.rs",
+   "lines": 86,
+   "bin_bytes": 17501,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/rain/rain_step.rs",
+   "lines": 223,
+   "bin_bytes": 11632,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/spray/mod.rs",
+   "lines": 116,
+   "bin_bytes": 17279,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/spray/spray_step.rs",
+   "lines": 185,
+   "bin_bytes": 9057,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/thunderstorm/mod.rs",
+   "lines": 237,
+   "bin_bytes": 32694,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/thunderstorm/thunderstorm_build.rs",
+   "lines": 249,
+   "bin_bytes": 11161,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/thunderstorm/thunderstorm_fx.rs",
+   "lines": 178,
+   "bin_bytes": 6498,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/thunderstorm/thunderstorm_sim.rs",
+   "lines": 256,
+   "bin_bytes": 8903,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/thunderstorm/thunderstorm_step.rs",
+   "lines": 236,
+   "bin_bytes": 8509,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/waves/mod.rs",
+   "lines": 108,
+   "bin_bytes": 25466,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/waves/waves_step.rs",
+   "lines": 232,
+   "bin_bytes": 11943,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/state.rs",
+   "lines": 250,
+   "bin_bytes": 8734,
+   "heat_pct": null,
+   "reach": 7
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/sys_info/de_telemetry.rs",
+   "lines": 180,
+   "bin_bytes": 9252,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/sys_info/mod.rs",
+   "lines": 252,
+   "bin_bytes": 16785,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/tests/art_tests.rs",
+   "lines": 169,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/tests/ascii_tests.rs",
+   "lines": 239,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/tests/mod.rs",
+   "lines": 11,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/tests/paint_tests.rs",
+   "lines": 23,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/tests/scene_tests.rs",
+   "lines": 148,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/tests/superfedora_tests.rs",
+   "lines": 253,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/tests/transition_tests.rs",
+   "lines": 25,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/unicode.rs",
+   "lines": 72,
+   "bin_bytes": 2262,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/cell.rs",
+   "lines": 96,
+   "bin_bytes": 1754,
+   "heat_pct": null,
+   "reach": 26
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/doctor/fix.rs",
+   "lines": 65,
+   "bin_bytes": 3671,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/doctor/inspect.rs",
+   "lines": 238,
+   "bin_bytes": 12332,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/doctor/mod.rs",
+   "lines": 39,
+   "bin_bytes": 763,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/doctor/tests.rs",
+   "lines": 79,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/doctor/view.rs",
+   "lines": 254,
+   "bin_bytes": 12254,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/inhibitors.rs",
+   "lines": 53,
+   "bin_bytes": 4487,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/list.rs",
+   "lines": 38,
+   "bin_bytes": 1491,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/mod.rs",
+   "lines": 142,
+   "bin_bytes": 5102,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/preview/ansi_out.rs",
+   "lines": 77,
+   "bin_bytes": 3077,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/preview/mod.rs",
+   "lines": 14,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/preview/options.rs",
+   "lines": 195,
+   "bin_bytes": 6598,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/preview/render.rs",
+   "lines": 231,
+   "bin_bytes": 9375,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/preview/term_guard.rs",
+   "lines": 63,
+   "bin_bytes": 716,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/preview/tests.rs",
+   "lines": 31,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/service.rs",
+   "lines": 230,
+   "bin_bytes": 11340,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/set.rs",
+   "lines": 105,
+   "bin_bytes": 4293,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/status.rs",
+   "lines": 97,
+   "bin_bytes": 5624,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/cli/text.rs",
+   "lines": 124,
+   "bin_bytes": 10154,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/config.rs",
+   "lines": 249,
+   "bin_bytes": 73576,
+   "heat_pct": null,
+   "reach": 15
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/control_sock.rs",
+   "lines": 246,
+   "bin_bytes": 6817,
+   "heat_pct": null,
+   "reach": 11
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/dbus.rs",
+   "lines": 240,
+   "bin_bytes": 96538,
+   "heat_pct": null,
+   "reach": 15
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/mod.rs",
+   "lines": 236,
+   "bin_bytes": 10855,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/notify.rs",
+   "lines": 145,
+   "bin_bytes": 2875,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/pidfile.rs",
+   "lines": 173,
+   "bin_bytes": 4266,
+   "heat_pct": null,
+   "reach": 4
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/reactor.rs",
+   "lines": 253,
+   "bin_bytes": 3570,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/state.rs",
+   "lines": 237,
+   "bin_bytes": 12373,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/watchers/mod.rs",
+   "lines": 130,
+   "bin_bytes": 394,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/watchers/mutter.rs",
+   "lines": 149,
+   "bin_bytes": 14094,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/watchers/session.rs",
+   "lines": 131,
+   "bin_bytes": 12112,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/watchers/wayland_idle.rs",
+   "lines": 223,
+   "bin_bytes": 5999,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/extras_ipc/breaker.rs",
+   "lines": 114,
+   "bin_bytes": 1450,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen/src/extras_ipc/client.rs",
+   "lines": 251,
+   "bin_bytes": 6995,
+   "heat_pct": null,
+   "reach": 7
+  },
+  {
+   "path": "./crates/idlescreen/src/extras_ipc/mod.rs",
+   "lines": 18,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/extras_ipc/pidfd.rs",
+   "lines": 105,
+   "bin_bytes": 977,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/extras_ipc/protocol.rs",
+   "lines": 228,
+   "bin_bytes": 5445,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/extras_ipc/resolve.rs",
+   "lines": 121,
+   "bin_bytes": 3864,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/extras_ipc/shm.rs",
+   "lines": 102,
+   "bin_bytes": 984,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/lib.rs",
+   "lines": 14,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/main.rs",
+   "lines": 27,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/tui/input.rs",
+   "lines": 157,
+   "bin_bytes": 1608,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/tui/mode_choice.rs",
+   "lines": 72,
+   "bin_bytes": 1354,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/tui/model.rs",
+   "lines": 252,
+   "bin_bytes": 8763,
+   "heat_pct": null,
+   "reach": 5
+  },
+  {
+   "path": "./crates/idlescreen/src/tui/mod.rs",
+   "lines": 84,
+   "bin_bytes": 4042,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/tui/save.rs",
+   "lines": 62,
+   "bin_bytes": 5022,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/tui/tests.rs",
+   "lines": 198,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/tui/view.rs",
+   "lines": 224,
+   "bin_bytes": 8475,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/blit.rs",
+   "lines": 189,
+   "bin_bytes": 5951,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/dpms.rs",
+   "lines": 91,
+   "bin_bytes": 331,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/fractional.rs",
+   "lines": 49,
+   "bin_bytes": 177,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/glyph_font.rs",
+   "lines": 104,
+   "bin_bytes": 2750,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/mod.rs",
+   "lines": 20,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/presenter/daemon_run.rs",
+   "lines": 197,
+   "bin_bytes": 10907,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/presenter/frame_step.rs",
+   "lines": 221,
+   "bin_bytes": 7138,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/presenter/input_tests.rs",
+   "lines": 228,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/presenter/mod.rs",
+   "lines": 168,
+   "bin_bytes": 3518,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/presenter/preview_run.rs",
+   "lines": 136,
+   "bin_bytes": 6702,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/presenter/shm_buf.rs",
+   "lines": 146,
+   "bin_bytes": 3349,
+   "heat_pct": null,
+   "reach": 4
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/presenter/wl_dispatch.rs",
+   "lines": 205,
+   "bin_bytes": 7821,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/presenter/wl_state.rs",
+   "lines": 242,
+   "bin_bytes": 10363,
+   "heat_pct": null,
+   "reach": 5
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/surface.rs",
+   "lines": 206,
+   "bin_bytes": 1744,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/viewport.rs",
+   "lines": 49,
+   "bin_bytes": 400,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./tests/e2e/src/harness/env_mock.rs",
+   "lines": 109,
+   "bin_bytes": 3238,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./tests/e2e/src/harness/mod.rs",
+   "lines": 17,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/harness/notify_probe.rs",
+   "lines": 116,
+   "bin_bytes": 2922,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./tests/e2e/src/harness/stat_probe.rs",
+   "lines": 82,
+   "bin_bytes": 2025,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./tests/e2e/src/harness/syslog_probe.rs",
+   "lines": 130,
+   "bin_bytes": 3756,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./tests/e2e/src/lib.rs",
+   "lines": 26,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/main.rs",
+   "lines": 29,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier1_features/mod.rs",
+   "lines": 20,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier1_features/t1_cgroup_cpu.rs",
+   "lines": 94,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier1_features/t1_init_detect.rs",
+   "lines": 85,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier1_features/t1_logging.rs",
+   "lines": 96,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier1_features/t1_readiness.rs",
+   "lines": 83,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier1_features/t1_templates_pkg.rs",
+   "lines": 102,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier1_features/t1_watchdog_clock.rs",
+   "lines": 129,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier2_boundaries/mod.rs",
+   "lines": 19,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier2_boundaries/t2_cgroup_bounds.rs",
+   "lines": 57,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier2_boundaries/t2_init_bounds.rs",
+   "lines": 82,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier2_boundaries/t2_logging_bounds.rs",
+   "lines": 80,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier2_boundaries/t2_package_bounds.rs",
+   "lines": 84,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier2_boundaries/t2_readiness_bounds.rs",
+   "lines": 69,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier2_boundaries/t2_watchdog_bounds.rs",
+   "lines": 98,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier3_combinations/mod.rs",
+   "lines": 17,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier3_combinations/t3_init_readiness.rs",
+   "lines": 62,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier3_combinations/t3_logging_fallback.rs",
+   "lines": 64,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier3_combinations/t3_package_lifecycle.rs",
+   "lines": 49,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier3_combinations/t3_standalone_budget.rs",
+   "lines": 49,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier3_combinations/t3_suspend_watchdog.rs",
+   "lines": 81,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier4_scenarios/mod.rs",
+   "lines": 19,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier4_scenarios/t4_container_fallback.rs",
+   "lines": 37,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier4_scenarios/t4_install_non_systemd.rs",
+   "lines": 55,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier4_scenarios/t4_openrc_workflow.rs",
+   "lines": 37,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier4_scenarios/t4_s6_workflow.rs",
+   "lines": 40,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier4_scenarios/t4_suspend_resume_cycle.rs",
+   "lines": 38,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./tests/e2e/src/tier4_scenarios/t4_systemd_workflow.rs",
+   "lines": 30,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  }
+ ],
+ "notes": "reach counts referencing files (shared file names qualified by ancestor dir); bin_bytes from newest workspace dev rlib per crate via nm (inlining approx, bins re-link the same code; shims excluded, foreign paths never attributed);"
+}

@@ -3,6 +3,7 @@
 
 //! Diagnostic doctor checking display session, daemon status, configuration, and permissions.
 
+pub mod fix;
 pub mod inspect;
 #[cfg(test)]
 mod tests;
@@ -18,6 +19,9 @@ pub fn execute_args(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     if args.iter().any(|a| a == "-h" || a == "--help") {
         view::print_help();
         return Ok(());
+    }
+    if args.iter().any(|a| a == "--fix") {
+        return fix::run_doctor_fix();
     }
 
     let report = collect_diagnostics();

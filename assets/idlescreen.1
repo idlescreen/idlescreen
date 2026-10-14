@@ -1,4 +1,4 @@
-.TH IDLESCREEN 1 "October 2026" "idlescreen 4.1.28" "User Commands"
+.TH IDLESCREEN 1 "October 2026" "idlescreen 4.2.0" "User Commands"
 .SH NAME
 idlescreen \- IdleScreen standalone screensaver and idle management suite
 .SH SYNOPSIS
@@ -9,33 +9,45 @@ idlescreen \- IdleScreen standalone screensaver and idle management suite
 [\fIOPTIONS\fR]
 .SH DESCRIPTION
 \fBidlescreen\fR is a unified idle management and screensaver suite for Linux Wayland sessions.
-It features a zero-CPU event-driven daemon, built-in dynamic ASCII screensaver, and an optional
-library of mathematical screensavers via \fBidlescreen-extras\fR.
+It features a zero-CPU event-driven daemon, built-in dynamic ASCII screensaver (37 effects),
+and an optional library of 11 mathematical screensavers via \fBidlescreen-extras\fR.
 .SH SUBCOMMANDS
 .TP
 .B daemon
 Start the IdleScreen background daemon.
 .TP
-.B status
+.B status [\-\-json]
 Query daemon state, active inhibitors, and current display status.
 .TP
 .B preview [\fISAVER\fR]
 Preview a screensaver effect immediately in fullscreen or terminal TUI.
 .TP
-.B list
+.B list [\-\-json]
 List all available screensavers (built-in and installed extras).
 .TP
 .B set \fISAVER\fR
 Set the default screensaver in configuration.
 .TP
+.B text [\fITEXT\fR | \-\-clear]
+Set or clear custom banner text for the ASCII screensaver.
+.TP
+.B start
+Activate the configured screensaver immediately.
+.TP
 .B stop
 Deactivate the currently running screensaver.
 .TP
-.B inhibit [\fIOPTIONS\fR]
+.B inhibit [\fIOPTIONS\fR] [\-\- \fICOMMAND\fR...]
 Inhibit screensaver activation while a task executes.
 .TP
-.B doctor [\fIOPTIONS\fR]
-Perform system diagnostics and Wayland checks. Supports \fB\-\-verbose\fR and \fB\-\-json\fR.
+.B inhibitors [\-\-json]
+Inspect active idle inhibitors holding back screensaver activation.
+.TP
+.B service install [\-\-init \fISYSTEM\fR]
+Generate and install a user-level service definition for systemd, OpenRC, runit, s6, dinit, or XDG autostart.
+.TP
+.B doctor [\-\-verbose] [\-\-json] [\-\-fix]
+Perform system diagnostics, Wayland checks, and optional auto-remediation (\fB\-\-fix\fR).
 .SH CONFIGURATION
 Configuration is stored in \fB~/.config/idlescreen/config.toml\fR.
 .SH SEE ALSO

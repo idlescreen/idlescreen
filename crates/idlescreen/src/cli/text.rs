@@ -6,7 +6,6 @@
 use crate::ascii::state::TriRotationState;
 use crate::daemon::config::{Config, parse_targets_from_mode, resolve_config_dir};
 use crate::daemon::control_sock::ControlClient;
-use std::fs;
 
 pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::load_or_migrate();
@@ -42,7 +41,6 @@ pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut notified_via = None;
 
-    // 1. Try D-Bus first
     if let Ok(conn) = zbus::blocking::Connection::session()
         && let Ok(proxy) = crate::daemon::dbus::IdleClientProxyBlocking::new(&conn)
         && proxy.set_text_targets(&raw_targets).is_ok()
@@ -50,36 +48,21 @@ pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         notified_via = Some("D-Bus");
     }
 
-    // 2. Control socket fallback
     if notified_via.is_none() {
         let cmd = format!("text_targets {}", raw_targets.join(","));
-        if let Ok(_resp) = ControlClient::send_command(&cmd) {
+        if ControlClient::send_command(&cmd).is_ok() {
             notified_via = Some("control socket");
         }
     }
 
-    // 3. Persist to config.toml
-    let cfg_dir = resolve_config_dir();
-    let toml_path = cfg_dir.join("config.toml");
+    let toml_path = resolve_config_dir().join("config.toml");
     config.saver.ascii.targets.clone_from(&raw_targets);
     config.saver.ascii.mode = raw_targets.join(",");
-    config.saver.active = Some("ascii".to_string());
-
-    let mut write_err = None;
-    if let Err(e) = fs::create_dir_all(&cfg_dir) {
-        write_err = Some(e.to_string());
-    } else {
-        match toml::to_string_pretty(&config) {
-            Ok(toml_str) => {
-                if let Err(e) = fs::write(&toml_path, toml_str) {
-                    write_err = Some(e.to_string());
-                }
-            }
-            Err(e) => {
-                write_err = Some(e.to_string());
-            }
-        }
+    if config.saver.active.is_none() {
+        config.saver.active = Some("ascii".to_string());
     }
+
+    let write_err = config.save_to_path(&toml_path).err().map(|e| e.to_string());
 
     let note = match (notified_via, write_err.as_ref()) {
         (Some(via), None) => format!(" (daemon updated via {via})"),

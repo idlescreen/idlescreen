@@ -1,70 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! State model and business logic for the settings TUI with multi-select target support.
+//! State model and business logic for the settings TUI with OS-only default and UTF-8 safe editing.
 
+pub use super::mode_choice::{ModeChoice, TOTAL_FIELDS, TuiField, char_to_byte_idx};
 use crate::ascii::sys_info::{detect_desktop_env, detect_kernel_version, detect_os_name};
 use crate::daemon::config::Config;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ModeChoice {
-    HostOs,
-    DesktopEnv,
-    Kernel,
-    Wordmark,
-    CustomText,
-}
-
-impl ModeChoice {
-    pub const ALL: [ModeChoice; 5] = [
-        ModeChoice::HostOs,
-        ModeChoice::DesktopEnv,
-        ModeChoice::Kernel,
-        ModeChoice::Wordmark,
-        ModeChoice::CustomText,
-    ];
-
-    pub fn to_config_str(self) -> &'static str {
-        match self {
-            ModeChoice::HostOs => "os",
-            ModeChoice::DesktopEnv => "de",
-            ModeChoice::Kernel => "kernel",
-            ModeChoice::Wordmark => "idlescreen",
-            ModeChoice::CustomText => "custom",
-        }
-    }
-
-    pub fn from_config_str(s: &str) -> Self {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "os" | "host" => ModeChoice::HostOs,
-            "de" | "desktop" => ModeChoice::DesktopEnv,
-            "kernel" | "linux" => ModeChoice::Kernel,
-            "idlescreen" | "wordmark" => ModeChoice::Wordmark,
-            "custom" | "text" => ModeChoice::CustomText,
-            _ => ModeChoice::HostOs,
-        }
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            ModeChoice::HostOs => "Host OS",
-            ModeChoice::DesktopEnv => "Desktop Environment (DE)",
-            ModeChoice::Kernel => "Linux Kernel",
-            ModeChoice::Wordmark => "Wordmark",
-            ModeChoice::CustomText => "Custom Text",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TuiField {
-    ModeChoice(usize), // 0..=4 for checklist target items
-    CustomText,        // 5
-    IdleTimeout,       // 6
-    SaveButton,        // 7
-    PreviewButton,     // 8
-    QuitButton,        // 9
-}
 
 pub struct TuiModel {
     pub mode: ModeChoice,
@@ -83,96 +24,59 @@ pub struct TuiModel {
     pub should_quit: bool,
 }
 
-pub const TOTAL_FIELDS: usize = 10;
-
 impl TuiModel {
     pub fn from_config(config: &Config) -> Self {
         let mut custom_text = config.saver.ascii.text.clone();
         let dwell_secs = config.saver.ascii.dwell_secs.clamp(0.5, 60.0);
         let idle_timeout_secs = config.general.idle_timeout_secs.clamp(30, 7200);
-
         let detected_os = detect_os_name();
         let detected_de = detect_desktop_env();
         let detected_kernel = detect_kernel_version();
-        let cursor_pos = custom_text.len();
 
         let mut target_checked = [false; 5];
-        if config.saver.ascii.targets.is_empty() {
-            let m = config.saver.ascii.mode.trim().to_ascii_lowercase();
-            if m.contains(',') {
-                for part in m.split(',') {
-                    match part.trim() {
-                        "os" | "host" => target_checked[0] = true,
-                        "de" | "desktop" => target_checked[1] = true,
-                        "kernel" | "linux" => target_checked[2] = true,
-                        "idlescreen" | "wordmark" => target_checked[3] = true,
-                        "custom" | "text" => target_checked[4] = true,
-                        _ => {}
-                    }
-                }
-            } else {
-                match m.as_str() {
-                    "os" | "host" => target_checked[0] = true,
-                    "de" | "desktop" => target_checked[1] = true,
-                    "kernel" | "linux" => target_checked[2] = true,
-                    "idlescreen" | "wordmark" => target_checked[3] = true,
-                    "custom" | "text" => target_checked[4] = true,
-                    _ => {
-                        // Default multi-target: Host OS and DE
-                        target_checked[0] = true;
-                        target_checked[1] = true;
-                    }
-                }
-            }
+        let raw_items: Vec<String> = if config.saver.ascii.targets.is_empty() {
+            config
+                .saver
+                .ascii
+                .mode
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect()
         } else {
-            for t in &config.saver.ascii.targets {
-                match t.to_ascii_lowercase().as_str() {
-                    "os" | "host" => target_checked[0] = true,
-                    "de" | "desktop" => target_checked[1] = true,
-                    "kernel" | "linux" => target_checked[2] = true,
-                    "idlescreen" | "wordmark" => target_checked[3] = true,
-                    "custom" | "text" => target_checked[4] = true,
-                    other => {
-                        if other.eq_ignore_ascii_case(&detected_os) {
-                            target_checked[0] = true;
-                        } else if other.eq_ignore_ascii_case(&detected_de) {
-                            target_checked[1] = true;
-                        } else if other.eq_ignore_ascii_case(&detected_kernel)
-                            || other.eq_ignore_ascii_case("linux")
-                        {
-                            target_checked[2] = true;
-                        } else if other.eq_ignore_ascii_case("idlescreen") {
-                            target_checked[3] = true;
-                        } else {
-                            target_checked[4] = true;
-                            if custom_text.is_empty() {
-                                custom_text = other.to_string();
-                            }
+            config.saver.ascii.targets.clone()
+        };
+
+        for item in &raw_items {
+            match item.trim().to_ascii_lowercase().as_str() {
+                "os" | "host" | "superfedora" | "sf" | "cycle" => target_checked[0] = true,
+                "de" | "desktop" => target_checked[1] = true,
+                "kernel" | "linux" => target_checked[2] = true,
+                "idlescreen" | "wordmark" => target_checked[3] = true,
+                "custom" | "text" => target_checked[4] = true,
+                "" => {}
+                other => {
+                    if other.eq_ignore_ascii_case(&detected_os) {
+                        target_checked[0] = true;
+                    } else if other.eq_ignore_ascii_case(&detected_de) {
+                        target_checked[1] = true;
+                    } else if other.eq_ignore_ascii_case(&detected_kernel) {
+                        target_checked[2] = true;
+                    } else {
+                        target_checked[4] = true;
+                        if custom_text.is_empty() {
+                            custom_text = other.to_string();
                         }
                     }
                 }
             }
         }
-
         if !target_checked.iter().any(|&c| c) {
             target_checked[0] = true;
-            target_checked[1] = true;
         }
-
-        let mode = if target_checked[0] {
-            ModeChoice::HostOs
-        } else if target_checked[1] {
-            ModeChoice::DesktopEnv
-        } else if target_checked[2] {
-            ModeChoice::Kernel
-        } else if target_checked[3] {
-            ModeChoice::Wordmark
-        } else {
-            ModeChoice::CustomText
-        };
-
+        let first_idx = target_checked.iter().position(|&c| c).unwrap_or(0);
+        let cursor_pos = custom_text.chars().count();
         let mut model = Self {
-            mode,
+            mode: ModeChoice::ALL[first_idx],
             target_checked,
             custom_text,
             dwell_secs,
@@ -209,11 +113,7 @@ impl TuiModel {
 
     pub fn nav_prev(&mut self) {
         self.editing_text = false;
-        if self.focused_index == 0 {
-            self.focused_index = TOTAL_FIELDS - 1;
-        } else {
-            self.focused_index -= 1;
-        }
+        self.focused_index = (self.focused_index + TOTAL_FIELDS - 1) % TOTAL_FIELDS;
     }
 
     pub fn toggle_target(&mut self, idx: usize) {
@@ -233,12 +133,13 @@ impl TuiModel {
     }
 
     pub fn active_targets(&self) -> Vec<String> {
-        let mut targets = Vec::new();
-        for (i, &checked) in self.target_checked.iter().enumerate() {
-            if checked {
-                targets.push(ModeChoice::ALL[i].to_config_str().to_string());
-            }
-        }
+        let mut targets: Vec<String> = self
+            .target_checked
+            .iter()
+            .enumerate()
+            .filter(|&(_, &c)| c)
+            .map(|(i, _)| ModeChoice::ALL[i].to_config_str().to_string())
+            .collect();
         if targets.is_empty() {
             targets.push("os".to_string());
         }
@@ -250,27 +151,17 @@ impl TuiModel {
     }
 
     pub fn resolved_words(&self) -> Vec<String> {
-        let mut words = Vec::new();
-        if self.target_checked[0] {
-            words.push(self.detected_os.clone());
-        }
-        if self.target_checked[1] {
-            words.push(self.detected_de.clone());
-        }
-        if self.target_checked[2] {
-            words.push("LINUX".to_string());
-        }
-        if self.target_checked[3] {
-            words.push("IDLESCREEN".to_string());
-        }
-        if self.target_checked[4] {
-            let custom = if self.custom_text.trim().is_empty() {
-                "CUSTOM".to_string()
-            } else {
-                self.custom_text.trim().to_string()
-            };
-            words.push(custom);
-        }
+        let t = self.custom_text.trim();
+        let custom = if t.is_empty() { "CUSTOM" } else { t };
+        let (os, de) = (self.detected_os.as_str(), self.detected_de.as_str());
+        let cands = [os, de, "LINUX", "IDLESCREEN", custom];
+        let mut words: Vec<String> = self
+            .target_checked
+            .iter()
+            .zip(cands)
+            .filter(|&(&c, _)| c)
+            .map(|(_, w)| w.to_string())
+            .collect();
         if words.is_empty() {
             words.push(self.detected_os.clone());
         }
@@ -292,34 +183,24 @@ impl TuiModel {
 
     pub fn adjust_left(&mut self) {
         match self.current_field() {
-            TuiField::ModeChoice(idx) => {
-                if self.target_checked[idx] {
-                    self.toggle_target(idx);
-                }
-            }
+            TuiField::ModeChoice(idx) if self.target_checked[idx] => self.toggle_target(idx),
             TuiField::IdleTimeout => {
                 self.idle_timeout_secs = self.idle_timeout_secs.saturating_sub(30).max(30);
                 self.dirty = true;
             }
-            TuiField::CustomText if self.cursor_pos > 0 => {
-                self.cursor_pos -= 1;
-            }
+            TuiField::CustomText if self.cursor_pos > 0 => self.cursor_pos -= 1,
             _ => {}
         }
     }
 
     pub fn adjust_right(&mut self) {
         match self.current_field() {
-            TuiField::ModeChoice(idx) => {
-                if !self.target_checked[idx] {
-                    self.toggle_target(idx);
-                }
-            }
+            TuiField::ModeChoice(idx) if !self.target_checked[idx] => self.toggle_target(idx),
             TuiField::IdleTimeout => {
                 self.idle_timeout_secs = (self.idle_timeout_secs + 30).min(7200);
                 self.dirty = true;
             }
-            TuiField::CustomText if self.cursor_pos < self.custom_text.len() => {
+            TuiField::CustomText if self.cursor_pos < self.custom_text.chars().count() => {
                 self.cursor_pos += 1;
             }
             _ => {}
@@ -327,46 +208,45 @@ impl TuiModel {
     }
 
     pub fn select_mode(&mut self, mode: ModeChoice) {
-        let idx = match mode {
-            ModeChoice::HostOs => 0,
-            ModeChoice::DesktopEnv => 1,
-            ModeChoice::Kernel => 2,
-            ModeChoice::Wordmark => 3,
-            ModeChoice::CustomText => 4,
-        };
+        let idx = ModeChoice::ALL.iter().position(|&m| m == mode).unwrap_or(0);
         self.focused_index = idx;
         self.toggle_target(idx);
     }
 
+    fn mark_custom_edited(&mut self) {
+        self.target_checked[4] = true;
+        self.mode = ModeChoice::CustomText;
+        self.dirty = true;
+        self.update_status_sequence();
+    }
+
     pub fn insert_char(&mut self, c: char) {
-        if self.custom_text.len() < 80 && !c.is_control() {
-            self.custom_text.insert(self.cursor_pos, c);
-            self.cursor_pos += 1;
-            self.target_checked[4] = true;
-            self.mode = ModeChoice::CustomText;
-            self.dirty = true;
-            self.update_status_sequence();
+        let len = self.custom_text.chars().count();
+        if len < 80 && !c.is_control() {
+            let pos = self.cursor_pos.min(len);
+            let b = char_to_byte_idx(&self.custom_text, pos);
+            self.custom_text.insert(b, c);
+            self.cursor_pos = pos + 1;
+            self.mark_custom_edited();
         }
     }
 
     pub fn delete_back(&mut self) {
-        if self.cursor_pos > 0 && !self.custom_text.is_empty() {
-            self.cursor_pos -= 1;
-            self.custom_text.remove(self.cursor_pos);
-            self.target_checked[4] = true;
-            self.mode = ModeChoice::CustomText;
-            self.dirty = true;
-            self.update_status_sequence();
+        let len = self.custom_text.chars().count();
+        if self.cursor_pos > 0 && len > 0 {
+            let pos = self.cursor_pos.min(len) - 1;
+            let b = char_to_byte_idx(&self.custom_text, pos);
+            self.custom_text.remove(b);
+            self.cursor_pos = pos;
+            self.mark_custom_edited();
         }
     }
 
     pub fn delete_forward(&mut self) {
-        if self.cursor_pos < self.custom_text.len() {
-            self.custom_text.remove(self.cursor_pos);
-            self.target_checked[4] = true;
-            self.mode = ModeChoice::CustomText;
-            self.dirty = true;
-            self.update_status_sequence();
+        if self.cursor_pos < self.custom_text.chars().count() {
+            let b = char_to_byte_idx(&self.custom_text, self.cursor_pos);
+            self.custom_text.remove(b);
+            self.mark_custom_edited();
         }
     }
 }

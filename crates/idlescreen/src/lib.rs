@@ -3,6 +3,8 @@
 
 //! IdleScreen core library modules.
 
+#![deny(unsafe_code)]
+
 pub mod ascii;
 pub mod cell;
 pub mod cli;

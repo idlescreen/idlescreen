@@ -16,11 +16,18 @@ impl SurfaceViewport {
         Self { viewport }
     }
 
+    pub fn has_viewport(&self) -> bool {
+        self.viewport.is_some()
+    }
+
     pub fn set_scaling(&self, logical_w: i32, logical_h: i32, buf_w: f64, buf_h: f64) {
-        if let Some(ref vp) = self.viewport {
-            // Precise floating point source bounds
+        if let Some(ref vp) = self.viewport
+            && logical_w > 0
+            && logical_h > 0
+            && buf_w > 0.0
+            && buf_h > 0.0
+        {
             vp.set_source(0.0, 0.0, buf_w, buf_h);
-            // Logical destination dimensions in compositor space
             vp.set_destination(logical_w, logical_h);
         }
     }

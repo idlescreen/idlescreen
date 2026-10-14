@@ -8,6 +8,7 @@ pub mod draw;
 pub mod effects;
 pub mod engine;
 pub mod layout;
+mod runtime;
 #[allow(clippy::all, unused)]
 pub mod scenes;
 pub mod state;
@@ -20,10 +21,8 @@ mod tests;
 use crate::cell::{LcgRng, TerminalCell};
 use effects::{EffectKind, EffectPlaylist};
 pub use engine::EngineSession;
-use layout::{format_portrait_telemetry, is_portrait};
 use state::{TextMode, TriRotationState};
 use std::time::Duration;
-use sys_info::query_telemetry;
 
 pub const DEFAULT_DWELL_SECS: f32 = 2.0;
 pub const DEFAULT_DISSOLVE_SECS: f32 = 0.35;
@@ -36,6 +35,7 @@ pub struct Ascii {
     pub pinned: bool,
     pub dwell_left: f32,
     pub dwell_duration: Option<f32>,
+    pub dissolve_duration: f32,
     pub elapsed_in_effect: f32,
     pub anim_left: f32,
     pub fg: (u8, u8, u8),
@@ -45,6 +45,7 @@ pub struct Ascii {
     pub art_text: String,
     pub current_frame: String,
     pub frame_grid: Vec<TerminalCell>,
+    pub settled_bounds: Option<(usize, usize)>,
     pub transition_active: bool,
     pub transition_left: f32,
     pub transition_duration: f32,
@@ -67,20 +68,19 @@ impl Ascii {
         Self::new_with_seed(LcgRng::new_random().next_u64())
     }
 
-    /// Dedicated 16-bit SuperFedora arcade screensaver preset with Tokyo Night jewel colors,
-    /// stacked 2D pixel-art website banner, and randomized 37-scene arcade rotation.
     pub fn new_superfedora() -> Self {
         let seed = LcgRng::new_random().next_u64();
         let mut saver = Self::new_with_seed(seed);
-        saver.fg = (81, 162, 218); // Fedora Cyan #51a2da
+        saver.fg = (81, 162, 218);
         saver.bg = (0, 0, 0);
         saver.rotation.os_name = "SUPERFEDORA".to_string();
-        saver.rotation.mode = TextMode::Custom;
-        saver.rotation.custom_text = Some("SUPERFEDORA".to_string());
+        saver.rotation.mode = TextMode::Os;
+        saver.rotation.custom_text = None;
         saver.rotation.set_targets(vec!["superfedora".to_string()]);
         saver.pinned = false;
         saver.dwell_duration = Some(1.8);
         saver.dwell_left = 1.8;
+        saver.dissolve_duration = DEFAULT_DISSOLVE_SECS;
         saver.transition_duration = DEFAULT_DISSOLVE_SECS;
         saver
     }
@@ -89,7 +89,7 @@ impl Ascii {
         let mut rng = LcgRng::new(seed);
         let mut playlist = EffectPlaylist::new();
         let effect = playlist.next_effect(&mut rng);
-        let rotation = TriRotationState::new_with_seed(TextMode::Cycle, None, seed);
+        let rotation = TriRotationState::new_with_seed(TextMode::Os, None, seed);
 
         Self {
             rng,
@@ -99,6 +99,7 @@ impl Ascii {
             pinned: false,
             dwell_left: DEFAULT_DWELL_SECS,
             dwell_duration: None,
+            dissolve_duration: DEFAULT_DISSOLVE_SECS,
             elapsed_in_effect: 0.0,
             anim_left: 20.0,
             fg: (248, 248, 242),
@@ -108,6 +109,7 @@ impl Ascii {
             art_text: String::new(),
             current_frame: String::new(),
             frame_grid: Vec::new(),
+            settled_bounds: None,
             transition_active: false,
             transition_left: 0.0,
             transition_duration: DEFAULT_DISSOLVE_SECS,
@@ -144,16 +146,27 @@ impl Ascii {
         self
     }
 
+    pub fn with_dissolve(mut self, dissolve_secs: f32) -> Self {
+        let d = dissolve_secs.clamp(0.05, 5.0);
+        self.dissolve_duration = d;
+        self.transition_duration = d;
+        self
+    }
+
     pub fn dwell_time(&self) -> f32 {
         self.dwell_duration.unwrap_or_else(|| self.effect.dwell())
     }
 
-    /// Returns true when the scene is settled in its post-transition dwell period (zero motion).
     pub fn is_settled(&self) -> bool {
         self.engine.is_none() && !self.transition_active
     }
 
-    /// Returns the remaining dwell duration if currently settled.
+    pub fn is_stacked_superfedora(&self) -> bool {
+        let active = self.rotation.active_text();
+        let trimmed = active.trim();
+        trimmed.eq_ignore_ascii_case("SUPERFEDORA") || trimmed.eq_ignore_ascii_case("SUPER FEDORA")
+    }
+
     pub fn dwell_remaining(&self) -> Option<Duration> {
         if self.is_settled() && self.dwell_left > 0.0 {
             Some(Duration::from_secs_f32(self.dwell_left))
@@ -176,6 +189,7 @@ impl Ascii {
         let total = cols.saturating_mul(rows);
         self.frame_grid.resize(total, TerminalCell::default());
         self.frame_grid.fill(TerminalCell::default());
+        self.settled_bounds = None;
         self.transition_from_grid.clear();
         self.transition_active = false;
         self.transition_left = 0.0;
@@ -204,167 +218,6 @@ impl Ascii {
         }
     }
 
-    pub fn start_engine_session(&mut self) {
-        self.current_frame.clear();
-        self.frame_grid.fill(TerminalCell::default());
-        if self.last_cols == 0 || self.last_rows == 0 {
-            self.engine = None;
-            return;
-        }
-        self.anim_left = 120.0;
-        self.rebuild_art();
-        let is_superfedora_banner = self
-            .rotation
-            .active_text()
-            .eq_ignore_ascii_case("SUPERFEDORA")
-            || sys_info::is_superfedora_machine();
-        if is_portrait(self.last_cols, self.last_rows) && !is_superfedora_banner {
-            let telemetry = query_telemetry();
-            let (top, bottom) = format_portrait_telemetry(&telemetry, self.last_cols);
-            self.portrait_top = top;
-            self.portrait_bottom = bottom;
-        } else {
-            self.portrait_top.clear();
-            self.portrait_bottom.clear();
-        }
-        if self.art_text.trim().is_empty() {
-            self.engine = None;
-            return;
-        }
-        let seed = self.rng.next_u64();
-        self.engine = EngineSession::new(
-            &self.art_text,
-            self.effect,
-            self.last_cols,
-            self.last_rows,
-            seed,
-            self.fps,
-        );
-        if let Some(ref mut session) = self.engine {
-            if let Some(frame) = session.next_frame() {
-                self.current_frame.clear();
-                self.current_frame.push_str(&frame);
-                draw::paint_frame(
-                    &self.current_frame,
-                    &mut self.frame_grid,
-                    self.last_cols,
-                    self.last_rows,
-                    self.fg,
-                    self.bg,
-                );
-            }
-        } else {
-            // Fallback for dimensions where ttfx cannot initialize: place centered banner
-            let active_text = self.rotation.active_text();
-            let banner = self.rotation.atlas_cache.get_or_render(
-                &active_text,
-                None,
-                self.last_cols,
-                self.last_rows,
-            );
-            let _ = draw::place_banner_centered(
-                &mut self.frame_grid,
-                self.last_cols,
-                self.last_rows,
-                &banner.lines,
-                self.fg,
-                self.bg,
-            );
-            draw::apply_settled_bevel(&mut self.frame_grid, self.last_cols, self.last_rows);
-        }
-    }
-
-    pub fn update(&mut self, dt: Duration, cols: usize, rows: usize) {
-        if cols != self.last_cols || rows != self.last_rows {
-            self.init(cols, rows);
-        }
-
-        self.frame_tick = self.frame_tick.wrapping_add(1);
-        let dt_secs = dt.as_secs_f32().clamp(0.0, 0.1);
-        self.elapsed_in_effect += dt_secs;
-
-        if self.transition_active {
-            self.transition_left -= dt_secs;
-            if self.transition_left <= 0.0 {
-                self.transition_active = false;
-                self.transition_left = 0.0;
-                self.transition_from_grid.clear();
-                if self.rotation.targets.len() > 1 {
-                    self.cycle_effect();
-                }
-            }
-        }
-
-        if let Some(ref mut session) = self.engine {
-            self.anim_left -= dt_secs;
-            let frame = if self.anim_left > 0.0 {
-                session.next_frame()
-            } else {
-                None
-            };
-            if let Some(frame) = frame {
-                self.current_frame.clear();
-                self.current_frame.push_str(&frame);
-                draw::paint_frame(
-                    &self.current_frame,
-                    &mut self.frame_grid,
-                    cols,
-                    rows,
-                    self.fg,
-                    self.bg,
-                );
-            } else {
-                // Animation complete: stamp 16-bit chrome bevel on settled frame and dwell
-                draw::apply_settled_bevel(&mut self.frame_grid, cols, rows);
-                self.engine = None;
-                self.dwell_left = self.dwell_time();
-            }
-        } else if !self.transition_active {
-            // Banner is settled: countdown dwell
-            self.dwell_left -= dt_secs;
-            if self.dwell_left <= 0.0 && !self.pinned {
-                self.begin_transition();
-            }
-        }
-    }
-
-    pub fn begin_transition(&mut self) {
-        if self.frame_grid.is_empty() {
-            self.cycle_effect();
-            return;
-        }
-        draw::apply_settled_bevel(&mut self.frame_grid, self.last_cols, self.last_rows);
-        self.transition_from_grid.clone_from(&self.frame_grid);
-        let dur = DEFAULT_DISSOLVE_SECS.min(self.dwell_time() * 0.4);
-        self.transition_duration = dur;
-        self.transition_left = dur;
-        self.transition_active = true;
-
-        if self.rotation.targets.len() > 1 {
-            // Conclude scene by transitioning directly to the next target banner.
-            self.engine = None;
-            let next_text = self.rotation.peek_next_text();
-            let banner = self.rotation.atlas_cache.get_or_render(
-                &next_text,
-                None,
-                self.last_cols,
-                self.last_rows,
-            );
-            self.frame_grid.fill(TerminalCell::default());
-            let _ = draw::place_banner_centered(
-                &mut self.frame_grid,
-                self.last_cols,
-                self.last_rows,
-                &banner.lines,
-                self.fg,
-                self.bg,
-            );
-            draw::apply_settled_bevel(&mut self.frame_grid, self.last_cols, self.last_rows);
-        } else {
-            self.cycle_effect();
-        }
-    }
-
     pub fn cycle_effect(&mut self) {
         self.rotation.advance_mutation(&mut self.rng);
         if !self.pinned {
@@ -373,123 +226,5 @@ impl Ascii {
         self.dwell_left = self.dwell_time();
         self.elapsed_in_effect = 0.0;
         self.start_engine_session();
-    }
-
-    pub fn draw(&self, grid: &mut [TerminalCell], cols: usize, rows: usize) {
-        let total = cols * rows;
-        let n = total.min(grid.len()).min(self.frame_grid.len());
-        if n == 0 {
-            grid.fill(TerminalCell::default());
-            return;
-        }
-
-        if self.transition_active
-            && !self.transition_from_grid.is_empty()
-            && self.transition_from_grid.len() == grid.len()
-            && self.frame_grid.len() == grid.len()
-        {
-            let t = if self.transition_duration > 0.0 {
-                (1.0 - (self.transition_left / self.transition_duration)).clamp(0.0, 1.0)
-            } else {
-                1.0
-            };
-            draw::paint_transition(
-                &self.transition_from_grid,
-                &self.frame_grid,
-                grid,
-                t,
-                cols,
-                rows,
-            );
-        } else if !self.frame_grid.is_empty() {
-            if self.last_cols == cols && self.last_rows == rows {
-                let n = self.frame_grid.len().min(grid.len());
-                grid[..n].copy_from_slice(&self.frame_grid[..n]);
-                if grid.len() > n {
-                    grid[n..].fill(TerminalCell::default());
-                }
-            } else if self.last_cols > 0 && cols > 0 {
-                grid.fill(TerminalCell::default());
-                let copy_cols = cols.min(self.last_cols);
-                let copy_rows = rows.min(self.last_rows);
-                let src_x_off = self.last_cols.saturating_sub(cols) / 2;
-                let dst_x_off = cols.saturating_sub(self.last_cols) / 2;
-                let src_y_off = self.last_rows.saturating_sub(rows) / 2;
-                let dst_y_off = rows.saturating_sub(self.last_rows) / 2;
-                for y in 0..copy_rows {
-                    let src_start = (y + src_y_off) * self.last_cols + src_x_off;
-                    let dst_start = (y + dst_y_off) * cols + dst_x_off;
-                    if src_start + copy_cols <= self.frame_grid.len()
-                        && dst_start + copy_cols <= grid.len()
-                    {
-                        grid[dst_start..dst_start + copy_cols]
-                            .copy_from_slice(&self.frame_grid[src_start..src_start + copy_cols]);
-                    }
-                }
-            } else {
-                let n = self.frame_grid.len().min(grid.len());
-                grid[..n].copy_from_slice(&self.frame_grid[..n]);
-                if grid.len() > n {
-                    grid[n..].fill(TerminalCell::default());
-                }
-            }
-        } else {
-            grid.fill(TerminalCell::default());
-        }
-
-        draw::apply_arcade_fx(
-            grid,
-            cols,
-            rows,
-            self.frame_tick,
-            self.is_settled(),
-            self.bg,
-        );
-
-        if is_portrait(cols, rows)
-            && !self.portrait_top.is_empty()
-            && !self
-                .rotation
-                .active_text()
-                .eq_ignore_ascii_case("SUPERFEDORA")
-        {
-            for (i, line) in self.portrait_top.iter().enumerate() {
-                let y = 1 + i;
-                if y < rows {
-                    for (x, ch) in line.chars().enumerate() {
-                        if x < cols {
-                            let idx = y * cols + x;
-                            if idx < grid.len() && ch != ' ' {
-                                grid[idx] = TerminalCell {
-                                    ch: draw::pixel_art_glyph(ch, x, y),
-                                    fg: (81, 162, 218),
-                                    bg: self.bg,
-                                    bold: false,
-                                };
-                            }
-                        }
-                    }
-                }
-            }
-            let start_bottom = rows.saturating_sub(self.portrait_bottom.len() + 1);
-            for (i, line) in self.portrait_bottom.iter().enumerate() {
-                let y = start_bottom + i;
-                if y < rows {
-                    for (x, ch) in line.chars().enumerate() {
-                        if x < cols {
-                            let idx = y * cols + x;
-                            if idx < grid.len() && ch != ' ' {
-                                grid[idx] = TerminalCell {
-                                    ch: draw::pixel_art_glyph(ch, x, y),
-                                    fg: (81, 162, 218),
-                                    bg: self.bg,
-                                    bold: false,
-                                };
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }

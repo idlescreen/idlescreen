@@ -1,11 +1,11 @@
 [package]
 authors = ["idlescreen developers"]
 name = "idle-applet"
-version = "3.2.10"
+version = "4.2.0"
 edition = "2024"
 license = "Apache-2.0"
 description = "IdleScreen for COSMIC — product package (applet + pulls daemon and recommended savers)"
-repository = "https://github.com/idlescreen/cosmic"
+repository = "https://github.com/idlescreen/idlescreen"
 publish = false
 
 [[bin]]
@@ -14,11 +14,6 @@ path = "src/main.rs"
 
 [dependencies]
 libc = "0.2"
-# Local path dep: CI checks out idlescreen/runtime here; local may be a symlink to ../runtime
-idle-dbus = { path = "runtime/crates/idle-dbus" }
-idle-err = { path = "runtime/crates/idle-err" }
-idle-log = { path = "runtime/crates/idle-log" }
-idle-runner = { path = "runtime/idle-runner" }
 
 [dependencies.libcosmic]
 # Pinned to a commit SHA (not a tag/branch) for reproducible builds; see
@@ -41,8 +36,8 @@ features = [
 #   sudo dnf install idle-cosmic
 #   sudo apt install idle-cosmic
 #
-# Installs this COSMIC applet and depends on the idle engine daemon
-# (`idle-daemon`), with recommended screensaver plugins (`idle-saver-*`).
+# Installs this COSMIC applet and depends on `idlescreen`,
+# with recommended screensaver plugins (`idlescreen-extras`).
 # ---------------------------------------------------------------------------
 
 [package.metadata.cargo-machete]
@@ -56,12 +51,12 @@ changelog = "debian/changelog"
 copyright = "2026 IdleScreen"
 maintainer = "IdleScreen <jerydleuck@gmail.com>"
 extended-description = """IdleScreen product for COSMIC Desktop.
-Installs the COSMIC panel applet and depends on idle-daemon."""
-depends = "libc6, idle-daemon, idle-tui"
+Installs the COSMIC panel applet and depends on idlescreen."""
+depends = "libc6, idlescreen"
 provides = "app-cosmic, idlescreen-applet, trance-applet, idlescreen-cosmic"
 replaces = "app-cosmic, idlescreen-applet, trance-applet, idlescreen-cosmic"
 conflicts = "app-cosmic (<< 2.1.0), idlescreen-applet (<< 2.1.0), trance-applet (<< 2.0.0)"
-recommends = "idle-cli, idle-tui, idle-saver-ascii, idle-saver-aurora, idle-saver-beams, idle-saver-bursts, idle-saver-chaos, idle-saver-cosmos, idle-saver-glyphs, idle-saver-gnats, idle-saver-hearth, idle-saver-radar, idle-saver-ripple, idle-saver-storm"
+recommends = "idlescreen-extras"
 enhances = "cosmic-session, cosmic-panel"
 section = "utils"
 priority = "optional"
@@ -80,7 +75,7 @@ name = "idle-cosmic"
 release = "1"
 arch = "x86_64"
 summary = "IdleScreen for COSMIC"
-description = "IdleScreen product for COSMIC: panel applet, requires idle-daemon and idle-tui."
+description = "IdleScreen product for COSMIC: panel applet, requires idlescreen."
 license = "Apache-2.0"
 post_install_script = "rpm/post.sh"
 assets = [
@@ -93,24 +88,10 @@ assets = [
 ]
 
 [package.metadata.generate-rpm.requires]
-idle-daemon = "*"
-idle-tui = "*"
+idlescreen = "*"
 
 [package.metadata.generate-rpm.recommends]
-idle-cli = "*"
-idle-tui = "*"
-idle-saver-ascii = "*"
-idle-saver-aurora = "*"
-idle-saver-beams = "*"
-idle-saver-bursts = "*"
-idle-saver-chaos = "*"
-idle-saver-cosmos = "*"
-idle-saver-glyphs = "*"
-idle-saver-gnats = "*"
-idle-saver-hearth = "*"
-idle-saver-radar = "*"
-idle-saver-ripple = "*"
-idle-saver-storm = "*"
+idlescreen-extras = "*"
 
 [package.metadata.generate-rpm.provides]
 app-cosmic = "*"

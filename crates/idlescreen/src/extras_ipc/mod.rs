@@ -7,6 +7,8 @@ pub mod breaker;
 pub mod client;
 pub mod pidfd;
 pub mod protocol;
+pub mod resolve;
+pub mod shm;
 
 pub use breaker::{
     CircuitBreaker, is_circuit_breaker_tripped, record_circuit_breaker_failure,

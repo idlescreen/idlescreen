@@ -9,7 +9,7 @@ if [ "${1:-0}" -eq 0 ]; then
     # 2. Clean system configuration
     rm -rf /etc/xdg/idlescreen /etc/idlescreen /etc/idle 2>/dev/null || true
 
-    # 3. Clean user configuration and caches across all desktop homes
+    # 3. Clean transient user caches only (preserve user ~/.config/idlescreen across package removals)
     _homes=""
     if command -v getent >/dev/null 2>&1; then
         _homes=$(getent passwd 2>/dev/null | awk -F: '$3 >= 1000 && $3 < 60000 && $6 != "" {print $6}')
@@ -17,12 +17,7 @@ if [ "${1:-0}" -eq 0 ]; then
     # shellcheck disable=SC2086
     for _h in $_homes ${HOME:-} /home/*; do
         [ -d "$_h" ] || continue
-        rm -rf "$_h/.config/idlescreen" \
-               "$_h/.config/idle" \
-               "$_h/.config/trance" \
-               "$_h/.local/share/idlescreen" \
-               "$_h/.local/state/idlescreen" \
-               "$_h/.cache/idlescreen" 2>/dev/null || true
+        rm -rf "$_h/.cache/idlescreen" 2>/dev/null || true
     done
 
     # 4. Clean leftover empty directories and runtime files

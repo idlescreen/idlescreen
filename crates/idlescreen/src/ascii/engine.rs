@@ -53,13 +53,25 @@ impl EngineSession {
     }
 
     pub fn next_frame(&mut self) -> Option<String> {
-        let mut last = None;
         let steps = self.steps_per_frame.max(1);
-        for _ in 0..steps {
+        let mut advanced_any = false;
+        let mut last = None;
+        for step_idx in 0..steps {
+            let is_last_step = step_idx + 1 == steps;
+            scenes::canvas_ops::set_defer_frame_render(!is_last_step);
             match self.effect.next_frame(&mut self.ctx) {
-                Some(f) => last = Some(f),
+                Some(f) => {
+                    advanced_any = true;
+                    if is_last_step {
+                        last = Some(f);
+                    }
+                }
                 None => break,
             }
+        }
+        scenes::canvas_ops::set_defer_frame_render(false);
+        if advanced_any && last.is_none() {
+            last = Some(self.ctx.terminal.get_formatted_output_string());
         }
         last
     }
