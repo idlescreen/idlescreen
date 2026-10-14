@@ -1,6 +1,6 @@
-idle-cosmic (4.2.0-1) unstable; urgency=medium
+idle-cosmic (4.2.1-1) unstable; urgency=medium
 
-  * Consolidate into idlescreen monorepo (v4.2.0) with Page Rule refactoring,
+  * Consolidate into idlescreen monorepo (v4.2.1) with Page Rule refactoring,
     TOML configuration alignment, and shared D-Bus bridge.
 
  -- IdleScreen Maintainers <maintainers@idlescreen.dev>  Wed, 14 Oct 2026 00:00:00 +0000

@@ -1,7 +1,7 @@
 [package]
 authors = ["idlescreen developers"]
 name = "idle-applet"
-version = "4.2.0"
+version = "4.2.1"
 edition = "2024"
 license = "Apache-2.0"
 description = "IdleScreen for COSMIC — product package (applet + pulls daemon and recommended savers)"
