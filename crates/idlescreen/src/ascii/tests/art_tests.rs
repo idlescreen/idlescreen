@@ -247,26 +247,38 @@ fn test_ascii_new_superfedora() {
     let mut saver = super::super::Ascii::new_superfedora();
     assert_eq!(saver.fg, (81, 162, 218)); // Fedora Cyan
     assert_eq!(saver.bg, (0, 0, 0));
-    assert_eq!(saver.effect, super::super::effects::EffectKind::Spotlights);
+    assert!(super::super::effects::EffectKind::ALL.contains(&saver.effect));
     assert_eq!(saver.rotation.targets, vec!["superfedora".to_string()]);
+    assert_eq!(saver.rotation.active_text(), "SUPERFEDORA");
 
-    // Verify it initializes, loads the website banner, and steps frames cleanly at fullscreen (240x67)
-    saver.init(240, 67);
-    assert!(saver.art_text.contains("FEDORA") || saver.art_text.contains("████"));
-    let mut grid_wide = vec![crate::cell::TerminalCell::default(); 240 * 67];
+    // Verify it initializes, loads the website banner, and steps frames cleanly at 16-bit arcade grid (120x36)
+    saver.init(120, 36);
+    assert!(saver.art_text.contains("████"));
+    let mut grid_wide = vec![crate::cell::TerminalCell::default(); 120 * 36];
     for _ in 0..5 {
-        saver.update(std::time::Duration::from_millis(16), 240, 67);
-        saver.draw(&mut grid_wide, 240, 67);
+        saver.update(std::time::Duration::from_millis(16), 120, 36);
+        saver.draw(&mut grid_wide, 120, 36);
     }
+    assert!(
+        grid_wide
+            .iter()
+            .all(|c| super::super::draw::is_pixel_art_char(c.ch)),
+        "all rendered cells must be pure pixel-art block elements"
+    );
 
     // Also verify standard 80x24 terminal gracefully draws Medium tier without clipping
     saver.init(80, 24);
-    assert!(saver.art_text.contains("FEDORA") || saver.art_text.contains("█▀▀"));
+    assert!(saver.art_text.contains("█▀▀"));
     let mut grid = vec![crate::cell::TerminalCell::default(); 80 * 24];
     for _ in 0..5 {
         saver.update(std::time::Duration::from_millis(16), 80, 24);
         saver.draw(&mut grid, 80, 24);
     }
+    assert!(
+        grid.iter()
+            .all(|c| super::super::draw::is_pixel_art_char(c.ch)),
+        "all rendered cells in 80x24 must be pure pixel-art block elements"
+    );
 
     unsafe {
         std::env::remove_var("IDLE_SUPERFEDORA");

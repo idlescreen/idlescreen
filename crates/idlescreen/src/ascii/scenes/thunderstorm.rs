@@ -75,7 +75,7 @@ pub struct ThunderstormConfig {
     pub spark_glow_time: i64,
 
     /// Duration, in seconds, the storm will occur.
-    #[arg(long = "storm-time", default_value_t = 6, value_parser = parse_positive_int)]
+    #[arg(long = "storm-time", default_value_t = 2, value_parser = parse_positive_int)]
     pub storm_time: i64,
 
     /// Space separated, unquoted, list of colors for the character gradient (applied across the canvas).

@@ -766,6 +766,16 @@ impl Dispatch<wl_seat::WlSeat, ()> for WaylandState {
     }
 }
 
+/// Computes chunky 16-bit SNES arcade grid dimensions (`120x36` on fullscreen HD/QHD/4K displays)
+/// so the 90x22 `SUPER FEDORA` pixel-art banner commands 75% of the screen width with bold pixel blocks.
+pub fn arcade_grid_dimensions(pixel_w: usize, pixel_h: usize) -> (usize, usize) {
+    if pixel_w >= 960 && pixel_h >= 540 {
+        (120, 36)
+    } else {
+        ((pixel_w / 8).clamp(10, 120), (pixel_h / 16).clamp(5, 36))
+    }
+}
+
 /// Runs a borderless fullscreen screensaver preview on Wayland.
 pub fn run_wayland_fullscreen_preview(
     saver_name: &str,
@@ -836,11 +846,11 @@ pub fn run_wayland_fullscreen_preview(
 
     let primary_width = state.surfaces.first().map_or(1920, |s| s.configured_width);
     let primary_height = state.surfaces.first().map_or(1080, |s| s.configured_height);
-    let cols = (primary_width as usize / 8).max(10);
-    let rows = (primary_height as usize / 16).max(5);
+    let (cols, rows) = arcade_grid_dimensions(primary_width as usize, primary_height as usize);
 
     let effect_kind = EffectKind::parse(saver_name);
-    let is_superfedora = saver_name == "superfedora";
+    let is_superfedora =
+        saver_name == "superfedora" || mode_str.eq_ignore_ascii_case("superfedora");
     let is_superfedora_unlocked =
         is_superfedora && crate::ascii::sys_info::is_superfedora_machine();
     let is_extras_cand = effect_kind.is_none() && saver_name != "ascii" && !is_superfedora;
@@ -867,9 +877,14 @@ pub fn run_wayland_fullscreen_preview(
     let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
     let targets = crate::daemon::config::parse_targets_from_mode(mode_str);
     let mut ascii_saver = if is_superfedora_unlocked {
-        Ascii::new_superfedora()
-            .with_dwell(dwell_secs)
-            .with_fps(target_fps)
+        let arcade_dwell = dwell_secs.clamp(0.4, 2.0);
+        let mut saver = Ascii::new_superfedora()
+            .with_dwell(arcade_dwell)
+            .with_fps(target_fps);
+        if let Some(effect) = effect_kind {
+            saver.pin_effect(effect);
+        }
+        saver
     } else {
         let mut saver = Ascii::new()
             .with_mode(text_mode, custom_opt)
@@ -902,13 +917,25 @@ pub fn run_wayland_fullscreen_preview(
             let max_cols = state
                 .surfaces
                 .iter()
-                .map(|s| (s.configured_width as usize / 8).max(10))
+                .map(|s| {
+                    arcade_grid_dimensions(
+                        s.configured_width as usize,
+                        s.configured_height as usize,
+                    )
+                    .0
+                })
                 .max()
                 .unwrap_or(cols);
             let max_rows = state
                 .surfaces
                 .iter()
-                .map(|s| (s.configured_height as usize / 16).max(5))
+                .map(|s| {
+                    arcade_grid_dimensions(
+                        s.configured_width as usize,
+                        s.configured_height as usize,
+                    )
+                    .1
+                })
                 .max()
                 .unwrap_or(rows);
 
@@ -946,8 +973,7 @@ pub fn run_wayland_fullscreen_preview(
                     let buf = &mut bufs[s.current_buf];
                     let buf_w = buf.width as usize;
                     let buf_h = buf.height as usize;
-                    let out_cols = (buf_w / 8).max(10);
-                    let out_rows = (buf_h / 16).max(5);
+                    let (out_cols, out_rows) = arcade_grid_dimensions(buf_w, buf_h);
 
                     if cells.len() < out_cols * out_rows {
                         cells.resize(out_cols * out_rows, TerminalCell::default());
@@ -1066,15 +1092,15 @@ pub fn run_wayland_daemon_presenter(
         .surfaces
         .first()
         .map_or(1080, |s| s.configured_height);
-    let cols = (primary_width as usize / 8).max(10);
-    let rows = (primary_height as usize / 16).max(5);
+    let (cols, rows) = arcade_grid_dimensions(primary_width as usize, primary_height as usize);
 
     let saver_name = state
         .current_saver
         .lock()
         .map_or_else(|_| "ascii".to_string(), |s| s.clone());
     let effect_kind = EffectKind::parse(&saver_name);
-    let is_superfedora = saver_name == "superfedora";
+    let is_superfedora =
+        saver_name == "superfedora" || mode_str.eq_ignore_ascii_case("superfedora");
     let is_superfedora_unlocked =
         is_superfedora && crate::ascii::sys_info::is_superfedora_machine();
     let is_extras_cand = effect_kind.is_none() && saver_name != "ascii" && !is_superfedora;
@@ -1111,9 +1137,14 @@ pub fn run_wayland_daemon_presenter(
         crate::daemon::config::parse_targets_from_mode(mode_str)
     };
     let mut ascii_saver = if is_superfedora_unlocked {
-        Ascii::new_superfedora()
-            .with_dwell(dwell_secs)
-            .with_fps(target_fps)
+        let arcade_dwell = dwell_secs.clamp(0.4, 2.0);
+        let mut saver = Ascii::new_superfedora()
+            .with_dwell(arcade_dwell)
+            .with_fps(target_fps);
+        if let Some(effect) = effect_kind {
+            saver.pin_effect(effect);
+        }
+        saver
     } else {
         let mut saver = Ascii::new()
             .with_mode(text_mode, custom_opt)
@@ -1133,24 +1164,26 @@ pub fn run_wayland_daemon_presenter(
     state_wl.start_time = Instant::now();
 
     while state.active.load(Ordering::SeqCst) && !state_wl.exit_requested {
-        // Sync live target and custom text changes from D-Bus / socket
-        if let Ok(guard) = state.text_targets.try_lock()
-            && *guard != ascii_saver.rotation.targets
-            && !guard.is_empty()
-        {
-            ascii_saver.rotation.set_targets(guard.clone());
-        }
-        let cur_epoch = state.custom_text_epoch.load(Ordering::Acquire);
-        if cur_epoch != last_custom_epoch {
-            if let Ok(guard) = state.custom_text.lock() {
-                let opt = (!guard.trim().is_empty()).then(|| guard.clone());
-                if opt != ascii_saver.rotation.custom_text {
-                    ascii_saver.rotation.custom_text = opt;
-                    if !is_extras {
-                        ascii_saver.init(cols, rows);
+        // Sync live target and custom text changes from D-Bus / socket (except in locked SuperFedora mode)
+        if !is_superfedora_unlocked {
+            if let Ok(guard) = state.text_targets.try_lock()
+                && *guard != ascii_saver.rotation.targets
+                && !guard.is_empty()
+            {
+                ascii_saver.rotation.set_targets(guard.clone());
+            }
+            let cur_epoch = state.custom_text_epoch.load(Ordering::Acquire);
+            if cur_epoch != last_custom_epoch {
+                if let Ok(guard) = state.custom_text.lock() {
+                    let opt = (!guard.trim().is_empty()).then(|| guard.clone());
+                    if opt != ascii_saver.rotation.custom_text {
+                        ascii_saver.rotation.custom_text = opt;
+                        if !is_extras {
+                            ascii_saver.init(cols, rows);
+                        }
                     }
+                    last_custom_epoch = cur_epoch;
                 }
-                last_custom_epoch = cur_epoch;
             }
         }
 
@@ -1173,13 +1206,25 @@ pub fn run_wayland_daemon_presenter(
             let max_cols = state_wl
                 .surfaces
                 .iter()
-                .map(|s| (s.configured_width as usize / 8).max(10))
+                .map(|s| {
+                    arcade_grid_dimensions(
+                        s.configured_width as usize,
+                        s.configured_height as usize,
+                    )
+                    .0
+                })
                 .max()
                 .unwrap_or(cols);
             let max_rows = state_wl
                 .surfaces
                 .iter()
-                .map(|s| (s.configured_height as usize / 16).max(5))
+                .map(|s| {
+                    arcade_grid_dimensions(
+                        s.configured_width as usize,
+                        s.configured_height as usize,
+                    )
+                    .1
+                })
                 .max()
                 .unwrap_or(rows);
 
@@ -1217,8 +1262,7 @@ pub fn run_wayland_daemon_presenter(
                     let buf = &mut bufs[s.current_buf];
                     let buf_w = buf.width as usize;
                     let buf_h = buf.height as usize;
-                    let out_cols = (buf_w / 8).max(10);
-                    let out_rows = (buf_h / 16).max(5);
+                    let (out_cols, out_rows) = arcade_grid_dimensions(buf_w, buf_h);
 
                     if cells.len() < out_cols * out_rows {
                         cells.resize(out_cols * out_rows, TerminalCell::default());
@@ -1245,30 +1289,6 @@ pub fn run_wayland_daemon_presenter(
             }
 
             connection.flush()?;
-
-            if !is_extras && ascii_saver.is_settled() {
-                // Zero-FPS settled dwell: commit settled frame once, then park presenter thread
-                while ascii_saver.is_settled()
-                    && ascii_saver.dwell_left > 0.0
-                    && state.active.load(Ordering::SeqCst)
-                    && !state_wl.exit_requested
-                    && !state_wl.dpms.is_sleeping()
-                {
-                    let slice = Duration::from_secs_f32(ascii_saver.dwell_left.min(0.05));
-                    let slice_start = Instant::now();
-                    poll_and_read_events(&connection, &mut event_queue, &mut state_wl, slice)?;
-                    let slice_elapsed = slice_start.elapsed();
-                    ascii_saver.dwell_left =
-                        (ascii_saver.dwell_left - slice_elapsed.as_secs_f32()).max(0.0);
-
-                    if state.custom_text_epoch.load(Ordering::Acquire) != last_custom_epoch {
-                        ascii_saver.dwell_left = 0.0;
-                        break;
-                    }
-                }
-                last_frame = Instant::now() - frame_dur;
-                continue;
-            }
         }
 
         let elapsed = last_frame.elapsed();

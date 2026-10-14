@@ -3,7 +3,10 @@
 
 //! Terminal cell definitions and LCG pseudo-random number generator.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
+
+static RNG_COUNTER: AtomicU64 = AtomicU64::new(0x9E37_79B9_7F4A_7C15);
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -34,9 +37,15 @@ impl LcgRng {
     }
 
     pub fn new_random() -> Self {
-        let seed = SystemTime::now()
+        let nanos = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .map_or(1, |d| d.as_nanos() as u64);
+        let seq = RNG_COUNTER.fetch_add(0x9E37_79B9_7F4A_7C15, Ordering::Relaxed);
+        let pid = u64::from(std::process::id()).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        let mut z = nanos ^ seq ^ pid;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        let seed = z ^ (z >> 31);
         Self::new(seed)
     }
 
@@ -77,7 +86,7 @@ impl LcgRng {
         if max == 0 {
             0
         } else {
-            (self.next_u64() % max as u64) as usize
+            ((self.next_u64() >> 32) % max as u64) as usize
         }
     }
 

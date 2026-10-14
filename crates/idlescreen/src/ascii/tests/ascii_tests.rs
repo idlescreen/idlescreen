@@ -379,7 +379,8 @@ fn wayland_refresh_rate_to_fps_and_duration_calculation() {
 fn superfedora_rotates_scenes_past_dwell_without_pinning() {
     let mut saver = Ascii::new_superfedora();
     assert!(!saver.pinned);
-    assert_eq!(saver.effect, EffectKind::Spotlights);
+    let initial_effect = saver.effect;
+    assert!(EffectKind::ALL.contains(&initial_effect));
     saver.init(COLS, ROWS);
 
     // Fast-forward animation to settled state, then fast-forward dwell
@@ -393,7 +394,7 @@ fn superfedora_rotates_scenes_past_dwell_without_pinning() {
         saver.update(Duration::from_millis(100), COLS, ROWS);
     }
     // Effect has rotated to another scene in the playlist
-    assert_ne!(saver.effect, EffectKind::Spotlights);
+    assert_ne!(saver.effect, initial_effect);
 }
 
 #[test]
@@ -418,9 +419,9 @@ fn multi_target_random_rotation_no_immediate_repeat() {
 }
 
 #[test]
-fn superfedora_rotates_through_all_37_distinct_scenes_in_first_cycle() {
+fn superfedora_rotates_through_all_37_distinct_scenes_and_randomizes_start() {
     let mut saver = Ascii::new_superfedora();
-    assert_eq!(saver.effect, EffectKind::Spotlights);
+    assert!(EffectKind::ALL.contains(&saver.effect));
 
     let mut seen = std::collections::HashSet::new();
     seen.insert(saver.effect);
@@ -441,4 +442,40 @@ fn superfedora_rotates_through_all_37_distinct_scenes_in_first_cycle() {
         saver.effect, last_effect,
         "cycle boundary must not immediately repeat"
     );
+
+    // Verify new_superfedora() starts on genuinely random initial scenes across invocations
+    let mut initial_scenes = std::collections::HashSet::new();
+    for _ in 0..32 {
+        initial_scenes.insert(Ascii::new_superfedora().effect);
+    }
+    assert!(
+        initial_scenes.len() > 5,
+        "new_superfedora() must randomize initial scene, got only {initial_scenes:?}"
+    );
+}
+
+#[test]
+fn all_37_scenes_render_strictly_pixel_art_blocks_with_superfedora_banner() {
+    let (cols, rows) = (120, 36);
+    let mut saver = Ascii::new_superfedora();
+    saver.init(cols, rows);
+    let mut grid = vec![TerminalCell::default(); cols * rows];
+
+    for &kind in &EffectKind::ALL {
+        saver.pin_effect(kind);
+        assert_eq!(saver.rotation.active_text(), "SUPERFEDORA");
+        for _ in 0..8 {
+            saver.update(Duration::from_millis(16), cols, rows);
+            saver.draw(&mut grid, cols, rows);
+            for cell in &grid {
+                assert!(
+                    super::super::draw::is_pixel_art_char(cell.ch),
+                    "Scene {} emitted non-pixel-art char {:?} (U+{:04X})",
+                    kind.name(),
+                    cell.ch,
+                    cell.ch as u32
+                );
+            }
+        }
+    }
 }

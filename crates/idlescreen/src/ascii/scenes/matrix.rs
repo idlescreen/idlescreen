@@ -54,15 +54,15 @@ pub struct MatrixConfig {
     pub rain_symbols: Vec<String>,
 
     /// Range for the speed of the falling rain as determined by the delay between rows. Actual delay is randomly selected from the range.
-    #[arg(long = "rain-fall-delay-range", default_value = "1-6", value_parser = parse_positive_int_range)]
+    #[arg(long = "rain-fall-delay-range", default_value = "1-3", value_parser = parse_positive_int_range)]
     pub rain_fall_delay_range: (i64, i64),
 
     /// Range of frames to wait between adding new rain columns.
-    #[arg(long = "rain-column-delay-range", default_value = "1-4", value_parser = parse_positive_int_range)]
+    #[arg(long = "rain-column-delay-range", default_value = "1-2", value_parser = parse_positive_int_range)]
     pub rain_column_delay_range: (i64, i64),
 
     /// Time, in seconds, to display the rain effect before transitioning to the input text.
-    #[arg(long = "rain-time", default_value_t = 6, value_parser = parse_positive_int)]
+    #[arg(long = "rain-time", default_value_t = 2, value_parser = parse_positive_int)]
     pub rain_time: i64,
 
     /// Chance of swapping a character's symbol on each tick.

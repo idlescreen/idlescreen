@@ -45,15 +45,15 @@ pub struct VhsTapeConfig {
     pub noise_colors: Vec<Color>,
 
     /// Chance that a line will glitch on any given frame.
-    #[arg(long = "glitch-line-chance", default_value_t = 0.12, value_parser = parse_non_negative_ratio)]
+    #[arg(long = "glitch-line-chance", default_value_t = 0.22, value_parser = parse_non_negative_ratio)]
     pub glitch_line_chance: f64,
 
     /// Chance that all characters will experience noise on any given frame.
-    #[arg(long = "noise-chance", default_value_t = 0.015, value_parser = parse_non_negative_ratio)]
+    #[arg(long = "noise-chance", default_value_t = 0.025, value_parser = parse_non_negative_ratio)]
     pub noise_chance: f64,
 
     /// Total time, frames, that the glitching phase will last.
-    #[arg(long = "total-glitch-time", default_value_t = 180, value_parser = parse_positive_int)]
+    #[arg(long = "total-glitch-time", default_value_t = 90, value_parser = parse_positive_int)]
     pub total_glitch_time: i64,
 
     /// Space separated, unquoted, list of colors for the final color gradient. If only one color is provided, the characters will be displayed in that color.

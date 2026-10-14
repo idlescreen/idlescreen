@@ -25,8 +25,8 @@ use state::{TextMode, TriRotationState};
 use std::time::Duration;
 use sys_info::query_telemetry;
 
-pub const DEFAULT_DWELL_SECS: f32 = 5.0;
-pub const DEFAULT_DISSOLVE_SECS: f32 = 0.7;
+pub const DEFAULT_DWELL_SECS: f32 = 2.0;
+pub const DEFAULT_DISSOLVE_SECS: f32 = 0.35;
 
 pub struct Ascii {
     pub rng: LcgRng,
@@ -53,6 +53,7 @@ pub struct Ascii {
     pub portrait_top: Vec<String>,
     pub portrait_bottom: Vec<String>,
     pub fps: u32,
+    pub frame_tick: u64,
 }
 
 impl Default for Ascii {
@@ -66,24 +67,20 @@ impl Ascii {
         Self::new_with_seed(LcgRng::new_random().next_u64())
     }
 
-    /// Dedicated 16-bit SuperFedora screensaver preset with Tokyo Night jewel colors,
-    /// stacked 2D pixel art banner, and orbiting spotlights effect.
+    /// Dedicated 16-bit SuperFedora arcade screensaver preset with Tokyo Night jewel colors,
+    /// stacked 2D pixel-art website banner, and randomized 37-scene arcade rotation.
     pub fn new_superfedora() -> Self {
         let seed = LcgRng::new_random().next_u64();
-        let mut rng = LcgRng::new(seed);
-        let playlist = EffectPlaylist::new_with_first(EffectKind::Spotlights, &mut rng);
         let mut saver = Self::new_with_seed(seed);
-        saver.rng = rng;
-        saver.playlist = playlist;
         saver.fg = (81, 162, 218); // Fedora Cyan #51a2da
         saver.bg = (0, 0, 0);
         saver.rotation.mode = TextMode::Custom;
         saver.rotation.custom_text = Some("SUPERFEDORA".to_string());
         saver.rotation.set_targets(vec!["superfedora".to_string()]);
-        saver.effect = EffectKind::Spotlights;
         saver.pinned = false;
-        saver.dwell_duration = Some(6.0);
-        saver.dwell_left = 6.0;
+        saver.dwell_duration = Some(1.8);
+        saver.dwell_left = 1.8;
+        saver.transition_duration = DEFAULT_DISSOLVE_SECS;
         saver
     }
 
@@ -118,6 +115,7 @@ impl Ascii {
             portrait_top: Vec::new(),
             portrait_bottom: Vec::new(),
             fps: 60,
+            frame_tick: 0,
         }
     }
 
@@ -214,7 +212,12 @@ impl Ascii {
         }
         self.anim_left = 120.0;
         self.rebuild_art();
-        if is_portrait(self.last_cols, self.last_rows) {
+        let is_superfedora_banner = self
+            .rotation
+            .active_text()
+            .eq_ignore_ascii_case("SUPERFEDORA")
+            || sys_info::is_superfedora_machine();
+        if is_portrait(self.last_cols, self.last_rows) && !is_superfedora_banner {
             let telemetry = query_telemetry();
             let (top, bottom) = format_portrait_telemetry(&telemetry, self.last_cols);
             self.portrait_top = top;
@@ -274,6 +277,7 @@ impl Ascii {
             self.init(cols, rows);
         }
 
+        self.frame_tick = self.frame_tick.wrapping_add(1);
         let dt_secs = dt.as_secs_f32().clamp(0.0, 0.1);
         self.elapsed_in_effect += dt_secs;
 
@@ -424,7 +428,22 @@ impl Ascii {
             grid.fill(TerminalCell::default());
         }
 
-        if is_portrait(cols, rows) {
+        draw::apply_arcade_fx(
+            grid,
+            cols,
+            rows,
+            self.frame_tick,
+            self.is_settled(),
+            self.bg,
+        );
+
+        if is_portrait(cols, rows)
+            && !self.portrait_top.is_empty()
+            && !self
+                .rotation
+                .active_text()
+                .eq_ignore_ascii_case("SUPERFEDORA")
+        {
             for (i, line) in self.portrait_top.iter().enumerate() {
                 let y = 1 + i;
                 if y < rows {
@@ -433,8 +452,8 @@ impl Ascii {
                             let idx = y * cols + x;
                             if idx < grid.len() && ch != ' ' {
                                 grid[idx] = TerminalCell {
-                                    ch,
-                                    fg: (160, 160, 160),
+                                    ch: draw::pixel_art_glyph(ch, x, y),
+                                    fg: (81, 162, 218),
                                     bg: self.bg,
                                     bold: false,
                                 };
@@ -452,8 +471,8 @@ impl Ascii {
                             let idx = y * cols + x;
                             if idx < grid.len() && ch != ' ' {
                                 grid[idx] = TerminalCell {
-                                    ch,
-                                    fg: (160, 160, 160),
+                                    ch: draw::pixel_art_glyph(ch, x, y),
+                                    fg: (81, 162, 218),
                                     bg: self.bg,
                                     bold: false,
                                 };

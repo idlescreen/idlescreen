@@ -13,6 +13,7 @@ use ttfx::engine::terminal::TerminalConfig;
 pub struct EngineSession {
     ctx: EngineCtx,
     effect: Box<dyn Effect>,
+    steps_per_frame: usize,
 }
 
 impl EngineSession {
@@ -42,11 +43,24 @@ impl EngineSession {
         let mut ctx = EngineCtx::new(art, config, rng, clock).ok()?;
         let mut effect = scenes::create_scene(kind);
         effect.build(&mut ctx).ok()?;
+        let steps_per_frame = kind.arcade_steps_per_frame();
 
-        Some(Self { ctx, effect })
+        Some(Self {
+            ctx,
+            effect,
+            steps_per_frame,
+        })
     }
 
     pub fn next_frame(&mut self) -> Option<String> {
-        self.effect.next_frame(&mut self.ctx)
+        let mut last = None;
+        let steps = self.steps_per_frame.max(1);
+        for _ in 0..steps {
+            match self.effect.next_frame(&mut self.ctx) {
+                Some(f) => last = Some(f),
+                None => break,
+            }
+        }
+        last
     }
 }

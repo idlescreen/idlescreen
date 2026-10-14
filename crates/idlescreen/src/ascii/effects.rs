@@ -177,10 +177,35 @@ impl EffectKind {
 
     pub fn dwell(&self) -> f32 {
         match self {
-            EffectKind::Decrypt | EffectKind::Sweep => 8.0,
-            EffectKind::Fireworks => 9.0,
-            EffectKind::Thunderstorm => 11.0,
-            _ => 10.0,
+            EffectKind::Decrypt | EffectKind::Sweep => 1.6,
+            EffectKind::Fireworks => 1.8,
+            EffectKind::Thunderstorm => 2.0,
+            _ => 1.8,
+        }
+    }
+
+    /// Number of simulation ticks advanced per rendered frame for snappy 16-bit arcade energy.
+    pub fn arcade_steps_per_frame(&self) -> usize {
+        match self {
+            EffectKind::Wipe => 1,
+            EffectKind::Slide
+            | EffectKind::Slice
+            | EffectKind::Sweep
+            | EffectKind::Expand
+            | EffectKind::Middleout
+            | EffectKind::Highlight
+            | EffectKind::Colorshift => 2,
+            EffectKind::Spotlights
+            | EffectKind::Matrix
+            | EffectKind::Thunderstorm
+            | EffectKind::Blackhole
+            | EffectKind::Swarm
+            | EffectKind::Rings
+            | EffectKind::Bubbles
+            | EffectKind::Bouncyballs
+            | EffectKind::Synthgrid
+            | EffectKind::Binarypath => 4,
+            _ => 3,
         }
     }
 }
@@ -211,22 +236,6 @@ impl EffectPlaylist {
             cursor: 37,
             last,
         }
-    }
-
-    pub fn new_with_first(first: EffectKind, rng: &mut LcgRng) -> Self {
-        let mut playlist = Self {
-            order: EffectKind::ALL,
-            cursor: 1,
-            last: Some(first),
-        };
-        if let Some(pos) = playlist.order.iter().position(|&e| e == first) {
-            playlist.order.swap(0, pos);
-        }
-        for i in (2..playlist.order.len()).rev() {
-            let j = 1 + rng.next_usize(i);
-            playlist.order.swap(i, j);
-        }
-        playlist
     }
 
     pub fn set_last(&mut self, last: EffectKind) {

@@ -101,8 +101,9 @@ fn run_preview_loop(
     let mut rows = (raw_rows as usize).max(5);
 
     let effect_kind = EffectKind::parse(saver_name);
-    let is_superfedora = saver_name == "superfedora";
-    if is_superfedora && !crate::ascii::sys_info::is_superfedora_machine() {
+    let is_superfedora =
+        saver_name == "superfedora" || mode_str.eq_ignore_ascii_case("superfedora");
+    if saver_name == "superfedora" && !crate::ascii::sys_info::is_superfedora_machine() {
         eprintln!("error: screensaver 'superfedora' is locked.");
         eprintln!(
             "It only unlocks when IdleScreen is installed and run on a SuperFedora workstation."
@@ -126,10 +127,14 @@ fn run_preview_loop(
     let text_mode = TextMode::parse(mode_str);
     let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
     let targets = crate::daemon::config::parse_targets_from_mode(mode_str);
-    let mut ascii_saver = if is_superfedora {
-        Ascii::new_superfedora()
-            .with_dwell(dwell_secs)
-            .with_fps(target_fps)
+    let mut ascii_saver = if is_superfedora && crate::ascii::sys_info::is_superfedora_machine() {
+        let mut saver = Ascii::new_superfedora()
+            .with_dwell(dwell_secs.clamp(0.4, 2.0))
+            .with_fps(target_fps);
+        if let Some(effect) = effect_kind {
+            saver.pin_effect(effect);
+        }
+        saver
     } else {
         let mut saver = Ascii::new()
             .with_mode(text_mode, custom_opt)

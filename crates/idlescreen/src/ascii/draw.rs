@@ -1,11 +1,95 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! Terminal cell buffer drawing, ANSI frame parsing, and dissolve transitions.
+//! Terminal cell buffer drawing, 16-bit pixel-art quantization, arcade post-FX, and transitions.
 
 use crate::cell::TerminalCell;
 
-/// Parses an ANSI-formatted ttfx frame string directly into the grid.
+/// Returns true if `ch` is a pure pixel-art block/quadrant/dither element (or space).
+#[inline]
+pub fn is_pixel_art_char(ch: char) -> bool {
+    matches!(
+        ch,
+        ' ' | '█'
+            | '▀'
+            | '▄'
+            | '▌'
+            | '▐'
+            | '▁'
+            | '▂'
+            | '▃'
+            | '▅'
+            | '▆'
+            | '▇'
+            | '▏'
+            | '▎'
+            | '▍'
+            | '▋'
+            | '▊'
+            | '▉'
+            | '░'
+            | '▒'
+            | '▓'
+            | '▖'
+            | '▗'
+            | '▘'
+            | '▝'
+            | '▚'
+            | '▞'
+            | '▙'
+            | '▛'
+            | '▜'
+            | '▟'
+            | '■'
+            | '▪'
+            | '▫'
+    )
+}
+
+/// Maps any character emitted by a scene into a crisp 16-bit pixel-art block glyph.
+/// Guarantees zero ASCII text letters, digits, katakana, or punctuation ever render.
+#[inline]
+pub fn pixel_art_glyph(ch: char, x: usize, y: usize) -> char {
+    if is_pixel_art_char(ch) {
+        return ch;
+    }
+    const HEAVY: [char; 6] = ['█', '▓', '▛', '▟', '▙', '▜'];
+    const MEDIUM: [char; 12] = ['▓', '▒', '▀', '▄', '▌', '▐', '▛', '▟', '▙', '▜', '▞', '▚'];
+    const SPARK: [char; 8] = ['■', '▪', '▀', '▄', '▌', '▐', '▞', '▚'];
+    const FINE: [char; 6] = ['░', '▪', '▖', '▗', '▘', '▝'];
+
+    let hash = (ch as usize)
+        .wrapping_mul(31)
+        .wrapping_add(x.wrapping_mul(17))
+        .wrapping_add(y.wrapping_mul(13));
+
+    match ch {
+        '@' | '#' | '%' | '&' | 'W' | 'M' | 'B' | '8' | '0' | 'Q' => HEAVY[hash % HEAVY.len()],
+        '.' | ',' | '\'' | '`' | ':' | ';' | '-' | '_' | '~' => FINE[hash % FINE.len()],
+        '*' | '+' | 'o' | 'O' | '^' | '/' | '\\' | '|' | '=' => SPARK[hash % SPARK.len()],
+        _ => MEDIUM[hash % MEDIUM.len()],
+    }
+}
+
+/// Boosts dull/dark RGB values into punchy, high-saturation 16-bit arcade colors.
+#[inline]
+fn boost_arcade_rgb(c: (u8, u8, u8)) -> (u8, u8, u8) {
+    let max_c = c.0.max(c.1).max(c.2);
+    if max_c == 0 {
+        return (56, 140, 235);
+    }
+    let min_c = c.0.min(c.1).min(c.2);
+    // Boost luminance if too dim and stretch chroma contrast for 16-bit vibrancy
+    let target_max = max_c.max(150) as u16;
+    let scale = (target_max * 256) / (max_c as u16).max(1);
+    let boost = |v: u8| -> u8 {
+        let spread = (v.saturating_sub(min_c / 2) as u16 * scale) >> 8;
+        spread.min(255) as u8
+    };
+    (boost(c.0), boost(c.1), boost(c.2))
+}
+
+/// Parses an ANSI-formatted ttfx frame string directly into the grid as pure pixel art.
 ///
 /// Steady-state zero heap allocation: parses bytes in-place.
 pub fn paint_frame(
@@ -68,19 +152,163 @@ pub fn paint_frame(
             4
         };
         let end = (i + len).min(bytes.len());
-        if let Some(ch) = std::str::from_utf8(&bytes[i..end])
+        if let Some(raw_ch) = std::str::from_utf8(&bytes[i..end])
             .ok()
             .and_then(|s| s.chars().next())
         {
             if x < cols && y < rows {
                 let idx = y * cols + x;
                 if idx < grid.len() {
-                    grid[idx] = TerminalCell { ch, fg, bg, bold };
+                    let ch = pixel_art_glyph(raw_ch, x, y);
+                    let cell_fg = if ch == ' ' {
+                        default_fg
+                    } else {
+                        boost_arcade_rgb(fg)
+                    };
+                    grid[idx] = TerminalCell {
+                        ch,
+                        fg: cell_fg,
+                        bg,
+                        bold: ch == '█' || bold,
+                    };
                 }
             }
             x += 1;
         }
         i = end;
+    }
+}
+
+/// Applies 16-bit SNES arcade post-processing:
+/// 1. 3D pixel-block drop shadow behind solid logo blocks
+/// 2. Vibrant 16-bit bevel gradient and diagonal specular gleam sweep across settled logo blocks
+/// 3. 3-layer scrolling parallax pixel starfield and rising neon arcade embers in empty space
+pub fn apply_arcade_fx(
+    grid: &mut [TerminalCell],
+    cols: usize,
+    rows: usize,
+    frame_tick: u64,
+    settled: bool,
+    bg: (u8, u8, u8),
+) {
+    let total = cols.saturating_mul(rows).min(grid.len());
+    if total == 0 || cols == 0 || rows == 0 {
+        return;
+    }
+
+    let tick = frame_tick as usize;
+    let gleam_span = (cols + rows * 2 + 28).max(1);
+    let gleam_pos = (tick * 3) % gleam_span;
+
+    // Pass 1: Metallic 16-bit bevel + specular gleam on solid blocks, plus 3D drop shadow
+    for y in 0..rows {
+        let row_off = y * cols;
+        for x in 0..cols {
+            let idx = row_off + x;
+            if idx >= total {
+                break;
+            }
+            let cell = grid[idx];
+            if cell.ch == '█' || cell.ch == '▀' || cell.ch == '▄' {
+                let diag = x + y * 2;
+                let dist = diag.abs_diff(gleam_pos);
+                let new_fg = if dist == 0 {
+                    (245, 255, 255)
+                } else if dist == 1 {
+                    (255, 225, 110)
+                } else if dist == 2 {
+                    (130, 235, 255)
+                } else if settled {
+                    // Crisp 16-bit SuperFedora chrome-cyan to electric-sapphire vertical bevel
+                    let band = (y * 16) / rows.max(1);
+                    match band {
+                        0..=5 => (255, 205, 70),   // Top "SUPER" arcade gold-cyan
+                        6 => (150, 240, 255),      // Upper bevel highlight
+                        7..=9 => (95, 195, 248),   // Sky cyan
+                        10..=12 => (81, 162, 218), // Fedora cyan
+                        _ => (58, 124, 220),       // Deep royal sapphire base
+                    }
+                } else {
+                    cell.fg
+                };
+                grid[idx].fg = new_fg;
+                grid[idx].bold = true;
+
+                // Cast 3D 16-bit arcade shadow at (x + 1, y + 1) if empty
+                if x + 1 < cols && y + 1 < rows {
+                    let shadow_idx = (y + 1) * cols + (x + 1);
+                    if shadow_idx < total && grid[shadow_idx].ch == ' ' {
+                        grid[shadow_idx] = TerminalCell {
+                            ch: '░',
+                            fg: (36, 66, 138),
+                            bg,
+                            bold: false,
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    // Pass 2: 3-layer scrolling 16-bit parallax pixel starfield in empty cells
+    for y in 0..rows {
+        let row_off = y * cols;
+        for x in 0..cols {
+            let idx = row_off + x;
+            if idx >= total {
+                break;
+            }
+            if grid[idx].ch != ' ' {
+                continue;
+            }
+
+            // Layer 1: Fast horizontal pixel starstream
+            let sx1 = x.wrapping_add(tick * 2);
+            let h1 = (sx1.wrapping_mul(2_654_435_761) ^ y.wrapping_mul(2_246_822_519)) & 0xFFFF;
+            if h1 < 72 {
+                let is_gold = h1.trailing_zeros() >= 2;
+                grid[idx] = TerminalCell {
+                    ch: if (h1 & 1) == 0 { '▪' } else { '■' },
+                    fg: if is_gold {
+                        (255, 200, 60)
+                    } else {
+                        (95, 220, 255)
+                    },
+                    bg,
+                    bold: true,
+                };
+                continue;
+            }
+
+            // Layer 2: Medium rising neon arcade embers
+            let sy2 = y.wrapping_add(tick / 2);
+            let h2 = (x.wrapping_mul(3_266_489_917) ^ sy2.wrapping_mul(668_265_263)) & 0xFFFF;
+            if h2 < 96 {
+                grid[idx] = TerminalCell {
+                    ch: if (h2 & 1) == 0 { '▝' } else { '▖' },
+                    fg: if (h2 & 2) == 0 {
+                        (215, 85, 210)
+                    } else {
+                        (130, 95, 255)
+                    },
+                    bg,
+                    bold: false,
+                };
+                continue;
+            }
+
+            // Layer 3: Slow deep-space pixel dither dust
+            let sx3 = x.wrapping_add(tick / 3);
+            let h3 = (sx3.wrapping_mul(374_761_393) ^ y.wrapping_mul(1_103_515_245)) & 0xFFFF;
+            if h3 < 130 {
+                grid[idx] = TerminalCell {
+                    ch: '░',
+                    fg: (40, 78, 156),
+                    bg,
+                    bold: false,
+                };
+            }
+        }
     }
 }
 
@@ -159,13 +387,7 @@ pub(crate) fn xterm_to_rgb(code: u8) -> (u8, u8, u8) {
     })[code as usize]
 }
 
-/// Smoothly blends the outgoing frame and incoming frame over progress `t` in `[0.0, 1.0]`.
-///
-/// Implements an energy-preserving dissolve transition:
-/// - Eliminates all hard cuts, screen blanking, pops, and flashes.
-/// - Outgoing settled text gracefully fades in luminance and dissolves.
-/// - Incoming effect animation ramps in brightness and enters cleanly.
-/// - Zero heap allocation, bounds-checked.
+/// Blends the outgoing frame and incoming frame over progress `t` in `[0.0, 1.0]`.
 pub fn paint_transition(
     from: &[TerminalCell],
     to: &[TerminalCell],
@@ -196,14 +418,13 @@ pub fn paint_transition(
             let from_cell = from[idx];
             let to_cell = to[idx];
 
-            // Pseudo-random pseudo-dither threshold based on coordinates
             let thresh = ((x.wrapping_mul(137) ^ y.wrapping_mul(149) ^ ((x + y).wrapping_mul(31)))
                 & 0xFF) as u8;
             let pick_to = t >= 1.0 || (t > 0.0 && t_byte > thresh);
             let factor = if pick_to {
-                180 + ((in_factor * 76) >> 8)
+                200 + ((in_factor * 56) >> 8)
             } else {
-                180 + ((out_factor * 76) >> 8)
+                200 + ((out_factor * 56) >> 8)
             };
             let src = if pick_to { to_cell } else { from_cell };
             out[idx] = if src.ch == ' ' {
@@ -265,7 +486,7 @@ pub fn place_banner_centered(
                 let idx = y * cols + x;
                 if idx < grid.len() {
                     grid[idx] = TerminalCell {
-                        ch,
+                        ch: pixel_art_glyph(ch, x, y),
                         fg,
                         bg,
                         bold: true,

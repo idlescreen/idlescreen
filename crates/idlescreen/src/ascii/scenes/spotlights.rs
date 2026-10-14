@@ -34,20 +34,20 @@ pub struct SpotlightsConfig {
     pub beam_falloff: f64,
 
     /// Duration of the search phase, in frames, before the spotlights converge in the center.
-    #[arg(long = "search-duration", default_value_t = 550, value_parser = parse_positive_int)]
+    #[arg(long = "search-duration", default_value_t = 160, value_parser = parse_positive_int)]
     pub search_duration: i64,
 
     /// Range of speeds for the spotlights during the search phase.
-    #[arg(long = "search-speed-range", default_value = "0.35-0.75", value_parser = parse_positive_float_range)]
+    #[arg(long = "search-speed-range", default_value = "0.85-1.60", value_parser = parse_positive_float_range)]
     pub search_speed_range: (f64, f64),
 
     /// Number of spotlights to use.
-    #[arg(long = "spotlight-count", default_value_t = 3, value_parser = parse_positive_int)]
+    #[arg(long = "spotlight-count", default_value_t = 4, value_parser = parse_positive_int)]
     pub spotlight_count: i64,
 
     /// Space separated, unquoted, list of colors for the final color gradient.
     #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["ab48ff", "e7b2b2", "fffebd"])]
+          default_values = ["00f5d4", "51a2da", "ffbe0b"])]
     pub final_gradient_stops: Vec<Color>,
 
     /// Number of gradient steps to use.
