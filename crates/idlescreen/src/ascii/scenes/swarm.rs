@@ -33,7 +33,7 @@ pub struct SwarmConfig {
     pub flash_color: Color,
 
     /// Percent of total characters in each swarm.
-    #[arg(long = "swarm-size", default_value_t = 0.18, value_parser = parse_non_negative_ratio)]
+    #[arg(long = "swarm-size", default_value_t = 0.30, value_parser = parse_non_negative_ratio)]
     pub swarm_size: f64,
 
     /// Percent of characters in a swarm that move as a group.

@@ -766,11 +766,23 @@ impl Dispatch<wl_seat::WlSeat, ()> for WaylandState {
     }
 }
 
-/// Computes chunky 16-bit SNES arcade grid dimensions (`120x36` on fullscreen HD/QHD/4K displays)
-/// so the 90x22 `SUPER FEDORA` pixel-art banner commands 75% of the screen width with bold pixel blocks.
+/// Computes chunky 16-bit SNES arcade grid dimensions (`120x36` on 16:9/16:10 HD/QHD/4K displays,
+/// aspect-scaled on 21:9/32:9 ultrawide and portrait displays) so the 90x22 `SUPER FEDORA`
+/// pixel-art banner commands the screen with crisp `~1:2` pixel blocks.
 pub fn arcade_grid_dimensions(pixel_w: usize, pixel_h: usize) -> (usize, usize) {
-    if pixel_w >= 960 && pixel_h >= 540 {
-        (120, 36)
+    if pixel_w >= 960 && pixel_h >= 540 && pixel_w >= pixel_h {
+        let rows = 36usize;
+        // Scale columns proportionally on ultrawide displays (21:9, 32:9) to preserve ~1:2 cell aspect ratio
+        let cols = if pixel_w * 9 > pixel_h * 18 {
+            ((120 * pixel_w * 9) / (pixel_h * 16)).clamp(120, 256)
+        } else {
+            120
+        };
+        (cols, rows)
+    } else if pixel_h > pixel_w && pixel_w >= 720 && pixel_h >= 960 {
+        let cols = 96usize;
+        let rows = ((96 * pixel_h * 9) / (pixel_w * 16)).clamp(48, 108);
+        (cols, rows)
     } else {
         ((pixel_w / 8).clamp(10, 120), (pixel_h / 16).clamp(5, 36))
     }
@@ -792,6 +804,8 @@ pub fn run_wayland_fullscreen_preview(
 
     let mut state = WaylandState::new();
     event_queue.roundtrip(&mut state)?;
+    // Second roundtrip receives wl_output::Event::Mode (resolution/refresh) bound during roundtrip 1
+    let _ = event_queue.roundtrip(&mut state);
 
     state.create_presentation_surfaces(&qh)?;
 
@@ -852,7 +866,7 @@ pub fn run_wayland_fullscreen_preview(
     let is_superfedora =
         saver_name == "superfedora" || mode_str.eq_ignore_ascii_case("superfedora");
     let is_superfedora_unlocked =
-        is_superfedora && crate::ascii::sys_info::is_superfedora_machine();
+        crate::ascii::sys_info::is_superfedora_machine() && custom_text.trim().is_empty();
     let is_extras_cand = effect_kind.is_none() && saver_name != "ascii" && !is_superfedora;
     let mut is_extras = is_extras_cand && ExtrasSession::is_available();
     let mut extras_session = if is_extras {
@@ -1025,6 +1039,9 @@ pub fn run_wayland_daemon_presenter(
     let _registry = connection.display().get_registry(&qh, ());
 
     let mut state_wl = WaylandState::new();
+    // First roundtrip discovers globals and binds `wl_output` instances.
+    event_queue.roundtrip(&mut state_wl)?;
+    // Second roundtrip receives initial `wl_output` events (mode resolution / refresh rate).
     event_queue.roundtrip(&mut state_wl)?;
 
     state_wl.create_presentation_surfaces(&qh)?;
@@ -1101,8 +1118,6 @@ pub fn run_wayland_daemon_presenter(
     let effect_kind = EffectKind::parse(&saver_name);
     let is_superfedora =
         saver_name == "superfedora" || mode_str.eq_ignore_ascii_case("superfedora");
-    let is_superfedora_unlocked =
-        is_superfedora && crate::ascii::sys_info::is_superfedora_machine();
     let is_extras_cand = effect_kind.is_none() && saver_name != "ascii" && !is_superfedora;
     let mut is_extras = is_extras_cand && ExtrasSession::is_available();
     let mut extras_session = if is_extras {
@@ -1129,6 +1144,8 @@ pub fn run_wayland_daemon_presenter(
     } else {
         (!custom_text.trim().is_empty()).then(|| custom_text.to_string())
     };
+    let is_superfedora_unlocked =
+        crate::ascii::sys_info::is_superfedora_machine() && custom_opt.is_none();
     let targets = if let Ok(guard) = state.text_targets.lock()
         && !guard.is_empty()
     {
@@ -1471,5 +1488,24 @@ mod tests {
         // Motion > 15px in y axis
         state.handle_pointer_motion(-40.0, -10.0);
         assert!(state.exit_requested);
+    }
+
+    #[test]
+    fn test_arcade_grid_dimensions_aspect_ratios() {
+        // Standard 16:9 1080p and 4K -> (120, 36)
+        assert_eq!(arcade_grid_dimensions(1920, 1080), (120, 36));
+        assert_eq!(arcade_grid_dimensions(3840, 2160), (120, 36));
+        // 16:10 1920x1200 -> (120, 36)
+        assert_eq!(arcade_grid_dimensions(1920, 1200), (120, 36));
+        // 21:9 ultrawide 3440x1440 -> wider cols to preserve ~1:2 block aspect ratio
+        let (uw_cols, uw_rows) = arcade_grid_dimensions(3440, 1440);
+        assert_eq!(uw_rows, 36);
+        assert!(uw_cols >= 155 && uw_cols <= 165, "got {uw_cols}x{uw_rows}");
+        // 32:9 super-ultrawide 5120x1440 -> (240, 36)
+        assert_eq!(arcade_grid_dimensions(5120, 1440), (240, 36));
+        // 9:16 vertical portrait 1080x1920 -> taller rows to preserve ~1:2 block aspect ratio
+        let (p_cols, p_rows) = arcade_grid_dimensions(1080, 1920);
+        assert_eq!(p_cols, 96);
+        assert!(p_rows >= 85 && p_rows <= 96, "got {p_cols}x{p_rows}");
     }
 }

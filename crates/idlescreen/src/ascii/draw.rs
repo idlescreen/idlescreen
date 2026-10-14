@@ -5,7 +5,7 @@
 
 use crate::cell::TerminalCell;
 
-/// Returns true if `ch` is a pure pixel-art block/quadrant/dither element (or space).
+/// Returns true if `ch` is a pure Unicode Block Element (`U+2580..=U+259F`) or space.
 #[inline]
 pub fn is_pixel_art_char(ch: char) -> bool {
     matches!(
@@ -40,23 +40,20 @@ pub fn is_pixel_art_char(ch: char) -> bool {
             | '▛'
             | '▜'
             | '▟'
-            | '■'
-            | '▪'
-            | '▫'
     )
 }
 
 /// Maps any character emitted by a scene into a crisp 16-bit pixel-art block glyph.
-/// Guarantees zero ASCII text letters, digits, katakana, or punctuation ever render.
+/// Guarantees zero ASCII text letters, digits, katakana, punctuation, or emojis ever render.
 #[inline]
 pub fn pixel_art_glyph(ch: char, x: usize, y: usize) -> char {
     if is_pixel_art_char(ch) {
         return ch;
     }
-    const HEAVY: [char; 6] = ['█', '▓', '▛', '▟', '▙', '▜'];
+    const HEAVY: [char; 5] = ['▓', '▛', '▟', '▙', '▜'];
     const MEDIUM: [char; 12] = ['▓', '▒', '▀', '▄', '▌', '▐', '▛', '▟', '▙', '▜', '▞', '▚'];
-    const SPARK: [char; 8] = ['■', '▪', '▀', '▄', '▌', '▐', '▞', '▚'];
-    const FINE: [char; 6] = ['░', '▪', '▖', '▗', '▘', '▝'];
+    const SPARK: [char; 8] = ['▀', '▄', '▌', '▐', '▞', '▚', '▘', '▝'];
+    const FINE: [char; 5] = ['░', '▖', '▗', '▘', '▝'];
 
     let hash = (ch as usize)
         .wrapping_mul(31)
@@ -87,6 +84,94 @@ fn boost_arcade_rgb(c: (u8, u8, u8)) -> (u8, u8, u8) {
         spread.min(255) as u8
     };
     (boost(c.0), boost(c.1), boost(c.2))
+}
+
+/// Computes the 16-bit SNES vertical chrome bevel color for a solid banner block at row `y`
+/// relative to the banner's vertical bounding box `[min_y, max_y]`.
+#[inline]
+fn banner_bevel_color(y: usize, min_y: usize, max_y: usize) -> (u8, u8, u8) {
+    let span = max_y.saturating_sub(min_y) + 1;
+    let rel_y = y.saturating_sub(min_y);
+    // Stacked SuperFedora banner: top ~28% is "SUPER" (6 of 22 rows, or 3 of 7 rows), bottom is "FEDORA"
+    let super_rows = if span >= 18 {
+        6
+    } else if span >= 6 {
+        (span * 3) / 7
+    } else {
+        0
+    };
+
+    if super_rows > 0 && rel_y < super_rows {
+        let band = (rel_y * 6) / super_rows.max(1);
+        match band {
+            0 | 1 => (255, 240, 130), // Bright arcade gold highlight
+            2 | 3 => (255, 205, 55),  // Rich SNES gold midtone
+            _ => (235, 155, 30),      // Burnished amber base
+        }
+    } else {
+        let fedora_start = if super_rows > 0 { super_rows + 1 } else { 0 };
+        let fedora_span = span.saturating_sub(fedora_start).max(1);
+        let fedora_y = rel_y.saturating_sub(fedora_start);
+        let band = (fedora_y * 10) / fedora_span;
+        match band {
+            0 | 1 => (170, 245, 255), // Ice-cyan top bevel highlight
+            2..=4 => (100, 205, 255), // Electric sky cyan
+            5..=7 => (81, 162, 218),  // SuperFedora cyan
+            _ => (52, 118, 220),      // Deep royal sapphire base
+        }
+    }
+}
+
+/// Finds the vertical row bounds `(min_y, max_y)` of solid banner blocks (`█`, `▀`, `▄`).
+fn find_solid_banner_bounds(
+    grid: &[TerminalCell],
+    cols: usize,
+    rows: usize,
+) -> Option<(usize, usize)> {
+    let total = cols.saturating_mul(rows).min(grid.len());
+    let mut min_y = rows;
+    let mut max_y = 0usize;
+    let mut found = false;
+    for y in 0..rows {
+        let row_off = y * cols;
+        for x in 0..cols {
+            let idx = row_off + x;
+            if idx >= total {
+                break;
+            }
+            let ch = grid[idx].ch;
+            if ch == '█' || ch == '▀' || ch == '▄' {
+                min_y = min_y.min(y);
+                max_y = max_y.max(y);
+                found = true;
+            }
+        }
+    }
+    found.then_some((min_y, max_y))
+}
+
+/// Stamps the 16-bit SNES gold/cyan vertical chrome bevel onto settled solid banner blocks in `grid`.
+/// Ensures `frame_grid` and `transition_from_grid` preserve beveled colors across scene dissolves.
+pub fn apply_settled_bevel(grid: &mut [TerminalCell], cols: usize, rows: usize) {
+    let Some((min_y, max_y)) = find_solid_banner_bounds(grid, cols, rows) else {
+        return;
+    };
+    let total = cols.saturating_mul(rows).min(grid.len());
+    for y in min_y..=max_y {
+        let color = banner_bevel_color(y, min_y, max_y);
+        let row_off = y * cols;
+        for x in 0..cols {
+            let idx = row_off + x;
+            if idx >= total {
+                break;
+            }
+            let ch = grid[idx].ch;
+            if ch == '█' || ch == '▀' || ch == '▄' {
+                grid[idx].fg = color;
+                grid[idx].bold = true;
+            }
+        }
+    }
 }
 
 /// Parses an ANSI-formatted ttfx frame string directly into the grid as pure pixel art.
@@ -181,7 +266,7 @@ pub fn paint_frame(
 
 /// Applies 16-bit SNES arcade post-processing:
 /// 1. 3D pixel-block drop shadow behind solid logo blocks
-/// 2. Vibrant 16-bit bevel gradient and diagonal specular gleam sweep across settled logo blocks
+/// 2. Vibrant 16-bit bevel gradient and diagonal specular gleam sweep across logo blocks
 /// 3. 3-layer scrolling parallax pixel starfield and rising neon arcade embers in empty space
 pub fn apply_arcade_fx(
     grid: &mut [TerminalCell],
@@ -196,6 +281,9 @@ pub fn apply_arcade_fx(
         return;
     }
 
+    let bounds = settled
+        .then(|| find_solid_banner_bounds(grid, cols, rows))
+        .flatten();
     let tick = frame_tick as usize;
     let gleam_span = (cols + rows * 2 + 28).max(1);
     let gleam_pos = (tick * 3) % gleam_span;
@@ -218,16 +306,8 @@ pub fn apply_arcade_fx(
                     (255, 225, 110)
                 } else if dist == 2 {
                     (130, 235, 255)
-                } else if settled {
-                    // Crisp 16-bit SuperFedora chrome-cyan to electric-sapphire vertical bevel
-                    let band = (y * 16) / rows.max(1);
-                    match band {
-                        0..=5 => (255, 205, 70),   // Top "SUPER" arcade gold-cyan
-                        6 => (150, 240, 255),      // Upper bevel highlight
-                        7..=9 => (95, 195, 248),   // Sky cyan
-                        10..=12 => (81, 162, 218), // Fedora cyan
-                        _ => (58, 124, 220),       // Deep royal sapphire base
-                    }
+                } else if let Some((min_y, max_y)) = bounds {
+                    banner_bevel_color(y, min_y, max_y)
                 } else {
                     cell.fg
                 };
@@ -268,7 +348,7 @@ pub fn apply_arcade_fx(
             if h1 < 72 {
                 let is_gold = h1.trailing_zeros() >= 2;
                 grid[idx] = TerminalCell {
-                    ch: if (h1 & 1) == 0 { '▪' } else { '■' },
+                    ch: if (h1 & 1) == 0 { '▘' } else { '▝' },
                     fg: if is_gold {
                         (255, 200, 60)
                     } else {
@@ -285,7 +365,7 @@ pub fn apply_arcade_fx(
             let h2 = (x.wrapping_mul(3_266_489_917) ^ sy2.wrapping_mul(668_265_263)) & 0xFFFF;
             if h2 < 96 {
                 grid[idx] = TerminalCell {
-                    ch: if (h2 & 1) == 0 { '▝' } else { '▖' },
+                    ch: if (h2 & 1) == 0 { '▗' } else { '▖' },
                     fg: if (h2 & 2) == 0 {
                         (215, 85, 210)
                     } else {
@@ -427,14 +507,19 @@ pub fn paint_transition(
                 200 + ((out_factor * 56) >> 8)
             };
             let src = if pick_to { to_cell } else { from_cell };
+            let on_wavefront = t > 0.0 && t < 1.0 && t_byte.abs_diff(thresh) <= 24;
             out[idx] = if src.ch == ' ' {
                 TerminalCell::default()
             } else {
                 TerminalCell {
                     ch: src.ch,
-                    fg: scale_rgb(src.fg, factor),
+                    fg: if on_wavefront {
+                        (185, 248, 255)
+                    } else {
+                        scale_rgb(src.fg, factor)
+                    },
                     bg: src.bg,
-                    bold: src.bold,
+                    bold: on_wavefront || src.bold,
                 }
             };
         }

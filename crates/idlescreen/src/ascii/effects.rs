@@ -194,17 +194,26 @@ impl EffectKind {
             | EffectKind::Expand
             | EffectKind::Middleout
             | EffectKind::Highlight
-            | EffectKind::Colorshift => 2,
+            | EffectKind::Overflow => 2,
             EffectKind::Spotlights
             | EffectKind::Matrix
             | EffectKind::Thunderstorm
-            | EffectKind::Blackhole
-            | EffectKind::Swarm
             | EffectKind::Rings
-            | EffectKind::Bubbles
-            | EffectKind::Bouncyballs
             | EffectKind::Synthgrid
-            | EffectKind::Binarypath => 4,
+            | EffectKind::Beams
+            | EffectKind::Fireworks
+            | EffectKind::Rain
+            | EffectKind::Orbittingvolley
+            | EffectKind::Crumble
+            | EffectKind::Decrypt => 4,
+            EffectKind::Binarypath
+            | EffectKind::Print
+            | EffectKind::Pour
+            | EffectKind::Burn
+            | EffectKind::Errorcorrect
+            | EffectKind::Bouncyballs => 5,
+            EffectKind::Bubbles | EffectKind::Swarm => 6,
+            EffectKind::Blackhole => 7,
             _ => 3,
         }
     }

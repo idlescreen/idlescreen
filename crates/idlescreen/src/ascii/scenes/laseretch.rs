@@ -64,11 +64,11 @@ pub struct LaserEtchConfig {
     pub etch_pattern: EtchPattern,
 
     /// Along with etch_delay, determines the speed at which the characters are etched onto the terminal. This value specifies the number of characters to etch simultaneously.
-    #[arg(long = "etch-speed", default_value_t = 3, value_parser = parse_positive_int)]
+    #[arg(long = "etch-speed", default_value_t = 6, value_parser = parse_positive_int)]
     pub etch_speed: i64,
 
     /// Along with etch_speed, determines the speed at which the characters are etched onto the terminal. This values specifies the number of frames to wait before etching the next set of characters.
-    #[arg(long = "etch-delay", default_value_t = 1, value_parser = parse_non_negative_int)]
+    #[arg(long = "etch-delay", default_value_t = 0, value_parser = parse_non_negative_int)]
     pub etch_delay: i64,
 
     /// Space separated, unquoted, list of colors for the gradient used to cool the characters after etching.

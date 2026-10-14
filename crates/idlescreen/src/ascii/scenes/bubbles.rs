@@ -53,11 +53,11 @@ pub struct BubblesConfig {
     pub pop_color: Color,
 
     /// Speed of the floating bubbles.
-    #[arg(long = "bubble-speed", default_value_t = 0.85, value_parser = parse_positive_float)]
+    #[arg(long = "bubble-speed", default_value_t = 1.1, value_parser = parse_positive_float)]
     pub bubble_speed: f64,
 
     /// Number of frames between bubbles.
-    #[arg(long = "bubble-delay", default_value_t = 8, value_parser = parse_positive_int)]
+    #[arg(long = "bubble-delay", default_value_t = 4, value_parser = parse_positive_int)]
     pub bubble_delay: i64,
 
     /// Condition for a bubble to pop.

@@ -1,6 +1,6 @@
 [package]
 name = "idlescreen"
-version = "4.1.30"
+version = "4.1.31"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["idlescreen developers"]

@@ -475,7 +475,83 @@ fn all_37_scenes_render_strictly_pixel_art_blocks_with_superfedora_banner() {
                     cell.ch,
                     cell.ch as u32
                 );
+                assert!(
+                    cell.ch == ' ' || ('\u{2580}'..='\u{259F}').contains(&cell.ch),
+                    "Scene {} emitted char outside Unicode Block Elements: {:?} (U+{:04X})",
+                    kind.name(),
+                    cell.ch,
+                    cell.ch as u32
+                );
             }
         }
+        let mut frames = 8usize;
+        while let Some(ref mut s) = saver.engine {
+            if s.next_frame().is_some() {
+                frames += 1;
+            } else {
+                break;
+            }
+        }
+        assert!(
+            (35..=170).contains(&frames),
+            "Scene {} took {} rendered frames (expected 35..=170 for snappy 16-bit arcade pacing)",
+            kind.name(),
+            frames
+        );
     }
+}
+
+#[test]
+fn settled_bevel_persists_into_transition_without_color_flash() {
+    let (cols, rows) = (120, 36);
+    let mut saver = Ascii::new_superfedora();
+    saver.pin_effect(EffectKind::Wipe);
+    saver.init(cols, rows);
+
+    // Advance until settled
+    for _ in 0..150 {
+        saver.update(Duration::from_millis(16), cols, rows);
+        if saver.is_settled() {
+            break;
+        }
+    }
+    assert!(saver.is_settled(), "Wipe should settle within 150 frames");
+
+    let mut settled_grid = vec![TerminalCell::default(); cols * rows];
+    saver.draw(&mut settled_grid, cols, rows);
+
+    // Find a solid '█' block in the top "SUPER" wordmark and bottom "FEDORA" wordmark
+    let super_cell_idx = settled_grid
+        .iter()
+        .enumerate()
+        .find(|(idx, c)| {
+            let y = *idx / cols;
+            c.ch == '█' && (6..=12).contains(&y)
+        })
+        .map(|(idx, _)| idx)
+        .expect("should find solid block in SUPER wordmark");
+    let fedora_cell_idx = settled_grid
+        .iter()
+        .enumerate()
+        .find(|(idx, c)| {
+            let y = *idx / cols;
+            c.ch == '█' && (14..=28).contains(&y)
+        })
+        .map(|(idx, _)| idx)
+        .expect("should find solid block in FEDORA wordmark");
+
+    let settled_super_fg = settled_grid[super_cell_idx].fg;
+    let settled_fedora_fg = settled_grid[fedora_cell_idx].fg;
+
+    // Trigger transition and verify transition_from_grid preserves exact beveled colors
+    saver.begin_transition();
+    assert!(!saver.is_settled());
+    assert_eq!(
+        saver.transition_from_grid[super_cell_idx].fg,
+        settled_super_fg
+    );
+    assert_eq!(
+        saver.transition_from_grid[fedora_cell_idx].fg,
+        settled_fedora_fg
+    );
 }

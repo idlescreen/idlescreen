@@ -19,7 +19,7 @@ use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 #[command(no_binary_name = true)]
 pub struct DecryptConfig {
     /// Number of characters typed per keystroke.
-    #[arg(long = "typing-speed", default_value_t = 5, value_parser = parse_positive_int)]
+    #[arg(long = "typing-speed", default_value_t = 12, value_parser = parse_positive_int)]
     pub typing_speed: i64,
 
     /// Space separated, unquoted, list of colors for the ciphertext. Color will be randomly selected for each character.

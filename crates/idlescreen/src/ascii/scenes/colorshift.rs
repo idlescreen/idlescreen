@@ -30,7 +30,7 @@ pub struct ColorShiftConfig {
     pub gradient_steps: Vec<i64>,
 
     /// Number of frames to display each gradient step. Increase to slow down the gradient animation.
-    #[arg(long = "gradient-frames", default_value_t = 2, value_parser = parse_positive_int)]
+    #[arg(long = "gradient-frames", default_value_t = 1, value_parser = parse_positive_int)]
     pub gradient_frames: i64,
 
     /// Do not display the gradient as a wave.
@@ -50,7 +50,7 @@ pub struct ColorShiftConfig {
     pub no_loop: bool,
 
     /// Number of times to cycle the gradient.
-    #[arg(long = "cycles", default_value_t = 3, value_parser = parse_positive_int)]
+    #[arg(long = "cycles", default_value_t = 2, value_parser = parse_positive_int)]
     pub cycles: i64,
 
     /// Skip the final gradient.

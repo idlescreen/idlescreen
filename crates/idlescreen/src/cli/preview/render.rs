@@ -127,7 +127,9 @@ fn run_preview_loop(
     let text_mode = TextMode::parse(mode_str);
     let custom_opt = (!custom_text.trim().is_empty()).then(|| custom_text.to_string());
     let targets = crate::daemon::config::parse_targets_from_mode(mode_str);
-    let mut ascii_saver = if is_superfedora && crate::ascii::sys_info::is_superfedora_machine() {
+    let is_superfedora_unlocked =
+        crate::ascii::sys_info::is_superfedora_machine() && custom_opt.is_none();
+    let mut ascii_saver = if is_superfedora_unlocked {
         let mut saver = Ascii::new_superfedora()
             .with_dwell(dwell_secs.clamp(0.4, 2.0))
             .with_fps(target_fps);

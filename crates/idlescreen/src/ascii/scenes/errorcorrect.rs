@@ -25,7 +25,7 @@ pub struct ErrorCorrectConfig {
     pub error_pairs: f64,
 
     /// Number of frames between swaps.
-    #[arg(long = "swap-delay", default_value_t = 6, value_parser = parse_positive_int)]
+    #[arg(long = "swap-delay", default_value_t = 3, value_parser = parse_positive_int)]
     pub swap_delay: i64,
 
     /// Color for the characters that are in the wrong position.
@@ -37,7 +37,7 @@ pub struct ErrorCorrectConfig {
     pub correct_color: Color,
 
     /// Speed of the characters while moving to the correct position.
-    #[arg(long = "movement-speed", default_value_t = 0.9, value_parser = parse_positive_float)]
+    #[arg(long = "movement-speed", default_value_t = 1.5, value_parser = parse_positive_float)]
     pub movement_speed: f64,
 
     /// Space separated, unquoted, list of colors for the final color gradient.

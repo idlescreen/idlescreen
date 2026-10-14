@@ -363,7 +363,7 @@ impl Effect for Burn {
 
     fn next_frame(&mut self, ctx: &mut EngineCtx) -> Option<String> {
         if !self.char_link_order.is_empty() || !ctx.active_characters.is_empty() {
-            for _ in 0..ctx.rng.randint(2, 4) {
+            for _ in 0..ctx.rng.randint(5, 9) {
                 if !self.char_link_order.is_empty() {
                     let next_char = self.char_link_order.remove(0);
                     if !self.is_burnable(ctx, next_char) {

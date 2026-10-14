@@ -46,11 +46,11 @@ pub struct BinaryPathConfig {
     pub binary_colors: Vec<Color>,
 
     /// Speed of the binary groups as they travel around the terminal.
-    #[arg(long = "movement-speed", default_value_t = 1.0, value_parser = parse_positive_float)]
+    #[arg(long = "movement-speed", default_value_t = 2.0, value_parser = parse_positive_float)]
     pub movement_speed: f64,
 
     /// Maximum number of binary groups that are active at any given time as a percentage of the total number of binary groups. Lower this to improve performance.
-    #[arg(long = "active-binary-groups", default_value_t = 0.08, value_parser = parse_non_negative_ratio)]
+    #[arg(long = "active-binary-groups", default_value_t = 0.20, value_parser = parse_non_negative_ratio)]
     pub active_binary_groups: f64,
 }
 

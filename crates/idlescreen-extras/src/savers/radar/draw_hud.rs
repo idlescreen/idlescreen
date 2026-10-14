@@ -170,9 +170,9 @@ pub fn draw_hud(
     if (nuke_active || boss_active) && rows > 4 {
         let flash = ((sweep_angle * 6.0) as u32).is_multiple_of(2);
         let warning_text = if nuke_active {
-            "⚠️ WARNING: BALISTIC NUCLEAR PAYLOAD ACQUIRED ⚠️"
+            "[!] WARNING: BALLISTIC NUCLEAR PAYLOAD ACQUIRED [!]"
         } else {
-            "⚠️ WARNING: DREADNOUGHT CLASS SIGNATURE DETECTED ⚠️"
+            "[!] WARNING: DREADNOUGHT CLASS SIGNATURE DETECTED [!]"
         };
 
         if flash && cols > warning_text.len() + 4 {

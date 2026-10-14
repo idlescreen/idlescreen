@@ -47,15 +47,15 @@ pub struct PourConfig {
     pub pour_direction: PourDirection,
 
     /// Number of characters poured in per tick. Increase to speed up the effect.
-    #[arg(long = "pour-speed", default_value_t = 2, value_parser = parse_positive_int)]
+    #[arg(long = "pour-speed", default_value_t = 5, value_parser = parse_positive_int)]
     pub pour_speed: i64,
 
     /// Movement speed range of the characters.
-    #[arg(long = "movement-speed-range", default_value = "0.4-0.6", value_parser = parse_positive_float_range)]
+    #[arg(long = "movement-speed-range", default_value = "0.8-1.2", value_parser = parse_positive_float_range)]
     pub movement_speed_range: (f64, f64),
 
     /// Number of frames to wait between each character in the pour effect.
-    #[arg(long = "gap", default_value_t = 1, value_parser = parse_non_negative_int)]
+    #[arg(long = "gap", default_value_t = 0, value_parser = parse_non_negative_int)]
     pub gap: i64,
 
     /// Color of the characters before the gradient starts.

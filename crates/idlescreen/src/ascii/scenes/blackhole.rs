@@ -554,7 +554,7 @@ impl Effect for Blackhole {
                 .insert(id, final_gradient_mapping.get(&input_coord).unwrap().clone());
         }
         self.prepare_blackhole(ctx)?;
-        self.formation_delay = std::cmp::max(floor_div(100, self.blackhole_chars.len() as i64), 6);
+        self.formation_delay = std::cmp::max(floor_div(100, self.blackhole_chars.len() as i64), 3);
         self.f_delay = self.formation_delay;
         self.phase = Phase::Forming;
         self.awaiting_blackhole_chars = self.blackhole_chars.clone();

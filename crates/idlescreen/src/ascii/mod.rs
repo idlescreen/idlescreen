@@ -270,6 +270,7 @@ impl Ascii {
                 self.fg,
                 self.bg,
             );
+            draw::apply_settled_bevel(&mut self.frame_grid, self.last_cols, self.last_rows);
         }
     }
 
@@ -313,7 +314,8 @@ impl Ascii {
                     self.bg,
                 );
             } else {
-                // Animation complete: drop session and dwell on settled frame
+                // Animation complete: stamp 16-bit chrome bevel on settled frame and dwell
+                draw::apply_settled_bevel(&mut self.frame_grid, cols, rows);
                 self.engine = None;
                 self.dwell_left = self.dwell_time();
             }
@@ -331,6 +333,7 @@ impl Ascii {
             self.cycle_effect();
             return;
         }
+        draw::apply_settled_bevel(&mut self.frame_grid, self.last_cols, self.last_rows);
         self.transition_from_grid.clone_from(&self.frame_grid);
         let dur = DEFAULT_DISSOLVE_SECS.min(self.dwell_time() * 0.4);
         self.transition_duration = dur;
@@ -356,6 +359,7 @@ impl Ascii {
                 self.fg,
                 self.bg,
             );
+            draw::apply_settled_bevel(&mut self.frame_grid, self.last_cols, self.last_rows);
         } else {
             self.cycle_effect();
         }
@@ -408,9 +412,13 @@ impl Ascii {
                 grid.fill(TerminalCell::default());
                 let copy_cols = cols.min(self.last_cols);
                 let copy_rows = rows.min(self.last_rows);
+                let src_x_off = self.last_cols.saturating_sub(cols) / 2;
+                let dst_x_off = cols.saturating_sub(self.last_cols) / 2;
+                let src_y_off = self.last_rows.saturating_sub(rows) / 2;
+                let dst_y_off = rows.saturating_sub(self.last_rows) / 2;
                 for y in 0..copy_rows {
-                    let src_start = y * self.last_cols;
-                    let dst_start = y * cols;
+                    let src_start = (y + src_y_off) * self.last_cols + src_x_off;
+                    let dst_start = (y + dst_y_off) * cols + dst_x_off;
                     if src_start + copy_cols <= self.frame_grid.len()
                         && dst_start + copy_cols <= grid.len()
                     {

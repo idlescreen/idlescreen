@@ -23,11 +23,11 @@ use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 #[command(no_binary_name = true)]
 pub struct PrintConfig {
     /// Speed of the print head when performing a carriage return.
-    #[arg(long = "print-head-return-speed", default_value_t = 1.5, value_parser = parse_positive_float)]
+    #[arg(long = "print-head-return-speed", default_value_t = 4.0, value_parser = parse_positive_float)]
     pub print_head_return_speed: f64,
 
     /// Speed of the print head when printing characters.
-    #[arg(long = "print-speed", default_value_t = 2, value_parser = parse_positive_int)]
+    #[arg(long = "print-speed", default_value_t = 6, value_parser = parse_positive_int)]
     pub print_speed: i64,
 
     /// Easing function to use for print head movement.

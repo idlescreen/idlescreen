@@ -99,7 +99,7 @@ fn get_glyph_bitmap(ch: char) -> [u8; GLYPH_HEIGHT] {
             0, 0, 0, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0, 0, 0,
         ],
         // Centered 4x6 pixel sprite
-        '▪' | '▫' | '.' | ':' => [
+        '.' | ':' => [
             0, 0, 0, 0, 0, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0, 0, 0, 0, 0,
         ],
         '│' | '|' => [0x3C; 16],
