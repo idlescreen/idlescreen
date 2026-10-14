@@ -161,7 +161,9 @@ pub fn recv_fd(sock: RawFd) -> std::io::Result<RawFd> {
 
     // SAFETY: `CMSG_LEN` is a pure size calculation macro.
     let min_len = unsafe { libc::CMSG_LEN(std::mem::size_of::<RawFd>() as u32) as usize };
-    if (cmsg_len as usize) < min_len {
+    #[allow(clippy::unnecessary_cast)]
+    let actual_len = cmsg_len as usize;
+    if actual_len < min_len {
         return Err(std::io::Error::other("truncated cmsg for SCM_RIGHTS"));
     }
 

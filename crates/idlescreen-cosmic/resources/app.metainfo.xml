@@ -13,7 +13,7 @@
     </p>
   </description>
   <icon type="stock">io.github.idlescreen.CosmicApplet-symbolic</icon>
-  <url type="vcs-browser">https://github.com/idlescreen/idle-cosmic</url>
+  <url type="vcs-browser">https://github.com/idlescreen/idlescreen</url>
   <url type="homepage">https://idlescreen.github.io</url>
   <launchable type="desktop-id">io.github.idlescreen.CosmicApplet.desktop</launchable>
   <provides>

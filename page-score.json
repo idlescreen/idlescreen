@@ -1,6 +1,6 @@
 {
  "repo": "idlescreen",
- "rev": "ade95c3",
+ "rev": "251f1d6",
  "dirty": true,
  "pages": [
   {
@@ -103,7 +103,7 @@
   },
   {
    "path": "./crates/idlescreen-extras/src/protocol.rs",
-   "lines": 225,
+   "lines": 227,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 1
@@ -2175,8 +2175,8 @@
   },
   {
    "path": "./crates/idlescreen/src/extras_ipc/protocol.rs",
-   "lines": 228,
-   "bin_bytes": 5445,
+   "lines": 230,
+   "bin_bytes": 5455,
    "heat_pct": null,
    "reach": 1
   },
