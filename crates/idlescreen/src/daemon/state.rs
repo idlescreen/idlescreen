@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::time::Instant;
 
 use super::config::{Config, parse_targets_from_mode};
-pub use super::dbus::{InhibitEntry, VALID_SAVERS, is_valid_saver};
+pub use super::dbus::{InhibitEntry, VALID_SAVERS, canonical_saver_name, is_valid_saver};
 use super::watchers::WakeHandle;
 
 pub struct ScreenSaverState {
@@ -35,10 +35,12 @@ impl Default for ScreenSaverState {
 impl ScreenSaverState {
     pub fn new() -> Self {
         let cfg = Config::load_or_migrate();
-        let mut text_targets = cfg.saver.ascii.targets;
-        if text_targets.is_empty() {
-            text_targets = parse_targets_from_mode(&cfg.saver.ascii.mode);
-        }
+        let text_targets = if cfg.saver.ascii.targets.is_empty() {
+            parse_targets_from_mode(&cfg.saver.ascii.mode)
+        } else {
+            cfg.saver.ascii.targets
+        };
+        let active_saver = canonical_saver_name(cfg.saver.active.as_deref().unwrap_or("ascii"));
         Self {
             active: AtomicBool::new(false),
             idle_enabled: AtomicBool::new(cfg.general.idle_enabled),
@@ -46,7 +48,7 @@ impl ScreenSaverState {
             started_at: Mutex::new(None),
             inhibitors: Mutex::new(Vec::new()),
             cookie_counter: AtomicU32::new(1),
-            current_saver: Mutex::new(cfg.saver.active.unwrap_or_else(|| "ascii".to_string())),
+            current_saver: Mutex::new(active_saver),
             text_targets: Mutex::new(text_targets),
             custom_text: Mutex::new(cfg.saver.ascii.text),
             custom_text_epoch: AtomicU64::new(1),
@@ -100,17 +102,46 @@ impl ScreenSaverState {
         self.wake();
     }
 
+    pub fn reload_from_disk(&self) {
+        let cfg = Config::load_or_migrate();
+        self.idle_enabled
+            .store(cfg.general.idle_enabled, Ordering::SeqCst);
+        self.idle_timeout_secs
+            .store(cfg.general.idle_timeout_secs, Ordering::SeqCst);
+        if let Some(active) = cfg.saver.active
+            && let Ok(mut saver) = self.current_saver.lock()
+        {
+            *saver = canonical_saver_name(&active);
+        }
+        if let Ok(mut t) = self.text_targets.lock() {
+            *t = if cfg.saver.ascii.targets.is_empty() {
+                parse_targets_from_mode(&cfg.saver.ascii.mode)
+            } else {
+                cfg.saver.ascii.targets
+            };
+        }
+        if let Ok(mut c) = self.custom_text.lock() {
+            *c = cfg.saver.ascii.text;
+        }
+        self.custom_text_epoch.fetch_add(1, Ordering::Release);
+        self.wake_idle_cfg();
+        self.wake();
+    }
+
     pub fn set_saver(&self, name: &str) -> bool {
-        let trimmed = name.trim().to_string();
-        if !is_valid_saver(&trimmed) {
+        let raw = name.trim();
+        if !is_valid_saver(raw) {
             return false;
         }
+        let trimmed = canonical_saver_name(raw);
         if let Ok(mut saver) = self.current_saver.lock() {
             (*saver).clone_from(&trimmed);
         }
         let mut config = Config::load_or_migrate();
-        config.saver.active = Some(trimmed);
-        let _ = config.save();
+        if config.saver.active.as_deref() != Some(trimmed.as_str()) {
+            config.saver.active = Some(trimmed);
+            let _ = config.save();
+        }
         self.wake();
         true
     }
@@ -118,8 +149,10 @@ impl ScreenSaverState {
     pub fn set_timeout(&self, secs: u64) {
         self.idle_timeout_secs.store(secs, Ordering::SeqCst);
         let mut config = Config::load_or_migrate();
-        config.general.idle_timeout_secs = secs;
-        let _ = config.save();
+        if config.general.idle_timeout_secs != secs {
+            config.general.idle_timeout_secs = secs;
+            let _ = config.save();
+        }
         self.wake_idle_cfg();
         self.wake();
     }
@@ -136,9 +169,12 @@ impl ScreenSaverState {
             self.custom_text_epoch.fetch_add(1, Ordering::Release);
         }
         let mut config = Config::load_or_migrate();
-        config.saver.ascii.targets = targets.to_vec();
-        config.saver.ascii.mode = targets.join(",");
-        let _ = config.save();
+        let mode = targets.join(",");
+        if config.saver.ascii.targets != targets || config.saver.ascii.mode != mode {
+            config.saver.ascii.targets = targets.to_vec();
+            config.saver.ascii.mode = mode;
+            let _ = config.save();
+        }
         self.wake();
     }
 
@@ -148,41 +184,31 @@ impl ScreenSaverState {
             self.custom_text_epoch.fetch_add(1, Ordering::Release);
         }
         let mut config = Config::load_or_migrate();
-        config.saver.ascii.text = text.to_string();
-        let _ = config.save();
+        if config.saver.ascii.text != text {
+            config.saver.ascii.text = text.to_string();
+            let _ = config.save();
+        }
         self.wake();
     }
 
     pub fn dispatch_control_command(&self, cmd: &str) -> (String, bool) {
         let out = match cmd {
-            "status" => {
-                let active = self.active.load(Ordering::SeqCst);
-                let saver = self
-                    .current_saver
-                    .lock()
-                    .map_or_else(|_| "ascii".into(), |s| s.clone());
-                let (inhibited, timeout) = (
-                    self.is_inhibited(),
-                    self.idle_timeout_secs.load(Ordering::SeqCst),
-                );
-                format!(
-                    "{{\"running\":true,\"active\":{active},\"saver\":\"{saver}\",\"inhibited\":{inhibited},\"timeout\":{timeout}}}"
-                )
-            }
+            "status" => self.format_status_json(),
             "inhibitors" => {
-                let esc = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
-                let items: Vec<String> = self
+                let e = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
+                let v: Vec<String> = self
                     .list_inhibitors()
                     .into_iter()
                     .map(|(c, a, r)| {
-                        format!(
-                            "{{\"cookie\":{c},\"app\":\"{}\",\"reason\":\"{}\"}}",
-                            esc(&a),
-                            esc(&r)
-                        )
+                        let (a, r) = (e(&a), e(&r));
+                        format!("{{\"cookie\":{c},\"app\":\"{a}\",\"reason\":\"{r}\"}}")
                     })
                     .collect();
-                format!("[{}]", items.join(","))
+                format!("[{}]", v.join(","))
+            }
+            "reload" => {
+                self.reload_from_disk();
+                "OK: reloaded".to_string()
             }
             "stop" => {
                 self.stop();
@@ -208,26 +234,19 @@ impl ScreenSaverState {
                     format!("ERR: unknown saver {s}")
                 }
             }
-            _ if cmd.starts_with("timeout ") => {
-                if let Ok(secs) = cmd["timeout ".len()..].trim().parse::<u64>() {
+            _ if cmd.starts_with("timeout ") => cmd[8..].trim().parse::<u64>().map_or_else(
+                |_| "ERR: invalid timeout".to_string(),
+                |secs| {
                     self.set_timeout(secs);
                     format!("OK: timeout set to {secs}s")
-                } else {
-                    "ERR: invalid timeout".to_string()
-                }
-            }
+                },
+            ),
             _ if cmd.starts_with("text_targets ") => {
-                let targets: Vec<String> = cmd["text_targets ".len()..]
-                    .split(',')
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty())
-                    .map(str::to_owned)
-                    .collect();
-                self.set_text_targets(&targets);
+                self.set_text_targets(&parse_targets_from_mode(&cmd[13..]));
                 "OK: text targets updated".to_string()
             }
             _ if cmd.starts_with("set_text ") => {
-                self.set_text(cmd["set_text ".len()..].trim());
+                self.set_text(cmd[9..].trim());
                 "OK: custom text updated".to_string()
             }
             _ => "UNKNOWN_COMMAND".to_string(),

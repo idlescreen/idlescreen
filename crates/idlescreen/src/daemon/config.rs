@@ -128,7 +128,6 @@ impl Config {
         {
             if cfg.saver.ascii.targets.is_empty()
                 || cfg.saver.ascii.mode.trim().eq_ignore_ascii_case("cycle")
-                || cfg.saver.ascii.targets == ["os", "de"]
             {
                 cfg.saver.ascii.mode = "os".to_string();
                 cfg.saver.ascii.targets = vec!["os".to_string()];

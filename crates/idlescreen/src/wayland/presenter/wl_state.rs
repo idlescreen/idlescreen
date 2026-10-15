@@ -17,6 +17,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_l
 use super::{DetectedOutput, PresentationSurface};
 use crate::wayland::viewport::SurfaceViewport;
 
+#[allow(clippy::struct_excessive_bools)]
 pub struct WaylandState {
     pub compositor: Option<wl_compositor::WlCompositor>,
     pub shm: Option<wl_shm::WlShm>,
@@ -36,6 +37,9 @@ pub struct WaylandState {
     pub configured_width: u32,
     pub configured_height: u32,
     pub exit_requested: bool,
+    pub preview_mode: bool,
+    pub tour_mode: bool,
+    pub scene_step_delta: i32,
     pub initial_pointer_pos: Option<(f64, f64)>,
     pub start_time: Instant,
     pub dpms: crate::wayland::dpms::DpmsController,
@@ -68,6 +72,9 @@ impl WaylandState {
             configured_width: 0,
             configured_height: 0,
             exit_requested: false,
+            preview_mode: false,
+            tour_mode: false,
+            scene_step_delta: 0,
             initial_pointer_pos: None,
             start_time: Instant::now(),
             dpms: crate::wayland::dpms::DpmsController::new(),

@@ -72,9 +72,7 @@ jobs:
         if: steps.plan.outputs.build == 'yes'
         run: |
           cargo deb --no-build -p idlescreen
-          cargo deb --no-build -p idlescreen-extras
           (cd crates/idlescreen && cargo generate-rpm --target-dir ../../target)
-          (cd crates/idlescreen-extras && cargo generate-rpm --target-dir ../../target)
 
 
       - name: Install Cosign

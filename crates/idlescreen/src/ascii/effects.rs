@@ -1,20 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! Effect identity and dispatch for all 37 ttfx visual effects.
+//! Effect identity and dispatch for all 50 built-in 16-bit arcade visual scenes.
 
 use crate::cell::LcgRng;
 
-/// The 37 visual effects supported by ttfx and IdleScreen.
+/// The 50 visual effects supported by IdleScreen's built-in 16-bit arcade engine.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum EffectKind {
+    Aurora,
     Beams,
     Binarypath,
     Blackhole,
     Bouncyballs,
+    Breakout,
     Bubbles,
     Burn,
+    Chaos,
     Colorshift,
+    Cosmos,
     Crumble,
     Decrypt,
     Errorcorrect,
@@ -22,15 +26,22 @@ pub enum EffectKind {
     Fireworks,
     Highlight,
     Laseretch,
+    Life,
     Matrix,
+    Metaballs,
     Middleout,
+    Mystify,
     Orbittingvolley,
     Overflow,
+    Pipes,
+    Plasma,
     Pour,
     Print,
+    Radar,
     Rain,
     Randomsequence,
     Rings,
+    Ripple,
     Scattered,
     Slice,
     Slide,
@@ -40,7 +51,9 @@ pub enum EffectKind {
     Swarm,
     Sweep,
     Synthgrid,
+    Tetris,
     Thunderstorm,
+    Tunnel,
     Unstable,
     Vhstape,
     Waves,
@@ -48,45 +61,36 @@ pub enum EffectKind {
 }
 
 impl EffectKind {
-    pub const ALL: [EffectKind; 37] = [
-        Self::Beams,
-        Self::Binarypath,
-        Self::Blackhole,
-        Self::Bouncyballs,
-        Self::Bubbles,
-        Self::Burn,
-        Self::Colorshift,
-        Self::Crumble,
-        Self::Decrypt,
-        Self::Errorcorrect,
-        Self::Expand,
-        Self::Fireworks,
-        Self::Highlight,
-        Self::Laseretch,
-        Self::Matrix,
-        Self::Middleout,
-        Self::Orbittingvolley,
-        Self::Overflow,
-        Self::Pour,
-        Self::Print,
-        Self::Rain,
-        Self::Randomsequence,
-        Self::Rings,
-        Self::Scattered,
-        Self::Slice,
-        Self::Slide,
-        Self::Smoke,
-        Self::Spotlights,
-        Self::Spray,
-        Self::Swarm,
-        Self::Sweep,
-        Self::Synthgrid,
-        Self::Thunderstorm,
-        Self::Unstable,
-        Self::Vhstape,
-        Self::Waves,
-        Self::Wipe,
+    #[rustfmt::skip]
+    pub const ALL: [EffectKind; 50] = [
+        Self::Aurora, Self::Beams, Self::Binarypath, Self::Blackhole, Self::Bouncyballs,
+        Self::Breakout, Self::Bubbles, Self::Burn, Self::Chaos, Self::Colorshift,
+        Self::Cosmos, Self::Crumble, Self::Decrypt, Self::Errorcorrect, Self::Expand,
+        Self::Fireworks, Self::Highlight, Self::Laseretch, Self::Life, Self::Matrix,
+        Self::Metaballs, Self::Middleout, Self::Mystify, Self::Orbittingvolley, Self::Overflow,
+        Self::Pipes, Self::Plasma, Self::Pour, Self::Print, Self::Radar,
+        Self::Rain, Self::Randomsequence, Self::Rings, Self::Ripple, Self::Scattered,
+        Self::Slice, Self::Slide, Self::Smoke, Self::Spotlights, Self::Spray,
+        Self::Swarm, Self::Sweep, Self::Synthgrid, Self::Tetris, Self::Thunderstorm,
+        Self::Tunnel, Self::Unstable, Self::Vhstape, Self::Waves, Self::Wipe,
     ];
+
+    #[rustfmt::skip]
+    pub const NEW_SCENES: [EffectKind; 13] = [
+        Self::Aurora, Self::Breakout, Self::Chaos, Self::Cosmos, Self::Life,
+        Self::Metaballs, Self::Mystify, Self::Pipes, Self::Plasma, Self::Radar,
+        Self::Ripple, Self::Tetris, Self::Tunnel,
+    ];
+
+    pub fn step_in_roster(self, roster: &[EffectKind], delta: i32) -> EffectKind {
+        if roster.is_empty() {
+            return self;
+        }
+        let cur = roster.iter().position(|&k| k == self).unwrap_or(0) as i32;
+        let len = roster.len() as i32;
+        let next = (cur + delta).rem_euclid(len) as usize;
+        roster[next]
+    }
 
     pub fn parse(name: &str) -> Option<Self> {
         let key = name.trim().to_ascii_lowercase().replace(['-', '_'], "");
@@ -99,15 +103,23 @@ impl EffectKind {
         }
     }
 
+    pub fn as_str(&self) -> &'static str {
+        self.name()
+    }
+
     pub fn name(&self) -> &'static str {
         match self {
+            Self::Aurora => "aurora",
             Self::Beams => "beams",
             Self::Binarypath => "binarypath",
             Self::Blackhole => "blackhole",
             Self::Bouncyballs => "bouncyballs",
+            Self::Breakout => "breakout",
             Self::Bubbles => "bubbles",
             Self::Burn => "burn",
+            Self::Chaos => "chaos",
             Self::Colorshift => "colorshift",
+            Self::Cosmos => "cosmos",
             Self::Crumble => "crumble",
             Self::Decrypt => "decrypt",
             Self::Errorcorrect => "errorcorrect",
@@ -115,15 +127,22 @@ impl EffectKind {
             Self::Fireworks => "fireworks",
             Self::Highlight => "highlight",
             Self::Laseretch => "laseretch",
+            Self::Life => "life",
             Self::Matrix => "matrix",
+            Self::Metaballs => "metaballs",
             Self::Middleout => "middleout",
+            Self::Mystify => "mystify",
             Self::Orbittingvolley => "orbittingvolley",
             Self::Overflow => "overflow",
+            Self::Pipes => "pipes",
+            Self::Plasma => "plasma",
             Self::Pour => "pour",
             Self::Print => "print",
+            Self::Radar => "radar",
             Self::Rain => "rain",
             Self::Randomsequence => "randomsequence",
             Self::Rings => "rings",
+            Self::Ripple => "ripple",
             Self::Scattered => "scattered",
             Self::Slice => "slice",
             Self::Slide => "slide",
@@ -133,7 +152,9 @@ impl EffectKind {
             Self::Swarm => "swarm",
             Self::Sweep => "sweep",
             Self::Synthgrid => "synthgrid",
+            Self::Tetris => "tetris",
             Self::Thunderstorm => "thunderstorm",
+            Self::Tunnel => "tunnel",
             Self::Unstable => "unstable",
             Self::Vhstape => "vhstape",
             Self::Waves => "waves",
@@ -150,33 +171,19 @@ impl EffectKind {
         }
     }
 
+    #[rustfmt::skip]
     pub fn arcade_steps_per_frame(&self) -> usize {
         match self {
-            Self::Wipe => 1,
-            Self::Slide
-            | Self::Slice
-            | Self::Sweep
-            | Self::Expand
-            | Self::Middleout
-            | Self::Highlight
-            | Self::Overflow => 2,
-            Self::Spotlights
-            | Self::Matrix
-            | Self::Thunderstorm
-            | Self::Rings
-            | Self::Synthgrid
-            | Self::Beams
-            | Self::Fireworks
-            | Self::Rain
-            | Self::Orbittingvolley
-            | Self::Crumble
-            | Self::Decrypt => 4,
-            Self::Binarypath
-            | Self::Print
-            | Self::Pour
-            | Self::Burn
-            | Self::Errorcorrect
-            | Self::Bouncyballs => 5,
+            Self::Wipe | Self::Aurora | Self::Breakout | Self::Chaos | Self::Cosmos
+            | Self::Life | Self::Metaballs | Self::Mystify | Self::Pipes | Self::Plasma
+            | Self::Radar | Self::Ripple | Self::Tetris | Self::Tunnel => 1,
+            Self::Slide | Self::Slice | Self::Sweep | Self::Expand
+            | Self::Middleout | Self::Highlight | Self::Overflow => 2,
+            Self::Spotlights | Self::Matrix | Self::Thunderstorm | Self::Rings
+            | Self::Synthgrid | Self::Beams | Self::Fireworks | Self::Rain
+            | Self::Orbittingvolley | Self::Crumble | Self::Decrypt => 4,
+            Self::Binarypath | Self::Print | Self::Pour | Self::Burn
+            | Self::Errorcorrect | Self::Bouncyballs => 5,
             Self::Bubbles | Self::Swarm => 6,
             Self::Blackhole => 7,
             _ => 3,
@@ -186,7 +193,7 @@ impl EffectKind {
 
 #[derive(Clone, Debug)]
 pub struct EffectPlaylist {
-    order: [EffectKind; 37],
+    order: [EffectKind; 50],
     cursor: usize,
     last: Option<EffectKind>,
 }
@@ -205,7 +212,7 @@ impl EffectPlaylist {
     pub fn new_with_last(last: Option<EffectKind>) -> Self {
         Self {
             order: EffectKind::ALL,
-            cursor: 37,
+            cursor: 50,
             last,
         }
     }

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! Terminal render loop and Wayland preview dispatcher.
+//! Terminal render loop and Wayland preview dispatcher with interactive scene stepping.
 
 use std::io::{IsTerminal, stdout};
 use std::time::{Duration, Instant};
 
-use crossterm::event::{self, Event};
+use crossterm::event::{self, Event, KeyCode};
 use crossterm::terminal::size;
 
 use super::ansi_out::draw_frame;
@@ -17,7 +17,6 @@ use crate::ascii::effects::EffectKind;
 use crate::ascii::state::TextMode;
 use crate::cell::TerminalCell;
 use crate::daemon::config::Config;
-use crate::extras_ipc::ExtrasSession;
 
 pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let Some(opts) = parse_preview_args(args)? else {
@@ -101,20 +100,17 @@ fn run_preview_loop(
     let mut cols = (raw_cols as usize).max(10);
     let mut rows = (raw_rows as usize).max(5);
 
-    let effect_kind = EffectKind::parse(saver_name);
+    let tour_mode =
+        saver_name.eq_ignore_ascii_case("new") || saver_name.eq_ignore_ascii_case("tour");
+    let effect_kind = if tour_mode {
+        None
+    } else {
+        EffectKind::parse(saver_name)
+    };
     let is_superfedora =
         saver_name == "superfedora" || mode_str.eq_ignore_ascii_case("superfedora");
     if saver_name == "superfedora" && !crate::ascii::sys_info::is_superfedora_machine() {
         return Err("screensaver 'superfedora' is locked on this machine".into());
-    }
-
-    let is_extras_cand = effect_kind.is_none() && saver_name != "ascii" && !is_superfedora;
-    let mut is_extras = is_extras_cand && ExtrasSession::is_available();
-    let mut extras_session = is_extras
-        .then(|| ExtrasSession::spawn(saver_name, cols, rows).ok())
-        .flatten();
-    if extras_session.is_none() {
-        is_extras = false;
     }
 
     let target_fps = if fps > 0 { fps } else { 60 };
@@ -124,26 +120,23 @@ fn run_preview_loop(
     let use_superfedora =
         is_superfedora && crate::ascii::sys_info::is_superfedora_machine() && custom_opt.is_none();
     let mut ascii_saver = if use_superfedora {
-        let mut saver = Ascii::new_superfedora()
+        Ascii::new_superfedora()
             .with_dwell(dwell_secs)
             .with_dissolve(dissolve_secs)
-            .with_fps(target_fps);
-        if let Some(effect) = effect_kind {
-            saver.pin_effect(effect);
-        }
-        saver
+            .with_fps(target_fps)
     } else {
-        let mut saver = Ascii::new()
+        Ascii::new()
             .with_mode(text_mode, custom_opt)
             .with_targets(targets)
             .with_dwell(dwell_secs)
             .with_dissolve(dissolve_secs)
-            .with_fps(target_fps);
-        if let Some(effect) = effect_kind {
-            saver.pin_effect(effect);
-        }
-        saver
+            .with_fps(target_fps)
     };
+    if tour_mode {
+        ascii_saver.enable_tour_mode();
+    } else if let Some(effect) = effect_kind {
+        ascii_saver.pin_effect(effect);
+    }
     ascii_saver.init(cols, rows);
 
     let mut grid = vec![TerminalCell::default(); cols * rows];
@@ -157,11 +150,10 @@ fn run_preview_loop(
 
     draw_frame(
         frame_dur,
-        &mut is_extras,
-        &mut extras_session,
         &mut ascii_saver,
         &mut grid,
         (cols, rows),
+        tour_mode,
         out,
     )?;
 
@@ -174,15 +166,26 @@ fn run_preview_loop(
 
         let poll_dur = frame_dur.saturating_sub(last_frame.elapsed());
         let wait_dur = poll_dur.max(Duration::from_millis(1));
+        let mut step_delta = 0i32;
 
         if event::poll(wait_dur).unwrap_or(false) {
             let mut should_exit = false;
             while let Ok(ev) = event::read() {
                 match ev {
-                    Event::Key(key) if key.kind != event::KeyEventKind::Release => {
-                        should_exit = true;
-                        break;
-                    }
+                    Event::Key(key) if key.kind != event::KeyEventKind::Release => match key.code {
+                        KeyCode::Right
+                        | KeyCode::Down
+                        | KeyCode::Tab
+                        | KeyCode::Char('n' | ']') => step_delta += 1,
+                        KeyCode::Left
+                        | KeyCode::Up
+                        | KeyCode::BackTab
+                        | KeyCode::Char('p' | '[') => step_delta -= 1,
+                        _ => {
+                            should_exit = true;
+                            break;
+                        }
+                    },
                     Event::Resize(w, h) => {
                         let new_c = (w as usize).max(10);
                         let new_r = (h as usize).max(5);
@@ -191,13 +194,7 @@ fn run_preview_loop(
                             rows = new_r;
                             grid.resize(cols * rows, TerminalCell::default());
                             grid.fill(TerminalCell::default());
-                            if is_extras {
-                                if let Some(ref mut session) = extras_session {
-                                    let _ = session.init_grid(cols, rows);
-                                }
-                            } else {
-                                ascii_saver.init(cols, rows);
-                            }
+                            ascii_saver.init(cols, rows);
                         }
                     }
                     _ => {}
@@ -210,18 +207,20 @@ fn run_preview_loop(
                 break;
             }
         }
+        if step_delta != 0 {
+            ascii_saver.step_effect(&EffectKind::ALL, step_delta);
+        }
 
         let now = Instant::now();
         let dt = now.duration_since(last_frame);
-        if dt >= frame_dur {
+        if step_delta != 0 || dt >= frame_dur {
             last_frame = now;
             draw_frame(
-                dt,
-                &mut is_extras,
-                &mut extras_session,
+                if step_delta != 0 { Duration::ZERO } else { dt },
                 &mut ascii_saver,
                 &mut grid,
                 (cols, rows),
+                tour_mode,
                 out,
             )?;
         }

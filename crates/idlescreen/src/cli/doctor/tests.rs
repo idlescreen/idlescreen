@@ -65,7 +65,6 @@ fn test_report_fields() {
         mode_desc: "cycle",
         config_path: None,
         config_is_toml: true,
-        extras_bin: None,
         shm_writable: true,
         input_debounce_ms: 500,
         wayland_presenter_ok: true,

@@ -1,3 +1,10 @@
+idle-cosmic (4.3.0-1) unstable; urgency=medium
+
+  * Unified single-binary IdleScreen v4.3.0 with 50 built-in 16-bit arcade
+    scenes, interactive tour preview, and overhauled TUI dashboard.
+
+ -- IdleScreen Maintainers <maintainers@idlescreen.dev>  Thu, 15 Oct 2026 00:00:00 +0000
+
 idle-cosmic (4.2.1-1) unstable; urgency=medium
 
   * Consolidate into idlescreen monorepo (v4.2.1) with Page Rule refactoring,

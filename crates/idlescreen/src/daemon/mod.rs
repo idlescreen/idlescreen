@@ -218,13 +218,18 @@ fn sync_presenter_thread(
     }
     if state.active.load(Ordering::SeqCst) && presenter_handle.is_none() {
         let st = state.clone();
-        let dwell = config.saver.ascii.dwell_secs;
-        let mode = config.saver.ascii.mode.clone();
+        let fresh = Config::load_or_migrate();
+        let dwell = if fresh.saver.ascii.dwell_secs > 0.0 {
+            fresh.saver.ascii.dwell_secs
+        } else {
+            config.saver.ascii.dwell_secs
+        };
+        let mode = fresh.saver.ascii.mode;
         let text = st
             .custom_text
             .lock()
-            .map_or_else(|_| config.saver.ascii.text.clone(), |t| t.clone());
-        let fps = config.saver.ascii.fps;
+            .map_or_else(|_| fresh.saver.ascii.text, |t| t.clone());
+        let fps = fresh.saver.ascii.fps;
         *presenter_handle = Some(std::thread::spawn(move || {
             if crate::wayland::run_wayland_daemon_presenter(st.clone(), dwell, &mode, &text, fps)
                 .is_err()

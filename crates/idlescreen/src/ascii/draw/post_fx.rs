@@ -4,7 +4,7 @@
 //! 16-bit SNES arcade post-processing (bevel, specular gleam, drop shadow, parallax starfield)
 //! and scene dissolve transitions.
 
-use super::{banner_bevel_color, find_solid_banner_bounds};
+use super::{banner_bevel_color, find_solid_banner_bounds, paint_starfield_backdrop};
 use crate::cell::TerminalCell;
 
 /// Applies 16-bit SNES arcade post-processing, scanning bounds if `settled` is true.
@@ -19,16 +19,18 @@ pub fn apply_arcade_fx(
     let bounds = settled
         .then(|| find_solid_banner_bounds(grid, cols, rows))
         .flatten();
-    apply_arcade_fx_with_bounds(grid, cols, rows, frame_tick, bounds, false, bg);
+    apply_arcade_fx_with_bounds(grid, cols, rows, frame_tick, 0, bounds, false, bg);
 }
 
 /// Applies 16-bit SNES arcade post-processing using pre-cached `settled_bounds` to avoid
 /// full-grid bounds rescanning during static dwell (§3.2 #3).
+#[allow(clippy::too_many_arguments)]
 pub fn apply_arcade_fx_with_bounds(
     grid: &mut [TerminalCell],
     cols: usize,
     rows: usize,
     frame_tick: u64,
+    backdrop_seed: u64,
     settled_bounds: Option<(usize, usize)>,
     is_stacked_superfedora: bool,
     bg: (u8, u8, u8),
@@ -82,62 +84,7 @@ pub fn apply_arcade_fx_with_bounds(
         }
     }
 
-    for y in 0..rows {
-        let row_off = y * cols;
-        for x in 0..cols {
-            let idx = row_off + x;
-            if idx >= total {
-                break;
-            }
-            if grid[idx].ch != ' ' {
-                continue;
-            }
-
-            let sx1 = x.wrapping_add(tick * 2);
-            let h1 = (sx1.wrapping_mul(2_654_435_761) ^ y.wrapping_mul(2_246_822_519)) & 0xFFFF;
-            if h1 < 72 {
-                let is_gold = h1.trailing_zeros() >= 2;
-                grid[idx] = TerminalCell {
-                    ch: if (h1 & 1) == 0 { '▘' } else { '▝' },
-                    fg: if is_gold {
-                        (255, 200, 60)
-                    } else {
-                        (95, 220, 255)
-                    },
-                    bg,
-                    bold: true,
-                };
-                continue;
-            }
-
-            let sy2 = y.wrapping_add(tick / 2);
-            let h2 = (x.wrapping_mul(3_266_489_917) ^ sy2.wrapping_mul(668_265_263)) & 0xFFFF;
-            if h2 < 96 {
-                grid[idx] = TerminalCell {
-                    ch: if (h2 & 1) == 0 { '▗' } else { '▖' },
-                    fg: if (h2 & 2) == 0 {
-                        (215, 85, 210)
-                    } else {
-                        (130, 95, 255)
-                    },
-                    bg,
-                    bold: false,
-                };
-                continue;
-            }
-
-            let sx3 = x.wrapping_add(tick / 3);
-            let h3 = (sx3.wrapping_mul(374_761_393) ^ y.wrapping_mul(1_103_515_245)) & 0xFFFF;
-            if h3 < 130 {
-                grid[idx] = TerminalCell {
-                    ch: '░',
-                    fg: (40, 78, 156),
-                    bg,
-                    bold: false,
-                };
-            }
-        }
-    }
+    paint_starfield_backdrop(grid, cols, rows, frame_tick, backdrop_seed, bg);
 }
 
 /// Blends the outgoing frame and incoming frame over progress `t` in `[0.0, 1.0]`.

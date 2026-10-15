@@ -42,6 +42,9 @@ pub fn parse_preview_args(
             "--terminal" => {
                 terminal = true;
             }
+            "--tour" | "--new" => {
+                saver = Some("tour".to_string());
+            }
             "-t" | "--timeout" => {
                 let val = iter
                     .next()
@@ -118,26 +121,24 @@ fn print_preview_help() {
     println!("idlescreen preview — Preview screensavers on display or in terminal");
     println!();
     println!("Usage:");
-    println!("  idlescreen preview [saver] [options]");
+    println!("  idlescreen preview [saver|new|tour] [options]");
     println!();
     println!("Options:");
     println!("  -f, --fullscreen       Open borderless fullscreen Wayland surface across monitor");
     println!("      --terminal         Force terminal crossterm mode (skip Wayland surface)");
+    println!(
+        "      --tour, --new      Tour all 50 built-in 16-bit arcade scenes in order (1/50 to 50/50)"
+    );
     println!("  -t, --timeout <secs>   Automatically exit after <secs> seconds");
     println!("  -d, --dwell <secs>     Dwell duration in seconds per effect/mutation");
     println!("  -m, --mode <mode>      Text mode: cycle (default), os, de, kernel, custom");
     println!("      --text <string>    Set custom text banner");
     println!("  -h, --help             Show this help message");
     println!();
-    println!("Examples:");
-    println!(
-        "  idlescreen preview                 # Preview active screensaver (Wayland fullscreen)"
-    );
-    println!("  idlescreen preview --terminal      # Preview in terminal crossterm grid");
-    println!("  idlescreen preview --dwell 2       # Rotate text/effects every 2s");
-    println!("  idlescreen preview --mode kernel   # Preview kernel version text");
-    println!("  idlescreen preview storm           # Preview 'storm' screensaver");
-    println!("  idlescreen preview --timeout 5     # Run preview for 5 seconds");
+    println!("Interactive Controls during Preview:");
+    println!("  Right / Down / n / Tab   Step to next scene one-by-one");
+    println!("  Left / Up / p            Step to previous scene one-by-one");
+    println!("  Esc / q / Space / Mouse  Exit preview");
 }
 
 #[cfg(test)]
@@ -159,9 +160,9 @@ mod tests {
 
     #[test]
     fn test_parse_preview_args_saver_only() {
-        let args = vec!["storm".to_string()];
+        let args = vec!["plasma".to_string()];
         let opts = parse_preview_args(&args).unwrap().unwrap();
-        assert_eq!(opts.saver.as_deref(), Some("storm"));
+        assert_eq!(opts.saver.as_deref(), Some("plasma"));
     }
 
     #[test]

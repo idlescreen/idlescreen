@@ -7,20 +7,19 @@ use crate::ascii::effects::EffectKind;
 use crate::daemon::config::{Config, resolve_config_dir};
 use crate::daemon::control_sock::ControlClient;
 
+#[rustfmt::skip]
 pub const ALL_KNOWN_SAVERS: &[&str] = &[
-    "ascii",
-    "superfedora",
-    "aurora",
-    "beams",
-    "bursts",
-    "chaos",
-    "cosmos",
-    "glyphs",
-    "gnats",
-    "hearth",
-    "radar",
-    "ripple",
-    "storm",
+    "ascii", "superfedora", "tour",
+    "aurora", "beams", "binarypath", "blackhole", "bouncyballs",
+    "breakout", "bubbles", "burn", "chaos", "colorshift",
+    "cosmos", "crumble", "decrypt", "errorcorrect", "expand",
+    "fireworks", "highlight", "laseretch", "life", "matrix",
+    "metaballs", "middleout", "mystify", "orbittingvolley", "overflow",
+    "pipes", "plasma", "pour", "print", "radar",
+    "rain", "randomsequence", "rings", "ripple", "scattered",
+    "slice", "slide", "smoke", "spotlights", "spray",
+    "swarm", "sweep", "synthgrid", "tetris", "thunderstorm",
+    "tunnel", "unstable", "vhstape", "waves", "wipe",
 ];
 
 pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
@@ -31,15 +30,19 @@ pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>
     };
 
     let saver_clean = saver.trim().to_lowercase();
-    let is_known = ALL_KNOWN_SAVERS.contains(&saver_clean.as_str())
-        || EffectKind::parse(&saver_clean).is_some();
-    if !is_known {
+    let canonical = if saver_clean == "ascii" || saver_clean == "superfedora" {
+        saver_clean.clone()
+    } else if saver_clean == "tour" || saver_clean == "new" {
+        "tour".to_string()
+    } else if let Some(kind) = EffectKind::parse(&saver_clean) {
+        kind.name().to_string()
+    } else {
         eprintln!("Unknown screensaver: '{saver}'");
         eprintln!("Available savers: {}", ALL_KNOWN_SAVERS.join(", "));
         return Err(format!("unknown screensaver '{saver}'").into());
-    }
+    };
 
-    if saver_clean == "superfedora" && !crate::ascii::sys_info::is_superfedora_machine() {
+    if canonical == "superfedora" && !crate::ascii::sys_info::is_superfedora_machine() {
         eprintln!("error: screensaver 'superfedora' is locked.");
         eprintln!(
             "It only unlocks when IdleScreen is installed and run on a SuperFedora workstation."
@@ -52,25 +55,24 @@ pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>
 
     if let Ok(conn) = zbus::blocking::Connection::session()
         && let Ok(proxy) = crate::daemon::dbus::IdleClientProxyBlocking::new(&conn)
-        && proxy.set_saver(&saver_clean).is_ok()
+        && proxy.set_saver(&canonical).is_ok()
     {
-        println!("Active screensaver set to '{saver_clean}' (via D-Bus)");
+        println!("Active screensaver set to '{canonical}' (via D-Bus)");
         notified_daemon = true;
     }
 
-    if !notified_daemon && let Ok(resp) = ControlClient::send_command(&format!("set {saver_clean}"))
-    {
-        println!("Active screensaver set to '{saver_clean}' (via control socket: {resp})");
+    if !notified_daemon && let Ok(resp) = ControlClient::send_command(&format!("set {canonical}")) {
+        println!("Active screensaver set to '{canonical}' (via control socket: {resp})");
         notified_daemon = true;
     }
 
     let toml_path = resolve_config_dir().join("config.toml");
     let mut config = Config::load_or_migrate();
-    config.saver.active = Some(saver_clean.clone());
+    config.saver.active = Some(canonical.clone());
     let _ = config.save_to_path(&toml_path);
 
     if !notified_daemon {
-        println!("Active screensaver set to '{saver_clean}' (saved to config)");
+        println!("Active screensaver set to '{canonical}' (saved to config)");
     }
 
     Ok(())
@@ -82,12 +84,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_all_known_savers_contains_ascii_and_11_extras() {
-        assert_eq!(ALL_KNOWN_SAVERS.len(), 13);
+    fn test_all_known_savers_contains_presets_and_all_50_scenes() {
+        assert_eq!(ALL_KNOWN_SAVERS.len(), 53);
         assert!(ALL_KNOWN_SAVERS.contains(&"ascii"));
         assert!(ALL_KNOWN_SAVERS.contains(&"superfedora"));
-        assert!(ALL_KNOWN_SAVERS.contains(&"storm"));
-        assert!(ALL_KNOWN_SAVERS.contains(&"aurora"));
+        assert!(ALL_KNOWN_SAVERS.contains(&"tour"));
+        for kind in EffectKind::ALL {
+            assert!(
+                ALL_KNOWN_SAVERS.contains(&kind.name()),
+                "ALL_KNOWN_SAVERS missing {}",
+                kind.name()
+            );
+        }
     }
 
     #[test]

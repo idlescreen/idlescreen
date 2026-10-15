@@ -11,6 +11,8 @@ use std::time::Duration;
 
 impl Ascii {
     pub fn start_engine_session(&mut self) {
+        let seed = self.rng.next_u64();
+        self.backdrop_seed = draw::compute_backdrop_seed(self.effect as u64, seed);
         self.current_frame.clear();
         self.frame_grid.fill(TerminalCell::default());
         self.settled_bounds = None;
@@ -23,8 +25,7 @@ impl Ascii {
         let is_sf = self.is_stacked_superfedora() || sys_info::is_superfedora_machine();
         if is_portrait(self.last_cols, self.last_rows) && !is_sf {
             let (top, bottom) = format_portrait_telemetry(&query_telemetry(), self.last_cols);
-            self.portrait_top = top;
-            self.portrait_bottom = bottom;
+            (self.portrait_top, self.portrait_bottom) = (top, bottom);
         } else {
             self.portrait_top.clear();
             self.portrait_bottom.clear();
@@ -33,7 +34,6 @@ impl Ascii {
             self.engine = None;
             return;
         }
-        let seed = self.rng.next_u64();
         let (cols, rows) = (self.last_cols, self.last_rows);
         self.engine = EngineSession::new(&self.art_text, self.effect, cols, rows, seed, self.fps);
         if let Some(ref mut session) = self.engine {
@@ -80,8 +80,7 @@ impl Ascii {
         if self.transition_active {
             self.transition_left -= dt_secs;
             if self.transition_left <= 0.0 {
-                self.transition_active = false;
-                self.transition_left = 0.0;
+                (self.transition_active, self.transition_left) = (false, 0.0);
                 self.transition_from_grid.clear();
                 if self.rotation.targets.len() > 1 {
                     self.cycle_effect();
@@ -91,11 +90,9 @@ impl Ascii {
 
         if let Some(ref mut session) = self.engine {
             self.anim_left -= dt_secs;
-            let frame = if self.anim_left > 0.0 {
-                session.next_frame()
-            } else {
-                None
-            };
+            let frame = (self.anim_left > 0.0)
+                .then(|| session.next_frame())
+                .flatten();
             if let Some(frame) = frame {
                 self.current_frame.clear();
                 self.current_frame.push_str(&frame);
@@ -136,9 +133,11 @@ impl Ascii {
         let _ = draw::apply_settled_bevel_for(&mut self.frame_grid, cols, rows, stacked);
         self.transition_from_grid.clone_from(&self.frame_grid);
         let dur = self.dissolve_duration.min(self.dwell_time() * 0.4);
-        self.transition_duration = dur;
-        self.transition_left = dur;
-        self.transition_active = true;
+        (
+            self.transition_duration,
+            self.transition_left,
+            self.transition_active,
+        ) = (dur, dur, true);
 
         if self.rotation.targets.len() > 1 {
             self.engine = None;
@@ -177,8 +176,13 @@ impl Ascii {
         }
 
         let bounds = self.is_settled().then_some(self.settled_bounds).flatten();
-        let (tick, sf, bg) = (self.frame_tick, self.is_stacked_superfedora(), self.bg);
-        draw::apply_arcade_fx_with_bounds(grid, cols, rows, tick, bounds, sf, bg);
+        let (tick, seed, sf, bg) = (
+            self.frame_tick,
+            self.backdrop_seed,
+            self.is_stacked_superfedora(),
+            self.bg,
+        );
+        draw::apply_arcade_fx_with_bounds(grid, cols, rows, tick, seed, bounds, sf, bg);
 
         if is_portrait(cols, rows) && !self.portrait_top.is_empty() && !sf {
             stamp_portrait_lines(grid, (cols, rows), 1, &self.portrait_top, bg);

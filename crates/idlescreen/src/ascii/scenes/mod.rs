@@ -20,20 +20,27 @@ pub use particles_fire::{bubbles, burn, crumble, fireworks, pour, smoke};
 pub use physics_fields::{
     blackhole, bouncyballs, orbittingvolley, overflow, scattered, swarm, unstable,
 };
-pub use weather_nature::{rain, spray, thunderstorm, waves};
+pub use weather_nature::{
+    aurora, breakout, chaos, cosmos, life, metaballs, mystify, pipes, plasma, radar, rain, ripple,
+    spray, tetris, thunderstorm, tunnel, waves,
+};
 
 use super::effects::EffectKind;
 use ttfx::engine::effect::Effect;
 
 pub fn create_scene(kind: EffectKind) -> Box<dyn Effect> {
     match kind {
+        EffectKind::Aurora => Box::new(aurora::Aurora::default()),
         EffectKind::Beams => Box::new(beams::Beams::default()),
         EffectKind::Binarypath => Box::new(binarypath::BinaryPath::default()),
         EffectKind::Blackhole => Box::new(blackhole::Blackhole::default()),
         EffectKind::Bouncyballs => Box::new(bouncyballs::BouncyBalls::default()),
+        EffectKind::Breakout => Box::new(breakout::Breakout::default()),
         EffectKind::Bubbles => Box::new(bubbles::Bubbles::default()),
         EffectKind::Burn => Box::new(burn::Burn::default()),
+        EffectKind::Chaos => Box::new(chaos::Chaos::default()),
         EffectKind::Colorshift => Box::new(colorshift::ColorShift::default()),
+        EffectKind::Cosmos => Box::new(cosmos::Cosmos::default()),
         EffectKind::Crumble => Box::new(crumble::Crumble::default()),
         EffectKind::Decrypt => Box::new(decrypt::Decrypt::default()),
         EffectKind::Errorcorrect => Box::new(errorcorrect::ErrorCorrect::default()),
@@ -41,15 +48,22 @@ pub fn create_scene(kind: EffectKind) -> Box<dyn Effect> {
         EffectKind::Fireworks => Box::new(fireworks::Fireworks::default()),
         EffectKind::Highlight => Box::new(highlight::Highlight::default()),
         EffectKind::Laseretch => Box::new(laseretch::LaserEtch::default()),
+        EffectKind::Life => Box::new(life::Life::default()),
         EffectKind::Matrix => Box::new(matrix::Matrix::default()),
+        EffectKind::Metaballs => Box::new(metaballs::Metaballs::default()),
         EffectKind::Middleout => Box::new(middleout::Middleout::default()),
+        EffectKind::Mystify => Box::new(mystify::Mystify::default()),
         EffectKind::Orbittingvolley => Box::new(orbittingvolley::OrbittingVolley::default()),
         EffectKind::Overflow => Box::new(overflow::Overflow::default()),
+        EffectKind::Pipes => Box::new(pipes::Pipes::default()),
+        EffectKind::Plasma => Box::new(plasma::Plasma::default()),
         EffectKind::Pour => Box::new(pour::Pour::default()),
         EffectKind::Print => Box::new(print_effect::Print::default()),
+        EffectKind::Radar => Box::new(radar::Radar::default()),
         EffectKind::Rain => Box::new(rain::Rain::default()),
         EffectKind::Randomsequence => Box::new(random_sequence::RandomSequence::default()),
         EffectKind::Rings => Box::new(rings::Rings::default()),
+        EffectKind::Ripple => Box::new(ripple::Ripple::default()),
         EffectKind::Scattered => Box::new(scattered::Scattered::default()),
         EffectKind::Slice => Box::new(slice::Slice::default()),
         EffectKind::Slide => Box::new(slide::Slide::default()),
@@ -59,7 +73,9 @@ pub fn create_scene(kind: EffectKind) -> Box<dyn Effect> {
         EffectKind::Swarm => Box::new(swarm::Swarm::default()),
         EffectKind::Sweep => Box::new(sweep::Sweep::default()),
         EffectKind::Synthgrid => Box::new(synthgrid::SynthGrid::default()),
+        EffectKind::Tetris => Box::new(tetris::Tetris::default()),
         EffectKind::Thunderstorm => Box::new(thunderstorm::Thunderstorm::default()),
+        EffectKind::Tunnel => Box::new(tunnel::Tunnel::default()),
         EffectKind::Unstable => Box::new(unstable::Unstable::default()),
         EffectKind::Vhstape => Box::new(vhstape::VhsTape::default()),
         EffectKind::Waves => Box::new(waves::Waves::default()),

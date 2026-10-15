@@ -27,8 +27,8 @@ pub fn print_help() {
     println!("  tui               Interactive settings dashboard for screensaver and timeouts");
     println!("  preview [saver]   Preview screensaver on Wayland display or in terminal");
     println!("  text [targets]    Set or inspect ASCII text targets (e.g. os, custom, status)");
-    println!("  list              List available built-in and extras screensavers");
-    println!("  set <saver>       Set active screensaver (e.g. ascii, storm, aurora)");
+    println!("  list              List available 50-scene 16-bit arcade screensavers");
+    println!("  set <saver>       Set active screensaver (e.g. ascii, tour, aurora, plasma)");
     println!("  start             Activate screensaver immediately");
     println!("  stop              Stop running screensaver");
     println!("  toggle            Toggle stay-awake standby (enable/disable idle service)");

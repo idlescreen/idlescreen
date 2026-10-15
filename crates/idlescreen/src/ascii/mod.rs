@@ -2,7 +2,7 @@
 // Copyright 2026 IdleScreen
 
 //! Built-in ASCII screensaver engine with dynamic tri-rotation mutation
-//! and 37 genuine ttfx visual text effects.
+//! and 50 genuine 16-bit arcade visual text effects.
 
 pub mod draw;
 pub mod effects;
@@ -27,12 +27,14 @@ use std::time::Duration;
 pub const DEFAULT_DWELL_SECS: f32 = 2.0;
 pub const DEFAULT_DISSOLVE_SECS: f32 = 0.35;
 
+#[allow(clippy::struct_excessive_bools)]
 pub struct Ascii {
     pub rng: LcgRng,
     pub playlist: EffectPlaylist,
     pub rotation: TriRotationState,
     pub effect: EffectKind,
     pub pinned: bool,
+    pub tour_mode: bool,
     pub dwell_left: f32,
     pub dwell_duration: Option<f32>,
     pub dissolve_duration: f32,
@@ -55,6 +57,7 @@ pub struct Ascii {
     pub portrait_bottom: Vec<String>,
     pub fps: u32,
     pub frame_tick: u64,
+    pub backdrop_seed: u64,
 }
 
 impl Default for Ascii {
@@ -90,6 +93,7 @@ impl Ascii {
         let mut playlist = EffectPlaylist::new();
         let effect = playlist.next_effect(&mut rng);
         let rotation = TriRotationState::new_with_seed(TextMode::Os, None, seed);
+        let backdrop_seed = draw::compute_backdrop_seed(effect as u64, seed);
 
         Self {
             rng,
@@ -97,6 +101,7 @@ impl Ascii {
             rotation,
             effect,
             pinned: false,
+            tour_mode: false,
             dwell_left: DEFAULT_DWELL_SECS,
             dwell_duration: None,
             dissolve_duration: DEFAULT_DISSOLVE_SECS,
@@ -119,6 +124,7 @@ impl Ascii {
             portrait_bottom: Vec::new(),
             fps: 60,
             frame_tick: 0,
+            backdrop_seed,
         }
     }
 
@@ -176,23 +182,33 @@ impl Ascii {
     }
 
     pub fn pin_effect(&mut self, effect: EffectKind) {
-        self.effect = effect;
-        self.pinned = true;
-        self.dwell_left = self.dwell_time();
-        self.elapsed_in_effect = 0.0;
+        (self.effect, self.pinned, self.tour_mode) = (effect, true, false);
+        (self.dwell_left, self.elapsed_in_effect) = (self.dwell_time(), 0.0);
+        self.start_engine_session();
+    }
+
+    pub fn enable_tour_mode(&mut self) {
+        (self.effect, self.pinned, self.tour_mode) = (EffectKind::ALL[0], false, true);
+        (self.dwell_left, self.elapsed_in_effect) = (self.dwell_time(), 0.0);
+        self.start_engine_session();
+    }
+
+    pub fn step_effect(&mut self, roster: &[EffectKind], delta: i32) {
+        self.effect = self.effect.step_in_roster(roster, delta);
+        (self.transition_active, self.transition_left) = (false, 0.0);
+        self.transition_from_grid.clear();
+        (self.dwell_left, self.elapsed_in_effect) = (self.dwell_time(), 0.0);
         self.start_engine_session();
     }
 
     pub fn init(&mut self, cols: usize, rows: usize) {
-        self.last_cols = cols;
-        self.last_rows = rows;
+        (self.last_cols, self.last_rows) = (cols, rows);
         let total = cols.saturating_mul(rows);
         self.frame_grid.resize(total, TerminalCell::default());
         self.frame_grid.fill(TerminalCell::default());
         self.settled_bounds = None;
         self.transition_from_grid.clear();
-        self.transition_active = false;
-        self.transition_left = 0.0;
+        (self.transition_active, self.transition_left) = (false, 0.0);
         self.dwell_left = self.dwell_time();
         self.start_engine_session();
     }
@@ -221,10 +237,13 @@ impl Ascii {
     pub fn cycle_effect(&mut self) {
         self.rotation.advance_mutation(&mut self.rng);
         if !self.pinned {
-            self.effect = self.playlist.next_effect(&mut self.rng);
+            self.effect = if self.tour_mode {
+                self.effect.step_in_roster(&EffectKind::ALL, 1)
+            } else {
+                self.playlist.next_effect(&mut self.rng)
+            };
         }
-        self.dwell_left = self.dwell_time();
-        self.elapsed_in_effect = 0.0;
+        (self.dwell_left, self.elapsed_in_effect) = (self.dwell_time(), 0.0);
         self.start_engine_session();
     }
 }

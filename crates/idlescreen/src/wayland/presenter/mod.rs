@@ -65,6 +65,25 @@ impl WaylandState {
         }
     }
 
+    pub fn handle_key_code(&mut self, key: u32, key_state: WEnum<wl_keyboard::KeyState>) {
+        if matches!(key_state, WEnum::Value(wl_keyboard::KeyState::Pressed)) {
+            if self.preview_mode {
+                match key {
+                    15 | 27 | 49 | 106 | 108 => {
+                        self.scene_step_delta += 1;
+                        return;
+                    }
+                    25 | 26 | 103 | 105 => {
+                        self.scene_step_delta -= 1;
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+            self.handle_pointer_axis();
+        }
+    }
+
     pub fn handle_pointer_button(&mut self, btn_state: WEnum<wl_pointer::ButtonState>) {
         if matches!(btn_state, WEnum::Value(wl_pointer::ButtonState::Pressed)) {
             self.handle_pointer_axis();

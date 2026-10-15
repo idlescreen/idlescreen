@@ -6,7 +6,6 @@
 use crate::daemon::config::{Config, resolve_config_dir};
 use crate::daemon::control_sock::{ControlClient, resolve_control_sock_path};
 use crate::daemon::pidfile::{is_daemon_running, resolve_pid_path};
-use crate::extras_ipc::resolve_extras_binary;
 use std::path::{Path, PathBuf};
 
 #[allow(clippy::struct_excessive_bools)]
@@ -30,7 +29,6 @@ pub struct DoctorReport {
     pub mode_desc: &'static str,
     pub config_path: Option<PathBuf>,
     pub config_is_toml: bool,
-    pub extras_bin: Option<PathBuf>,
     pub shm_writable: bool,
     pub input_debounce_ms: u64,
     pub wayland_presenter_ok: bool,
@@ -135,7 +133,6 @@ pub fn collect_diagnostics() -> DoctorReport {
         mode_desc,
         config_path,
         config_is_toml,
-        extras_bin: resolve_extras_binary(),
         shm_writable: test_shm_writable(),
         input_debounce_ms: crate::wayland::presenter::INPUT_DEBOUNCE_WINDOW.as_millis() as u64,
         wayland_presenter_ok,

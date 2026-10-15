@@ -10,16 +10,27 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 use zbus::interface;
 
+#[rustfmt::skip]
 pub const VALID_SAVERS: &[&str] = &[
-    "ascii", "aurora", "beams", "bursts", "chaos", "cosmos", "glyphs", "gnats", "hearth", "radar",
-    "ripple", "storm",
+    "ascii", "superfedora", "tour", "new", "aurora", "beams", "chaos", "cosmos", "radar",
+    "ripple", "plasma", "tunnel", "breakout", "tetris", "pipes", "mystify", "life", "metaballs",
 ];
 
 pub fn is_valid_saver(name: &str) -> bool {
-    let trimmed = name.trim();
-    VALID_SAVERS.contains(&trimmed)
-        || crate::ascii::effects::EffectKind::parse(trimmed).is_some()
-        || trimmed == "superfedora"
+    let lower = name.trim().to_ascii_lowercase();
+    VALID_SAVERS.contains(&lower.as_str())
+        || crate::ascii::effects::EffectKind::parse(&lower).is_some()
+}
+
+pub fn canonical_saver_name(name: &str) -> String {
+    let lower = name.trim().to_ascii_lowercase();
+    if lower == "new" {
+        "tour".to_string()
+    } else if let Some(kind) = crate::ascii::effects::EffectKind::parse(&lower) {
+        kind.name().to_string()
+    } else {
+        lower
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -33,6 +44,19 @@ pub struct InhibitEntry {
 impl ScreenSaverState {
     pub fn is_inhibited(&self) -> bool {
         self.inhibitors.lock().is_ok_and(|g| !g.is_empty())
+    }
+
+    pub fn format_status_json(&self) -> String {
+        let active = self.active.load(Ordering::SeqCst);
+        let saver = self
+            .current_saver
+            .lock()
+            .map_or_else(|_| "ascii".into(), |s| s.clone());
+        let inhibited = self.is_inhibited();
+        let timeout = self.idle_timeout_secs.load(Ordering::SeqCst);
+        format!(
+            "{{\"running\":true,\"active\":{active},\"saver\":\"{saver}\",\"inhibited\":{inhibited},\"timeout\":{timeout}}}"
+        )
     }
 
     pub fn list_inhibitors(&self) -> Vec<(u32, String, String)> {
@@ -143,18 +167,7 @@ pub struct IdleInterface {
 #[interface(name = "io.github.idlescreen.Idle")]
 impl IdleInterface {
     fn get_status(&self) -> String {
-        let active = self.state.active.load(Ordering::SeqCst);
-        let saver = self
-            .state
-            .current_saver
-            .lock()
-            .map(|s| s.clone())
-            .unwrap_or_default();
-        let inhibited = self.state.is_inhibited();
-        let timeout = self.state.idle_timeout_secs.load(Ordering::SeqCst);
-        format!(
-            "{{\"running\":true,\"active\":{active},\"saver\":\"{saver}\",\"inhibited\":{inhibited},\"timeout\":{timeout}}}"
-        )
+        self.state.format_status_json()
     }
 
     fn stop(&self) {
@@ -189,11 +202,12 @@ impl IdleInterface {
     }
 
     fn list_savers(&self) -> Vec<String> {
-        let mut list = vec!["ascii".to_string()];
-        if crate::extras_ipc::ExtrasSession::is_available() {
-            for &s in &VALID_SAVERS[1..] {
-                list.push(s.to_string());
-            }
+        let mut list = vec!["ascii".to_string(), "tour".to_string()];
+        if crate::ascii::sys_info::is_superfedora_machine() {
+            list.push("superfedora".to_string());
+        }
+        for kind in crate::ascii::effects::EffectKind::ALL {
+            list.push(kind.name().to_string());
         }
         list
     }

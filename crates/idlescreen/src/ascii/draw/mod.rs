@@ -5,9 +5,11 @@
 
 mod ansi;
 mod post_fx;
+pub mod starfield;
 
 pub use ansi::paint_frame;
 pub use post_fx::{apply_arcade_fx, apply_arcade_fx_with_bounds, paint_transition};
+pub use starfield::{compute_backdrop_seed, paint_starfield_backdrop};
 
 use crate::cell::TerminalCell;
 

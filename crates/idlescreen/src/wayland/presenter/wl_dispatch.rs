@@ -157,8 +157,8 @@ impl_dispatch!(zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, (state, layer_surface,
 });
 
 impl_dispatch!(wl_keyboard::WlKeyboard, (state, _kb, event, _qh) => {
-    if let wl_keyboard::Event::Key { state: key_state, .. } = event {
-        state.handle_key_event(key_state);
+    if let wl_keyboard::Event::Key { key, state: key_state, .. } = event {
+        state.handle_key_code(key, key_state);
     }
 });
 

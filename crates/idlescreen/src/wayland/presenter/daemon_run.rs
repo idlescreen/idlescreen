@@ -13,11 +13,9 @@ use super::frame_step::{build_ascii_saver, init_surface_buffers, step_and_presen
 use super::shm_buf::poll_and_read_events;
 use super::wl_state::WaylandState;
 use super::{PowerThrottle, arcade_grid_dimensions};
-use crate::ascii::effects::EffectKind;
 use crate::ascii::state::TextMode;
 use crate::cell::TerminalCell;
 use crate::daemon::config::Config;
-use crate::extras_ipc::ExtrasSession;
 
 /// Runs fullscreen Wayland screensaver presentation for the background daemon while active.
 #[allow(clippy::needless_pass_by_value)]
@@ -78,20 +76,19 @@ pub fn run_wayland_daemon_presenter(
         .current_saver
         .lock()
         .map_or_else(|_| "ascii".to_string(), |s| s.clone());
-    let is_superfedora =
-        saver_name == "superfedora" || mode_str.eq_ignore_ascii_case("superfedora");
-    let is_extras_cand =
-        EffectKind::parse(&saver_name).is_none() && saver_name != "ascii" && !is_superfedora;
-    let mut is_extras = is_extras_cand && ExtrasSession::is_available();
-    let mut extras_session = is_extras
-        .then(|| ExtrasSession::spawn(&saver_name, cols, rows).ok())
-        .flatten();
-    if extras_session.is_none() {
-        is_extras = false;
-    }
 
-    let target_fps = if config_fps > 0 {
+    let effective_fps = if cfg.saver.ascii.fps > 0 {
+        cfg.saver.ascii.fps
+    } else {
         config_fps
+    };
+    let effective_dwell = if cfg.saver.ascii.dwell_secs > 0.0 {
+        cfg.saver.ascii.dwell_secs
+    } else {
+        dwell_secs
+    };
+    let target_fps = if effective_fps > 0 {
+        effective_fps
     } else if primary_refresh > 0 {
         u32::try_from(((primary_refresh + 500) / 1000).max(1)).unwrap_or(60)
     } else {
@@ -114,7 +111,7 @@ pub fn run_wayland_daemon_presenter(
     let mut ascii_saver = build_ascii_saver(
         &saver_name,
         mode_str,
-        dwell_secs,
+        effective_dwell,
         cfg.saver.ascii.dissolve_duration_secs,
         custom_opt,
         targets,
@@ -147,9 +144,7 @@ pub fn run_wayland_daemon_presenter(
                     TextMode::Os
                 };
                 ascii_saver.rotation.custom_text = opt;
-                if !is_extras {
-                    ascii_saver.init(cols, rows);
-                }
+                ascii_saver.init(cols, rows);
             }
             last_custom_epoch = cur_epoch;
         }
@@ -164,8 +159,7 @@ pub fn run_wayland_daemon_presenter(
             continue;
         }
 
-        let frame_dur =
-            power.effective_frame_dur(base_frame_dur, !is_extras && ascii_saver.is_settled());
+        let frame_dur = power.effective_frame_dur(base_frame_dur, ascii_saver.is_settled());
         let now = Instant::now();
         let dt = now.duration_since(last_frame);
         if dt >= frame_dur {
@@ -176,8 +170,6 @@ pub fn run_wayland_daemon_presenter(
                 &qh,
                 dt,
                 (cols, rows),
-                &mut is_extras,
-                &mut extras_session,
                 &mut ascii_saver,
                 &mut cells,
             );

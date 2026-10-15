@@ -66,13 +66,7 @@ pub fn print_concise(r: &DoctorReport) {
         |p| format!("{} ({tag})", p.display()),
     );
     println!("  [✓] Configuration   : {cfg_str}");
-
-    let ext = if r.extras_bin.is_some() {
-        "extras (11 math savers)"
-    } else {
-        "extras not installed"
-    };
-    println!("  [✓] Savers Engine   : built-in ASCII (37 effects) + {ext}");
+    println!("  [✓] Savers Engine   : built-in 16-bit arcade engine (50 scenes)");
 
     let shm_str = if r.shm_writable {
         "/dev/shm writable"
@@ -198,13 +192,9 @@ pub fn print_verbose(r: &DoctorReport) {
         "  [✓] Active Saver: {} (mode: {}, dwell: {:.1}s, timeout: {}s)",
         r.active_saver, r.mode_desc, r.dwell_secs, r.timeout_secs
     );
-    println!("  [✓] Built-in: ASCII animation engine (37 effects)");
-    let ext_str = r.extras_bin.as_ref().map_or_else(
-        || "not installed (built-in ASCII available)".to_string(),
-        |e| format!("{} (11 math savers)", e.display()),
+    println!(
+        "  [✓] Built-in Engine: 16-bit arcade animation engine (50 scenes)\n\nPermissions & IPC:"
     );
-    let ext_m = mark(r.extras_bin.is_some(), "-");
-    println!("  [{ext_m}] Extras Helper: {ext_str}\n\nPermissions & IPC:");
     let (shm_m, shm_d) = if r.shm_writable {
         ("✓", "writable (wl_shm ready)")
     } else {
@@ -228,13 +218,9 @@ pub fn print_json(r: &DoctorReport) {
         .config_path
         .as_ref()
         .map_or_else(String::new, |p| p.display().to_string());
-    let ext = r
-        .extras_bin
-        .as_ref()
-        .map_or_else(String::new, |p| p.display().to_string());
     let pid = r.daemon_pid.unwrap_or(0);
     println!(
-        r#"{{"nominal":{nominal},"session":{{"wayland_display":"{disp}","desktop":"{de}","runtime_dir_ok":{}}},"presenter":{{"ok":{},"debounce_ms":{},"note":"{}"}},"daemon":{{"running":{},"pid":{pid},"control_active":{},"dbus_service_active":{},"systemd_active":{},"inhibited":{}}},"config":{{"path":"{cfg}","is_toml":{},"active_saver":"{}","timeout_secs":{},"dwell_secs":{:.1}}},"savers":{{"builtin_ascii":true,"extras_helper":"{ext}"}},"system":{{"shm_writable":{},"session_bus_connected":{}}}}}"#,
+        r#"{{"nominal":{nominal},"session":{{"wayland_display":"{disp}","desktop":"{de}","runtime_dir_ok":{}}},"presenter":{{"ok":{},"debounce_ms":{},"note":"{}"}},"daemon":{{"running":{},"pid":{pid},"control_active":{},"dbus_service_active":{},"systemd_active":{},"inhibited":{}}},"config":{{"path":"{cfg}","is_toml":{},"active_saver":"{}","timeout_secs":{},"dwell_secs":{:.1}}},"savers":{{"builtin_ascii":true,"scenes":50}},"system":{{"shm_writable":{},"session_bus_connected":{}}}}}"#,
         r.runtime_dir_ok,
         r.wayland_presenter_ok,
         r.input_debounce_ms,

@@ -15,9 +15,7 @@ impl fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
-
-impl<E: fmt::Display> From<E> for Error {
+impl<E: std::error::Error> From<E> for Error {
     fn from(err: E) -> Self {
         Self(err.to_string())
     }
@@ -60,22 +58,22 @@ impl Default for DaemonStatus {
     }
 }
 
+#[rustfmt::skip]
+const BUILTIN_SCENES: &[&str] = &[
+    "ascii", "superfedora", "tour",
+    "aurora", "beams", "binarypath", "blackhole", "bouncyballs", "breakout",
+    "bubbles", "burn", "chaos", "colorshift", "cosmos", "crumble",
+    "decrypt", "errorcorrect", "expand", "fireworks", "highlight", "laseretch",
+    "life", "matrix", "metaballs", "middleout", "mystify", "orbittingvolley",
+    "overflow", "pipes", "plasma", "pour", "print", "radar",
+    "rain", "randomsequence", "rings", "ripple", "scattered", "slice",
+    "slide", "smoke", "spotlights", "spray", "swarm", "sweep",
+    "synthgrid", "tetris", "thunderstorm", "tunnel", "unstable", "vhstape",
+    "waves", "wipe",
+];
+
 pub fn detect_screensavers() -> Vec<String> {
-    vec![
-        "ascii".to_string(),
-        "superfedora".to_string(),
-        "aurora".to_string(),
-        "beams".to_string(),
-        "bursts".to_string(),
-        "chaos".to_string(),
-        "cosmos".to_string(),
-        "glyphs".to_string(),
-        "gnats".to_string(),
-        "hearth".to_string(),
-        "radar".to_string(),
-        "ripple".to_string(),
-        "storm".to_string(),
-    ]
+    BUILTIN_SCENES.iter().map(|s| (*s).to_string()).collect()
 }
 
 pub fn daemon_available() -> bool {

@@ -9,28 +9,18 @@ use std::time::Duration;
 
 use crate::ascii::Ascii;
 use crate::cell::TerminalCell;
-use crate::extras_ipc::ExtrasSession;
 
 pub fn draw_frame(
     dt: Duration,
-    is_extras: &mut bool,
-    session: &mut Option<ExtrasSession>,
     saver: &mut Ascii,
     grid: &mut [TerminalCell],
     (cols, rows): (usize, usize),
+    tour_mode: bool,
     out: &mut std::io::Stdout,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if *is_extras
-        && let Some(s) = session
-        && s.tick_and_draw(dt, grid, cols, rows).is_err()
-    {
-        *is_extras = false;
-        saver.init(cols, rows);
-    }
-    if !*is_extras {
-        saver.update(dt, cols, rows);
-        saver.draw(grid, cols, rows);
-    }
+    saver.update(dt, cols, rows);
+    saver.draw(grid, cols, rows);
+    crate::wayland::glyph_font::draw_preview_hud(grid, cols, rows, saver.effect, tour_mode);
     render_grid_to_terminal(out, grid, cols, rows)?;
     Ok(())
 }

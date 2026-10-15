@@ -10,7 +10,6 @@ set -eu
 
 # Product stack + official savers. Keep in sync with install_honesty::PRODUCT_STACK.
 PKGS="
-idlescreen-extras
 idle-cosmic
 idle-tui
 idle-cli

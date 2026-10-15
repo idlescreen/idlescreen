@@ -1,38 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! Lists available screensavers across built-in core and extras.
+//! Lists available screensavers across the built-in 50-scene 16-bit arcade engine.
 
-use crate::extras_ipc::resolve_extras_binary;
-use std::process::Command;
+use crate::ascii::effects::EffectKind;
 
 pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
     println!("Available Screensavers:");
-    println!("  ascii             [built-in] Dynamic Host OS / DE / Kernel mutation");
+    println!("  ascii             [built-in] All 50 16-bit Arcade Scenes (Shuffled)");
+    println!("  tour              [built-in] All 50 16-bit Arcade Scenes in Order (1/50 to 50/50)");
     if crate::ascii::sys_info::is_superfedora_machine() {
-        println!("  superfedora       [unlocked] 16-bit SuperFedora pixel art & spotlight");
+        println!("  superfedora       [unlocked] 16-bit SuperFedora pixel art & 50-scene rotation");
     } else {
         println!(
             "  superfedora       [locked] Requires SuperFedora workstation (superfedora.github.io)"
         );
     }
-
-    if let Some(extras_bin) = resolve_extras_binary() {
-        if let Ok(output) = Command::new(&extras_bin).arg("--list").output()
-            && output.status.success()
-        {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                let s = line.trim();
-                if !s.is_empty() {
-                    println!("  {s:<17} [extras] Mathematical screensaver");
-                }
-            }
-        }
-    } else {
-        println!();
-        println!("Note: Install 'idlescreen-extras' for 11 additional mathematical screensavers.");
+    println!();
+    println!("Pinned 16-Bit Arcade Scenes (50 built-in):");
+    for chunk in EffectKind::ALL.chunks(5) {
+        let row: Vec<String> = chunk.iter().map(|k| format!("{:<16}", k.name())).collect();
+        println!("  {}", row.join(" ").trim_end());
     }
-
     Ok(())
 }

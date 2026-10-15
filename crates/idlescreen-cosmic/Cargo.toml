@@ -1,10 +1,10 @@
 [package]
 authors = ["idlescreen developers"]
 name = "idle-applet"
-version = "4.2.1"
+version = "4.3.0"
 edition = "2024"
 license = "Apache-2.0"
-description = "IdleScreen for COSMIC — product package (applet + pulls daemon and recommended savers)"
+description = "IdleScreen for COSMIC — product package (applet + pulls daemon)"
 repository = "https://github.com/idlescreen/idlescreen"
 publish = false
 
@@ -36,8 +36,7 @@ features = [
 #   sudo dnf install idle-cosmic
 #   sudo apt install idle-cosmic
 #
-# Installs this COSMIC applet and depends on `idlescreen`,
-# with recommended screensaver plugins (`idlescreen-extras`).
+# Installs this COSMIC applet and depends on `idlescreen`.
 # ---------------------------------------------------------------------------
 
 [package.metadata.cargo-machete]
@@ -56,7 +55,6 @@ depends = "libc6, idlescreen"
 provides = "app-cosmic, idlescreen-applet, trance-applet, idlescreen-cosmic"
 replaces = "app-cosmic, idlescreen-applet, trance-applet, idlescreen-cosmic"
 conflicts = "app-cosmic (<< 2.1.0), idlescreen-applet (<< 2.1.0), trance-applet (<< 2.0.0)"
-recommends = "idlescreen-extras"
 enhances = "cosmic-session, cosmic-panel"
 section = "utils"
 priority = "optional"
@@ -89,9 +87,6 @@ assets = [
 
 [package.metadata.generate-rpm.requires]
 idlescreen = "*"
-
-[package.metadata.generate-rpm.recommends]
-idlescreen-extras = "*"
 
 [package.metadata.generate-rpm.provides]
 app-cosmic = "*"

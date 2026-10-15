@@ -64,58 +64,71 @@ pub fn is_service_active() -> bool {
     ControlClient::send_command("ping").is_ok_and(|r| r == "PONG")
 }
 
-pub fn enable_service() -> Result<(), Box<dyn std::error::Error>> {
+pub fn enable_service_quiet() {
     if has_systemd_user() {
         let status = Command::new("systemctl")
             .args(["--user", "enable", "--now", "idlescreen.service"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .status()
             .or_else(|_| {
                 Command::new("systemctl")
                     .args(["--user", "enable", "--now", "idle-daemon.service"])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
                     .status()
             });
         if status.is_ok_and(|s| s.success()) {
-            println!("IdleScreen service enabled and started (systemd).");
-            return Ok(());
+            return;
         }
     }
     if Command::new("dinitctl")
         .args(["enable", "idlescreen"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .is_ok_and(|s| s.success())
     {
-        println!("IdleScreen service enabled and started (dinit).");
-        return Ok(());
+        return;
     }
     let _ = write_xdg_autostart();
     if ControlClient::send_command("ping").map_or(true, |r| r != "PONG") {
         let _ = spawn_background_daemon();
     }
-    println!("IdleScreen service enabled (XDG autostart + background daemon).");
+}
+
+pub fn enable_service() -> Result<(), Box<dyn std::error::Error>> {
+    enable_service_quiet();
+    println!("IdleScreen service enabled and started.");
     Ok(())
 }
 
-pub fn disable_service() -> Result<(), Box<dyn std::error::Error>> {
+pub fn disable_service_quiet() {
     if has_systemd_user() {
-        let status = Command::new("systemctl")
+        let _ = Command::new("systemctl")
             .args(["--user", "disable", "--now", "idlescreen.service"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .status()
             .or_else(|_| {
                 Command::new("systemctl")
                     .args(["--user", "disable", "--now", "idle-daemon.service"])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
                     .status()
             });
-        if status.is_ok_and(|s| s.success()) {
-            let _ = ControlClient::send_command("quit");
-            println!("IdleScreen service disabled and stopped (systemd).");
-            return Ok(());
-        }
     }
     let _ = Command::new("dinitctl")
         .args(["disable", "idlescreen"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status();
     let _ = fs::remove_file(autostart_desktop_path());
     let _ = ControlClient::send_command("quit");
+}
+
+pub fn disable_service() -> Result<(), Box<dyn std::error::Error>> {
+    disable_service_quiet();
     println!("IdleScreen service disabled and stopped.");
     Ok(())
 }
@@ -150,13 +163,21 @@ pub fn restart_service() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn toggle_service() -> Result<(), Box<dyn std::error::Error>> {
+pub fn toggle_service_quiet() -> bool {
     if is_service_active() {
-        let _ = disable_service();
-        println!("IdleScreen standby: Service disabled (stay-awake ON)");
+        disable_service_quiet();
+        false
     } else {
-        let _ = enable_service();
+        enable_service_quiet();
+        true
+    }
+}
+
+pub fn toggle_service() -> Result<(), Box<dyn std::error::Error>> {
+    if toggle_service_quiet() {
         println!("IdleScreen standby: Service enabled (idle monitoring ACTIVE)");
+    } else {
+        println!("IdleScreen standby: Service disabled (stay-awake ON)");
     }
     Ok(())
 }

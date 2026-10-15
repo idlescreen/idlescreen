@@ -3,7 +3,13 @@
 
 #![allow(clippy::all, clippy::pedantic, unused)]
 
+pub mod arcade_retro;
+pub mod field_ops;
+pub mod math_fields;
 pub mod rain;
 pub mod spray;
 pub mod thunderstorm;
 pub mod waves;
+
+pub use arcade_retro::{breakout, life, mystify, pipes, tetris, tunnel};
+pub use math_fields::{aurora, chaos, cosmos, metaballs, plasma, radar, ripple};

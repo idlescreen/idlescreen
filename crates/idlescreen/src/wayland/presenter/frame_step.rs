@@ -16,7 +16,6 @@ use crate::ascii::Ascii;
 use crate::ascii::effects::EffectKind;
 use crate::ascii::state::TextMode;
 use crate::cell::TerminalCell;
-use crate::extras_ipc::ExtrasSession;
 use crate::wayland::blit::{GLYPH_HEIGHT, GLYPH_WIDTH, blit_cells_to_argb};
 
 pub(super) fn init_surface_buffers(
@@ -77,7 +76,13 @@ pub(super) fn build_ascii_saver(
     targets: Vec<String>,
     target_fps: u32,
 ) -> Ascii {
-    let effect_kind = EffectKind::parse(saver_name);
+    let tour_mode =
+        saver_name.eq_ignore_ascii_case("new") || saver_name.eq_ignore_ascii_case("tour");
+    let effect_kind = if tour_mode {
+        None
+    } else {
+        EffectKind::parse(saver_name)
+    };
     let text_mode = TextMode::parse(mode_str);
     let is_superfedora =
         saver_name == "superfedora" || mode_str.eq_ignore_ascii_case("superfedora");
@@ -97,7 +102,9 @@ pub(super) fn build_ascii_saver(
             .with_dissolve(dissolve_secs)
             .with_fps(target_fps)
     };
-    if let Some(effect) = effect_kind {
+    if tour_mode {
+        saver.enable_tour_mode();
+    } else if let Some(effect) = effect_kind {
         saver.pin_effect(effect);
     }
     saver
@@ -110,8 +117,6 @@ pub(super) fn step_and_present_surfaces(
     qh: &QueueHandle<WaylandState>,
     dt: Duration,
     default_grid: (usize, usize),
-    is_extras: &mut bool,
-    extras_session: &mut Option<ExtrasSession>,
     ascii_saver: &mut Ascii,
     cells: &mut Vec<TerminalCell>,
 ) {
@@ -133,16 +138,7 @@ pub(super) fn step_and_present_surfaces(
         .max()
         .unwrap_or(rows);
 
-    if *is_extras
-        && let Some(s) = extras_session
-        && s.tick_and_draw(dt, cells, max_cols, max_rows).is_err()
-    {
-        *is_extras = false;
-        ascii_saver.init(max_cols, max_rows);
-    }
-    if !*is_extras {
-        ascii_saver.update(dt, max_cols, max_rows);
-    }
+    ascii_saver.update(dt, max_cols, max_rows);
 
     for s in &mut state.surfaces {
         let cur_w = if s.configured_width > 0 {
@@ -193,8 +189,15 @@ pub(super) fn step_and_present_surfaces(
             if cells.len() < out_cols * out_rows {
                 cells.resize(out_cols * out_rows, TerminalCell::default());
             }
-            if !*is_extras {
-                ascii_saver.draw(&mut cells[..out_cols * out_rows], out_cols, out_rows);
+            ascii_saver.draw(&mut cells[..out_cols * out_rows], out_cols, out_rows);
+            if state.preview_mode {
+                crate::wayland::glyph_font::draw_preview_hud(
+                    &mut cells[..out_cols * out_rows],
+                    out_cols,
+                    out_rows,
+                    ascii_saver.effect,
+                    state.tour_mode,
+                );
             }
 
             blit_cells_to_argb(

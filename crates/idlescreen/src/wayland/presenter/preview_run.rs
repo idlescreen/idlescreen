@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! Borderless fullscreen Wayland preview runner.
+//! Borderless fullscreen Wayland preview runner with interactive scene stepping.
 
 use std::time::{Duration, Instant};
 
@@ -14,7 +14,6 @@ use super::{PowerThrottle, arcade_grid_dimensions};
 use crate::ascii::effects::EffectKind;
 use crate::cell::TerminalCell;
 use crate::daemon::config::Config;
-use crate::extras_ipc::ExtrasSession;
 
 /// Runs a borderless fullscreen screensaver preview on Wayland.
 pub fn run_wayland_fullscreen_preview(
@@ -31,6 +30,7 @@ pub fn run_wayland_fullscreen_preview(
     let _registry = connection.display().get_registry(&qh, ());
 
     let mut state = WaylandState::new();
+    state.preview_mode = true;
     event_queue.roundtrip(&mut state)?;
     let _ = event_queue.roundtrip(&mut state);
 
@@ -64,18 +64,6 @@ pub fn run_wayland_fullscreen_preview(
         state.primary_metrics(Some(cfg.general.primary_output.as_str()));
     let (cols, rows) = arcade_grid_dimensions(primary_w as usize, primary_h as usize);
 
-    let is_superfedora =
-        saver_name == "superfedora" || mode_str.eq_ignore_ascii_case("superfedora");
-    let is_extras_cand =
-        EffectKind::parse(saver_name).is_none() && saver_name != "ascii" && !is_superfedora;
-    let mut is_extras = is_extras_cand && ExtrasSession::is_available();
-    let mut extras_session = is_extras
-        .then(|| ExtrasSession::spawn(saver_name, cols, rows).ok())
-        .flatten();
-    if extras_session.is_none() {
-        is_extras = false;
-    }
-
     let target_fps = if config_fps > 0 {
         config_fps
     } else if primary_refresh > 0 {
@@ -96,6 +84,8 @@ pub fn run_wayland_fullscreen_preview(
         target_fps,
     );
     ascii_saver.init(cols, rows);
+    state.tour_mode =
+        saver_name.eq_ignore_ascii_case("new") || saver_name.eq_ignore_ascii_case("tour");
 
     let mut cells = vec![TerminalCell::default(); cols * rows];
     let mut power = PowerThrottle::new();
@@ -108,20 +98,24 @@ pub fn run_wayland_fullscreen_preview(
         {
             break;
         }
-        let frame_dur =
-            power.effective_frame_dur(base_frame_dur, !is_extras && ascii_saver.is_settled());
+        let stepped = if state.scene_step_delta != 0 {
+            let delta = std::mem::replace(&mut state.scene_step_delta, 0);
+            ascii_saver.step_effect(&EffectKind::ALL, delta);
+            true
+        } else {
+            false
+        };
+        let frame_dur = power.effective_frame_dur(base_frame_dur, ascii_saver.is_settled());
         let now = Instant::now();
         let dt = now.duration_since(last_frame);
-        if dt >= frame_dur {
+        if stepped || dt >= frame_dur {
             last_frame = now;
             step_and_present_surfaces(
                 &mut state,
                 &shm,
                 &qh,
-                dt,
+                if stepped { Duration::ZERO } else { dt },
                 (cols, rows),
-                &mut is_extras,
-                &mut extras_session,
                 &mut ascii_saver,
                 &mut cells,
             );
