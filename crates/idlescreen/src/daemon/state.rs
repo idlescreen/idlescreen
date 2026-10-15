@@ -195,39 +195,38 @@ impl ScreenSaverState {
         self.wake();
     }
 
+    #[rustfmt::skip]
     pub fn dispatch_control_command(&self, cmd: &str) -> (String, bool) {
         let out = match cmd {
             "status" => self.format_status_json(),
             "inhibitors" => {
                 let e = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
-                let v: Vec<String> = self
-                    .list_inhibitors()
-                    .into_iter()
-                    .map(|(c, a, r)| {
-                        let (a, r) = (e(&a), e(&r));
-                        format!("{{\"cookie\":{c},\"app\":\"{a}\",\"reason\":\"{r}\"}}")
-                    })
-                    .collect();
+                let v: Vec<String> = self.list_inhibitors().into_iter().map(|(c, a, r)| format!("{{\"cookie\":{c},\"app\":\"{}\",\"reason\":\"{}\"}}", e(&a), e(&r))).collect();
                 format!("[{}]", v.join(","))
             }
             "reload" => ("OK: reloaded".to_string(), self.reload_from_disk()).0,
             "stop" => ("OK".to_string(), self.stop()).0,
-            "start" | "lock" => {
-                if !self.is_inhibited() {
-                    self.active.store(true, Ordering::SeqCst);
-                    self.wake();
-                }
+            "start --force" => {
+                self.active.store(true, Ordering::SeqCst);
+                if let Ok(mut start) = self.started_at.lock() { *start = Some(Instant::now()); }
+                self.wake();
                 "OK".to_string()
+            }
+            "start" | "start --on-idle" | "lock" => {
+                if self.is_inhibited() {
+                    "OK: inhibited (skipped)".to_string()
+                } else {
+                    self.active.store(true, Ordering::SeqCst);
+                    if let Ok(mut start) = self.started_at.lock() { *start = Some(Instant::now()); }
+                    self.wake();
+                    "OK".to_string()
+                }
             }
             "quit" => return ("OK: daemon exiting".to_string(), (self.stop(), true).1),
             "ping" | "PING" => "PONG".to_string(),
             _ if cmd.starts_with("set ") => {
                 let s = cmd[4..].trim();
-                if self.set_saver(s) {
-                    format!("OK: saver set to {s}")
-                } else {
-                    format!("ERR: unknown saver {s}")
-                }
+                if self.set_saver(s) { format!("OK: saver set to {s}") } else { format!("ERR: unknown saver {s}") }
             }
             _ if cmd.starts_with("timeout ") => {
                 if let Ok(secs) = cmd[8..].trim().parse::<u64>() {

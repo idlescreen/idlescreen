@@ -29,7 +29,9 @@ pub fn print_help() {
     println!("  text [targets]    Set or inspect ASCII text targets (e.g. os, custom, status)");
     println!("  list              List available 50-scene 16-bit arcade screensavers");
     println!("  set <saver>       Set active screensaver (e.g. ascii, tour, aurora, plasma)");
-    println!("  start             Activate screensaver immediately");
+    println!(
+        "  start [options]   Activate screensaver immediately (--on-idle respects inhibitors)"
+    );
     println!("  stop              Stop running screensaver");
     println!("  toggle            Toggle stay-awake standby (enable/disable idle service)");
     println!("  enable            Enable and start IdleScreen service");
@@ -94,7 +96,40 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn handle_start(sub_args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-    let mut started = zbus::blocking::Connection::session().is_ok_and(|conn| {
+    let respect_inhibitors = sub_args
+        .iter()
+        .any(|a| a == "--on-idle" || a == "--respect-inhibitors");
+    let force = !respect_inhibitors || sub_args.iter().any(|a| a == "--force" || a == "-f");
+    let sock_cmd = if force {
+        "start --force"
+    } else {
+        "start --on-idle"
+    };
+
+    if let Ok(resp) = ControlClient::send_command(sock_cmd) {
+        if resp.contains("inhibited") {
+            println!("Daemon response: Screensaver inhibited (active media or inhibitor)");
+        } else {
+            println!("Daemon response: Activated screensaver");
+        }
+        return Ok(());
+    }
+
+    let dbus_inhibited = !force
+        && zbus::blocking::Connection::session().is_ok_and(|c| {
+            crate::daemon::dbus::IdleClientProxyBlocking::new(&c)
+                .and_then(|p| p.list_inhibitors())
+                .is_ok_and(|l| !l.is_empty())
+        });
+    if !force
+        && (dbus_inhibited
+            || crate::daemon::watchers::media_inhibit::is_media_or_system_inhibited())
+    {
+        println!("Daemon response: Screensaver inhibited (active media or inhibitor)");
+        return Ok(());
+    }
+
+    let started = zbus::blocking::Connection::session().is_ok_and(|conn| {
         ["io.github.idlescreen.Idle", "org.freedesktop.ScreenSaver"]
             .iter()
             .any(|dest| {
@@ -108,9 +143,6 @@ fn handle_start(sub_args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 .is_ok()
             })
     });
-    if !started && ControlClient::send_command("start").is_ok() {
-        started = true;
-    }
     if started {
         println!("Daemon response: Activated screensaver");
     } else if std::io::IsTerminal::is_terminal(&std::io::stdout()) {

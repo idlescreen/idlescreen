@@ -5,11 +5,116 @@
 //! and D-Bus inhibitor client disconnect cleanup.
 
 use std::sync::Arc;
-use zbus::proxy;
+use std::sync::atomic::Ordering;
+use zbus::{interface, proxy};
 
 use super::WakeHandle;
 use super::mutter::{GnomeScreenSaverProxyBlocking, has_bus_owner};
-use crate::daemon::dbus::ScreenSaverState;
+use crate::daemon::dbus::{InhibitEntry, ScreenSaverState};
+
+pub struct GnomeSessionManagerInterface {
+    pub state: Arc<ScreenSaverState>,
+}
+
+#[interface(name = "org.gnome.SessionManager")]
+#[allow(unused_variables, clippy::needless_pass_by_value)]
+impl GnomeSessionManagerInterface {
+    fn inhibit(
+        &self,
+        #[zbus(header)] hdr: zbus::message::Header<'_>,
+        app_id: String,
+        toplevel_xid: u32,
+        reason: String,
+        flags: u32,
+    ) -> u32 {
+        let cookie = self.state.cookie_counter.fetch_add(1, Ordering::SeqCst);
+        if flags == 0 || (flags & 8) != 0 {
+            let sender = hdr.sender().map(std::string::ToString::to_string);
+            let app_name = if app_id.trim().is_empty() {
+                "portal-inhibit".to_string()
+            } else {
+                app_id
+            };
+            let reason = if reason.trim().is_empty() {
+                "Idle inhibited".to_string()
+            } else {
+                reason
+            };
+            if let Ok(mut guard) = self.state.inhibitors.lock() {
+                guard.push(InhibitEntry {
+                    cookie,
+                    app_name,
+                    reason,
+                    sender,
+                });
+            }
+            if self.state.active.load(Ordering::SeqCst) {
+                self.state.stop();
+            } else {
+                self.state.wake();
+            }
+        }
+        cookie
+    }
+
+    fn uninhibit(&self, inhibit_cookie: u32) {
+        if let Ok(mut guard) = self.state.inhibitors.lock() {
+            guard.retain(|e| e.cookie != inhibit_cookie);
+        }
+        self.state.wake_idle_cfg();
+        self.state.wake();
+    }
+
+    fn is_inhibited(&self, flags: u32) -> bool {
+        (flags == 0 || (flags & 8) != 0) && self.state.is_inhibited()
+    }
+
+    fn get_inhibitors(&self) -> Vec<zbus::zvariant::OwnedObjectPath> {
+        Vec::new()
+    }
+
+    fn get_clients(&self) -> Vec<zbus::zvariant::OwnedObjectPath> {
+        Vec::new()
+    }
+
+    fn register_client(
+        &self,
+        app_id: &str,
+        client_startup_id: &str,
+    ) -> zbus::zvariant::OwnedObjectPath {
+        zbus::zvariant::ObjectPath::from_static_str_unchecked("/org/gnome/SessionManager/Client1")
+            .into()
+    }
+
+    fn unregister_client(&self, client_id: zbus::zvariant::ObjectPath<'_>) {}
+
+    fn is_session_running(&self) -> bool {
+        true
+    }
+
+    #[zbus(property)]
+    fn inhibited_actions(&self) -> u32 {
+        if self.state.is_inhibited() { 8 } else { 0 }
+    }
+
+    #[zbus(property)]
+    fn session_is_active(&self) -> bool {
+        true
+    }
+
+    #[zbus(property)]
+    fn session_name(&self) -> String {
+        "idlescreen".to_string()
+    }
+}
+
+pub struct GnomeClientPrivateInterface;
+
+#[interface(name = "org.gnome.SessionManager.ClientPrivate")]
+#[allow(unused_variables)]
+impl GnomeClientPrivateInterface {
+    fn end_session_response(&self, is_ok: bool, reason: &str) {}
+}
 
 #[proxy(
     interface = "org.freedesktop.login1.Manager",

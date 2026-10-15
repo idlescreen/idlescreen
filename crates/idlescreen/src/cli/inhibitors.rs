@@ -44,10 +44,24 @@ pub fn execute_args(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    let fallback = crate::daemon::watchers::media_inhibit::probe_active_inhibitors();
     if json_mode {
-        println!("[]");
-    } else {
+        let entries: Vec<String> = fallback
+            .iter()
+            .map(|(cookie, app, reason)| {
+                let app_esc = app.replace('\\', "\\\\").replace('"', "\\\"");
+                let r_esc = reason.replace('\\', "\\\\").replace('"', "\\\"");
+                format!("{{\"cookie\":{cookie},\"app\":\"{app_esc}\",\"reason\":\"{r_esc}\"}}")
+            })
+            .collect();
+        println!("[{}]", entries.join(","));
+    } else if fallback.is_empty() {
         println!("No active screensaver inhibitors (daemon not running).");
+    } else {
+        println!("Active screensaver inhibitors ({}):", fallback.len());
+        for (cookie, app, reason) in fallback {
+            println!("  • [{cookie}] {app}: {reason}");
+        }
     }
     Ok(())
 }

@@ -1,3 +1,10 @@
+idle-cosmic (4.4.1-1) unstable; urgency=medium
+
+  * Multi-layer video/media playback & WebRTC call inhibition (MPRIS2, PipeWire,
+    ALSA, Hyprland, logind) with idle WebAudio false-positive filtering (v4.4.1).
+
+ -- IdleScreen Maintainers <maintainers@idlescreen.dev>  Fri, 16 Oct 2026 00:00:00 +0000
+
 idle-cosmic (4.4.0-1) unstable; urgency=medium
 
   * Hardware DPMS power-off (zwlr-output-power-management-v1) and live

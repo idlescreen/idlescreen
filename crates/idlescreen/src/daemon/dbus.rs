@@ -41,43 +41,39 @@ pub struct InhibitEntry {
     pub sender: Option<String>,
 }
 
+#[rustfmt::skip]
 impl ScreenSaverState {
     pub fn is_inhibited(&self) -> bool {
         self.inhibitors.lock().is_ok_and(|g| !g.is_empty())
+            || (!cfg!(test) && super::watchers::media_inhibit::is_media_or_system_inhibited())
     }
 
     pub fn format_status_json(&self) -> String {
         let active = self.active.load(Ordering::SeqCst);
-        let saver = self
-            .current_saver
-            .lock()
-            .map_or_else(|_| "ascii".into(), |s| s.clone());
+        let saver = self.current_saver.lock().map_or_else(|_| "ascii".into(), |s| s.clone());
         let inhibited = self.is_inhibited();
         let timeout = self.idle_timeout_secs.load(Ordering::SeqCst);
-        format!(
-            "{{\"running\":true,\"active\":{active},\"saver\":\"{saver}\",\"inhibited\":{inhibited},\"timeout\":{timeout}}}"
-        )
+        format!("{{\"running\":true,\"active\":{active},\"saver\":\"{saver}\",\"inhibited\":{inhibited},\"timeout\":{timeout}}}")
     }
 
     pub fn list_inhibitors(&self) -> Vec<(u32, String, String)> {
-        self.inhibitors.lock().map_or_else(
+        let mut list = self.inhibitors.lock().map_or_else(
             |_| Vec::new(),
-            |g| {
-                g.iter()
-                    .map(|e| (e.cookie, e.app_name.clone(), e.reason.clone()))
-                    .collect()
-            },
-        )
+            |g| g.iter().map(|e| (e.cookie, e.app_name.clone(), e.reason.clone())).collect(),
+        );
+        if !cfg!(test) {
+            list.extend(super::watchers::media_inhibit::probe_active_inhibitors());
+        }
+        list
     }
 
     pub fn remove_inhibitors_by_sender(&self, sender: &str) {
-        if !sender.is_empty()
-            && let Ok(mut g) = self.inhibitors.lock()
-        {
+        if !sender.is_empty() && let Ok(mut g) = self.inhibitors.lock() {
             let before = g.len();
             g.retain(|e| e.sender.as_deref() != Some(sender));
             if g.len() != before {
                 drop(g);
+                self.wake_idle_cfg();
                 self.wake();
             }
         }
@@ -91,13 +87,11 @@ pub struct ScreenSaverInterface {
 #[interface(name = "org.freedesktop.ScreenSaver")]
 impl ScreenSaverInterface {
     fn lock(&self) {
-        if !self.state.is_inhibited() {
-            self.state.active.store(true, Ordering::SeqCst);
-            if let Ok(mut start) = self.state.started_at.lock() {
-                *start = Some(Instant::now());
-            }
-            self.state.wake();
+        self.state.active.store(true, Ordering::SeqCst);
+        if let Ok(mut start) = self.state.started_at.lock() {
+            *start = Some(Instant::now());
         }
+        self.state.wake();
     }
 
     fn simulate_user_activity(&self) {
@@ -134,7 +128,11 @@ impl ScreenSaverInterface {
                 sender,
             });
         }
-        self.state.wake();
+        if self.state.active.load(Ordering::SeqCst) {
+            self.state.stop();
+        } else {
+            self.state.wake();
+        }
         cookie
     }
 
@@ -142,6 +140,7 @@ impl ScreenSaverInterface {
         if let Ok(mut guard) = self.state.inhibitors.lock() {
             guard.retain(|e| e.cookie != cookie);
         }
+        self.state.wake_idle_cfg();
         self.state.wake();
     }
 
@@ -230,25 +229,18 @@ pub trait IdleClient {
     fn list_savers(&self) -> zbus::Result<Vec<String>>;
 }
 
+#[rustfmt::skip]
 pub fn register_dbus_services(state: Arc<ScreenSaverState>) -> Option<zbus::blocking::Connection> {
+    use super::watchers::session::{GnomeClientPrivateInterface, GnomeSessionManagerInterface};
     let builder = zbus::blocking::connection::Builder::session().ok()?;
     let conn = builder
-        .name("io.github.idlescreen.Idle")
-        .ok()?
-        .serve_at(
-            "/io/github/idlescreen/Idle",
-            IdleInterface {
-                state: state.clone(),
-            },
-        )
-        .ok()?
-        .serve_at(
-            "/org/freedesktop/ScreenSaver",
-            ScreenSaverInterface { state },
-        )
-        .ok()?
-        .build()
-        .ok()?;
+        .name("io.github.idlescreen.Idle").ok()?
+        .serve_at("/io/github/idlescreen/Idle", IdleInterface { state: state.clone() }).ok()?
+        .serve_at("/org/freedesktop/ScreenSaver", ScreenSaverInterface { state: state.clone() }).ok()?
+        .serve_at("/org/gnome/SessionManager", GnomeSessionManagerInterface { state }).ok()?
+        .serve_at("/org/gnome/SessionManager/Client1", GnomeClientPrivateInterface).ok()?
+        .build().ok()?;
     let _ = conn.request_name("org.freedesktop.ScreenSaver");
+    let _ = conn.request_name("org.gnome.SessionManager");
     Some(conn)
 }

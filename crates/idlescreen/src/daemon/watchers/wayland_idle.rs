@@ -29,6 +29,8 @@ struct WaylandIdleState {
     notification: Option<ext_idle_notification_v1::ExtIdleNotificationV1>,
     configured_timeout_secs: u64,
     configured_enabled: bool,
+    seat_idled: bool,
+    inhibited_at: Option<Instant>,
 }
 
 impl WaylandIdleState {
@@ -48,6 +50,8 @@ impl WaylandIdleState {
         }
         self.configured_enabled = enabled;
         self.configured_timeout_secs = timeout_secs;
+        self.seat_idled = false;
+        self.inhibited_at = None;
 
         if !enabled || timeout_secs == 0 {
             return;
@@ -58,6 +62,27 @@ impl WaylandIdleState {
             let notif = notifier.get_idle_notification(timeout_ms, seat, qh, ());
             self.notification = Some(notif);
         }
+    }
+
+    #[rustfmt::skip]
+    fn maybe_activate_if_idled(&mut self) {
+        if !self.seat_idled { return; }
+        if !self.daemon_state.idle_enabled.load(Ordering::SeqCst) || self.daemon_state.active.load(Ordering::SeqCst) {
+            self.seat_idled = false;
+            self.inhibited_at = None;
+            return;
+        }
+        let locked = std::env::var_os("XDG_RUNTIME_DIR").is_some_and(|d| std::path::Path::new(&d).join("superfedora.locked").exists());
+        if locked || self.daemon_state.is_inhibited() {
+            self.inhibited_at = Some(Instant::now());
+            return;
+        }
+        if self.inhibited_at.is_some_and(|t| t.elapsed().as_secs() < self.configured_timeout_secs) { return; }
+        self.seat_idled = false;
+        self.inhibited_at = None;
+        self.daemon_state.active.store(true, Ordering::SeqCst);
+        if let Ok(mut start) = self.daemon_state.started_at.lock() { *start = Some(Instant::now()); }
+        self.wake.wake();
     }
 }
 
@@ -107,20 +132,16 @@ impl Dispatch<ext_idle_notification_v1::ExtIdleNotificationV1, ()> for WaylandId
     ) {
         match event {
             ext_idle_notification_v1::Event::Idled => {
-                if state.daemon_state.idle_enabled.load(Ordering::SeqCst)
-                    && !state.daemon_state.is_inhibited()
-                {
-                    state.daemon_state.active.store(true, Ordering::SeqCst);
-                    if let Ok(mut start) = state.daemon_state.started_at.lock() {
-                        *start = Some(Instant::now());
-                    }
-                    state.wake.wake();
-                }
+                state.seat_idled = true;
+                state.inhibited_at = None;
+                state.maybe_activate_if_idled();
             }
-            ext_idle_notification_v1::Event::Resumed
-                if state.daemon_state.active.load(Ordering::SeqCst) =>
-            {
-                state.daemon_state.stop();
+            ext_idle_notification_v1::Event::Resumed => {
+                state.seat_idled = false;
+                state.inhibited_at = None;
+                if state.daemon_state.active.load(Ordering::SeqCst) {
+                    state.daemon_state.stop();
+                }
             }
             _ => {}
         }
@@ -149,6 +170,8 @@ pub fn spawn_wayland_idle_watcher(
         notification: None,
         configured_timeout_secs: 0,
         configured_enabled: false,
+        seat_idled: false,
+        inhibited_at: None,
     };
 
     if event_queue.roundtrip(&mut wl_state).is_err() {
@@ -169,10 +192,9 @@ pub fn spawn_wayland_idle_watcher(
             let cfg_fd = cfg_wake.raw_fd();
             loop {
                 wl_state.sync_notification(&qh);
-                if event_queue.flush().is_err() {
-                    break;
-                }
-                if event_queue.dispatch_pending(&mut wl_state).is_err() {
+                if event_queue.flush().is_err()
+                    || event_queue.dispatch_pending(&mut wl_state).is_err()
+                {
                     break;
                 }
                 let Some(guard) = event_queue.prepare_read() else {
@@ -195,17 +217,20 @@ pub fn spawn_wayland_idle_watcher(
                     },
                 ];
                 let nfds = if cfg_fd >= 0 { 2 } else { 1 };
+                let poll_timeout = if wl_state.seat_idled { 5000 } else { -1 };
                 // SAFETY: `fds` is a valid stack array of `pollfd` descriptors.
-                let poll_res = unsafe { libc::poll(fds.as_mut_ptr(), nfds, -1) };
+                let poll_res = unsafe { libc::poll(fds.as_mut_ptr(), nfds, poll_timeout) };
                 if poll_res < 0 {
-                    let err = std::io::Error::last_os_error();
-                    if err.kind() == std::io::ErrorKind::Interrupted {
+                    if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
                         continue;
                     }
                     break;
                 }
                 if cfg_fd >= 0 && (fds[1].revents & libc::POLLIN) != 0 {
                     cfg_wake.drain();
+                    if wl_state.seat_idled {
+                        wl_state.inhibited_at = Some(Instant::now());
+                    }
                 }
                 if (fds[0].revents & (libc::POLLIN | libc::POLLERR | libc::POLLHUP)) != 0 {
                     if guard.read().is_err() {
@@ -217,6 +242,7 @@ pub fn spawn_wayland_idle_watcher(
                 if event_queue.dispatch_pending(&mut wl_state).is_err() {
                     break;
                 }
+                wl_state.maybe_activate_if_idled();
             }
         })
         .is_ok()
