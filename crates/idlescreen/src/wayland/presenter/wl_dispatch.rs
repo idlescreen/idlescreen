@@ -16,8 +16,12 @@ use wayland_protocols::wp::viewporter::client::{
 };
 use wayland_protocols::xdg::shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base};
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
+use wayland_protocols_wlr::output_power_management::v1::client::{
+    zwlr_output_power_manager_v1, zwlr_output_power_v1,
+};
 
 use super::{DetectedOutput, WaylandState};
+use crate::wayland::dpms::OutputPowerMode;
 
 macro_rules! impl_dispatch {
     ($ty:ty, ($state:ident, $proxy:ident, $event:ident, $qh:ident) => $body:block) => {
@@ -41,6 +45,7 @@ impl_dispatch!(wl_registry::WlRegistry, (state, registry, event, qh) => {
             "wl_shm" => state.shm = Some(registry.bind(name, version.min(1), qh, ())),
             "wp_viewporter" => state.viewporter = Some(registry.bind(name, version.min(1), qh, ())),
             "zwlr_layer_shell_v1" => state.layer_shell = Some(registry.bind(name, version.min(4), qh, ())),
+            "zwlr_output_power_manager_v1" => state.dpms.set_manager(registry.bind(name, version.min(1), qh, ())),
             "xdg_wm_base" => state.xdg_wm_base = Some(registry.bind(name, version.min(2), qh, ())),
             "wl_output" => {
                 let output: wl_output::WlOutput = registry.bind(name, version.min(4), qh, ());
@@ -131,7 +136,7 @@ impl_dispatch!(xdg_toplevel::XdgToplevel, (state, toplevel, event, _qh) => {
                 }
             }
         }
-        xdg_toplevel::Event::Close => state.exit_requested = true,
+        xdg_toplevel::Event::Close => state.request_exit(),
         _ => {}
     }
 });
@@ -151,7 +156,27 @@ impl_dispatch!(zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, (state, layer_surface,
                 (state.configured_width, state.configured_height) = (width, height);
             }
         }
-        zwlr_layer_surface_v1::Event::Closed => state.exit_requested = true,
+        zwlr_layer_surface_v1::Event::Closed => state.request_exit(),
+        _ => {}
+    }
+});
+
+impl_dispatch!(zwlr_output_power_v1::ZwlrOutputPowerV1, (state, proxy, event, _qh) => {
+    match event {
+        zwlr_output_power_v1::Event::Mode { mode } => {
+            match mode {
+                WEnum::Value(zwlr_output_power_v1::Mode::Off) => {
+                    state.dpms.on_compositor_mode(OutputPowerMode::Off);
+                }
+                WEnum::Value(zwlr_output_power_v1::Mode::On) => {
+                    state.dpms.on_compositor_mode(OutputPowerMode::On);
+                }
+                _ => {}
+            }
+        }
+        zwlr_output_power_v1::Event::Failed => {
+            state.dpms.on_output_power_failed(proxy);
+        }
         _ => {}
     }
 });
@@ -195,6 +220,7 @@ macro_rules! impl_empty_dispatch {
 
 impl_empty_dispatch!(
     zwlr_layer_shell_v1::ZwlrLayerShellV1,
+    zwlr_output_power_manager_v1::ZwlrOutputPowerManagerV1,
     wl_compositor::WlCompositor,
     wl_shm::WlShm,
     wl_shm_pool::WlShmPool,

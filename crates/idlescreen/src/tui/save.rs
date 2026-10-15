@@ -22,6 +22,7 @@ pub fn save_settings(model: &TuiModel) -> Result<String, String> {
     config.saver.ascii.dwell_secs = model.dwell_secs;
     config.saver.ascii.fps = model.fps;
     config.general.idle_timeout_secs = model.idle_timeout_secs;
+    config.general.dpms_timeout_secs = model.dpms_timeout_secs;
 
     config
         .save_to_path(&toml_path)

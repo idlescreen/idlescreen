@@ -26,14 +26,15 @@
 
 </div>
 
-**IdleScreen** (`v4.3.0`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
+**IdleScreen** (`v4.4.0`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
 
 - **0.00% CPU at idle**: Pure event-driven reactor (`epoll` / `tokio`) sleeping with zero periodic wakeups and a ~2–3 MB resident memory footprint.
 - **1x Native Grid GPU Scaling (`wp_viewporter`)**: Rasterizes the character/pixel canvas at 1x native grid resolution into `wl_shm` (`<0.5 ms` frame time) and offloads fullscreen 4K/HiDPI upscaling directly to the GPU/display controller via Wayland `wp_viewporter`.
 - **Dynamic 60–144 Hz refresh rate matching**: Queries Wayland `wl_output` display modes (60 Hz laptops $\to$ 60 FPS, 144 Hz+ desktops $\to$ 144 FPS) with delta-time-synchronized physics.
 - **Unified Single-Binary 50-Scene 16-Bit Arcade Engine**: Renders your detected OS wordmark (`SUPERFEDORA`, `FEDORA`, `ARCH`, `UBUNTU`, `DEBIAN`, etc.) or custom text in bevelled 16-bit block typography (`U+2580..=U+259F`) with parallax starfields and 400% responsive scaling across **50 built-in 16-bit arcade, demoscene, and mathematical scenes** (`aurora`, `breakout`, `chaos`, `cosmos`, `fireworks`, `life`, `matrix`, `metaballs`, `mystify`, `pipes`, `plasma`, `radar`, `ripple`, `synthgrid`, `tetris`, `tunnel`, and more) — zero external helper binaries or IPC overhead.
+- **Hardware DPMS Power-Off (`zwlr-output-power-management-v1`)**: Optional `dpms_timeout_secs` puts displays into hardware DPMS standby after the screensaver runs (`0%` CPU/GPU while sleeping) and wakes outputs immediately upon user input or dismissal.
 - **Interactive Tour & Scene Stepping**: Run `idlescreen preview --tour` to tour all 50 scenes in order (`[01/50]` to `[50/50]`) with an on-screen 16-bit HUD badge and live `←`/`→` (`n`/`p`/`Tab`) scene stepping.
-- **Overhauled TUI Dashboard (`idlescreen tui`)**: Interactive terminal director with a 50-scene selector (`superfedora`, `ascii` 50 shuffled, `tour` 1–50 in order, or any pinned scene), clean `OS Name` vs. `Custom Text` banner toggle, `Dwell` & `FPS` controls, live daemon/inhibitor status bar, `[T]` standby toggle, and `[P]` Terminal / `[F]` Fullscreen preview triggers.
+- **Overhauled TUI Dashboard with Live Side-by-Side Mini-Preview (`idlescreen tui`)**: Interactive terminal director with a live animated side-by-side 16-bit mini-preview viewport on wide terminals (`>= 105` cols), 50-scene selector (`superfedora`, `ascii` 50 shuffled, `tour` 1–50 in order, or any pinned scene), clean `OS Name` vs. `Custom Text` banner toggle, `Dwell`, `FPS`, and `DPMS Power-Off` controls, live daemon/inhibitor status bar, `[T]` standby toggle, and `[P]` Terminal / `[F]` Fullscreen preview triggers.
 - **First-Class SuperFedora Integration**: Native detection of SuperFedora (`SUPERFEDORA` arcade banner, Quickshell/Hyprland session awareness, and zero-conflict idle hand-off).
 - **Universal Linux OS, Desktop & Compositor Support**: Works across Wayland compositors via `wlr-layer-shell` + `ext-idle-notify-v1` (Hyprland, Sway, COSMIC with in-tree `crates/idlescreen-cosmic` applet, KDE Plasma, River, Wayfire, Labwc, Niri) plus native **GNOME Mutter** (`org.gnome.Mutter.IdleMonitor`) idle tracking.
 - **Multi-Init First Class**: Built-in `idlescreen service install` provisioning for `systemd` (user unit), `OpenRC`, `runit`, `s6`, `dinit`, and XDG autostart (`~/.config/autostart/idlescreen.desktop`).
@@ -75,7 +76,7 @@ idlescreen inhibitors [--json]          Inspect active D-Bus / portal / audio id
 idlescreen service install [--init <X>] Install user service for systemd, openrc, runit, s6, dinit, or xdg
 idlescreen doctor [--fix] [--json]      Diagnose Wayland protocols, sockets, and service state (with auto-remediation via --fix)
 idlescreen config                       Display configuration path and active TOML settings
-idlescreen version                      Show version information (v4.3.0)
+idlescreen version                      Show version information (v4.4.0)
 ```
 
 ---
@@ -88,6 +89,7 @@ Located at `~/.config/idlescreen/config.toml`:
 [general]
 idle_enabled = true
 idle_timeout_secs = 300
+dpms_timeout_secs = 0     # 0 = Off (never power off display), or >0 seconds after screensaver starts
 
 [saver]
 active = "ascii"

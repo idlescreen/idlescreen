@@ -1,3 +1,10 @@
+idle-cosmic (4.4.0-1) unstable; urgency=medium
+
+  * Hardware DPMS power-off (zwlr-output-power-management-v1) and live
+    side-by-side TUI mini-preview viewport (v4.4.0).
+
+ -- IdleScreen Maintainers <maintainers@idlescreen.dev>  Thu, 15 Oct 2026 00:00:00 +0000
+
 idle-cosmic (4.3.0-1) unstable; urgency=medium
 
   * Unified single-binary IdleScreen v4.3.0 with 50 built-in 16-bit arcade

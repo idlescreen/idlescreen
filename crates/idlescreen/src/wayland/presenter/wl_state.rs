@@ -204,10 +204,14 @@ impl WaylandState {
                 current_buf: 0,
             });
         }
+        let wl_outputs: Vec<wl_output::WlOutput> =
+            self.outputs.iter().map(|o| o.output.clone()).collect();
+        self.dpms.bind_outputs(&wl_outputs, qh);
         Ok(())
     }
 
     pub fn cleanup_presentation(&mut self, event_queue: &mut wayland_client::EventQueue<Self>) {
+        self.dpms.destroy();
         for mut s in self.surfaces.drain(..) {
             s.viewport.destroy();
             if let Some(layer) = s.layer_surface.take() {

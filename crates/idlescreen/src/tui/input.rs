@@ -136,7 +136,10 @@ fn handle_normal_navigation(model: &mut TuiModel, key: KeyEvent) -> TuiAction {
                 model.editing_text = true;
                 model.quit_confirm_pending = false;
             }
-            TuiField::IdleTimeout | TuiField::DwellDuration | TuiField::FrameRate => {
+            TuiField::IdleTimeout
+            | TuiField::DwellDuration
+            | TuiField::FrameRate
+            | TuiField::DpmsTimeout => {
                 model.adjust_right();
             }
             TuiField::SaveButton => execute_save(model),

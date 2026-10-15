@@ -226,3 +226,16 @@ fn test_build_ascii_saver_b4_gating() {
         std::env::remove_var("IDLE_SUPERFEDORA");
     }
 }
+
+#[test]
+fn test_input_wakes_dpms_from_sleep() {
+    use crate::wayland::dpms::OutputPowerMode;
+    let mut state = WaylandState::new();
+    state.start_time = past_debounce();
+    state.dpms.set_power_mode(OutputPowerMode::Off);
+    assert!(state.dpms.is_sleeping());
+
+    state.handle_key_event(WEnum::Value(wl_keyboard::KeyState::Pressed));
+    assert!(state.exit_requested);
+    assert!(!state.dpms.is_sleeping());
+}

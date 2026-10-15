@@ -124,8 +124,15 @@ pub fn run_wayland_daemon_presenter(
     let mut last_frame = Instant::now();
     let mut last_custom_epoch = state.custom_text_epoch.load(Ordering::Acquire);
     state_wl.start_time = Instant::now();
+    state_wl
+        .dpms
+        .set_timeout_secs(cfg.general.dpms_timeout_secs);
 
     while state.active.load(Ordering::SeqCst) && !state_wl.exit_requested {
+        state_wl
+            .dpms
+            .set_timeout_secs(state.dpms_timeout_secs.load(Ordering::Relaxed));
+
         if let Ok(guard) = state.text_targets.try_lock()
             && *guard != ascii_saver.rotation.targets
             && !guard.is_empty()
@@ -149,12 +156,19 @@ pub fn run_wayland_daemon_presenter(
             last_custom_epoch = cur_epoch;
         }
 
+        if state_wl
+            .dpms
+            .check_idle_sleep(state_wl.start_time.elapsed())
+        {
+            connection.flush()?;
+        }
+
         if state_wl.dpms.is_sleeping() {
             poll_and_read_events(
                 &connection,
                 &mut event_queue,
                 &mut state_wl,
-                Duration::from_millis(50),
+                Duration::from_millis(250),
             )?;
             continue;
         }

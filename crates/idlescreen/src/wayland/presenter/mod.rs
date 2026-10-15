@@ -90,12 +90,17 @@ impl WaylandState {
         }
     }
 
+    pub fn request_exit(&mut self) {
+        self.exit_requested = true;
+        self.dpms.wake_outputs();
+    }
+
     pub fn handle_pointer_motion(&mut self, surface_x: f64, surface_y: f64) {
         if self.start_time.elapsed() < INPUT_DEBOUNCE_WINDOW {
             self.initial_pointer_pos = Some((surface_x, surface_y));
         } else if let Some((ix, iy)) = self.initial_pointer_pos {
             if (surface_x - ix).abs().max((surface_y - iy).abs()) > POINTER_DRIFT_THRESHOLD_PX {
-                self.exit_requested = true;
+                self.request_exit();
             }
         } else {
             self.initial_pointer_pos = Some((surface_x, surface_y));
@@ -110,7 +115,7 @@ impl WaylandState {
 
     pub fn handle_pointer_axis(&mut self) {
         if self.start_time.elapsed() >= INPUT_DEBOUNCE_WINDOW {
-            self.exit_requested = true;
+            self.request_exit();
         }
     }
 }

@@ -15,6 +15,7 @@ pub struct ScreenSaverState {
     pub active: AtomicBool,
     pub idle_enabled: AtomicBool,
     pub idle_timeout_secs: AtomicU64,
+    pub dpms_timeout_secs: AtomicU64,
     pub started_at: Mutex<Option<Instant>>,
     pub inhibitors: Mutex<Vec<InhibitEntry>>,
     pub cookie_counter: AtomicU32,
@@ -45,6 +46,7 @@ impl ScreenSaverState {
             active: AtomicBool::new(false),
             idle_enabled: AtomicBool::new(cfg.general.idle_enabled),
             idle_timeout_secs: AtomicU64::new(cfg.general.idle_timeout_secs),
+            dpms_timeout_secs: AtomicU64::new(cfg.general.dpms_timeout_secs),
             started_at: Mutex::new(None),
             inhibitors: Mutex::new(Vec::new()),
             cookie_counter: AtomicU32::new(1),
@@ -104,10 +106,12 @@ impl ScreenSaverState {
 
     pub fn reload_from_disk(&self) {
         let cfg = Config::load_or_migrate();
-        self.idle_enabled
-            .store(cfg.general.idle_enabled, Ordering::SeqCst);
+        let g = &cfg.general;
+        self.idle_enabled.store(g.idle_enabled, Ordering::SeqCst);
         self.idle_timeout_secs
-            .store(cfg.general.idle_timeout_secs, Ordering::SeqCst);
+            .store(g.idle_timeout_secs, Ordering::SeqCst);
+        self.dpms_timeout_secs
+            .store(g.dpms_timeout_secs, Ordering::SeqCst);
         if let Some(active) = cfg.saver.active
             && let Ok(mut saver) = self.current_saver.lock()
         {
@@ -206,14 +210,8 @@ impl ScreenSaverState {
                     .collect();
                 format!("[{}]", v.join(","))
             }
-            "reload" => {
-                self.reload_from_disk();
-                "OK: reloaded".to_string()
-            }
-            "stop" => {
-                self.stop();
-                "OK".to_string()
-            }
+            "reload" => ("OK: reloaded".to_string(), self.reload_from_disk()).0,
+            "stop" => ("OK".to_string(), self.stop()).0,
             "start" | "lock" => {
                 if !self.is_inhibited() {
                     self.active.store(true, Ordering::SeqCst);
@@ -221,10 +219,7 @@ impl ScreenSaverState {
                 }
                 "OK".to_string()
             }
-            "quit" => {
-                self.stop();
-                return ("OK: daemon exiting".to_string(), true);
-            }
+            "quit" => return ("OK: daemon exiting".to_string(), (self.stop(), true).1),
             "ping" | "PING" => "PONG".to_string(),
             _ if cmd.starts_with("set ") => {
                 let s = cmd[4..].trim();
@@ -234,13 +229,14 @@ impl ScreenSaverState {
                     format!("ERR: unknown saver {s}")
                 }
             }
-            _ if cmd.starts_with("timeout ") => cmd[8..].trim().parse::<u64>().map_or_else(
-                |_| "ERR: invalid timeout".to_string(),
-                |secs| {
+            _ if cmd.starts_with("timeout ") => {
+                if let Ok(secs) = cmd[8..].trim().parse::<u64>() {
                     self.set_timeout(secs);
                     format!("OK: timeout set to {secs}s")
-                },
-            ),
+                } else {
+                    "ERR: invalid timeout".to_string()
+                }
+            }
             _ if cmd.starts_with("text_targets ") => {
                 self.set_text_targets(&parse_targets_from_mode(&cmd[13..]));
                 "OK: text targets updated".to_string()

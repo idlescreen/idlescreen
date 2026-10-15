@@ -5,7 +5,7 @@
 
 pub use super::mode_choice::{
     FPS_PRESETS, ModeChoice, TOTAL_FIELDS, TuiField, build_available_savers, char_to_byte_idx,
-    format_fps_display, format_inhibitor_summary, format_saver_display,
+    format_dpms_display, format_fps_display, format_inhibitor_summary, format_saver_display,
     resolve_initial_mode_and_text,
 };
 use crate::ascii::sys_info::{detect_desktop_env, detect_kernel_version, detect_os_name};
@@ -20,6 +20,7 @@ pub struct TuiModel {
     pub custom_text: String,
     pub dwell_secs: f32,
     pub idle_timeout_secs: u64,
+    pub dpms_timeout_secs: u64,
     pub fps: u32,
     pub focused_index: usize,
     pub editing_text: bool,
@@ -39,6 +40,7 @@ impl TuiModel {
     pub fn from_config(config: &Config) -> Self {
         let dwell_secs = config.saver.ascii.dwell_secs.clamp(0.5, 30.0);
         let idle_timeout_secs = config.general.idle_timeout_secs.clamp(30, 7200);
+        let dpms_timeout_secs = config.general.dpms_timeout_secs.min(7200);
         let fps = config.saver.ascii.fps;
         let (detected_os, detected_de, detected_kernel) = (
             detect_os_name(),
@@ -65,6 +67,7 @@ impl TuiModel {
             custom_text,
             dwell_secs,
             idle_timeout_secs,
+            dpms_timeout_secs,
             fps,
             focused_index: 0,
             editing_text: false,
@@ -113,9 +116,10 @@ impl TuiModel {
             4 => TuiField::IdleTimeout,
             5 => TuiField::DwellDuration,
             6 => TuiField::FrameRate,
-            7 => TuiField::SaveButton,
-            8 => TuiField::PreviewButton,
-            9 => TuiField::FullscreenButton,
+            7 => TuiField::DpmsTimeout,
+            8 => TuiField::SaveButton,
+            9 => TuiField::PreviewButton,
+            10 => TuiField::FullscreenButton,
             _ => TuiField::QuitButton,
         }
     }
@@ -221,6 +225,16 @@ impl TuiModel {
                 self.dirty = true;
             }
             TuiField::FrameRate => self.step_fps(dir),
+            TuiField::DpmsTimeout => {
+                let step = if fast { 300 } else { 60 };
+                self.dpms_timeout_secs = if dir < 0 {
+                    let sub = self.dpms_timeout_secs.saturating_sub(step);
+                    if sub < 60 { 0 } else { sub }
+                } else {
+                    (self.dpms_timeout_secs + step).min(7200)
+                };
+                self.dirty = true;
+            }
             TuiField::CustomText => {
                 if dir < 0 && self.cursor_pos > 0 {
                     self.cursor_pos -= 1;

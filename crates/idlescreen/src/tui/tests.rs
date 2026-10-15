@@ -72,6 +72,19 @@ fn test_model_navigation_and_adjustment() {
     assert_eq!(model.fps, 30);
     model.adjust_left();
     assert_eq!(model.fps, 0);
+
+    // Adjust DPMS timeout (index 7)
+    model.focused_index = 7;
+    assert_eq!(model.current_field(), TuiField::DpmsTimeout);
+    assert_eq!(model.dpms_timeout_secs, 0);
+    model.adjust_right();
+    assert_eq!(model.dpms_timeout_secs, 60);
+    model.adjust_by(1, true);
+    assert_eq!(model.dpms_timeout_secs, 360);
+    model.adjust_by(-1, true);
+    assert_eq!(model.dpms_timeout_secs, 60);
+    model.adjust_left();
+    assert_eq!(model.dpms_timeout_secs, 0);
 }
 
 #[test]
@@ -214,4 +227,29 @@ fn test_format_inhibitor_summary_extracts_app_names() {
     cfg.saver.active = Some("new".to_string());
     let model = TuiModel::from_config(&cfg);
     assert_eq!(model.active_saver_name(), "tour");
+}
+
+#[test]
+fn test_side_by_side_mini_preview_wide_vs_narrow() {
+    use super::mini_preview::{MiniPreview, WIDE_TERM_MIN_COLS};
+    use super::view::format_view_buffer;
+    use std::time::Duration;
+
+    let mut model = TuiModel::from_config(&Config::default());
+    let mut preview = MiniPreview::new(&model, 125);
+    let mut buf = String::new();
+
+    // Narrow terminal (< 105 cols) renders single-pane layout without mini-preview box
+    format_view_buffer(&model, Some(&preview), 80, &mut buf);
+    assert!(!buf.contains("Live Preview"));
+    assert!(buf.contains("[7] DPMS Power-Off:"));
+
+    // Wide terminal (>= 105 cols) renders side-by-side mini-preview box and steps live
+    format_view_buffer(&model, Some(&preview), WIDE_TERM_MIN_COLS, &mut buf);
+    assert!(buf.contains("Live Preview"));
+
+    model.step_saver(1);
+    preview.sync_with_model(&model, 125);
+    preview.step(Duration::from_millis(50));
+    assert_eq!(preview.active_saver, model.active_saver_name());
 }

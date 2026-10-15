@@ -47,13 +47,14 @@ pub enum TuiField {
     IdleTimeout,       // 4
     DwellDuration,     // 5
     FrameRate,         // 6
-    SaveButton,        // 7
-    PreviewButton,     // 8
-    FullscreenButton,  // 9
-    QuitButton,        // 10
+    DpmsTimeout,       // 7
+    SaveButton,        // 8
+    PreviewButton,     // 9
+    FullscreenButton,  // 10
+    QuitButton,        // 11
 }
 
-pub const TOTAL_FIELDS: usize = 11;
+pub const TOTAL_FIELDS: usize = 12;
 
 pub fn build_available_savers() -> Vec<String> {
     let mut savers = Vec::with_capacity(53);
@@ -120,6 +121,14 @@ pub fn format_fps_display(fps: u32) -> String {
         "Auto (Monitor Hz)".to_string()
     } else {
         format!("{fps} FPS")
+    }
+}
+
+pub fn format_dpms_display(secs: u64) -> String {
+    if secs == 0 {
+        "Off (Never)".to_string()
+    } else {
+        format!("{secs} s ({}m {:02}s)", secs / 60, secs % 60)
     }
 }
 
