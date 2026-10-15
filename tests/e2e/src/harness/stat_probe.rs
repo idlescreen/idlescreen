@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Cgroup v2 slice discovery, proc stat parser, and monotonic clock probe.
 
+#![allow(unsafe_code)]
+
 use std::path::PathBuf;
 
 pub fn parse_cgroup_v2_path(content: &str) -> Option<PathBuf> {
@@ -67,6 +69,7 @@ pub fn read_real_clocks() -> ClockSample {
         tv_nsec: 0,
     };
 
+    // SAFETY: `ts_mono` and `ts_boot` are valid initialized `timespec` structs on stack.
     unsafe {
         libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts_mono);
         libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut ts_boot);

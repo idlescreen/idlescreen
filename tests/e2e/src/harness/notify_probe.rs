@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Readiness notification socket and pipe probe.
 
+#![allow(unsafe_code)]
+
 use std::io::{Read, Write};
 use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::os::unix::net::UnixDatagram;
@@ -70,10 +72,13 @@ impl Default for PipeReadinessProbe {
 impl PipeReadinessProbe {
     pub fn new() -> Self {
         let mut fds = [0i32; 2];
+        // SAFETY: `fds` is a valid 2-element `i32` array for `libc::pipe`.
         let res = unsafe { libc::pipe(fds.as_mut_ptr()) };
         assert_eq!(res, 0, "libc::pipe must succeed");
 
+        // SAFETY: `fds[0]` is a freshly opened read pipe descriptor owned by this struct.
         let read_pipe = unsafe { std::fs::File::from_raw_fd(fds[0]) };
+        // SAFETY: `fds[1]` is a freshly opened write pipe descriptor owned by this struct.
         let write_pipe = unsafe { std::fs::File::from_raw_fd(fds[1]) };
         let raw_write_fd = write_pipe.as_raw_fd();
 

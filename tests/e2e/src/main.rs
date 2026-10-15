@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //! IdleScreen E2E Test Suite Runner Binary.
 
+#![deny(unsafe_code)]
+
 use std::process::Command;
 
 fn main() {

@@ -26,7 +26,7 @@
 
 </div>
 
-**IdleScreen** (`v4.4.1`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
+**IdleScreen** (`v4.4.2`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
 
 - **0.00% CPU at idle**: Pure event-driven reactor (`epoll` / `tokio`) sleeping with zero periodic wakeups and a ~2–3 MB resident memory footprint.
 - **1x Native Grid GPU Scaling (`wp_viewporter`)**: Rasterizes the character/pixel canvas at 1x native grid resolution into `wl_shm` (`<0.5 ms` frame time) and offloads fullscreen 4K/HiDPI upscaling directly to the GPU/display controller via Wayland `wp_viewporter`.
@@ -36,7 +36,7 @@
 - **Interactive Tour & Scene Stepping**: Run `idlescreen preview --tour` to tour all 50 scenes in order (`[01/50]` to `[50/50]`) with an on-screen 16-bit HUD badge and live `←`/`→` (`n`/`p`/`Tab`) scene stepping.
 - **Overhauled TUI Dashboard with Live Side-by-Side Mini-Preview (`idlescreen tui`)**: Interactive terminal director with a live animated side-by-side 16-bit mini-preview viewport on wide terminals (`>= 105` cols), 50-scene selector (`superfedora`, `ascii` 50 shuffled, `tour` 1–50 in order, or any pinned scene), clean `OS Name` vs. `Custom Text` banner toggle, `Dwell`, `FPS`, and `DPMS Power-Off` controls, live daemon/inhibitor status bar, `[T]` standby toggle, and `[P]` Terminal / `[F]` Fullscreen preview triggers.
 - **First-Class SuperFedora Integration**: Native detection of SuperFedora (`SUPERFEDORA` arcade banner, Quickshell/Hyprland session awareness, and zero-conflict idle hand-off).
-- **Universal Linux OS, Desktop & Compositor Support**: Works across Wayland compositors via `wlr-layer-shell` + `ext-idle-notify-v1` (Hyprland, Sway, COSMIC with in-tree `crates/idlescreen-cosmic` applet, KDE Plasma, River, Wayfire, Labwc, Niri) plus native **GNOME Mutter** (`org.gnome.Mutter.IdleMonitor`) idle tracking.
+- **Universal Linux OS, Desktop & Compositor Support**: Works across Wayland compositors via `wlr-layer-shell` + `ext-idle-notify-v1` (Hyprland, Sway, COSMIC, KDE Plasma, River, Wayfire, Labwc, Niri) plus native **GNOME Mutter** (`org.gnome.Mutter.IdleMonitor`) idle tracking.
 - **Multi-Init First Class**: Built-in `idlescreen service install` provisioning for `systemd` (user unit), `OpenRC`, `runit`, `s6`, `dinit`, and XDG autostart (`~/.config/autostart/idlescreen.desktop`).
 
 ---
@@ -76,7 +76,7 @@ idlescreen inhibitors [--json]          Inspect active D-Bus / portal / audio id
 idlescreen service install [--init <X>] Install user service for systemd, openrc, runit, s6, dinit, or xdg
 idlescreen doctor [--fix] [--json]      Diagnose Wayland protocols, sockets, and service state (with auto-remediation via --fix)
 idlescreen config                       Display configuration path and active TOML settings
-idlescreen version                      Show version information (v4.4.1)
+idlescreen version                      Show version information (v4.4.2)
 ```
 
 ---

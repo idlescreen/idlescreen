@@ -7,6 +7,8 @@
 //! - Tier 3: Cross-Feature Combinations (pairwise combinations)
 //! - Tier 4: Real-World Application Scenarios (realistic workflows)
 
+#![deny(unsafe_code)]
+
 pub mod harness;
 
 #[cfg(test)]

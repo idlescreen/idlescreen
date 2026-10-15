@@ -4,9 +4,6 @@ members = [
     "crates/idlescreen",
     "tests/e2e",
 ]
-exclude = [
-    "crates/idlescreen-cosmic",
-]
 
 [profile.release]
 opt-level = 3

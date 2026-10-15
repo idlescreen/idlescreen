@@ -33,8 +33,8 @@ impl WakeHandle {
         // SAFETY: `eventfd` with `EFD_CLOEXEC | EFD_NONBLOCK` returns a new fd or -1.
         let raw = unsafe { libc::eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK) };
         if raw >= 0 {
-            // SAFETY: `raw` is a freshly created valid eventfd descriptor.
             Self {
+                // SAFETY: `raw` is a freshly created valid eventfd descriptor.
                 fd: Some(Arc::new(unsafe { OwnedFd::from_raw_fd(raw) })),
             }
         } else {
@@ -44,8 +44,8 @@ impl WakeHandle {
 
     pub fn new(raw_fd: RawFd) -> Self {
         if raw_fd >= 0 {
-            // SAFETY: Caller transfers ownership of valid open `raw_fd`.
             Self {
+                // SAFETY: Caller transfers ownership of valid open `raw_fd`.
                 fd: Some(Arc::new(unsafe { OwnedFd::from_raw_fd(raw_fd) })),
             }
         } else {

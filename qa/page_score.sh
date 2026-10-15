@@ -28,7 +28,7 @@ TMP="$(mktemp -d /tmp/page-score.XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
 # ---- pages + lines (exact) ----
-find . -name '*.rs' -not -path '*/target/*' -not -path '*/.git/*' -not -path './runtime/*' -not -path './downstream/*' | sort > "$TMP/pages.txt"
+find . -name '*.rs' -not -path '*/target/*' -not -path '*/.git/*' | sort > "$TMP/pages.txt"
 : > "$TMP/lines.tsv"
 while IFS= read -r f; do
   printf '%s\t%s\n' "$f" "$(wc -l < "$f")" >> "$TMP/lines.tsv"
@@ -100,7 +100,7 @@ print(' '.join(sorted(names)))" "$TMP")"
     declare -A SEEN_CRATE
     for rlib in $RLIBS; do
       [ -f "$rlib" ] || continue
-      key="$(echo "$rlib" | awk -F'[-.]' '{k=""; for(i=1;i<NF-1;i++) k=k $i "-"; print k}')"
+      key="$(basename "$rlib" | awk -F'[-.]' '{k=""; for(i=1;i<NF-1;i++) k=k $i "-"; print k}')"
       [ -n "${SEEN_CRATE[$key]:-}" ] && continue
       if nm --print-size --line-numbers "$rlib" 2>/dev/null | grep -q -E -e "$ROOT" -e '/target/package/'; then
         SEEN_CRATE[$key]=1
