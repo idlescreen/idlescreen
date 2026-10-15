@@ -168,8 +168,10 @@ impl_dispatch!(zwlr_output_power_v1::ZwlrOutputPowerV1, (state, proxy, event, _q
                 WEnum::Value(zwlr_output_power_v1::Mode::Off) => {
                     state.dpms.on_compositor_mode(OutputPowerMode::Off);
                 }
-                WEnum::Value(zwlr_output_power_v1::Mode::On) => {
-                    state.dpms.on_compositor_mode(OutputPowerMode::On);
+                WEnum::Value(zwlr_output_power_v1::Mode::On)
+                    if state.dpms.on_compositor_mode(OutputPowerMode::On) =>
+                {
+                    state.start_time = std::time::Instant::now();
                 }
                 _ => {}
             }

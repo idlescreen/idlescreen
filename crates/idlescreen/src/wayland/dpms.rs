@@ -111,9 +111,19 @@ impl DpmsController {
         }
     }
 
-    /// Checks whether `timeout_secs` has elapsed during active presentation and transitions outputs to Off.
+    /// Checks whether `timeout_secs` has elapsed during active presentation and transitions outputs to Off,
+    /// or wakes outputs if DPMS was disabled/extended live while sleeping.
     pub fn check_idle_sleep(&mut self, presentation_elapsed: Duration) -> bool {
-        if self.is_sleeping || self.timeout_secs == 0 || self.output_powers.is_empty() {
+        if self.is_sleeping {
+            if self.timeout_secs == 0
+                || presentation_elapsed < Duration::from_secs(self.timeout_secs)
+            {
+                self.set_power_mode(OutputPowerMode::On);
+                return true;
+            }
+            return false;
+        }
+        if self.timeout_secs == 0 || self.output_powers.is_empty() || !self.is_active_and_stable() {
             return false;
         }
         if presentation_elapsed >= Duration::from_secs(self.timeout_secs) {
@@ -211,8 +221,22 @@ mod tests {
     }
 
     #[test]
-    fn test_dpms_destroy_resets_sleeping_state() {
+    fn test_dpms_destroy_and_live_disable_wake() {
         let mut dpms = DpmsController::new();
+        dpms.set_timeout_secs(300);
+        dpms.on_compositor_mode(OutputPowerMode::Off);
+        assert!(dpms.is_sleeping());
+
+        // Extending timeout above elapsed time wakes sleeping outputs
+        assert!(dpms.check_idle_sleep(Duration::from_mins(2)));
+        assert!(!dpms.is_sleeping());
+
+        // Disabling timeout (0) while sleeping wakes outputs
+        dpms.on_compositor_mode(OutputPowerMode::Off);
+        dpms.set_timeout_secs(0);
+        assert!(dpms.check_idle_sleep(Duration::from_mins(15)));
+        assert!(!dpms.is_sleeping());
+
         dpms.on_compositor_mode(OutputPowerMode::Off);
         assert!(dpms.is_sleeping());
         dpms.destroy();

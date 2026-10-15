@@ -234,22 +234,19 @@ fn test_side_by_side_mini_preview_wide_vs_narrow() {
     use super::mini_preview::{MiniPreview, WIDE_TERM_MIN_COLS};
     use super::view::format_view_buffer;
     use std::time::Duration;
-
     let mut model = TuiModel::from_config(&Config::default());
-    let mut preview = MiniPreview::new(&model, 125);
+    let mut preview = MiniPreview::new(&model, WIDE_TERM_MIN_COLS);
+    assert_eq!(preview.cols, 28);
+    preview.sync_with_model(&model, WIDE_TERM_MIN_COLS);
+    assert_eq!(preview.cols, 28);
     let mut buf = String::new();
-
-    // Narrow terminal (< 105 cols) renders single-pane layout without mini-preview box
     format_view_buffer(&model, Some(&preview), 80, &mut buf);
-    assert!(!buf.contains("Live Preview"));
-    assert!(buf.contains("[7] DPMS Power-Off:"));
-
-    // Wide terminal (>= 105 cols) renders side-by-side mini-preview box and steps live
+    assert!(!buf.contains("Live Preview") && buf.contains("[7] DPMS Power-Off:"));
     format_view_buffer(&model, Some(&preview), WIDE_TERM_MIN_COLS, &mut buf);
     assert!(buf.contains("Live Preview"));
-
     model.step_saver(1);
     preview.sync_with_model(&model, 125);
     preview.step(Duration::from_millis(50));
+    assert_eq!(preview.cols, 48);
     assert_eq!(preview.active_saver, model.active_saver_name());
 }

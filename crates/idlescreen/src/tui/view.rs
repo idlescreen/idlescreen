@@ -53,10 +53,17 @@ pub fn format_view_buffer(
     } else {
         "\x1b[1;33m"
     };
+    let raw_in = &model.inhibitor_summary;
+    let inhib = if term_cols >= WIDE_TERM_MIN_COLS && raw_in.len() > 14 {
+        fit_to_width(raw_in, 0, 14, false)
+    } else {
+        raw_in.clone()
+    };
     let _ = writeln!(
         b,
         "  Daemon: {d_col}{}\x1b[0m │ Inhibitors: \x1b[1m{}\x1b[0m \x1b[2m([T] Standby)\x1b[0m\x1b[K\r\n\x1b[K\r",
-        model.daemon_status, model.inhibitor_summary
+        model.daemon_status,
+        inhib.trim_end()
     );
 
     let s_hdr = if f == TuiField::ActiveSaver {
@@ -139,39 +146,35 @@ pub fn format_view_buffer(
     );
 
     let idle_s = model.idle_timeout_secs;
-    let idle_v = format!("{idle_s} s ({}m {:02}s)", idle_s / 60, idle_s % 60);
-    let dwell_v = format!("{:.1} s per scene", model.dwell_secs);
-    let fps_v = format_fps_display(model.fps);
-    let dpms_v = format_dpms_display(model.dpms_timeout_secs);
-    let s = &mut *b;
-    render_slider_row(
-        s,
-        "[4] Idle Timeout:",
-        &idle_v,
-        "(←/→ ±30s, [/] ±5m)",
-        f == TuiField::IdleTimeout,
-    );
-    render_slider_row(
-        s,
-        "[5] Scene Dwell:",
-        &dwell_v,
-        "(←/→ ±0.5s, [/] ±2s)",
-        f == TuiField::DwellDuration,
-    );
-    render_slider_row(
-        s,
-        "[6] Frame Rate:",
-        &fps_v,
-        "(←/→ Auto..144Hz)",
-        f == TuiField::FrameRate,
-    );
-    render_slider_row(
-        s,
-        "[7] DPMS Power-Off:",
-        &dpms_v,
-        "(←/→ ±1m, [/] ±5m)",
-        f == TuiField::DpmsTimeout,
-    );
+    let sliders = [
+        (
+            "[4] Idle Timeout:",
+            format!("{idle_s} s ({}m {:02}s)", idle_s / 60, idle_s % 60),
+            "(←/→ ±30s, [/] ±5m)",
+            TuiField::IdleTimeout,
+        ),
+        (
+            "[5] Scene Dwell:",
+            format!("{:.1} s per scene", model.dwell_secs),
+            "(←/→ ±0.5s, [/] ±2s)",
+            TuiField::DwellDuration,
+        ),
+        (
+            "[6] Frame Rate:",
+            format_fps_display(model.fps),
+            "(←/→ Auto..144Hz)",
+            TuiField::FrameRate,
+        ),
+        (
+            "[7] DPMS Power-Off:",
+            format_dpms_display(model.dpms_timeout_secs),
+            "(←/→ ±1m, [/] ±5m)",
+            TuiField::DpmsTimeout,
+        ),
+    ];
+    for (lbl, val, hint, fld) in &sliders {
+        render_slider_row(b, lbl, val, hint, f == *fld);
+    }
     b.push_str("\x1b[K\r\n");
 
     let btn = |foc: bool, c: &str, l: &str| {

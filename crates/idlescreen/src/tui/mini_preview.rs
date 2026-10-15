@@ -37,8 +37,13 @@ impl MiniPreview {
         }
     }
 
+    pub fn effective_cols(term_cols: usize) -> usize {
+        let c = Self::canvas_cols_for_terminal(term_cols);
+        if c == 0 { 44 } else { c }
+    }
+
     pub fn new(model: &TuiModel, term_cols: usize) -> Self {
-        let cols = Self::canvas_cols_for_terminal(term_cols).max(44);
+        let cols = Self::effective_cols(term_cols);
         let rows = MINI_PREVIEW_ROWS;
         let mut saver = build_mini_saver(model);
         saver.init(cols, rows);
@@ -58,7 +63,7 @@ impl MiniPreview {
     }
 
     pub fn sync_with_model(&mut self, model: &TuiModel, term_cols: usize) {
-        let target_cols = Self::canvas_cols_for_terminal(term_cols).max(28);
+        let target_cols = Self::effective_cols(term_cols);
         let text_changed =
             model.mode == ModeChoice::CustomText && self.custom_text != model.custom_text;
         let changed = self.active_saver != model.active_saver_name()

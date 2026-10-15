@@ -167,10 +167,15 @@ pub(crate) fn check_wayland_presenter_sanity() -> (bool, String) {
                     } else {
                         "xdg_wm_base"
                     };
+                    let dpms_desc = if state.dpms.has_power_manager() {
+                        " + dpms"
+                    } else {
+                        ""
+                    };
                     (
                         true,
                         format!(
-                            "{shell_desc} + wl_shm ready, {}ms debounce active",
+                            "{shell_desc}{dpms_desc} + wl_shm ready, {}ms debounce active",
                             crate::wayland::presenter::INPUT_DEBOUNCE_WINDOW.as_millis()
                         ),
                     )
