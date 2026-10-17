@@ -28,6 +28,9 @@ pub fn print_concise(r: &DoctorReport) {
         );
     }
 
+    let env = r.runtime_env;
+    println!("  [✓] Runtime Environment: {env}");
+
     if r.daemon_running {
         let mut parts = Vec::new();
         if let Some(pid) = r.daemon_pid {
@@ -116,6 +119,8 @@ pub fn print_verbose(r: &DoctorReport) {
             mark(r.runtime_dir_ok, "✗")
         );
     }
+    let env = r.runtime_env;
+    println!("  [✓] Runtime Environment: {env}");
     println!(
         "  [{}] Presenter Sanity: {}",
         mark(r.wayland_presenter_ok, "!"),
@@ -220,8 +225,9 @@ pub fn print_json(r: &DoctorReport) {
         .map_or_else(String::new, |p| p.display().to_string());
     let pid = r.daemon_pid.unwrap_or(0);
     println!(
-        r#"{{"nominal":{nominal},"session":{{"wayland_display":"{disp}","desktop":"{de}","runtime_dir_ok":{}}},"presenter":{{"ok":{},"debounce_ms":{},"note":"{}"}},"daemon":{{"running":{},"pid":{pid},"control_active":{},"dbus_service_active":{},"systemd_active":{},"inhibited":{}}},"config":{{"path":"{cfg}","is_toml":{},"active_saver":"{}","timeout_secs":{},"dwell_secs":{:.1}}},"savers":{{"builtin_ascii":true,"scenes":52}},"system":{{"shm_writable":{},"session_bus_connected":{}}}}}"#,
+        r#"{{"nominal":{nominal},"session":{{"wayland_display":"{disp}","desktop":"{de}","runtime_dir_ok":{},"runtime_env":"{}"}},"presenter":{{"ok":{},"debounce_ms":{},"note":"{}"}},"daemon":{{"running":{},"pid":{pid},"control_active":{},"dbus_service_active":{},"systemd_active":{},"inhibited":{}}},"config":{{"path":"{cfg}","is_toml":{},"active_saver":"{}","timeout_secs":{},"dwell_secs":{:.1}}},"savers":{{"builtin_ascii":true,"scenes":52}},"system":{{"shm_writable":{},"session_bus_connected":{}}}}}"#,
         r.runtime_dir_ok,
+        r.runtime_env,
         r.wayland_presenter_ok,
         r.input_debounce_ms,
         r.wayland_presenter_note,

@@ -26,7 +26,7 @@
 
 </div>
 
-**IdleScreen** (`v4.5.1`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
+**IdleScreen** (`v4.5.2`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
 
 - **0.00% CPU at idle**: Pure event-driven reactor (`epoll` / `tokio`) sleeping with zero periodic wakeups and a ~2–3 MB resident memory footprint.
 - **1x Native Grid GPU Scaling (`wp_viewporter`)**: Rasterizes the character/pixel canvas at 1x native grid resolution into `wl_shm` (`<0.5 ms` frame time) and offloads fullscreen 4K/HiDPI upscaling directly to the GPU/display controller via Wayland `wp_viewporter`.
@@ -76,7 +76,7 @@ idlescreen inhibitors [--json]          Inspect active D-Bus / portal / audio id
 idlescreen service install [--init <X>] Install user service for systemd, openrc, runit, s6, dinit, or xdg
 idlescreen doctor [--fix] [--json]      Diagnose Wayland protocols, sockets, and service state (with auto-remediation via --fix)
 idlescreen config                       Display configuration path and active TOML settings
-idlescreen version                      Show version information (v4.5.1)
+idlescreen version                      Show version information (v4.5.2)
 ```
 
 ---
@@ -104,6 +104,40 @@ text = ""
 # Visual pacing & animation
 fps = 0                   # 0 = auto-detect monitor refresh rate (60 Hz -> 60 FPS, 144 Hz -> 144 FPS)
 dwell_secs = 5.0
+```
+
+---
+
+## Running in Containers
+
+IdleScreen automatically detects its runtime environment at daemon startup — `Host`, `GenericContainer`, `PodmanContainer`, or `CosmicCage` — and reports it via `idlescreen doctor` (look for the `Runtime Environment` line, or `"runtime_env"` in `--json` output). No configuration is required.
+
+Run inside Podman:
+
+```sh
+podman run --rm -it \
+  -e WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
+  -e XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+  -v "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY:/$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" \
+  -v "$HOME/.config/idlescreen:$HOME/.config/idlescreen" \
+  idlescreen daemon
+```
+
+Run inside Docker:
+
+```sh
+docker run --rm -it \
+  -e WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
+  -e XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+  -v "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY:/$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" \
+  -v "$HOME/.config/idlescreen:$HOME/.config/idlescreen" \
+  idlescreen daemon
+```
+
+Verify the detected environment with:
+
+```sh
+idlescreen doctor
 ```
 
 ---

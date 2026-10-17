@@ -12,6 +12,7 @@ pub mod dbus;
 pub mod notify;
 pub mod pidfile;
 pub mod reactor;
+pub mod runtime;
 pub mod state;
 pub mod watchers;
 pub use watchers as gnome;
@@ -23,12 +24,16 @@ pub use notify::{
 };
 pub use pidfile::PidFile;
 pub use reactor::EpollReactor;
+pub use runtime::{RuntimeEnvironment, detect_environment};
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
 pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
+    let env = detect_environment();
+    notify::log_status(&format!("Starting in {env:?} mode"));
+
     let _pidfile = match PidFile::acquire() {
         Ok(pf) => pf,
         Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {

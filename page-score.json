@@ -1,6 +1,6 @@
 {
  "repo": "idlescreen",
- "rev": "c6905f7",
+ "rev": "0c855cd",
  "dirty": true,
  "pages": [
   {
@@ -1055,8 +1055,8 @@
   },
   {
    "path": "./crates/idlescreen/src/cli/doctor/inspect.rs",
-   "lines": 240,
-   "bin_bytes": 12404,
+   "lines": 242,
+   "bin_bytes": 12493,
    "heat_pct": null,
    "reach": 3
   },
@@ -1069,15 +1069,15 @@
   },
   {
    "path": "./crates/idlescreen/src/cli/doctor/tests.rs",
-   "lines": 78,
+   "lines": 80,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/cli/doctor/view.rs",
-   "lines": 240,
-   "bin_bytes": 11160,
+   "lines": 246,
+   "bin_bytes": 11471,
    "heat_pct": null,
    "reach": 2
   },
@@ -1187,16 +1187,16 @@
    "reach": 12
   },
   {
-   "path": "./crates/idlescreen/src/daemon/dbus.rs",
+   "path": "./crates/idlescreen/src/daemon/dbus/mod.rs",
    "lines": 246,
    "bin_bytes": 98445,
    "heat_pct": null,
-   "reach": 16
+   "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/daemon/mod.rs",
-   "lines": 243,
-   "bin_bytes": 11033,
+   "lines": 248,
+   "bin_bytes": 11294,
    "heat_pct": null,
    "reach": 0
   },
@@ -1220,6 +1220,13 @@
    "bin_bytes": 3570,
    "heat_pct": null,
    "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/runtime.rs",
+   "lines": 241,
+   "bin_bytes": 4266,
+   "heat_pct": null,
+   "reach": 3
   },
   {
    "path": "./crates/idlescreen/src/daemon/state.rs",

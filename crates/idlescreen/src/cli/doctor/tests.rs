@@ -69,10 +69,12 @@ fn test_report_fields() {
         input_debounce_ms: 500,
         wayland_presenter_ok: true,
         wayland_presenter_note: "layer-shell + wl_shm ready, 500ms debounce active".to_string(),
+        runtime_env: crate::daemon::runtime::RuntimeEnvironment::Host,
     };
     assert_eq!(report.active_saver, "ascii");
     assert!(report.daemon_running);
     assert!(report.dbus_service_active);
     assert_eq!(report.input_debounce_ms, 500);
     assert!(report.wayland_presenter_ok);
+    assert_eq!(report.runtime_env.to_string(), "Host");
 }

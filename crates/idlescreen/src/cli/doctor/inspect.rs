@@ -33,6 +33,7 @@ pub struct DoctorReport {
     pub input_debounce_ms: u64,
     pub wayland_presenter_ok: bool,
     pub wayland_presenter_note: String,
+    pub runtime_env: crate::daemon::runtime::RuntimeEnvironment,
 }
 
 pub fn collect_diagnostics() -> DoctorReport {
@@ -137,6 +138,7 @@ pub fn collect_diagnostics() -> DoctorReport {
         input_debounce_ms: crate::wayland::presenter::INPUT_DEBOUNCE_WINDOW.as_millis() as u64,
         wayland_presenter_ok,
         wayland_presenter_note,
+        runtime_env: crate::daemon::runtime::detect_environment(),
     }
 }
 
