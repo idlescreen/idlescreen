@@ -52,6 +52,13 @@ pub fn apply_arcade_fx_with_bounds(
                 break;
             }
             let cell = grid[idx];
+            if cell.bg != bg {
+                if cell.bg == (0, 0, 1) {
+                    grid[idx].bg = bg;
+                }
+                grid[idx].bold = false;
+                continue;
+            }
             if cell.ch == '█' || cell.ch == '▀' || cell.ch == '▄' {
                 let diag = x + y * 2;
                 let dist = diag.abs_diff(gleam_pos);

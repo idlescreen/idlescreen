@@ -1,12 +1,12 @@
 {
  "repo": "idlescreen",
- "rev": "aebc898",
+ "rev": "552b583",
  "dirty": true,
  "pages": [
   {
    "path": "./crates/idlescreen/src/ascii/draw/ansi.rs",
-   "lines": 170,
-   "bin_bytes": 6630,
+   "lines": 172,
+   "bin_bytes": 6693,
    "heat_pct": null,
    "reach": 1
   },
@@ -19,8 +19,8 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/draw/post_fx.rs",
-   "lines": 160,
-   "bin_bytes": 5200,
+   "lines": 167,
+   "bin_bytes": 5433,
    "heat_pct": null,
    "reach": 1
   },
@@ -33,17 +33,17 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/effects.rs",
-   "lines": 249,
-   "bin_bytes": 3429,
+   "lines": 213,
+   "bin_bytes": 3674,
    "heat_pct": null,
-   "reach": 16
+   "reach": 17
   },
   {
    "path": "./crates/idlescreen/src/ascii/engine.rs",
    "lines": 78,
    "bin_bytes": 2464,
    "heat_pct": null,
-   "reach": 60
+   "reach": 62
   },
   {
    "path": "./crates/idlescreen/src/ascii/layout/cache.rs",
@@ -68,15 +68,15 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/mod.rs",
-   "lines": 249,
-   "bin_bytes": 6240,
+   "lines": 254,
+   "bin_bytes": 6372,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/ascii/runtime.rs",
-   "lines": 253,
-   "bin_bytes": 11607,
+   "lines": 254,
+   "bin_bytes": 12168,
    "heat_pct": null,
    "reach": 0
   },
@@ -211,7 +211,7 @@
    "lines": 213,
    "bin_bytes": 13622,
    "heat_pct": null,
-   "reach": 53
+   "reach": 57
   },
   {
    "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/binarypath/binarypath_sim.rs",
@@ -362,8 +362,8 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/scenes/mod.rs",
-   "lines": 84,
-   "bin_bytes": 8881,
+   "lines": 86,
+   "bin_bytes": 9249,
    "heat_pct": null,
    "reach": 0
   },
@@ -725,8 +725,36 @@
    "reach": 1
   },
   {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/arcade_retro/mmx/mmx_choreo.rs",
+   "lines": 240,
+   "bin_bytes": 17405,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/arcade_retro/mmx/mmx_data.rs",
+   "lines": 240,
+   "bin_bytes": 8900,
+   "heat_pct": null,
+   "reach": 2
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/arcade_retro/mmx/mmx_sim.rs",
+   "lines": 213,
+   "bin_bytes": 7926,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/arcade_retro/mmx/mod.rs",
+   "lines": 8,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
    "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/arcade_retro/mod.rs",
-   "lines": 11,
+   "lines": 13,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
@@ -760,11 +788,39 @@
    "reach": 1
   },
   {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/arcade_retro/zero/mod.rs",
+   "lines": 8,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/arcade_retro/zero/zero_choreo.rs",
+   "lines": 244,
+   "bin_bytes": 21289,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/arcade_retro/zero/zero_data.rs",
+   "lines": 255,
+   "bin_bytes": 9624,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/arcade_retro/zero/zero_sim.rs",
+   "lines": 220,
+   "bin_bytes": 8376,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
    "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/field_ops.rs",
    "lines": 236,
    "bin_bytes": 9104,
    "heat_pct": null,
-   "reach": 13
+   "reach": 15
   },
   {
    "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/math_fields/aurora.rs",
@@ -915,8 +971,8 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/sys_info/de_telemetry.rs",
-   "lines": 180,
-   "bin_bytes": 9252,
+   "lines": 179,
+   "bin_bytes": 9270,
    "heat_pct": null,
    "reach": 1
   },
@@ -950,14 +1006,14 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/paint_tests.rs",
-   "lines": 185,
+   "lines": 250,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/scene_tests.rs",
-   "lines": 202,
+   "lines": 255,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
@@ -988,7 +1044,7 @@
    "lines": 96,
    "bin_bytes": 1754,
    "heat_pct": null,
-   "reach": 22
+   "reach": 23
   },
   {
    "path": "./crates/idlescreen/src/cli/doctor/fix.rs",
@@ -1097,7 +1153,7 @@
   },
   {
    "path": "./crates/idlescreen/src/cli/set.rs",
-   "lines": 113,
+   "lines": 114,
    "bin_bytes": 4552,
    "heat_pct": null,
    "reach": 1
@@ -1133,7 +1189,7 @@
   {
    "path": "./crates/idlescreen/src/daemon/dbus.rs",
    "lines": 246,
-   "bin_bytes": 98444,
+   "bin_bytes": 98445,
    "heat_pct": null,
    "reach": 16
   },
@@ -1237,8 +1293,8 @@
   },
   {
    "path": "./crates/idlescreen/src/tui/mode_choice.rs",
-   "lines": 166,
-   "bin_bytes": 6408,
+   "lines": 168,
+   "bin_bytes": 6531,
    "heat_pct": null,
    "reach": 2
   },
@@ -1279,10 +1335,10 @@
   },
   {
    "path": "./crates/idlescreen/src/wayland/blit.rs",
-   "lines": 189,
-   "bin_bytes": 5951,
+   "lines": 172,
+   "bin_bytes": 6472,
    "heat_pct": null,
-   "reach": 3
+   "reach": 7
   },
   {
    "path": "./crates/idlescreen/src/wayland/dpms.rs",
@@ -1301,13 +1357,13 @@
   {
    "path": "./crates/idlescreen/src/wayland/glyph_font.rs",
    "lines": 249,
-   "bin_bytes": 9421,
+   "bin_bytes": 9425,
    "heat_pct": null,
-   "reach": 5
+   "reach": 6
   },
   {
    "path": "./crates/idlescreen/src/wayland/mod.rs",
-   "lines": 20,
+   "lines": 21,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
@@ -1367,6 +1423,13 @@
    "bin_bytes": 10735,
    "heat_pct": null,
    "reach": 5
+  },
+  {
+   "path": "./crates/idlescreen/src/wayland/subcell_overlay.rs",
+   "lines": 209,
+   "bin_bytes": 7682,
+   "heat_pct": null,
+   "reach": 2
   },
   {
    "path": "./crates/idlescreen/src/wayland/surface.rs",

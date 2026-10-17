@@ -2,7 +2,7 @@
 // Copyright 2026 IdleScreen
 
 //! Built-in ASCII screensaver engine with dynamic tri-rotation mutation
-//! and 50 genuine 16-bit arcade visual text effects.
+//! and 52 genuine 16-bit arcade visual text effects.
 
 pub mod draw;
 pub mod effects;
@@ -24,8 +24,8 @@ pub use engine::EngineSession;
 use state::{TextMode, TriRotationState};
 use std::time::Duration;
 
-pub const DEFAULT_DWELL_SECS: f32 = 2.0;
-pub const DEFAULT_DISSOLVE_SECS: f32 = 0.35;
+pub const DEFAULT_DWELL_SECS: f32 = 2.8;
+pub const DEFAULT_DISSOLVE_SECS: f32 = 0.50;
 
 #[allow(clippy::struct_excessive_bools)]
 pub struct Ascii {
@@ -81,8 +81,8 @@ impl Ascii {
         saver.rotation.custom_text = None;
         saver.rotation.set_targets(vec!["superfedora".to_string()]);
         saver.pinned = false;
-        saver.dwell_duration = Some(1.8);
-        saver.dwell_left = 1.8;
+        saver.dwell_duration = Some(2.6);
+        saver.dwell_left = 2.6;
         saver.dissolve_duration = DEFAULT_DISSOLVE_SECS;
         saver.transition_duration = DEFAULT_DISSOLVE_SECS;
         saver
@@ -160,7 +160,12 @@ impl Ascii {
     }
 
     pub fn dwell_time(&self) -> f32 {
-        self.dwell_duration.unwrap_or_else(|| self.effect.dwell())
+        let d = self.dwell_duration.unwrap_or_else(|| self.effect.dwell());
+        if matches!(self.effect, EffectKind::Mmx | EffectKind::Zero) {
+            d.min(0.65)
+        } else {
+            d
+        }
     }
 
     pub fn is_settled(&self) -> bool {

@@ -127,7 +127,7 @@ fn print_preview_help() {
     println!("  -f, --fullscreen       Open borderless fullscreen Wayland surface across monitor");
     println!("      --terminal         Force terminal crossterm mode (skip Wayland surface)");
     println!(
-        "      --tour, --new      Tour all 50 built-in 16-bit arcade scenes in order (1/50 to 50/50)"
+        "      --tour, --new      Tour all 52 built-in 16-bit arcade scenes in order (1/52 to 52/52)"
     );
     println!("  -t, --timeout <secs>   Automatically exit after <secs> seconds");
     println!("  -d, --dwell <secs>     Dwell duration in seconds per effect/mutation");

@@ -9,6 +9,7 @@ pub mod dpms;
 pub mod fractional;
 pub mod glyph_font;
 pub mod presenter;
+pub mod subcell_overlay;
 pub mod surface;
 pub mod viewport;
 

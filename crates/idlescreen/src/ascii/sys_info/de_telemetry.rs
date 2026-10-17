@@ -36,8 +36,7 @@ pub fn detect_desktop_env() -> String {
 
 /// Cleans raw desktop environment string to uppercase single brand word.
 pub fn clean_desktop_env(raw: &str) -> String {
-    let t = raw.split(':').next_back().unwrap_or(raw).trim();
-    let upper = t.to_ascii_uppercase();
+    let upper = raw.trim().to_ascii_uppercase();
 
     let words: Vec<&str> = upper
         .split(|c: char| !c.is_alphanumeric())
@@ -60,15 +59,15 @@ pub fn clean_desktop_env(raw: &str) -> String {
         }
     }
 
-    if let Some(&first) = words.first() {
-        if first.is_empty() || matches!(first, "UNKNOWN" | "DEFAULT" | "NONE" | "STANDARD") {
-            "DESKTOP".to_string()
-        } else {
-            first.to_string()
+    for &w in &words {
+        if !matches!(
+            w,
+            "UNKNOWN" | "DEFAULT" | "NONE" | "STANDARD" | "SUPERFEDORA" | "FEDORA" | "UBUNTU"
+        ) {
+            return w.to_string();
         }
-    } else {
-        "DESKTOP".to_string()
     }
+    "DESKTOP".to_string()
 }
 
 /// Detects Linux Kernel version string, standardized to single uppercase brand word "LINUX".

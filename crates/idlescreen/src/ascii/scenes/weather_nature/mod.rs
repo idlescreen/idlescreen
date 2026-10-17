@@ -11,5 +11,5 @@ pub mod spray;
 pub mod thunderstorm;
 pub mod waves;
 
-pub use arcade_retro::{breakout, life, mystify, pipes, tetris, tunnel};
+pub use arcade_retro::{breakout, life, mmx, mystify, pipes, tetris, tunnel, zero};
 pub use math_fields::{aurora, chaos, cosmos, metaballs, plasma, radar, ripple};

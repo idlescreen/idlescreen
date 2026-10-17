@@ -208,7 +208,7 @@ pub fn draw_preview_hud(
     }
     let start_x = (cols - (total_chars + 2)) / 2;
     let row_off = (rows - 1) * cols;
-    let pill_bg = (14, 22, 42);
+    let pill_bg = crate::wayland::subcell_overlay::HUD_PILL_BG;
     let set_cell = |c: &mut [TerminalCell], x: usize, ch: char, fg: (u8, u8, u8), bold: bool| {
         c[row_off + x] = TerminalCell {
             ch,

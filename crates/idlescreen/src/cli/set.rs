@@ -14,12 +14,13 @@ pub const ALL_KNOWN_SAVERS: &[&str] = &[
     "breakout", "bubbles", "burn", "chaos", "colorshift",
     "cosmos", "crumble", "decrypt", "errorcorrect", "expand",
     "fireworks", "highlight", "laseretch", "life", "matrix",
-    "metaballs", "middleout", "mystify", "orbittingvolley", "overflow",
-    "pipes", "plasma", "pour", "print", "radar",
-    "rain", "randomsequence", "rings", "ripple", "scattered",
-    "slice", "slide", "smoke", "spotlights", "spray",
-    "swarm", "sweep", "synthgrid", "tetris", "thunderstorm",
-    "tunnel", "unstable", "vhstape", "waves", "wipe",
+    "metaballs", "middleout", "mmx", "mystify", "orbittingvolley",
+    "overflow", "pipes", "plasma", "pour", "print",
+    "radar", "rain", "randomsequence", "rings", "ripple",
+    "scattered", "slice", "slide", "smoke", "spotlights",
+    "spray", "swarm", "sweep", "synthgrid", "tetris",
+    "thunderstorm", "tunnel", "unstable", "vhstape", "waves",
+    "wipe", "zero",
 ];
 
 pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
@@ -84,8 +85,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_all_known_savers_contains_presets_and_all_50_scenes() {
-        assert_eq!(ALL_KNOWN_SAVERS.len(), 53);
+    fn test_all_known_savers_contains_presets_and_all_52_scenes() {
+        assert_eq!(ALL_KNOWN_SAVERS.len(), 55);
         assert!(ALL_KNOWN_SAVERS.contains(&"ascii"));
         assert!(ALL_KNOWN_SAVERS.contains(&"superfedora"));
         assert!(ALL_KNOWN_SAVERS.contains(&"tour"));

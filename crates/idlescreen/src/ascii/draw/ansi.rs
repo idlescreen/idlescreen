@@ -77,6 +77,8 @@ pub fn paint_frame(
                     let ch = pixel_art_glyph(raw_ch, x, y);
                     let cell_fg = if ch == ' ' {
                         default_fg
+                    } else if bg != default_bg {
+                        fg
                     } else {
                         boost_arcade_rgb(fg)
                     };

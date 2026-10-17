@@ -13,7 +13,7 @@ use zbus::interface;
 #[rustfmt::skip]
 pub const VALID_SAVERS: &[&str] = &[
     "ascii", "superfedora", "tour", "new", "aurora", "beams", "chaos", "cosmos", "radar",
-    "ripple", "plasma", "tunnel", "breakout", "tetris", "pipes", "mystify", "life", "metaballs",
+    "ripple", "plasma", "tunnel", "breakout", "tetris", "pipes", "mystify", "life", "metaballs", "mmx", "zero",
 ];
 
 pub fn is_valid_saver(name: &str) -> bool {

@@ -5,7 +5,9 @@
 
 pub mod breakout;
 pub mod life;
+pub mod mmx;
 pub mod mystify;
 pub mod pipes;
 pub mod tetris;
 pub mod tunnel;
+pub mod zero;

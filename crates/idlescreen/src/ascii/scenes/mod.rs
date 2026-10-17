@@ -21,8 +21,8 @@ pub use physics_fields::{
     blackhole, bouncyballs, orbittingvolley, overflow, scattered, swarm, unstable,
 };
 pub use weather_nature::{
-    aurora, breakout, chaos, cosmos, life, metaballs, mystify, pipes, plasma, radar, rain, ripple,
-    spray, tetris, thunderstorm, tunnel, waves,
+    aurora, breakout, chaos, cosmos, life, metaballs, mmx, mystify, pipes, plasma, radar, rain,
+    ripple, spray, tetris, thunderstorm, tunnel, waves, zero,
 };
 
 use super::effects::EffectKind;
@@ -52,6 +52,7 @@ pub fn create_scene(kind: EffectKind) -> Box<dyn Effect> {
         EffectKind::Matrix => Box::new(matrix::Matrix::default()),
         EffectKind::Metaballs => Box::new(metaballs::Metaballs::default()),
         EffectKind::Middleout => Box::new(middleout::Middleout::default()),
+        EffectKind::Mmx => Box::new(mmx::Mmx::default()),
         EffectKind::Mystify => Box::new(mystify::Mystify::default()),
         EffectKind::Orbittingvolley => Box::new(orbittingvolley::OrbittingVolley::default()),
         EffectKind::Overflow => Box::new(overflow::Overflow::default()),
@@ -80,5 +81,6 @@ pub fn create_scene(kind: EffectKind) -> Box<dyn Effect> {
         EffectKind::Vhstape => Box::new(vhstape::VhsTape::default()),
         EffectKind::Waves => Box::new(waves::Waves::default()),
         EffectKind::Wipe => Box::new(wipe::Wipe::default()),
+        EffectKind::Zero => Box::new(zero::Zero::default()),
     }
 }

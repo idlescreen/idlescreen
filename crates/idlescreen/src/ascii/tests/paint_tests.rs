@@ -80,7 +80,7 @@ fn test_draw_preview_hud_and_glyph_blitting() {
         .map(|cell| cell.ch)
         .collect();
     assert!(
-        bottom_row.contains("SCENE 27/50: PLASMA"),
+        bottom_row.contains("SCENE 28/52: PLASMA"),
         "bottom row was: {bottom_row:?}"
     );
     assert!(bottom_row.contains("[←/→: STEP | Q/ESC: EXIT]"));
@@ -91,17 +91,17 @@ fn test_draw_preview_hud_and_glyph_blitting() {
         .map(|cell| cell.ch)
         .collect();
     assert!(
-        tour_row.contains("TOUR 01/50: AURORA"),
+        tour_row.contains("TOUR 01/52: AURORA"),
         "tour row was: {tour_row:?}"
     );
 
-    draw_preview_hud(&mut grid, cols, rows, EffectKind::Wipe, true);
+    draw_preview_hud(&mut grid, cols, rows, EffectKind::Zero, true);
     let tour_end_row: String = grid[(rows - 1) * cols..]
         .iter()
         .map(|cell| cell.ch)
         .collect();
     assert!(
-        tour_end_row.contains("TOUR 50/50: WIPE"),
+        tour_end_row.contains("TOUR 52/52: ZERO"),
         "tour end row was: {tour_end_row:?}"
     );
 
@@ -182,4 +182,69 @@ fn test_starfield_backdrop_variation_and_randomization() {
         (seed_b >> 3) & 7,
         "consecutive scenes must switch starfield drift vector"
     );
+}
+
+#[test]
+fn mmx_snes_halfblock_sprites_destroy_superfedora_and_teleport_out() {
+    use super::super::Ascii;
+    use std::time::Duration;
+
+    let (cols, rows) = (120, 36);
+    let mut saver = Ascii::new_superfedora().with_dwell(0.5);
+    saver.init(cols, rows);
+    saver.pin_effect(EffectKind::Mmx);
+    let mut grid = vec![TerminalCell::default(); cols * rows];
+
+    let (mut saw_gem, mut saw_face, mut saw_half, mut saw_crush, mut saw_flash) =
+        (false, false, false, false, false);
+    let (mut banner_start, mut banner_after) = (0usize, 0usize);
+    let initial_blocks = saver.frame_grid.iter().filter(|c| c.ch == '█').count();
+
+    for step_idx in 1..=84 {
+        saver.update(Duration::from_millis(16), cols, rows);
+        if step_idx <= 35 {
+            for (idx, cell) in saver.frame_grid.iter().enumerate() {
+                if matches!(cell.ch, '▀' | '▄') {
+                    let col = idx % cols;
+                    assert!(
+                        col < 15,
+                        "MMX sprite at col {col} overlapped SUPERFEDORA (t_left=15) on step {step_idx}"
+                    );
+                }
+            }
+            let cur_blocks = saver.frame_grid.iter().filter(|c| c.ch == '█').count();
+            assert_eq!(
+                cur_blocks, initial_blocks,
+                "MMX overlapped SUPERFEDORA blocks on step {step_idx}"
+            );
+        }
+        saver.draw(&mut grid, cols, rows);
+        for c in &grid {
+            saw_gem |= c.fg == (240, 64, 16) || c.bg == (240, 64, 16);
+            saw_face |= c.fg == (248, 176, 128) || c.bg == (248, 176, 128);
+            saw_crush |= c.fg == (248, 80, 168) || c.bg == (248, 80, 168);
+            saw_flash |= c.ch == '█' && c.fg == (255, 255, 255);
+            saw_half |= c.ch == '▀' && c.bg != (0, 0, 0);
+        }
+        if step_idx == 14 {
+            banner_start = grid.iter().filter(|c| c.ch == '█').count();
+        } else if step_idx == 68 {
+            banner_after = grid.iter().filter(|c| c.ch == '█').count();
+        }
+    }
+
+    assert!(saw_gem && saw_face && saw_half && saw_crush && saw_flash);
+    assert!(banner_start > 200, "got {banner_start} blocks");
+    assert_eq!(banner_after, 0);
+    assert!(saver.is_settled());
+
+    for &(c, r) in &[(80, 18), (44, 16), (40, 8), (10, 5)] {
+        saver.init(c, r);
+        saver.pin_effect(EffectKind::Mmx);
+        let mut small = vec![TerminalCell::default(); c * r];
+        for _ in 0..40 {
+            saver.update(Duration::from_millis(16), c, r);
+            saver.draw(&mut small, c, r);
+        }
+    }
 }

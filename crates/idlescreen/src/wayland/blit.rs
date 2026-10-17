@@ -5,10 +5,17 @@
 
 use crate::cell::TerminalCell;
 pub use crate::wayland::glyph_font::{GLYPH_HEIGHT, GLYPH_WIDTH, get_glyph_bitmap};
+pub use crate::wayland::subcell_overlay::{
+    SUBCELL_X, SUBCELL_Y, clear_subcell_overlay, composite_subcell_overlay, has_subcell_overlay,
+    publish_subcell_overlay,
+};
 
-/// Blits an array of `TerminalCell`s directly into an ARGB8888 pixel buffer.
-///
-/// Output buffer format is native 32-bit ARGB8888 (`0xAARRGGBB`).
+#[inline]
+pub(super) fn pack_argb(c: (u8, u8, u8)) -> u32 {
+    0xFF00_0000 | (u32::from(c.0) << 16) | (u32::from(c.1) << 8) | u32::from(c.2)
+}
+
+/// Blits an array of `TerminalCell`s directly into an ARGB8888 pixel buffer (`0xAARRGGBB`).
 #[inline]
 pub fn blit_cells_to_argb(
     cells: &[TerminalCell],
@@ -22,8 +29,12 @@ pub fn blit_cells_to_argb(
         return;
     }
 
-    let char_w = (pixel_w / cols).max(1);
-    let char_h = (pixel_h / rows).max(1);
+    let (char_w, char_h) = ((pixel_w / cols).max(1), (pixel_h / rows).max(1));
+    let subcell_active = cells
+        .iter()
+        .take(cols.saturating_mul(rows))
+        .any(|c| !c.bold && matches!(c.ch, '▀' | '▄'))
+        && has_subcell_overlay(cols, rows);
 
     let mut row_lut_stack = [0usize; 512];
     let mut col_lut_stack = [0usize; 512];
@@ -48,64 +59,68 @@ pub fn blit_cells_to_argb(
 
     for cy in 0..rows {
         for cx in 0..cols {
-            let cell_idx = cy * cols + cx;
-            if cell_idx >= cells.len() {
+            let Some(&cell) = cells.get(cy * cols + cx) else {
                 break;
-            }
-            let cell = cells[cell_idx];
-
-            let fg_color: u32 = 0xFF00_0000
-                | (u32::from(cell.fg.0) << 16)
-                | (u32::from(cell.fg.1) << 8)
-                | u32::from(cell.fg.2);
-            let bg_color: u32 = 0xFF00_0000
-                | (u32::from(cell.bg.0) << 16)
-                | (u32::from(cell.bg.1) << 8)
-                | u32::from(cell.bg.2);
-
-            let glyph = get_glyph_bitmap(cell.ch);
-            let start_px = cx * char_w;
-            let start_py = cy * char_h;
+            };
+            let hide_coarse = subcell_active && !cell.bold && matches!(cell.ch, '▀' | '▄');
+            let fg_color = pack_argb(cell.fg);
+            let bg_color = if hide_coarse {
+                0xFF00_0000
+            } else {
+                pack_argb(cell.bg)
+            };
+            let glyph = if hide_coarse {
+                [0u8; GLYPH_HEIGHT]
+            } else {
+                get_glyph_bitmap(cell.ch)
+            };
+            let (start_px, start_py) = (cx * char_w, cy * char_h);
 
             for (dy, &glyph_row) in row_lut.iter().enumerate() {
                 let py = start_py + dy;
                 if py >= pixel_h {
                     break;
                 }
-                let bits = glyph[glyph_row];
-                let row_offset = py * pixel_w;
-
+                let (bits, row_offset) = (glyph[glyph_row], py * pixel_w);
                 for (dx, &glyph_col) in col_lut.iter().enumerate() {
                     let px = start_px + dx;
                     if px >= pixel_w {
                         break;
                     }
-                    let is_fg = (bits & (0x80 >> glyph_col)) != 0;
-                    let color = if is_fg { fg_color } else { bg_color };
-                    let pixel_idx = row_offset + px;
-                    if pixel_idx < buffer.len() {
-                        buffer[pixel_idx] = color;
+                    if row_offset + px < buffer.len() {
+                        buffer[row_offset + px] = if (bits & (0x80 >> glyph_col)) != 0 {
+                            fg_color
+                        } else {
+                            bg_color
+                        };
                     }
                 }
             }
         }
     }
 
-    let drawn_w = cols * char_w;
-    let drawn_h = rows * char_h;
+    let (drawn_w, drawn_h) = (cols * char_w, rows * char_h);
+    if subcell_active {
+        composite_subcell_overlay(
+            cells,
+            (cols, rows),
+            buffer,
+            (pixel_w, pixel_h),
+            (drawn_w, drawn_h),
+        );
+    }
+
     if drawn_h < pixel_h {
-        let start = drawn_h * pixel_w;
-        let end = (pixel_w * pixel_h).min(buffer.len());
+        let (start, end) = (drawn_h * pixel_w, (pixel_w * pixel_h).min(buffer.len()));
         if start < end {
             buffer[start..end].fill(0xFF00_0000);
         }
     }
     if drawn_w < pixel_w {
         for y in 0..drawn_h.min(pixel_h) {
-            let row_start = y * pixel_w + drawn_w;
-            let row_end = ((y + 1) * pixel_w).min(buffer.len());
-            if row_start < row_end {
-                buffer[row_start..row_end].fill(0xFF00_0000);
+            let (rs, re) = (y * pixel_w + drawn_w, ((y + 1) * pixel_w).min(buffer.len()));
+            if rs < re {
+                buffer[rs..re].fill(0xFF00_0000);
             }
         }
     }
@@ -116,74 +131,42 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_blit_basic_grid() {
-        let cols = 10;
-        let rows = 5;
-        let pixel_w = cols * GLYPH_WIDTH;
-        let pixel_h = rows * GLYPH_HEIGHT;
+    fn test_blit_basic_and_zero_dimensions() {
+        let (cols, rows) = (10, 5);
+        let (pixel_w, pixel_h) = (cols * GLYPH_WIDTH, rows * GLYPH_HEIGHT);
         let mut buffer = vec![0u32; pixel_w * pixel_h];
         let mut cells = vec![TerminalCell::default(); cols * rows];
-
-        cells[0].ch = '█';
-        cells[0].fg = (255, 255, 255);
-
-        blit_cells_to_argb(&cells, cols, rows, &mut buffer, pixel_w, pixel_h);
-        assert_eq!(buffer[0], 0xFFFF_FFFF);
-    }
-
-    #[test]
-    fn test_blit_zero_dimensions() {
-        let mut buffer = vec![0u32; 100];
-        let cells = vec![TerminalCell::default(); 10];
         blit_cells_to_argb(&cells, 0, 5, &mut buffer, 10, 10);
         blit_cells_to_argb(&cells, 5, 0, &mut buffer, 10, 10);
         blit_cells_to_argb(&cells, 5, 5, &mut buffer, 0, 10);
         blit_cells_to_argb(&cells, 5, 5, &mut buffer, 10, 0);
         assert_eq!(buffer[0], 0);
+
+        cells[0].ch = '█';
+        cells[0].fg = (255, 255, 255);
+        blit_cells_to_argb(&cells, cols, rows, &mut buffer, pixel_w, pixel_h);
+        assert_eq!(buffer[0], 0xFFFF_FFFF);
     }
 
     #[test]
-    fn test_blit_scaled_dimensions() {
-        let cols = 4;
-        let rows = 4;
-        let pixel_w = 80;
-        let pixel_h = 120;
-        let mut buffer = vec![0u32; pixel_w * pixel_h];
-        let mut cells = vec![TerminalCell::default(); cols * rows];
+    fn test_blit_scaled_extreme_and_margins() {
+        let mut buf = vec![0u32; 80 * 120];
+        let mut cells = vec![TerminalCell::default(); 16];
         cells[0].ch = '█';
         cells[0].fg = (200, 100, 50);
+        blit_cells_to_argb(&cells, 4, 4, &mut buf, 80, 120);
+        assert_eq!(buf[0], 0xFFC8_6432);
+        assert_eq!(buf[80 * 15 + 10], 0xFFC8_6432);
 
-        blit_cells_to_argb(&cells, cols, rows, &mut buffer, pixel_w, pixel_h);
-        assert_eq!(buffer[0], 0xFFC8_6432);
-        assert_eq!(buffer[pixel_w * 15 + 10], 0xFFC8_6432);
-    }
-
-    #[test]
-    fn test_blit_extreme_resolution_fallback() {
-        let cols = 1;
-        let rows = 1;
-        let pixel_w = 600;
-        let pixel_h = 600;
-        let mut buffer = vec![0u32; pixel_w * pixel_h];
-        let mut cells = vec![TerminalCell::default(); 1];
-        cells[0].ch = '█';
+        let mut ext = vec![0u32; 600 * 600];
         cells[0].fg = (255, 0, 0);
+        blit_cells_to_argb(&cells[..1], 1, 1, &mut ext, 600, 600);
+        assert_eq!(ext[0], 0xFFFF_0000);
 
-        blit_cells_to_argb(&cells, cols, rows, &mut buffer, pixel_w, pixel_h);
-        assert_eq!(buffer[0], 0xFFFF_0000);
-    }
-
-    #[test]
-    fn test_blit_margin_filling() {
-        let cols = 10;
-        let rows = 5;
-        let pixel_w = 84;
-        let pixel_h = 86;
-        let mut buffer = vec![0u32; pixel_w * pixel_h];
-        let cells = vec![TerminalCell::default(); cols * rows];
-
-        blit_cells_to_argb(&cells, cols, rows, &mut buffer, pixel_w, pixel_h);
-        assert_eq!(buffer[85 * pixel_w + 5], 0xFF00_0000);
-        assert_eq!(buffer[10 * pixel_w + 82], 0xFF00_0000);
+        let mut marg = vec![0u32; 84 * 86];
+        let grid = vec![TerminalCell::default(); 50];
+        blit_cells_to_argb(&grid, 10, 5, &mut marg, 84, 86);
+        assert_eq!(marg[85 * 84 + 5], 0xFF00_0000);
+        assert_eq!(marg[10 * 84 + 82], 0xFF00_0000);
     }
 }

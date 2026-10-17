@@ -131,20 +131,20 @@ fn superfedora_rotates_scenes_past_dwell_without_pinning() {
 }
 
 #[test]
-fn superfedora_rotates_through_all_50_distinct_scenes_and_randomizes_start() {
+fn superfedora_rotates_through_all_52_distinct_scenes_and_randomizes_start() {
     let mut saver = Ascii::new_superfedora();
     assert!(EffectKind::ALL.contains(&saver.effect));
     let mut seen = std::collections::HashSet::new();
     seen.insert(saver.effect);
-    for _ in 1..50 {
+    for _ in 1..52 {
         saver.cycle_effect();
         assert!(
             seen.insert(saver.effect),
-            "effect {:?} was repeated before all 50 played",
+            "effect {:?} was repeated before all 52 played",
             saver.effect
         );
     }
-    assert_eq!(seen.len(), 50);
+    assert_eq!(seen.len(), 52);
     let last_effect = saver.effect;
     saver.cycle_effect();
     assert_ne!(
@@ -162,13 +162,13 @@ fn superfedora_rotates_through_all_50_distinct_scenes_and_randomizes_start() {
 }
 
 #[test]
-fn all_50_scenes_render_strictly_pixel_art_blocks_with_superfedora_banner() {
+fn all_52_scenes_render_strictly_pixel_art_blocks_with_superfedora_banner() {
     let (cols, rows) = (120, 36);
     let mut saver = Ascii::new_superfedora();
     saver.init(cols, rows);
     let mut grid = vec![TerminalCell::default(); cols * rows];
 
-    assert_eq!(EffectKind::ALL.len(), 50);
+    assert_eq!(EffectKind::ALL.len(), 52);
     for &kind in &EffectKind::ALL {
         saver.pin_effect(kind);
         assert_eq!(saver.rotation.active_text(), "SUPERFEDORA");

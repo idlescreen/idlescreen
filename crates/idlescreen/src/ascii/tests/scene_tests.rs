@@ -19,28 +19,31 @@ const ALL_37_TTFX_NAMES: &[&str] = &[
 ];
 
 #[rustfmt::skip]
-const ALL_50_NAMES: &[&str] = &[
+const ALL_52_NAMES: &[&str] = &[
     "aurora", "beams", "binarypath", "blackhole", "bouncyballs", "breakout",
     "bubbles", "burn", "chaos", "colorshift", "cosmos", "crumble",
     "decrypt", "errorcorrect", "expand", "fireworks", "highlight", "laseretch",
-    "life", "matrix", "metaballs", "middleout", "mystify", "orbittingvolley",
-    "overflow", "pipes", "plasma", "pour", "print", "radar",
-    "rain", "randomsequence", "rings", "ripple", "scattered", "slice",
-    "slide", "smoke", "spotlights", "spray", "swarm", "sweep",
-    "synthgrid", "tetris", "thunderstorm", "tunnel", "unstable", "vhstape",
-    "waves", "wipe",
+    "life", "matrix", "metaballs", "middleout", "mmx", "mystify",
+    "orbittingvolley", "overflow", "pipes", "plasma", "pour", "print",
+    "radar", "rain", "randomsequence", "rings", "ripple", "scattered",
+    "slice", "slide", "smoke", "spotlights", "spray", "swarm",
+    "sweep", "synthgrid", "tetris", "thunderstorm", "tunnel", "unstable",
+    "vhstape", "waves", "wipe", "zero",
 ];
 
 #[test]
-fn all_50_effects_can_be_parsed() {
-    assert_eq!(ALL_50_NAMES.len(), 50);
-    assert_eq!(EffectKind::ALL.len(), 50);
+fn all_52_effects_can_be_parsed() {
+    assert_eq!(ALL_52_NAMES.len(), 52);
+    assert_eq!(EffectKind::ALL.len(), 52);
     assert_eq!(EffectKind::NEW_SCENES.len(), 13);
-    for name in ALL_50_NAMES {
+    for name in ALL_52_NAMES {
         let kind = EffectKind::parse(name);
         assert!(kind.is_some(), "EffectKind::parse failed for {name}");
         assert_eq!(kind.unwrap().name(), *name);
     }
+    assert_eq!(EffectKind::parse("megaman"), Some(EffectKind::Mmx));
+    assert_eq!(EffectKind::parse("megamanx"), Some(EffectKind::Mmx));
+    assert_eq!(EffectKind::parse("zsaber"), Some(EffectKind::Zero));
     for name in ALL_37_TTFX_NAMES {
         let cli = ttfx::cli::Cli::try_parse_from(["ttfx", name]).unwrap();
         assert!(cli.effect.is_some(), "failed to parse ttfx effect: {name}");
@@ -48,13 +51,13 @@ fn all_50_effects_can_be_parsed() {
 }
 
 #[test]
-fn playlist_rotates_all_50_effects_without_immediate_repeats() {
+fn playlist_rotates_all_52_effects_without_immediate_repeats() {
     let mut rng = LcgRng::new(42);
     let mut playlist = super::super::effects::EffectPlaylist::new();
     let mut last = None;
     for _ in 0..30 {
-        let mut cycle = Vec::with_capacity(50);
-        for _ in 0..50 {
+        let mut cycle = Vec::with_capacity(52);
+        for _ in 0..52 {
             let eff = playlist.next_effect(&mut rng);
             if let Some(prev) = last {
                 assert_ne!(eff, prev, "no immediate repeat across cycles");
@@ -64,12 +67,12 @@ fn playlist_rotates_all_50_effects_without_immediate_repeats() {
         }
         cycle.sort_by_key(EffectKind::name);
         cycle.dedup();
-        assert_eq!(cycle.len(), 50, "all 50 effects must play in each cycle");
+        assert_eq!(cycle.len(), 52, "all 52 effects must play in each cycle");
     }
 }
 
 #[test]
-fn all_50_decomposed_scenes_can_build_and_render_frames() {
+fn all_52_decomposed_scenes_can_build_and_render_frames() {
     let art_data = "IDLESCREEN\nSCREENSAVER";
     for kind in EffectKind::ALL {
         let mut effect = crate::ascii::scenes::create_scene(kind);
@@ -180,7 +183,7 @@ fn zero_alloc_steady_state() {
 }
 
 #[test]
-fn tour_mode_rotates_through_all_50_scenes_on_dwell() {
+fn tour_mode_rotates_through_all_52_scenes_on_dwell() {
     let (cols, rows) = (80, 24);
     let mut saver = super::super::Ascii::new().with_dwell(0.5);
     saver.enable_tour_mode();
@@ -196,7 +199,57 @@ fn tour_mode_rotates_through_all_50_scenes_on_dwell() {
     assert_eq!(saver.effect, EffectKind::ALL[0]);
 
     saver.step_effect(&EffectKind::ALL, -1);
-    assert_eq!(saver.effect, EffectKind::ALL[49]);
+    assert_eq!(saver.effect, EffectKind::ALL[51]);
     saver.step_effect(&EffectKind::ALL, 1);
     assert_eq!(saver.effect, EffectKind::ALL[0]);
+}
+
+#[test]
+fn zero_snes_combo_destroys_superfedora_on_floor_and_teleports_out() {
+    let a = crate::ascii::scenes::weather_nature::arcade_retro::zero::zero_data::atlas();
+    assert!(a.saber_swing1.width >= 60 && a.saber_swing2.width >= 75);
+    assert!(a.idle1.width != a.idle2.width && a.wave1.pixels != a.wave2.pixels);
+    let (cols, rows) = (120, 36);
+    let mut saver = super::super::Ascii::new_superfedora().with_dwell(0.5);
+    saver.init(cols, rows);
+    saver.pin_effect(EffectKind::Zero);
+    let mut grid = vec![crate::cell::TerminalCell::default(); cols * rows];
+    let (mut saw_crimson, mut saw_hair, mut saw_saber, mut saw_pillar) =
+        (false, false, false, false);
+    let mut prev_blocks = usize::MAX;
+    for step_idx in 1..=120 {
+        saver.update(Duration::from_millis(16), cols, rows);
+        let cur_blocks = saver.frame_grid.iter().filter(|c| c.ch == '█').count();
+        assert!(cur_blocks <= prev_blocks, "regressed at {step_idx}");
+        prev_blocks = cur_blocks;
+        if step_idx == 20 {
+            let max_row = |pred: fn(char) -> bool| {
+                saver
+                    .frame_grid
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, c)| pred(c.ch))
+                    .map(|(i, _)| i / cols)
+                    .max()
+                    .unwrap()
+            };
+            assert_eq!(max_row(|c| matches!(c, '▀' | '▄')), max_row(|c| c == '█'));
+        }
+        saver.draw(&mut grid, cols, rows);
+        for c in &grid {
+            saw_crimson |= c.fg == (216, 32, 40) || c.bg == (216, 32, 40);
+            saw_hair |= c.fg == (248, 200, 32) || c.bg == (248, 200, 32);
+            saw_saber |= c.fg == (64, 255, 120) || c.bg == (64, 255, 120);
+            saw_pillar |= c.fg == (232, 104, 255) || c.bg == (232, 104, 255);
+        }
+    }
+    assert!(saw_crimson && saw_hair && saw_saber && saw_pillar && saver.is_settled());
+    for &(c, r) in &[(80, 24), (44, 16), (40, 12)] {
+        saver.init(c, r);
+        saver.pin_effect(EffectKind::Zero);
+        for _ in 0..120 {
+            saver.update(Duration::from_millis(16), c, r);
+        }
+        assert!(saver.is_settled());
+    }
 }

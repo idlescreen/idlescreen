@@ -11,6 +11,7 @@ use std::time::Duration;
 
 impl Ascii {
     pub fn start_engine_session(&mut self) {
+        crate::wayland::blit::clear_subcell_overlay();
         let seed = self.rng.next_u64();
         self.backdrop_seed = draw::compute_backdrop_seed(self.effect as u64, seed);
         self.current_frame.clear();
@@ -88,12 +89,19 @@ impl Ascii {
             }
         }
 
+        let is_boss_scene = matches!(
+            self.effect,
+            super::effects::EffectKind::Mmx | super::effects::EffectKind::Zero
+        );
         if let Some(ref mut session) = self.engine {
+            if self.transition_active && is_boss_scene {
+                return;
+            }
             self.anim_left -= dt_secs;
-            let frame = (self.anim_left > 0.0)
+            if let Some(frame) = (self.anim_left > 0.0)
                 .then(|| session.next_frame())
-                .flatten();
-            if let Some(frame) = frame {
+                .flatten()
+            {
                 self.current_frame.clear();
                 self.current_frame.push_str(&frame);
                 let (fg, bg) = (self.fg, self.bg);
@@ -109,12 +117,11 @@ impl Ascii {
                 let stacked = self.is_stacked_superfedora();
                 self.settled_bounds =
                     draw::apply_settled_bevel_for(&mut self.frame_grid, cols, rows, stacked);
-                self.engine = None;
-                self.dwell_left = self.dwell_time();
+                (self.engine, self.dwell_left) = (None, self.dwell_time());
             }
         } else if !self.transition_active {
             self.dwell_left -= dt_secs;
-            if self.dwell_left <= 0.0 && !self.pinned {
+            if self.dwell_left <= 0.0 && (!self.pinned || is_boss_scene) {
                 self.begin_transition();
             }
         }
@@ -125,12 +132,12 @@ impl Ascii {
             self.cycle_effect();
             return;
         }
-        let (cols, rows, stacked) = (
+        let (cols, rows, sf) = (
             self.last_cols,
             self.last_rows,
             self.is_stacked_superfedora(),
         );
-        let _ = draw::apply_settled_bevel_for(&mut self.frame_grid, cols, rows, stacked);
+        let _ = draw::apply_settled_bevel_for(&mut self.frame_grid, cols, rows, sf);
         self.transition_from_grid.clone_from(&self.frame_grid);
         let dur = self.dissolve_duration.min(self.dwell_time() * 0.4);
         (
@@ -142,9 +149,10 @@ impl Ascii {
         if self.rotation.targets.len() > 1 {
             self.engine = None;
             let next_text = self.rotation.peek_next_text();
-            let next_stacked = next_text.trim().eq_ignore_ascii_case("SUPERFEDORA")
-                || next_text.trim().eq_ignore_ascii_case("SUPER FEDORA");
-            self.render_static_banner(&next_text, next_stacked);
+            let t = next_text.trim();
+            let next_sf =
+                t.eq_ignore_ascii_case("SUPERFEDORA") || t.eq_ignore_ascii_case("SUPER FEDORA");
+            self.render_static_banner(&next_text, next_sf);
         } else {
             self.cycle_effect();
         }
@@ -201,9 +209,7 @@ fn copy_frame_grid(
     if src_cols == cols && src_rows == rows {
         let n = src.len().min(dst.len());
         dst[..n].copy_from_slice(&src[..n]);
-        if dst.len() > n {
-            dst[n..].fill(TerminalCell::default());
-        }
+        dst[n..].fill(TerminalCell::default());
     } else if src_cols > 0 && cols > 0 {
         dst.fill(TerminalCell::default());
         let (copy_c, copy_r) = (cols.min(src_cols), rows.min(src_rows));
@@ -239,13 +245,8 @@ fn stamp_portrait_lines(
                     && ch != ' '
                     && let Some(cell) = grid.get_mut(y * cols + x)
                 {
-                    let ch = draw::pixel_art_glyph(ch, x, y);
-                    *cell = TerminalCell {
-                        ch,
-                        fg: (81, 162, 218),
-                        bg,
-                        bold: false,
-                    };
+                    cell.ch = draw::pixel_art_glyph(ch, x, y);
+                    (cell.fg, cell.bg, cell.bold) = ((81, 162, 218), bg, false);
                 }
             }
         }
