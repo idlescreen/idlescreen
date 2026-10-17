@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharacterFilter, CharacterSort, Color, ColorPair, Easing, Effect, EngineCtx, EngineError,
+    ExistingColorHandling, Gradient, SequenceEaser, Sweep, SweepConfig, VisualParams, emit_frame,
+    hex_color,
+};
 
 impl Effect for Sweep {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -23,7 +27,7 @@ impl Effect for Sweep {
             .map_err(EngineError::Other)?;
         let shades_of_gray: Vec<Color> = ["A0A0A0", "808080", "404040", "202020", "101010"]
             .iter()
-            .map(|hex| Color::from_hex(hex).must_val())
+            .map(|hex| hex_color(hex))
             .collect();
 
         let dynamic = ctx.terminal.config.existing_color_handling == ExistingColorHandling::Dynamic;
@@ -39,14 +43,15 @@ impl Effect for Sweep {
             for id in characters {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 if let Some(fg) = &ch.animation.input_fg_color {
-                    self.dynamic_second_sweep_palette.push(fg.clone());
+                    self.dynamic_second_sweep_palette.push(*fg);
                 }
                 if let Some(bg) = &ch.animation.input_bg_color {
-                    self.dynamic_second_sweep_palette.push(bg.clone());
+                    self.dynamic_second_sweep_palette.push(*bg);
                 }
             }
             if self.dynamic_second_sweep_palette.is_empty() {
-                self.dynamic_second_sweep_palette = final_fg_gradient.spectrum.clone();
+                self.dynamic_second_sweep_palette
+                    .clone_from(&final_fg_gradient.spectrum);
             }
         }
 
@@ -65,8 +70,8 @@ impl Effect for Sweep {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
                     ch.is_fill_character,
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.input_coord,
                     ch.input_symbol.clone(),
                     ch.uses_input_preexisting_colors,
@@ -77,7 +82,11 @@ impl Effect for Sweep {
                     ColorPair::new(input_fg, input_bg)
                 } else {
                     ColorPair::new(
-                        Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                        Some(
+                            *final_gradient_mapping
+                                .get(&input_coord)
+                                .ok_or_else(|| EngineError::Other(String::new()))?,
+                        ),
                         None,
                     )
                 };
@@ -89,12 +98,12 @@ impl Effect for Sweep {
                     .new_scene(false, None, None, "initial_sweep", uses_pre);
             }
             for symbol in &self.config.sweep_symbols {
-                let color = ctx.rng.choice(&shades_of_gray).clone();
+                let color = *ctx.rng.choice(&shades_of_gray);
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut("initial_sweep")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         symbol,
                         5,
@@ -110,15 +119,12 @@ impl Effect for Sweep {
                 ch.animation
                     .scenes
                     .get_mut("initial_sweep")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &input_symbol,
                         1,
                         VisualParams {
-                            colors: Some(ColorPair::new(
-                                Some(Color::from_hex("#808080").must_val()),
-                                None,
-                            )),
+                            colors: Some(ColorPair::new(Some(hex_color("#808080")), None)),
                             ..Default::default()
                         },
                     )
@@ -128,15 +134,15 @@ impl Effect for Sweep {
             }
             for symbol in &self.config.sweep_symbols {
                 let color = if dynamic {
-                    ctx.rng.choice(&self.dynamic_second_sweep_palette).clone()
+                    *ctx.rng.choice(&self.dynamic_second_sweep_palette)
                 } else {
-                    ctx.rng.choice(&final_fg_gradient.spectrum).clone()
+                    *ctx.rng.choice(&final_fg_gradient.spectrum)
                 };
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut("second_sweep")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         symbol,
                         5,
@@ -148,18 +154,21 @@ impl Effect for Sweep {
                     .map_err(EngineError::Other)?;
             }
             let final_colors = if !is_fill {
-                self.character_final_color_map.get(&id).must_val().clone()
+                *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?
             } else if dynamic {
                 ColorPair::default()
             } else {
-                ColorPair::new(Some(Color::from_hex("000000").must_val()), None)
+                ColorPair::new(Some(hex_color("000000")), None)
             };
             {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut("second_sweep")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &input_symbol,
                         1,
@@ -188,7 +197,7 @@ impl Effect for Sweep {
 
     fn next_frame(&mut self, ctx: &mut EngineCtx) -> Option<String> {
         if !ctx.active_characters.is_empty() || !self.complete {
-            let mut easer = self.easer.take().must_val();
+            let mut easer = self.easer.take()?;
             let step = easer.step();
             for group in step.added {
                 for &id in group {
@@ -221,11 +230,7 @@ impl Effect for Sweep {
         None
     }
 }
-impl Default for SweepConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Sweep {
     fn default() -> Self {
         Self::new(SweepConfig::default())

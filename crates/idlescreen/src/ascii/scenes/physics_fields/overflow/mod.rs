@@ -2,13 +2,7 @@
 
 use std::collections::{HashMap, VecDeque};
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps, parse_positive_int,
-    parse_positive_int_range,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::ExistingColorHandling;
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -21,44 +15,42 @@ use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 use ttfx::utils::pycompat::floor_div;
 
 mod overflow_step;
-#[allow(unused_imports)]
-use overflow_step::*;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct OverflowConfig {
-    /// Space separated, unquoted, list of colors for the overflow gradient.
-    #[arg(long = "overflow-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["f2ebc0", "8dbfb3", "f2ebc0"])]
     pub overflow_gradient_stops: Vec<Color>,
-
-    /// Number of cycles to overflow the text.
-    #[arg(long = "overflow-cycles-range", default_value = "2-4", value_parser = parse_positive_int_range)]
     pub overflow_cycles_range: (i64, i64),
-
-    /// Speed of the overflow effect.
-    #[arg(long = "overflow-speed", default_value_t = 3, value_parser = parse_positive_int)]
     pub overflow_speed: i64,
-
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["8A008A", "00D1FF", "FFFFFF"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for OverflowConfig {
+    fn default() -> Self {
+        Self {
+            overflow_gradient_stops: vec![
+                hex_color("f2ebc0"),
+                hex_color("8dbfb3"),
+                hex_color("f2ebc0"),
+            ],
+            overflow_cycles_range: (2, 4),
+            overflow_speed: 3,
+            final_gradient_stops: vec![
+                hex_color("8A008A"),
+                hex_color("00D1FF"),
+                hex_color("FFFFFF"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Vertical,
+        }
+    }
 }
 /// OverflowIterator.Row.
 pub(super) struct Row {
     pub(super) characters: Vec<CharId>,
     pub(super) final_: bool,
 }
+#[allow(clippy::struct_field_names)]
 pub struct Overflow {
     pub(super) config: OverflowConfig,
     pub(super) pending_rows: VecDeque<Row>,
@@ -100,7 +92,7 @@ impl Row {
                 &ch.input_symbol,
                 uses_pre,
                 None,
-                Some(ColorPair::new(fg_color.clone(), bg_color.clone())),
+                Some(ColorPair::new(fg_color, bg_color)),
             );
         }
     }

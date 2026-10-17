@@ -4,7 +4,6 @@
 use super::super::EngineSession;
 use super::super::effects::EffectKind;
 use crate::cell::LcgRng;
-use clap::Parser;
 use std::time::Duration;
 
 #[rustfmt::skip]
@@ -45,8 +44,8 @@ fn all_52_effects_can_be_parsed() {
     assert_eq!(EffectKind::parse("megamanx"), Some(EffectKind::Mmx));
     assert_eq!(EffectKind::parse("zsaber"), Some(EffectKind::Zero));
     for name in ALL_37_TTFX_NAMES {
-        let cli = ttfx::cli::Cli::try_parse_from(["ttfx", name]).unwrap();
-        assert!(cli.effect.is_some(), "failed to parse ttfx effect: {name}");
+        let kind = EffectKind::parse(name).expect("failed to parse ttfx effect");
+        let _scene = crate::ascii::scenes::create_scene(kind);
     }
 }
 

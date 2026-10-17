@@ -68,10 +68,8 @@ impl Life {
                 let cur = self.board[y * w + x];
                 let next = if neighbors == 3 || (cur >= 2 && neighbors == 2) {
                     (cur + 1).min(4)
-                } else if cur >= 2 {
-                    1
                 } else {
-                    0
+                    u8::from(cur >= 2)
                 };
                 self.scratch[y * w + x] = next;
             }

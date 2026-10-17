@@ -2,12 +2,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps, parse_positive_int,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -18,34 +13,29 @@ use ttfx::engine::terminal::{CharacterFilter, CharacterSort};
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 
 mod decrypt_step;
-#[allow(unused_imports)]
-use decrypt_step::*;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct DecryptConfig {
-    /// Number of characters typed per keystroke.
-    #[arg(long = "typing-speed", default_value_t = 12, value_parser = parse_positive_int)]
     pub typing_speed: i64,
-
-    /// Space separated, unquoted, list of colors for the ciphertext. Color will be randomly selected for each character.
-    #[arg(long = "ciphertext-colors", num_args = 1.., value_parser = parse_color,
-          default_values = ["008000", "00cb00", "00ff00"])]
     pub ciphertext_colors: Vec<Color>,
-
-    /// Space separated, unquoted, list of colors for the character gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["eda000"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for DecryptConfig {
+    fn default() -> Self {
+        Self {
+            typing_speed: 12,
+            ciphertext_colors: vec![
+                hex_color("008000"),
+                hex_color("00cb00"),
+                hex_color("00ff00"),
+            ],
+            final_gradient_stops: vec![hex_color("eda000")],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Vertical,
+        }
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Phase {
@@ -78,21 +68,12 @@ impl Decrypt {
 
     /// DecryptIterator.make_encrypted_symbols (_DecryptChars ranges).
     pub(super) fn make_encrypted_symbols(&mut self) {
-        for n in 33u32..127 {
-            self.encrypted_symbols
-                .push(char::from_u32(n).must_val().to_string());
-        }
-        for n in 9608u32..9632 {
-            self.encrypted_symbols
-                .push(char::from_u32(n).must_val().to_string());
-        }
-        for n in 9472u32..9599 {
-            self.encrypted_symbols
-                .push(char::from_u32(n).must_val().to_string());
-        }
-        for n in 174u32..452 {
-            self.encrypted_symbols
-                .push(char::from_u32(n).must_val().to_string());
+        for range in [33u32..127, 9608..9632, 9472..9599, 174..452] {
+            for n in range {
+                if let Some(ch) = char::from_u32(n) {
+                    self.encrypted_symbols.push(ch.to_string());
+                }
+            }
         }
     }
 
@@ -107,8 +88,8 @@ impl Decrypt {
             let ch = &ctx.terminal.arena[id.0 as usize];
             (
                 ch.input_symbol.clone(),
-                ch.animation.input_fg_color.clone(),
-                ch.animation.input_bg_color.clone(),
+                ch.animation.input_fg_color,
+                ch.animation.input_bg_color,
                 ch.uses_input_preexisting_colors,
             )
         };
@@ -117,19 +98,19 @@ impl Decrypt {
             ch.animation
                 .new_scene(false, None, None, "fast_decrypt", uses_pre);
         }
-        let color = ctx.rng.choice(&self.config.ciphertext_colors).clone();
+        let color = *ctx.rng.choice(&self.config.ciphertext_colors);
         for _ in 0..80 {
             let symbol = ctx.rng.choice(&self.encrypted_symbols).clone();
             let ch = &mut ctx.terminal.arena[id.0 as usize];
             ch.animation
                 .scenes
                 .get_mut("fast_decrypt")
-                .must_val()
+                .ok_or_else(|| EngineError::Other(String::new()))?
                 .add_frame(
                     &symbol,
                     2,
                     VisualParams {
-                        colors: Some(ColorPair::new(Some(color.clone()), None)),
+                        colors: Some(ColorPair::new(Some(color), None)),
                         ..Default::default()
                     },
                 )
@@ -155,12 +136,12 @@ impl Decrypt {
             ch.animation
                 .scenes
                 .get_mut("slow_decrypt")
-                .must_val()
+                .ok_or_else(|| EngineError::Other(String::new()))?
                 .add_frame(
                     &symbol,
                     duration,
                     VisualParams {
-                        colors: Some(ColorPair::new(Some(color.clone()), None)),
+                        colors: Some(ColorPair::new(Some(color), None)),
                         ..Default::default()
                     },
                 )
@@ -171,28 +152,30 @@ impl Decrypt {
             ch.animation
                 .new_scene(false, None, None, "discovered", uses_pre);
         }
-        let white = Color::from_hex("ffffff").must_val();
+        let white = hex_color("ffffff");
         if dynamic {
             let fg_gradient = match &input_fg {
                 Some(fg) => Some(
-                    Gradient::with_steps(&[white.clone(), fg.clone()], 10, false)
-                        .map_err(EngineError::Other)?,
+                    Gradient::with_steps(&[white, *fg], 10, false).map_err(EngineError::Other)?,
                 ),
                 None => None,
             };
             let bg_gradient = match &input_bg {
                 Some(bg) => Some(
-                    Gradient::with_steps(&[white.clone(), bg.clone()], 10, false)
-                        .map_err(EngineError::Other)?,
+                    Gradient::with_steps(&[white, *bg], 10, false).map_err(EngineError::Other)?,
                 ),
                 None => None,
             };
             let ch = &mut ctx.terminal.arena[id.0 as usize];
-            let scene = ch.animation.scenes.get_mut("discovered").must_val();
+            let scene = ch
+                .animation
+                .scenes
+                .get_mut("discovered")
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             if fg_gradient.is_some() || bg_gradient.is_some() {
                 scene
                     .apply_gradient_to_symbols(
-                        &[input_symbol.clone()],
+                        std::slice::from_ref(&input_symbol),
                         5,
                         fg_gradient.as_ref(),
                         bg_gradient.as_ref(),
@@ -214,19 +197,18 @@ impl Decrypt {
             let final_fg = self
                 .character_final_color_map
                 .get(&id)
-                .must_val()
+                .ok_or_else(|| EngineError::Other(String::new()))?
                 .fg_color
-                .clone()
-                .must_val();
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             let discovered_gradient =
                 Gradient::with_steps(&[white, final_fg], 10, false).map_err(EngineError::Other)?;
             let ch = &mut ctx.terminal.arena[id.0 as usize];
             ch.animation
                 .scenes
                 .get_mut("discovered")
-                .must_val()
+                .ok_or_else(|| EngineError::Other(String::new()))?
                 .apply_gradient_to_symbols(
-                    &[input_symbol.clone()],
+                    std::slice::from_ref(&input_symbol),
                     5,
                     Some(&discovered_gradient),
                     None,

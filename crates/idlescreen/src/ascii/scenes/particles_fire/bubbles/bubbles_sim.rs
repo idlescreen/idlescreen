@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    Bubbles, BubblesConfig, CallerKey, CharId, CharacterFilter, CharacterGroup, CharacterSort,
+    Color, ColorPair, Coord, Easing, Effect, EngineCtx, EngineError, Event, EventAction,
+    ExistingColorHandling, Gradient, VisualParams, emit_frame,
+};
 
 impl Bubbles {
     pub(super) fn build_scene(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -33,14 +37,16 @@ impl Bubbles {
                 (
                     ch.input_coord,
                     ch.input_symbol.clone(),
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.uses_input_preexisting_colors,
                 )
             };
             self.character_final_color_map.insert(
                 id,
-                final_gradient_mapping.get(&input_coord).must_val().clone(),
+                *final_gradient_mapping
+                    .get(&input_coord)
+                    .ok_or_else(|| EngineError::Other(String::new()))?,
             );
             ctx.terminal.arena[id.0 as usize].layer = 1;
             let (pop_1_scene, pop_2_scene, final_scene) = {
@@ -51,15 +57,12 @@ impl Bubbles {
                     ch.animation
                         .scenes
                         .get_mut(scn)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .add_frame(
                             sym,
                             9,
                             VisualParams {
-                                colors: Some(ColorPair::new(
-                                    Some(self.config.pop_color.clone()),
-                                    None,
-                                )),
+                                colors: Some(ColorPair::new(Some(self.config.pop_color), None)),
                                 ..Default::default()
                             },
                         )
@@ -72,23 +75,23 @@ impl Bubbles {
                 let step_grad = |opt: &Option<Color>| {
                     opt.as_ref()
                         .map(|c| {
-                            Gradient::with_steps(
-                                &[self.config.pop_color.clone(), c.clone()],
-                                8,
-                                false,
-                            )
-                            .map_err(EngineError::Other)
+                            Gradient::with_steps(&[self.config.pop_color, *c], 8, false)
+                                .map_err(EngineError::Other)
                         })
                         .transpose()
                 };
                 let fg_gradient = step_grad(&input_fg)?;
                 let bg_gradient = step_grad(&input_bg)?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
-                let scene = ch.animation.scenes.get_mut(&final_scene).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&final_scene)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 if fg_gradient.is_some() || bg_gradient.is_some() {
                     scene
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             6,
                             fg_gradient.as_ref(),
                             bg_gradient.as_ref(),
@@ -107,17 +110,20 @@ impl Bubbles {
                         .map_err(EngineError::Other)?;
                 }
             } else {
-                let final_color = self.character_final_color_map.get(&id).must_val().clone();
+                let final_color = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let char_final_gradient =
-                    Gradient::with_steps(&[self.config.pop_color.clone(), final_color], 8, false)
+                    Gradient::with_steps(&[self.config.pop_color, final_color], 8, false)
                         .map_err(EngineError::Other)?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut(&final_scene)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(
-                        &[input_symbol.clone()],
+                        std::slice::from_ref(&input_symbol),
                         6,
                         Some(&char_final_gradient),
                         None,
@@ -147,7 +153,7 @@ impl Bubbles {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
                 path_id
@@ -236,11 +242,7 @@ impl Effect for Bubbles {
         None
     }
 }
-impl Default for BubblesConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Bubbles {
     fn default() -> Self {
         Self::new(BubblesConfig::default())

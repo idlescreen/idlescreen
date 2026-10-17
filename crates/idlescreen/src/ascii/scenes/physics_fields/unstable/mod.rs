@@ -2,13 +2,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_easing, parse_gradient_direction, parse_gradient_steps,
-    parse_positive_float,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -20,51 +14,20 @@ use ttfx::utils::easing::Easing;
 use ttfx::utils::geometry::Coord;
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 
-mod unstable_step;
-#[allow(unused_imports)]
-use unstable_step::*;
-mod unstable_sim;
-#[allow(unused_imports)]
-use unstable_sim::*;
 mod unstable_build;
-#[allow(unused_imports)]
-use unstable_build::*;
+mod unstable_sim;
+mod unstable_step;
+use unstable_sim::uses_pre_of;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct UnstableConfig {
-    /// Color transitioned to as the characters become unstable.
-    #[arg(long = "unstable-color", default_value = "ff9200", value_parser = parse_color)]
     pub unstable_color: Color,
-
-    /// Easing function to use for character movement during the explosion.
-    #[arg(long = "explosion-ease", default_value = "out_expo", value_parser = parse_easing)]
     pub explosion_ease: Easing,
-
-    /// Speed of characters during explosion.
-    #[arg(long = "explosion-speed", default_value_t = 1.75, value_parser = parse_positive_float)]
     pub explosion_speed: f64,
-
-    /// Easing function to use for character reassembly.
-    #[arg(long = "reassembly-ease", default_value = "out_expo", value_parser = parse_easing)]
     pub reassembly_ease: Easing,
-
-    /// Speed of characters during reassembly.
-    #[arg(long = "reassembly-speed", default_value_t = 1.6, value_parser = parse_positive_float)]
     pub reassembly_speed: f64,
-
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["8A008A", "00D1FF", "FFFFFF"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -101,7 +64,7 @@ impl Unstable {
     }
 }
 pub(super) fn neutral_gray() -> Color {
-    Color::from_hex(DYNAMIC_NEUTRAL_GRAY).must_val()
+    hex_color(DYNAMIC_NEUTRAL_GRAY)
 }
 impl EffectHooks for Unstable {
     fn dispatch_callback(

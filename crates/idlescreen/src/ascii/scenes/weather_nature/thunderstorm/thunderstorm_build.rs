@@ -1,40 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CB_FADE_COMPLETE, CallerKey, CharacterFilter, CharacterSort, ColorPair, Effect, EffectCallback,
+    EngineCtx, EngineError, Event, EventAction, ExistingColorHandling, Gradient, Thunderstorm,
+    VisualParams, add_color_pair_gradient_frames, adjust_color_pair_brightness, hex_color,
+    initialize_raindrop, initialize_spark,
+};
 
-impl EffectHooks for Thunderstorm {
-    fn dispatch_callback(
-        &mut self,
-        ctx: &mut EngineCtx,
-        character: CharId,
-        callback: &EffectCallback,
-    ) {
-        match callback.id {
-            CB_FADE_COMPLETE => {
-                self.phase = Phase::Storm;
-                self.storm_start_time = ctx.clock.now_monotonic();
-            }
-            CB_HIDE_CHARACTER => ctx.terminal.set_character_visibility(character, false),
-            CB_MAKE_CHAR_GLOW => {
-                let coord = ctx.terminal.arena[character.0 as usize]
-                    .motion
-                    .current_coord;
-                if let Some(input_char) = ctx.terminal.get_character_by_input_coord(coord) {
-                    if ctx.terminal.arena[input_char.0 as usize].is_visible {
-                        ctx.activate_scene(self, input_char, "glow");
-                        self.pending_glow_chars.push(input_char);
-                    }
-                }
-            }
-            CB_RETURN_STRIKE_TO_POOL => self.available_strike_chars.push(character),
-            CB_SET_STRIKE_IN_PROGRESS_FALSE => self.strike_in_progress = false,
-            CB_RECLAIM_RAIN => self.rain_pool.reclaim(ctx, character, true, true),
-            CB_RECLAIM_SPARK => self.spark_pool.reclaim(ctx, character, true, true),
-            _ => {}
-        }
-    }
-}
 impl Effect for Thunderstorm {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
         // __init__ preamble (effect_thunderstorm.py:188-204): pools are
@@ -44,8 +17,8 @@ impl Effect for Thunderstorm {
             .map_err(EngineError::Other)?;
         self.spark_gradient = Gradient::with_steps(
             &[
-                self.config.spark_glow_color.clone(),
-                ctx.terminal.config.terminal_background_color.clone(),
+                self.config.spark_glow_color,
+                ctx.terminal.config.terminal_background_color,
             ],
             7,
             false,
@@ -83,7 +56,7 @@ impl Effect for Thunderstorm {
 
         // setup scenes on text characters
         let dynamic = ctx.terminal.config.existing_color_handling == ExistingColorHandling::Dynamic;
-        let dynamic_neutral_gray = Color::from_hex("808080").must_val();
+        let dynamic_neutral_gray = hex_color("808080");
         let all_chars = {
             let filter = CharacterFilter::default();
             ctx.terminal
@@ -96,27 +69,25 @@ impl Effect for Thunderstorm {
                     ch.input_symbol.clone(),
                     ch.input_coord,
                     ch.uses_input_preexisting_colors,
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                 )
             };
             let (visible_colors, restore_colors) = if dynamic {
-                let visible = ColorPair::new(
-                    Some(
-                        input_fg
-                            .clone()
-                            .unwrap_or_else(|| dynamic_neutral_gray.clone()),
-                    ),
-                    input_bg.clone(),
-                );
-                let restore = ColorPair::new(input_fg.clone(), input_bg.clone());
+                let visible =
+                    ColorPair::new(Some(input_fg.unwrap_or(dynamic_neutral_gray)), input_bg);
+                let restore = ColorPair::new(input_fg, input_bg);
                 (visible, restore)
             } else {
                 let visible = ColorPair::new(
-                    Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                    Some(
+                        *final_gradient_mapping
+                            .get(&input_coord)
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
+                    ),
                     None,
                 );
-                (visible.clone(), visible)
+                (visible, visible)
             };
             let storm_colors = adjust_color_pair_brightness(&visible_colors, 0.5);
             // upstream stores visible/storm/restore in three maps that are
@@ -125,8 +96,10 @@ impl Effect for Thunderstorm {
             // post-strike glow and cool scene
             let glow_fg_gradient = Gradient::with_steps(
                 &[
-                    self.config.glowing_text_color.clone(),
-                    storm_colors.fg_color.clone().must_val(),
+                    self.config.glowing_text_color,
+                    storm_colors
+                        .fg_color
+                        .ok_or_else(|| EngineError::Other(String::new()))?,
                 ],
                 7,
                 false,
@@ -135,17 +108,18 @@ impl Effect for Thunderstorm {
             {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 let glow_scn = ch.animation.new_scene(false, None, None, "glow", uses_pre);
-                let scene = ch.animation.scenes.get_mut(&glow_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&glow_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 for color in &glow_fg_gradient.spectrum {
                     scene
                         .add_frame(
                             &input_symbol,
                             self.config.text_glow_time,
                             VisualParams {
-                                colors: Some(ColorPair::new(
-                                    Some(color.clone()),
-                                    storm_colors.bg_color.clone(),
-                                )),
+                                colors: Some(ColorPair::new(Some(*color), storm_colors.bg_color)),
                                 ..Default::default()
                             },
                         )
@@ -157,7 +131,7 @@ impl Effect for Thunderstorm {
                             &input_symbol,
                             self.config.text_glow_time,
                             VisualParams {
-                                colors: Some(storm_colors.clone()),
+                                colors: Some(storm_colors),
                                 ..Default::default()
                             },
                         )
@@ -170,7 +144,11 @@ impl Effect for Thunderstorm {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 let fade_scn = ch.animation.new_scene(false, None, None, "fade", uses_pre);
                 if dynamic {
-                    let scene = ch.animation.scenes.get_mut(&fade_scn).must_val();
+                    let scene = ch
+                        .animation
+                        .scenes
+                        .get_mut(&fade_scn)
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     add_color_pair_gradient_frames(
                         scene,
                         &input_symbol,
@@ -185,7 +163,7 @@ impl Effect for Thunderstorm {
                             &input_symbol,
                             12,
                             VisualParams {
-                                colors: Some(storm_colors.clone()),
+                                colors: Some(storm_colors),
                                 ..Default::default()
                             },
                         )
@@ -193,21 +171,29 @@ impl Effect for Thunderstorm {
                 } else {
                     let fade_gradient = Gradient::with_steps(
                         &[
-                            visible_colors.fg_color.clone().must_val(),
-                            storm_colors.fg_color.clone().must_val(),
+                            visible_colors
+                                .fg_color
+                                .ok_or_else(|| EngineError::Other(String::new()))?,
+                            storm_colors
+                                .fg_color
+                                .ok_or_else(|| EngineError::Other(String::new()))?,
                         ],
                         7,
                         false,
                     )
                     .map_err(EngineError::Other)?;
-                    let scene = ch.animation.scenes.get_mut(&fade_scn).must_val();
+                    let scene = ch
+                        .animation
+                        .scenes
+                        .get_mut(&fade_scn)
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     for color in &fade_gradient.spectrum {
                         scene
                             .add_frame(
                                 &input_symbol,
                                 12,
                                 VisualParams {
-                                    colors: Some(ColorPair::new(Some(color.clone()), None)),
+                                    colors: Some(ColorPair::new(Some(*color), None)),
                                     ..Default::default()
                                 },
                             )

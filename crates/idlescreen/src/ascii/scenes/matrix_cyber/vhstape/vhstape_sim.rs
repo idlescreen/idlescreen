@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{CharId, EffectCallback, EffectHooks, EngineCtx, VhsTape, round_half_even};
 
 impl VhsTape {
     /// Line.snow.
@@ -15,12 +15,13 @@ impl VhsTape {
     /// Line.set_hold_time.
     pub(super) fn line_set_hold_time(&mut self, ctx: &mut EngineCtx, idx: usize, hold_time: i64) {
         for &id in &self.lines[idx].characters {
-            ctx.terminal.arena[id.0 as usize]
+            if let Some(p) = ctx.terminal.arena[id.0 as usize]
                 .motion
                 .paths
                 .get_mut("glitch")
-                .must_val()
-                .hold_time = hold_time;
+            {
+                p.hold_time = hold_time;
+            }
         }
     }
 
@@ -31,16 +32,24 @@ impl VhsTape {
             {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 if final_ {
-                    ch.motion.paths.get_mut("glitch").must_val().hold_time = 0;
-                    ch.motion.paths.get_mut("restore").must_val().hold_time = 0;
+                    if let Some(p) = ch.motion.paths.get_mut("glitch") {
+                        p.hold_time = 0;
+                    }
+                    if let Some(p) = ch.motion.paths.get_mut("restore") {
+                        p.hold_time = 0;
+                    }
                 }
             }
             let glitch_speed = 40.0 / ctx.rng.randint(20, 40) as f64;
             let restore_speed = 40.0 / ctx.rng.randint(20, 40) as f64;
             {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
-                ch.motion.paths.get_mut("glitch").must_val().speed = glitch_speed;
-                ch.motion.paths.get_mut("restore").must_val().speed = restore_speed;
+                if let Some(p) = ch.motion.paths.get_mut("glitch") {
+                    p.speed = glitch_speed;
+                }
+                if let Some(p) = ch.motion.paths.get_mut("restore") {
+                    p.speed = restore_speed;
+                }
             }
             ctx.activate_path(self, id, "glitch");
         }
@@ -51,12 +60,13 @@ impl VhsTape {
         let characters = self.lines[idx].characters.clone();
         for id in characters {
             let restore_speed = 40.0 / ctx.rng.randint(20, 40) as f64;
-            ctx.terminal.arena[id.0 as usize]
+            if let Some(p) = ctx.terminal.arena[id.0 as usize]
                 .motion
                 .paths
                 .get_mut("restore")
-                .must_val()
-                .speed = restore_speed;
+            {
+                p.speed = restore_speed;
+            }
             ctx.activate_path(self, id, "restore");
         }
     }
@@ -111,6 +121,9 @@ impl VhsTape {
             .iter()
             .all(|&idx| self.line_movement_complete(ctx, idx));
         if all_complete {
+            let Some(mut wave_top) = self.active_glitch_wave_top else {
+                return;
+            };
             if !self.active_glitch_wave_lines.is_empty() {
                 // only move 30% of the time — the OUTER conditional's condition is
                 // evaluated first (second textual random() call in the source)
@@ -120,13 +133,13 @@ impl VhsTape {
                 } else {
                     0
                 };
-                let mut top = self.active_glitch_wave_top.must_val() + wave_top_delta;
-                // clamp wave top to canvas
-                top = std::cmp::max(2, std::cmp::min(top, ctx.terminal.canvas.text_top));
-                self.active_glitch_wave_top = Some(top);
+                wave_top = std::cmp::max(
+                    2,
+                    std::cmp::min(wave_top + wave_top_delta, ctx.terminal.canvas.text_top),
+                );
+                self.active_glitch_wave_top = Some(wave_top);
             }
             // get the lines for the wave
-            let wave_top = self.active_glitch_wave_top.must_val();
             let mut new_wave_lines: Vec<usize> = Vec::new();
             for line_index in (wave_top - 2)..=wave_top {
                 let adjusted_line_index = line_index - (ctx.terminal.canvas.text_bottom - 1);

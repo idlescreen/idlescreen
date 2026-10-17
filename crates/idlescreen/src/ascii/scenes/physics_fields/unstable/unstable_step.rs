@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharacterFilter, CharacterSort, ColorPair, Coord, Effect, EngineCtx, EngineError,
+    ExistingColorHandling, Gradient, Phase, Unstable, neutral_gray, uses_pre_of,
+};
 
 impl Effect for Unstable {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -30,29 +33,21 @@ impl Effect for Unstable {
         for &id in &characters {
             let ch = &ctx.terminal.arena[id.0 as usize];
             let (start_colors, final_colors) = if dynamic {
-                let start_fg_color = ch
-                    .animation
-                    .input_fg_color
-                    .clone()
-                    .unwrap_or_else(neutral_gray);
+                let start_fg_color = ch.animation.input_fg_color.unwrap_or_else(neutral_gray);
                 (
-                    ColorPair::new(Some(start_fg_color), ch.animation.input_bg_color.clone()),
-                    ColorPair::new(
-                        ch.animation.input_fg_color.clone(),
-                        ch.animation.input_bg_color.clone(),
-                    ),
+                    ColorPair::new(Some(start_fg_color), ch.animation.input_bg_color),
+                    ColorPair::new(ch.animation.input_fg_color, ch.animation.input_bg_color),
                 )
             } else {
                 let start = ColorPair::new(
                     Some(
-                        final_gradient_mapping
+                        *final_gradient_mapping
                             .get(&ch.input_coord)
-                            .must_val()
-                            .clone(),
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
                     ),
                     None,
                 );
-                (start.clone(), start)
+                (start, start)
             };
             self.character_start_color_map.insert(id, start_colors);
             self.character_final_color_map.insert(id, final_colors);
@@ -85,8 +80,11 @@ impl Effect for Unstable {
                     (col, row)
                 }
             };
-            let jumbled_coord = character_coords
-                .remove(ctx.rng.randint(0, character_coords.len() as i64 - 1) as usize);
+            let idx = ctx
+                .rng
+                .randint(0, (character_coords.len() as i64 - 1).max(0))
+                as usize;
+            let jumbled_coord = character_coords.remove(idx);
             self.jumbled_coords.insert(id, jumbled_coord);
             let (input_symbol, input_coord, uses_pre) = {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
@@ -105,7 +103,7 @@ impl Effect for Unstable {
                 ch.motion
                     .paths
                     .get_mut(&explosion_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(Coord::new(col, row), None, "")
                     .map_err(EngineError::Other)?;
                 let reassembly_path = ch
@@ -123,7 +121,7 @@ impl Effect for Unstable {
                 ch.motion
                     .paths
                     .get_mut(&reassembly_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
                 ch.animation
@@ -132,18 +130,18 @@ impl Effect for Unstable {
             };
             let _ = input_coord;
             if dynamic {
-                let start_pair = self.character_start_color_map.get(&id).must_val().clone();
-                let start_fg_color = start_pair.fg_color.clone().unwrap_or_else(neutral_gray);
-                let start_bg_color = start_pair.bg_color.clone();
-                let fg_gradient = Gradient::with_steps(
-                    &[start_fg_color, self.config.unstable_color.clone()],
-                    12,
-                    false,
-                )
-                .map_err(EngineError::Other)?;
+                let start_pair = *self
+                    .character_start_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
+                let start_fg_color = start_pair.fg_color.unwrap_or_else(neutral_gray);
+                let start_bg_color = start_pair.bg_color;
+                let fg_gradient =
+                    Gradient::with_steps(&[start_fg_color, self.config.unstable_color], 12, false)
+                        .map_err(EngineError::Other)?;
                 let bg_gradient = match start_bg_color {
                     Some(bg) => Some(
-                        Gradient::with_steps(&[bg, self.config.unstable_color.clone()], 12, false)
+                        Gradient::with_steps(&[bg, self.config.unstable_color], 12, false)
                             .map_err(EngineError::Other)?,
                     ),
                     None => None,
@@ -152,9 +150,9 @@ impl Effect for Unstable {
                 ch.animation
                     .scenes
                     .get_mut("rumble")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(
-                        &[input_symbol.clone()],
+                        std::slice::from_ref(&input_symbol),
                         10,
                         Some(&fg_gradient),
                         bg_gradient.as_ref(),
@@ -164,23 +162,19 @@ impl Effect for Unstable {
                 let final_fg_color = self
                     .character_final_color_map
                     .get(&id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .fg_color
-                    .clone()
                     .unwrap_or_else(neutral_gray);
-                let unstable_gradient = Gradient::with_steps(
-                    &[final_fg_color, self.config.unstable_color.clone()],
-                    12,
-                    false,
-                )
-                .map_err(EngineError::Other)?;
+                let unstable_gradient =
+                    Gradient::with_steps(&[final_fg_color, self.config.unstable_color], 12, false)
+                        .map_err(EngineError::Other)?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut("rumble")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(
-                        &[input_symbol.clone()],
+                        std::slice::from_ref(&input_symbol),
                         10,
                         Some(&unstable_gradient),
                         None,

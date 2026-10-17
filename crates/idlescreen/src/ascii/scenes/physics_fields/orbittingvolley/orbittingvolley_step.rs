@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CallerKey, CharId, CharacterFilter, CharacterGroup, CharacterSort, ColorPair, Coord, Effect,
+    EngineCtx, EngineError, Event, EventAction, ExistingColorHandling, Gradient, Launcher,
+    OrbittingVolley, OrbittingVolleyConfig, emit_frame,
+};
 
 impl OrbittingVolley {
     pub(super) fn build_scene(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -30,7 +34,12 @@ impl OrbittingVolley {
                 self.config.final_gradient_direction,
             )
             .map_err(EngineError::Other)?;
-        self.final_gradient_last_color = Some(final_gradient.spectrum.last().must_val().clone());
+        self.final_gradient_last_color = Some(
+            *final_gradient
+                .spectrum
+                .last()
+                .ok_or_else(|| EngineError::Other(String::new()))?,
+        );
 
         let dynamic = ctx.terminal.config.existing_color_handling == ExistingColorHandling::Dynamic;
         let characters = {
@@ -44,8 +53,8 @@ impl OrbittingVolley {
                 (
                     ch.input_coord,
                     ch.input_symbol.clone(),
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.uses_input_preexisting_colors,
                 )
             };
@@ -54,16 +63,14 @@ impl OrbittingVolley {
             } else {
                 ColorPair::new(
                     Some(
-                        final_gradient_coordinate_map
+                        *final_gradient_coordinate_map
                             .get(&input_coord)
-                            .must_val()
-                            .clone(),
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
                     ),
                     None,
                 )
             };
-            self.character_final_color_map
-                .insert(id, final_colors.clone());
+            self.character_final_color_map.insert(id, final_colors);
             {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 let input_path = ch
@@ -80,7 +87,7 @@ impl OrbittingVolley {
                 ch.motion
                     .paths
                     .get_mut(&input_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
             }
@@ -130,7 +137,7 @@ impl OrbittingVolley {
         }
         let main_character = self.launchers[0].character;
         {
-            let color = self.final_gradient_last_color.clone();
+            let color = self.final_gradient_last_color;
             let ch = &mut ctx.terminal.arena[main_character.0 as usize];
             let input_symbol = ch.input_symbol.clone();
             let uses_pre = ch.uses_input_preexisting_colors;
@@ -176,8 +183,7 @@ impl Effect for OrbittingVolley {
                 let first_waypoint_coord = ctx.terminal.arena[main_character.0 as usize]
                     .motion
                     .paths
-                    .get("perimeter")
-                    .must_val()
+                    .get("perimeter")?
                     .waypoints[0]
                     .coord;
                 ctx.terminal.arena[main_character.0 as usize]
@@ -190,11 +196,7 @@ impl Effect for OrbittingVolley {
                 let current_coord = ctx.terminal.arena[main_character.0 as usize]
                     .motion
                     .current_coord;
-                let color = self
-                    .launcher_gradient_coordinate_map
-                    .get(&current_coord)
-                    .must_val()
-                    .clone();
+                let color = *self.launcher_gradient_coordinate_map.get(&current_coord)?;
                 let symbol = self.config.top_launcher_symbol.clone();
                 let ch = &mut ctx.terminal.arena[main_character.0 as usize];
                 let input_symbol = ch.input_symbol.clone();
@@ -242,11 +244,7 @@ impl Effect for OrbittingVolley {
         None
     }
 }
-impl Default for OrbittingVolleyConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for OrbittingVolley {
     fn default() -> Self {
         Self::new(OrbittingVolleyConfig::default())

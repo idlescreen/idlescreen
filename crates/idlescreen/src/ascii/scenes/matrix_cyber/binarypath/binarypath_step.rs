@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    BinaryPath, BinaryRepresentation, CharacterFilter, CharacterGroup, CharacterSort, ColorPair,
+    Coord, Effect, EngineCtx, EngineError, ExistingColorHandling, Gradient, Orientation,
+    VisualParams,
+};
 
 impl Effect for BinaryPath {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -36,17 +40,13 @@ impl Effect for BinaryPath {
         for &id in &characters {
             let ch = &ctx.terminal.arena[id.0 as usize];
             let final_colors = if dynamic {
-                ColorPair::new(
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
-                )
+                ColorPair::new(ch.animation.input_fg_color, ch.animation.input_bg_color)
             } else {
                 ColorPair::new(
                     Some(
-                        final_gradient_mapping
+                        *final_gradient_mapping
                             .get(&ch.input_coord)
-                            .must_val()
-                            .clone(),
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
                     ),
                     None,
                 )
@@ -63,7 +63,11 @@ impl Effect for BinaryPath {
                 )
             };
             // format(ord(symbol), "08b")
-            let code_point = symbol.chars().next().must_val() as u32;
+            let code_point = symbol
+                .chars()
+                .next()
+                .ok_or_else(|| EngineError::Other(String::new()))?
+                as u32;
             let binary_string = format!("{code_point:08b}");
             let mut bin_rep = BinaryRepresentation {
                 character: id,
@@ -90,21 +94,23 @@ impl Effect for BinaryPath {
             let mut last_orientation = *ctx.rng.choice(&[Orientation::Col, Orientation::Row]);
             let mut next_coord = starting_coord; // will be rebound in the loop
             let input_coord = bin_rep.input_coord;
-            while *path_coords.last().must_val() != input_coord {
-                let last_coord = *path_coords.last().must_val();
+            while *path_coords
+                .last()
+                .ok_or_else(|| EngineError::Other(String::new()))?
+                != input_coord
+            {
+                let last_coord = *path_coords
+                    .last()
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let column_direction = if last_coord.column > input_coord.column {
                     -1
-                } else if last_coord.column == input_coord.column {
-                    0
                 } else {
-                    1
+                    i64::from(last_coord.column != input_coord.column)
                 };
                 let row_direction = if last_coord.row > input_coord.row {
                     -1
-                } else if last_coord.row == input_coord.row {
-                    0
                 } else {
-                    1
+                    i64::from(last_coord.row != input_coord.row)
                 };
                 let max_column_distance = (last_coord.column - input_coord.column).abs();
                 let max_row_distance = (last_coord.row - input_coord.row).abs();
@@ -145,7 +151,11 @@ impl Effect for BinaryPath {
                         .motion
                         .new_path(self.config.movement_speed, None, None, 0, false, "")
                         .map_err(EngineError::Other)?;
-                    let path = ch.motion.paths.get_mut(&path_id).must_val();
+                    let path = ch
+                        .motion
+                        .paths
+                        .get_mut(&path_id)
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     for &coord in &path_coords {
                         path.new_waypoint(coord, None, "")
                             .map_err(EngineError::Other)?;
@@ -154,7 +164,7 @@ impl Effect for BinaryPath {
                 };
                 ctx.activate_path(self, bin_effectchar, &digital_path);
                 ctx.terminal.arena[bin_effectchar.0 as usize].layer = 1;
-                let color = ctx.rng.choice(&self.config.binary_colors).clone();
+                let color = *ctx.rng.choice(&self.config.binary_colors);
                 let color_scn = {
                     let ch = &mut ctx.terminal.arena[bin_effectchar.0 as usize];
                     let symbol = ch.animation.current_character_visual.symbol.clone();
@@ -163,7 +173,7 @@ impl Effect for BinaryPath {
                     ch.animation
                         .scenes
                         .get_mut(&scene_id)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .add_frame(
                             &symbol,
                             1,
@@ -178,7 +188,7 @@ impl Effect for BinaryPath {
                 ctx.activate_scene(self, bin_effectchar, &color_scn);
             }
         }
-        self.pending_binary_representations = pending_reps.drain(..).collect();
+        self.pending_binary_representations = std::mem::take(&mut pending_reps);
         self.setup_binarypath_scenes(ctx, &characters)?;
         self.max_active_binary_groups = std::cmp::max(
             1,

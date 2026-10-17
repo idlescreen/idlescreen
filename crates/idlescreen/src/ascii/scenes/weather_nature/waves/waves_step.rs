@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CallerKey, CharacterFilter, CharacterSort, ColorPair, EngineCtx, EngineError, Event,
+    EventAction, ExistingColorHandling, Gradient, VisualParams, Waves,
+};
 
-impl Effect for Waves {
-    fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
+impl Waves {
+    pub(super) fn build_scene(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
         let final_gradient = Gradient::new(
             &self.config.final_gradient_stops,
             &self.config.final_gradient_steps,
@@ -39,8 +42,8 @@ impl Effect for Waves {
             let (input_fg, input_bg, input_coord, input_symbol, uses_pre) = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.input_coord,
                     ch.input_symbol.clone(),
                     ch.uses_input_preexisting_colors,
@@ -50,12 +53,15 @@ impl Effect for Waves {
                 ColorPair::new(input_fg, input_bg)
             } else {
                 ColorPair::new(
-                    Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                    Some(
+                        *final_gradient_mapping
+                            .get(&input_coord)
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
+                    ),
                     None,
                 )
             };
-            self.character_final_color_map
-                .insert(id, final_colors.clone());
+            self.character_final_color_map.insert(id, final_colors);
 
             let wave_scn = {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
@@ -66,7 +72,11 @@ impl Effect for Waves {
                     "",
                     uses_pre,
                 );
-                let scene = ch.animation.scenes.get_mut(&scene_id).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&scene_id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 for _ in 0..self.config.wave_count {
                     scene
                         .apply_gradient_to_symbols(
@@ -84,14 +94,14 @@ impl Effect for Waves {
                 ch.animation.new_scene(false, None, None, "", uses_pre)
             };
             if dynamic {
-                let final_fg_color = final_colors.fg_color.clone();
-                let final_bg_color = final_colors.bg_color.clone();
+                let final_fg_color = final_colors.fg_color;
+                let final_bg_color = final_colors.bg_color;
                 if final_fg_color.is_none() && final_bg_color.is_none() {
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
                     ch.animation
                         .scenes
                         .get_mut(&final_scn)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .add_frame(
                             &input_symbol,
                             10,
@@ -105,7 +115,13 @@ impl Effect for Waves {
                     let fg_gradient = match &final_fg_color {
                         Some(c) => Some(
                             Gradient::new(
-                                &[wave_gradient.spectrum.last().must_val().clone(), c.clone()],
+                                &[
+                                    *wave_gradient
+                                        .spectrum
+                                        .last()
+                                        .ok_or_else(|| EngineError::Other(String::new()))?,
+                                    *c,
+                                ],
                                 &self.config.final_gradient_steps,
                                 false,
                                 false,
@@ -117,7 +133,13 @@ impl Effect for Waves {
                     let bg_gradient = match &final_bg_color {
                         Some(c) => Some(
                             Gradient::new(
-                                &[wave_gradient.spectrum.last().must_val().clone(), c.clone()],
+                                &[
+                                    *wave_gradient
+                                        .spectrum
+                                        .last()
+                                        .ok_or_else(|| EngineError::Other(String::new()))?,
+                                    *c,
+                                ],
                                 &self.config.final_gradient_steps,
                                 false,
                                 false,
@@ -127,10 +149,14 @@ impl Effect for Waves {
                         None => None,
                     };
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
-                    let scene = ch.animation.scenes.get_mut(&final_scn).must_val();
+                    let scene = ch
+                        .animation
+                        .scenes
+                        .get_mut(&final_scn)
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     scene
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             10,
                             fg_gradient.as_ref(),
                             bg_gradient.as_ref(),
@@ -142,7 +168,7 @@ impl Effect for Waves {
                                 &input_symbol,
                                 10,
                                 VisualParams {
-                                    colors: Some(ColorPair::new(None, final_bg_color.clone())),
+                                    colors: Some(ColorPair::new(None, final_bg_color)),
                                     ..Default::default()
                                 },
                             )
@@ -150,10 +176,15 @@ impl Effect for Waves {
                     }
                 }
             } else {
-                let final_fg_color = final_colors.fg_color.clone().must_val();
+                let final_fg_color = final_colors
+                    .fg_color
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let final_scene_gradient = Gradient::new(
                     &[
-                        wave_gradient.spectrum.last().must_val().clone(),
+                        *wave_gradient
+                            .spectrum
+                            .last()
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
                         final_fg_color,
                     ],
                     &self.config.final_gradient_steps,
@@ -162,14 +193,18 @@ impl Effect for Waves {
                 )
                 .map_err(EngineError::Other)?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
-                let scene = ch.animation.scenes.get_mut(&final_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&final_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 for step in &final_scene_gradient.spectrum {
                     scene
                         .add_frame(
                             &input_symbol,
                             10,
                             VisualParams {
-                                colors: Some(ColorPair::new(Some(step.clone()), None)),
+                                colors: Some(ColorPair::new(Some(*step), None)),
                                 ..Default::default()
                             },
                         )
@@ -185,7 +220,10 @@ impl Effect for Waves {
             .map_err(EngineError::Other)?;
             ctx.activate_scene(self, id, &wave_scn);
             if dynamic {
-                let final_colors = self.character_final_color_map.get(&id).must_val().clone();
+                let final_colors = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation.set_appearance(
                     &input_symbol,
@@ -203,30 +241,5 @@ impl Effect for Waves {
             self.pending_columns.push(column);
         }
         Ok(())
-    }
-
-    fn next_frame(&mut self, ctx: &mut EngineCtx) -> Option<String> {
-        if !self.pending_columns.is_empty() || !ctx.active_characters.is_empty() {
-            if !self.pending_columns.is_empty() {
-                let next_column = self.pending_columns.remove(0);
-                for id in next_column {
-                    ctx.terminal.set_character_visibility(id, true);
-                    ctx.active_characters.insert(id);
-                }
-            }
-            ctx.update(self);
-            return Some(emit_frame(ctx));
-        }
-        None
-    }
-}
-impl Default for WavesConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
-impl Default for Waves {
-    fn default() -> Self {
-        Self::new(WavesConfig::default())
     }
 }

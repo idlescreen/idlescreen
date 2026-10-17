@@ -2,13 +2,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_easing, parse_gradient_direction, parse_gradient_steps,
-    parse_positive_float, parse_positive_int,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -20,41 +14,33 @@ use ttfx::utils::easing::Easing;
 use ttfx::utils::geometry::Coord;
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 
-mod print_effect_step;
-#[allow(unused_imports)]
-use print_effect_step::*;
 mod print_effect_sim;
-#[allow(unused_imports)]
-use print_effect_sim::*;
+mod print_effect_step;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct PrintConfig {
-    /// Speed of the print head when performing a carriage return.
-    #[arg(long = "print-head-return-speed", default_value_t = 4.0, value_parser = parse_positive_float)]
     pub print_head_return_speed: f64,
-
-    /// Speed of the print head when printing characters.
-    #[arg(long = "print-speed", default_value_t = 6, value_parser = parse_positive_int)]
     pub print_speed: i64,
-
-    /// Easing function to use for print head movement.
-    #[arg(long = "print-head-easing", default_value = "in_out_quad", value_parser = parse_easing)]
     pub print_head_easing: Easing,
-
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["02b8bd", "c1f0e3", "00ffa0"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "diagonal", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for PrintConfig {
+    fn default() -> Self {
+        Self {
+            print_head_return_speed: 4.0,
+            print_speed: 6,
+            print_head_easing: Easing::InOutQuad,
+            final_gradient_stops: vec![
+                hex_color("02b8bd"),
+                hex_color("c1f0e3"),
+                hex_color("00ffa0"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Diagonal,
+        }
+    }
 }
 /// PrintIterator.Row (plain struct over CharIds; scene/coord setup happens in
 /// Print::make_row so it can borrow the engine).

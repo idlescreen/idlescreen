@@ -43,8 +43,8 @@ impl Mmx {
         Self {
             cells: Vec::new(),
             pal_colors: Vec::new(),
-            flash_white: ColorPair::new(Some(hex_color("#FFFFFF")), Some(transparent_bg.clone())),
-            flash_gold: ColorPair::new(Some(hex_color("#FFF080")), Some(transparent_bg.clone())),
+            flash_white: ColorPair::new(Some(hex_color("#FFFFFF")), Some(transparent_bg)),
+            flash_gold: ColorPair::new(Some(hex_color("#FFF080")), Some(transparent_bg)),
             transparent_bg,
             px_buf: Vec::new(),
             cols: 80,
@@ -142,19 +142,19 @@ impl Effect for Mmx {
                     &cell.input_symbol,
                     cell.uses_pre,
                     Some(&cell.input_symbol),
-                    Some(cols.clone()),
+                    Some(*cols),
                 );
             } else if top_px != 0 || bot_px != 0 {
                 let (sym, fg_idx, bg_opt) = match (top_px, bot_px) {
-                    (t, 0) => ("▀", t, Some(self.transparent_bg.clone())),
-                    (0, b) => ("▄", b, Some(self.transparent_bg.clone())),
+                    (t, 0) => ("▀", t, Some(self.transparent_bg)),
+                    (0, b) => ("▄", b, Some(self.transparent_bg)),
                     (t, b) => (
                         "▀",
                         t,
-                        Some(self.pal_colors[(b as usize).saturating_sub(1)].clone()),
+                        Some(self.pal_colors[(b as usize).saturating_sub(1)]),
                     ),
                 };
-                let fg = self.pal_colors[(fg_idx as usize).saturating_sub(1)].clone();
+                let fg = self.pal_colors[(fg_idx as usize).saturating_sub(1)];
                 ctx.terminal.set_character_visibility(cell.id, true);
                 let ch = &mut ctx.terminal.arena[cell.id.0 as usize];
                 ch.animation.set_appearance(

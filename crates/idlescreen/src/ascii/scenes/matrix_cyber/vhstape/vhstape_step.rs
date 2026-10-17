@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CallerKey, CharId, ColorPair, Coord, EngineCtx, EngineError, Event, EventAction, SyncMetric,
+    VhsTape, VisualParams, hex_color,
+};
 
 impl VhsTape {
     /// Line.build_line_effects — one offset/direction/hold_time draw per line,
@@ -27,8 +30,14 @@ impl VhsTape {
                     ch.uses_input_preexisting_colors,
                 )
             };
-            let stable_colors = self.character_stable_color_map.get(&id).must_val().clone();
-            let final_colors = self.character_final_color_map.get(&id).must_val().clone();
+            let stable_colors = *self
+                .character_stable_color_map
+                .get(&id)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
+            let final_colors = *self
+                .character_final_color_map
+                .get(&id)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 for (name, hold, col) in [
@@ -44,7 +53,7 @@ impl VhsTape {
                     ch.motion
                         .paths
                         .get_mut(&p)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .new_waypoint(Coord::new(col, input_coord.row), None, name)
                         .map_err(EngineError::Other)?;
                 }
@@ -56,12 +65,12 @@ impl VhsTape {
                 ch.animation
                     .scenes
                     .get_mut(&base_scn)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &input_symbol,
                         1,
                         VisualParams {
-                            colors: Some(stable_colors.clone()),
+                            colors: Some(stable_colors),
                             ..Default::default()
                         },
                     )
@@ -73,14 +82,18 @@ impl VhsTape {
                     "rgb_glitch_fwd",
                     uses_pre,
                 );
-                let scene = ch.animation.scenes.get_mut(&fwd_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&fwd_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 for color in &glitch_line_colors {
                     scene
                         .add_frame(
                             &input_symbol,
                             1,
                             VisualParams {
-                                colors: Some(ColorPair::new(Some(color.clone()), None)),
+                                colors: Some(ColorPair::new(Some(*color), None)),
                                 ..Default::default()
                             },
                         )
@@ -93,14 +106,18 @@ impl VhsTape {
                     "rgb_glitch_bwd",
                     uses_pre,
                 );
-                let scene = ch.animation.scenes.get_mut(&bwd_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&bwd_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 for color in glitch_line_colors.iter().rev() {
                     scene
                         .add_frame(
                             &input_symbol,
                             1,
                             VisualParams {
-                                colors: Some(ColorPair::new(Some(color.clone()), None)),
+                                colors: Some(ColorPair::new(Some(*color), None)),
                                 ..Default::default()
                             },
                         )
@@ -110,12 +127,12 @@ impl VhsTape {
             }
             for _ in 0..25 {
                 let symbol = *ctx.rng.choice(&snow_chars);
-                let color = ctx.rng.choice(&noise_colors).clone();
+                let color = *ctx.rng.choice(&noise_colors);
                 ctx.terminal.arena[id.0 as usize]
                     .animation
                     .scenes
                     .get_mut("snow")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         symbol,
                         2,
@@ -131,12 +148,12 @@ impl VhsTape {
                 ch.animation
                     .scenes
                     .get_mut("snow")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &input_symbol,
                         1,
                         VisualParams {
-                            colors: Some(stable_colors.clone()),
+                            colors: Some(stable_colors),
                             ..Default::default()
                         },
                     )
@@ -146,16 +163,17 @@ impl VhsTape {
                 let redraw_scn =
                     ch.animation
                         .new_scene(false, None, None, "final_redraw", uses_pre);
-                let scene = ch.animation.scenes.get_mut(&redraw_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&redraw_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 scene
                     .add_frame(
                         "█",
                         6,
                         VisualParams {
-                            colors: Some(ColorPair::new(
-                                Some(Color::from_hex("ffffff").must_val()),
-                                None,
-                            )),
+                            colors: Some(ColorPair::new(Some(hex_color("ffffff")), None)),
                             ..Default::default()
                         },
                     )
@@ -173,12 +191,12 @@ impl VhsTape {
             }
             for _ in 0..30 {
                 let symbol = *ctx.rng.choice(&snow_chars);
-                let color = ctx.rng.choice(&noise_colors).clone();
+                let color = *ctx.rng.choice(&noise_colors);
                 ctx.terminal.arena[id.0 as usize]
                     .animation
                     .scenes
                     .get_mut("final_snow")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         symbol,
                         2,

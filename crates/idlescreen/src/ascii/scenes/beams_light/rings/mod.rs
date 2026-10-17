@@ -7,13 +7,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps,
-    parse_positive_float, parse_positive_float_range, parse_positive_int,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -26,66 +20,50 @@ use ttfx::utils::geometry::{self, Coord};
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 use ttfx::utils::pycompat::round_half_even;
 
-mod rings_step;
-#[allow(unused_imports)]
-use rings_step::*;
-mod rings_sim;
-#[allow(unused_imports)]
-use rings_sim::*;
 mod rings_build;
-#[allow(unused_imports)]
-use rings_build::*;
+mod rings_sim;
+mod rings_step;
 
 /// Callback id: terminal.set_character_visibility(character, False).
 pub(super) const CB_SET_INVISIBLE: u32 = 0;
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct RingsConfig {
-    /// Space separated, unquoted, list of colors for the rings.
-    #[arg(long = "ring-colors", num_args = 1.., value_parser = parse_color,
-          default_values = ["ab48ff", "e7b2b2", "fffebd"])]
     pub ring_colors: Vec<Color>,
-
-    /// Distance between rings as a percent of the smallest canvas dimension.
-    #[arg(long = "ring-gap", default_value_t = 0.1, value_parser = parse_positive_float)]
     pub ring_gap: f64,
-
-    /// Number of frames for each cycle of the spin phase.
-    #[arg(long = "spin-duration", default_value_t = 90, value_parser = parse_positive_int)]
     pub spin_duration: i64,
-
-    /// Range of speeds for the rotation of the rings. The speed is randomly selected from this range for each ring.
-    #[arg(long = "spin-speed", default_value = "0.6-1.8", value_parser = parse_positive_float_range)]
     pub spin_speed: (f64, f64),
-
-    /// Number of frames spent in the dispersed state between spinning cycles.
-    #[arg(long = "disperse-duration", default_value_t = 60, value_parser = parse_positive_int)]
     pub disperse_duration: i64,
-
-    /// Number of times the animation will cycles between spinning rings and dispersed characters.
-    #[arg(long = "spin-disperse-cycles", default_value_t = 2, value_parser = parse_positive_int)]
     pub spin_disperse_cycles: i64,
-
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["ab48ff", "e7b2b2", "fffebd"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
 }
+impl Default for RingsConfig {
+    fn default() -> Self {
+        Self {
+            ring_colors: vec![
+                hex_color("ab48ff"),
+                hex_color("e7b2b2"),
+                hex_color("fffebd"),
+            ],
+            ring_gap: 0.1,
+            spin_duration: 90,
+            spin_speed: (0.6, 1.8),
+            disperse_duration: 60,
+            spin_disperse_cycles: 2,
+            final_gradient_stops: vec![
+                hex_color("ab48ff"),
+                hex_color("e7b2b2"),
+                hex_color("fffebd"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Vertical,
+        }
+    }
+}
 /// RingsIterator.Ring.
+#[allow(clippy::struct_field_names)]
 pub(super) struct Ring {
-    #[allow(dead_code)]
-    pub(super) radius: i64,
-    #[allow(dead_code)]
-    pub(super) origin: Coord,
     pub(super) counter_clockwise_coords: Vec<Coord>,
     pub(super) clockwise_coords: Vec<Coord>,
     pub(super) ring_gap: i64,
@@ -104,6 +82,7 @@ pub(super) enum Phase {
     Final,
     Complete,
 }
+#[allow(clippy::struct_field_names)]
 pub struct Rings {
     pub(super) config: RingsConfig,
     pub(super) rings: Vec<Ring>,
@@ -121,8 +100,6 @@ impl Ring {
     pub(super) fn new(
         ctx: &mut EngineCtx,
         config: &RingsConfig,
-        radius: i64,
-        origin: Coord,
         ring_coords: Vec<Coord>,
         ring_gap: i64,
         ring_color: Color,
@@ -130,8 +107,6 @@ impl Ring {
         let clockwise_coords: Vec<Coord> = ring_coords.iter().rev().copied().collect();
         let rotation_speed = ctx.rng.uniform(config.spin_speed.0, config.spin_speed.1);
         Ring {
-            radius,
-            origin,
             counter_clockwise_coords: ring_coords,
             clockwise_coords,
             ring_gap,
@@ -161,11 +136,28 @@ impl Ring {
             .motion
             .new_path(0.14, None, None, 0, true, "disperse")
             .map_err(EngineError::Other)?;
-        let path = ch.motion.paths.get_mut(&path_id).must_val();
+        let path = ch
+            .motion
+            .paths
+            .get_mut(&path_id)
+            .ok_or_else(|| EngineError::Other(String::new()))?;
         for coord in waypoint_coords {
             path.new_waypoint(coord, None, "")
                 .map_err(EngineError::Other)?;
         }
         Ok(path_id)
+    }
+}
+
+impl EffectHooks for Rings {
+    fn dispatch_callback(
+        &mut self,
+        ctx: &mut EngineCtx,
+        character: CharId,
+        callback: &EffectCallback,
+    ) {
+        if callback.id == CB_SET_INVISIBLE {
+            ctx.terminal.set_character_visibility(character, false);
+        }
     }
 }

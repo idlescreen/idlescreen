@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharacterFilter, CharacterSort, ColorPair, Effect, EngineCtx, EngineError, EtchPattern,
+    ExistingColorHandling, Gradient, LaserEtch, LaserEtchConfig, RecursiveBacktracker,
+    VisualParams, emit_frame, has_input_colors, hex_color,
+};
 
 impl Effect for LaserEtch {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -34,28 +38,33 @@ impl Effect for LaserEtch {
                 (
                     ch.input_coord,
                     ch.input_symbol.clone(),
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.uses_input_preexisting_colors,
                 )
             };
             let (final_fg_color, final_bg_color, cool_gradient) = if dynamic {
                 let pair = ColorPair::new(input_fg, input_bg);
-                self.character_final_color_map.insert(id, pair.clone());
+                self.character_final_color_map.insert(id, pair);
                 let cool = Gradient::with_steps(&self.config.cool_gradient_stops, 8, false)
                     .map_err(EngineError::Other)?;
                 (pair.fg_color, pair.bg_color, cool)
             } else {
-                let mapped = final_gradient_mapping.get(&input_coord).must_val().clone();
-                let pair = ColorPair::new(Some(mapped.clone()), None);
-                self.character_final_color_map.insert(id, pair.clone());
+                let mapped = *final_gradient_mapping
+                    .get(&input_coord)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
+                let pair = ColorPair::new(Some(mapped), None);
+                self.character_final_color_map.insert(id, pair);
                 let mut stops = self.config.cool_gradient_stops.clone();
                 stops.push(mapped);
                 let cool = Gradient::with_steps(&stops, 8, false).map_err(EngineError::Other)?;
                 (pair.fg_color, pair.bg_color, cool)
             };
             // gradients for the dynamic tail, built before borrowing the scene
-            let cool_last = cool_gradient.spectrum.last().must_val().clone();
+            let cool_last = *cool_gradient
+                .spectrum
+                .last()
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             let mut fg_gradient: Option<Gradient> = None;
             let mut bg_gradient: Option<Gradient> = None;
             let mut white_cooldown: Option<Gradient> = None;
@@ -63,40 +72,37 @@ impl Effect for LaserEtch {
                 if final_fg_color.is_some() || final_bg_color.is_some() {
                     if let Some(fg) = &final_fg_color {
                         fg_gradient = Some(
-                            Gradient::with_steps(&[cool_last.clone(), fg.clone()], 8, false)
+                            Gradient::with_steps(&[cool_last, *fg], 8, false)
                                 .map_err(EngineError::Other)?,
                         );
                     }
                     if let Some(bg) = &final_bg_color {
                         bg_gradient = Some(
-                            Gradient::with_steps(&[cool_last.clone(), bg.clone()], 8, false)
+                            Gradient::with_steps(&[cool_last, *bg], 8, false)
                                 .map_err(EngineError::Other)?,
                         );
                     }
                 } else {
                     white_cooldown = Some(
-                        Gradient::with_steps(
-                            &[cool_last.clone(), Color::from_hex("ffffff").must_val()],
-                            8,
-                            false,
-                        )
-                        .map_err(EngineError::Other)?,
+                        Gradient::with_steps(&[cool_last, hex_color("ffffff")], 8, false)
+                            .map_err(EngineError::Other)?,
                     );
                 }
             }
             {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 let spawn_scn = ch.animation.new_scene(false, None, None, "spawn", uses_pre);
-                let scene = ch.animation.scenes.get_mut(&spawn_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&spawn_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 scene
                     .add_frame(
                         "^",
                         3,
                         VisualParams {
-                            colors: Some(ColorPair::new(
-                                Some(Color::from_hex("ffe680").must_val()),
-                                None,
-                            )),
+                            colors: Some(ColorPair::new(Some(hex_color("ffe680")), None)),
                             ..Default::default()
                         },
                     )
@@ -107,7 +113,7 @@ impl Effect for LaserEtch {
                             &input_symbol,
                             3,
                             VisualParams {
-                                colors: Some(ColorPair::new(Some(color.clone()), None)),
+                                colors: Some(ColorPair::new(Some(*color), None)),
                                 ..Default::default()
                             },
                         )
@@ -117,7 +123,7 @@ impl Effect for LaserEtch {
                     if final_fg_color.is_some() || final_bg_color.is_some() {
                         scene
                             .apply_gradient_to_symbols(
-                                &[input_symbol.clone()],
+                                std::slice::from_ref(&input_symbol),
                                 3,
                                 fg_gradient.as_ref(),
                                 bg_gradient.as_ref(),
@@ -126,7 +132,7 @@ impl Effect for LaserEtch {
                     } else {
                         scene
                             .apply_gradient_to_symbols(
-                                &[input_symbol.clone()],
+                                std::slice::from_ref(&input_symbol),
                                 3,
                                 white_cooldown.as_ref(),
                                 None,
@@ -184,11 +190,10 @@ impl Effect for LaserEtch {
                 while ctx.terminal.arena[next_char.0 as usize].input_symbol == " "
                     && !has_input_colors(ctx, next_char)
                 {
-                    if !self.pending_chars.is_empty() {
-                        next_char = self.pending_chars.remove(0);
-                    } else {
+                    if self.pending_chars.is_empty() {
                         break;
                     }
+                    next_char = self.pending_chars.remove(0);
                 }
                 ctx.terminal.set_character_visibility(next_char, true);
                 ctx.active_characters.insert(next_char);
@@ -199,23 +204,19 @@ impl Effect for LaserEtch {
         } else {
             self.char_delay -= 1;
         }
-        if !self.pending_chars.is_empty() {
-            let beam_chars = self.laser.as_ref().must_val().beam_chars.clone();
+        if self.pending_chars.is_empty() {
+            self.laser_disable(ctx);
+        } else {
+            let beam_chars = self.laser.as_ref()?.beam_chars.clone();
             for id in beam_chars {
                 ctx.active_characters.insert(id);
             }
-        } else {
-            self.laser_disable(ctx);
         }
         ctx.update(self);
         Some(emit_frame(ctx))
     }
 }
-impl Default for LaserEtchConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for LaserEtch {
     fn default() -> Self {
         Self::new(LaserEtchConfig::default())

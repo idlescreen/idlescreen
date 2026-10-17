@@ -21,13 +21,15 @@ fn step(saver: &mut Ascii, frames: usize) {
 #[test]
 fn every_effect_survives_running_without_panicking() {
     let mut saver = Ascii::new();
-    saver.init(COLS, ROWS);
-    let mut grid = vec![TerminalCell::default(); COLS * ROWS];
-    for &kind in &EffectKind::ALL {
-        saver.pin_effect(kind);
-        for _ in 0..10 {
-            saver.update(Duration::from_millis(16), COLS, ROWS);
-            saver.draw(&mut grid, COLS, ROWS);
+    for &(c, r, steps) in &[(0, 0, 2), (1, 1, 5), (COLS, ROWS, 10)] {
+        saver.init(c, r);
+        let mut grid = vec![TerminalCell::default(); c * r];
+        for &kind in &EffectKind::ALL {
+            saver.pin_effect(kind);
+            for _ in 0..steps {
+                saver.update(Duration::from_millis(16), c, r);
+                saver.draw(&mut grid, c, r);
+            }
         }
     }
 }

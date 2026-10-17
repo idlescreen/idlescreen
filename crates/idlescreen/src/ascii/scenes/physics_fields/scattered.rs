@@ -2,13 +2,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_easing, parse_gradient_direction, parse_gradient_steps,
-    parse_positive_float,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, SyncMetric, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -20,33 +14,13 @@ use ttfx::utils::easing::Easing;
 use ttfx::utils::geometry::Coord;
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct ScatteredConfig {
-    /// Movement speed of the characters.
-    #[arg(long = "movement-speed", default_value_t = 0.85, value_parser = parse_positive_float)]
     pub movement_speed: f64,
-
-    /// Easing function to use for character movement.
-    #[arg(long = "movement-easing", default_value = "in_out_back", value_parser = parse_easing)]
     pub movement_easing: Easing,
-
-    /// Space separated, unquoted, list of colors for the character gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["ff9048", "ab9dff", "bdffea"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Number of frames to display each gradient step.
-    #[arg(long = "final-gradient-frames", default_value_t = 3)]
     pub final_gradient_frames: i64,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
 }
 
@@ -107,8 +81,8 @@ impl Effect for Scattered {
             let (input_fg, input_bg, input_coord, input_symbol, uses_pre) = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.input_coord,
                     ch.input_symbol.clone(),
                     ch.uses_input_preexisting_colors,
@@ -118,12 +92,15 @@ impl Effect for Scattered {
                 ColorPair::new(input_fg, input_bg)
             } else {
                 ColorPair::new(
-                    Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                    Some(
+                        *final_gradient_mapping
+                            .get(&input_coord)
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
+                    ),
                     None,
                 )
             };
-            self.character_final_color_map
-                .insert(id, final_colors.clone());
+            self.character_final_color_map.insert(id, final_colors);
             let start_coord = if ctx.terminal.canvas.right < 2 || ctx.terminal.canvas.top < 2 {
                 Coord::new(1, 1)
             } else {
@@ -146,7 +123,7 @@ impl Effect for Scattered {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
                 path_id
@@ -175,7 +152,10 @@ impl Effect for Scattered {
             {
                 let scene = {
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
-                    ch.animation.scenes.get_mut(&gradient_scn).must_val()
+                    ch.animation
+                        .scenes
+                        .get_mut(&gradient_scn)
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                 };
                 if dynamic {
                     scene
@@ -183,22 +163,24 @@ impl Effect for Scattered {
                             &input_symbol,
                             self.config.final_gradient_frames,
                             VisualParams {
-                                colors: Some(final_colors.clone()),
+                                colors: Some(final_colors),
                                 ..Default::default()
                             },
                         )
                         .map_err(EngineError::Other)?;
                 } else {
-                    let final_fg_color = final_colors.fg_color.clone().must_val();
+                    let final_fg_color = final_colors
+                        .fg_color
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     let char_gradient = Gradient::with_steps(
-                        &[final_gradient.spectrum[0].clone(), final_fg_color],
+                        &[final_gradient.spectrum[0], final_fg_color],
                         10,
                         false,
                     )
                     .map_err(EngineError::Other)?;
                     scene
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             self.config.final_gradient_frames,
                             Some(&char_gradient),
                             None,
@@ -228,7 +210,18 @@ impl Effect for Scattered {
 
 impl Default for ScatteredConfig {
     fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
+        Self {
+            movement_speed: 0.85,
+            movement_easing: Easing::InOutBack,
+            final_gradient_stops: vec![
+                hex_color("ff9048"),
+                hex_color("ab9dff"),
+                hex_color("bdffea"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_frames: 3,
+            final_gradient_direction: GradientDirection::Vertical,
+        }
     }
 }
 

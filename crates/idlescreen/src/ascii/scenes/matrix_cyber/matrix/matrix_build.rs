@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{ColumnPhase, Effect, EngineCtx, EngineError, Matrix, MatrixConfig, Phase, emit_frame};
 
 impl Effect for Matrix {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -142,11 +142,7 @@ impl Effect for Matrix {
         None
     }
 }
-impl Default for MatrixConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Matrix {
     fn default() -> Self {
         Self::new(MatrixConfig::default())

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CB_UPDATE_GROUP_TRACKER, CallbackValue, CallerKey, CharId, CharacterFilter, CharacterSort,
+    ColorPair, Coord, Direction, EffectCallback, EngineCtx, EngineError, Event, EventAction,
+    ExistingColorHandling, Gradient, Phase, SynthGrid, VisualParams, floor_div,
+};
 
 impl SynthGrid {
     pub(super) fn build_scene(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -46,17 +50,13 @@ impl SynthGrid {
         for id in characters {
             let ch = &ctx.terminal.arena[id.0 as usize];
             let colors = if dynamic {
-                ColorPair::new(
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
-                )
+                ColorPair::new(ch.animation.input_fg_color, ch.animation.input_bg_color)
             } else if ch.input_symbol != " " {
                 ColorPair::new(
                     Some(
-                        text_gradient_mapping
+                        *text_gradient_mapping
                             .get(&ch.input_coord)
-                            .must_val()
-                            .clone(),
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
                     ),
                     None,
                 )
@@ -173,12 +173,12 @@ impl SynthGrid {
                 let frame_count = ctx.rng.randint(8, 16);
                 for _ in 0..frame_count {
                     let symbol = ctx.rng.choice(&self.config.text_generation_symbols).clone();
-                    let fg = ctx.rng.choice(&text_gradient.spectrum).clone();
+                    let fg = *ctx.rng.choice(&text_gradient.spectrum);
                     ctx.terminal.arena[character.0 as usize]
                         .animation
                         .scenes
                         .get_mut(&dissolve_scn)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .add_frame(
                             &symbol,
                             2,
@@ -192,13 +192,13 @@ impl SynthGrid {
                 let final_colors = self
                     .character_final_color_map
                     .get(&character)
-                    .cloned()
+                    .copied()
                     .unwrap_or_default();
                 ctx.terminal.arena[character.0 as usize]
                     .animation
                     .scenes
                     .get_mut(&dissolve_scn)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &input_symbol,
                         1,

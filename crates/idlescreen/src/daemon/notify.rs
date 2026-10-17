@@ -103,6 +103,22 @@ pub fn notify_stopping() {
     let _ = sd_notify("STOPPING=1\n");
 }
 
+/// Emits a daemon status message via `STATUS=` on `NOTIFY_SOCKET` and POSIX `syslog`.
+pub fn log_status(status: &str) {
+    let _ = sd_notify(&format!("STATUS={status}\n"));
+    let clean = status.replace('\0', " ");
+    if let Ok(c_msg) = std::ffi::CString::new(clean) {
+        // SAFETY: `c"%s"` is a valid format string so `c_msg` is never interpreted as format specifiers.
+        unsafe {
+            libc::syslog(
+                libc::LOG_DAEMON | libc::LOG_INFO,
+                c"%s".as_ptr(),
+                c_msg.as_ptr(),
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -2,12 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, SyncMetric, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -20,44 +15,40 @@ use ttfx::utils::geometry;
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 use ttfx::utils::pycompat::{floor_div, round_half_even};
 
-mod blackhole_step;
-#[allow(unused_imports)]
-use blackhole_step::*;
-mod blackhole_sim;
-#[allow(unused_imports)]
-use blackhole_sim::*;
 mod blackhole_build;
-#[allow(unused_imports)]
-use blackhole_build::*;
 mod blackhole_fx;
-#[allow(unused_imports)]
-use blackhole_fx::*;
+mod blackhole_sim;
+mod blackhole_step;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct BlackholeConfig {
-    /// Color for the stars that comprise the blackhole border.
-    #[arg(long = "blackhole-color", default_value = "ffffff", value_parser = parse_color)]
     pub blackhole_color: Color,
-
-    /// List of colors from which character colors will be chosen and applied after the explosion, but before the cooldown to final color.
-    #[arg(long = "star-colors", num_args = 1.., value_parser = parse_color,
-          default_values = ["ffcc0d", "ff7326", "ff194d", "bf2669", "702a8c", "049dbf"])]
     pub star_colors: Vec<Color>,
-
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["8A008A", "00D1FF", "ffffff"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["9"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "diagonal", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for BlackholeConfig {
+    fn default() -> Self {
+        Self {
+            blackhole_color: hex_color("ffffff"),
+            star_colors: vec![
+                hex_color("ffcc0d"),
+                hex_color("ff7326"),
+                hex_color("ff194d"),
+                hex_color("bf2669"),
+                hex_color("702a8c"),
+                hex_color("049dbf"),
+            ],
+            final_gradient_stops: vec![
+                hex_color("8A008A"),
+                hex_color("00D1FF"),
+                hex_color("ffffff"),
+            ],
+            final_gradient_steps: vec![9],
+            final_gradient_direction: GradientDirection::Diagonal,
+        }
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) enum Phase {
@@ -67,6 +58,7 @@ pub(super) enum Phase {
     Exploding,
     Complete,
 }
+#[allow(clippy::struct_field_names)]
 pub struct Blackhole {
     pub(super) config: BlackholeConfig,
     pub(super) blackhole_chars: Vec<CharId>,

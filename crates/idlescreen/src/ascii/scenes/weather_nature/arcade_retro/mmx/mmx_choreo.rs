@@ -115,7 +115,7 @@ pub fn compose_frame_pixels(
         draw(pose, (base_x + rec).max(0), top_py, m, d);
         let sx = buster_x + (((buf_w as isize + 64) - buster_x) * ft as isize) / 24;
         let sp = if ft.is_multiple_of(2) { &a.spiral2 } else { &a.spiral1 };
-        let mid_y = ((text_bounds.2 * 8 + (text_bounds.3 + 1) * 8) / 2) as isize;
+        let mid_y = usize::midpoint(text_bounds.2 * 8, (text_bounds.3 + 1) * 8) as isize;
         let sd = d + ((3 - ft.min(3)) as usize * d) / 2;
         let sy = buster_y - ((sp.height * 20) / sd) as isize;
         paint_explosions(px_buf, (buf_w, buf_h), a, (sx, mid_y), text_bounds, ft, d);

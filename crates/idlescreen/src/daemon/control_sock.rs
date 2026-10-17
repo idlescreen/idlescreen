@@ -211,13 +211,14 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let yaml_path = temp_dir.path().join("config.yaml");
         let toml_path = temp_dir.path().join("config.toml");
-        let yaml_src = "general:\n  idle_timeout_secs: 180\n  primary_output: \"DP-1\"\nsaver:\n  active: \"aurora\"\n  ascii:\n    mode: \"os\"\n    text: \"MyFedora\"\n    fps: 30\n";
+        let yaml_src = "general:\n  idle_timeout_secs: 180 # comment\n  primary_output: \"DP-1\" # inline comment\nsaver:\n  active: 'aurora' # single quote\n  ascii:\n    mode: \"os\"\n    targets: [\"os\", 'de'] # flow targets\n    text: \"MyFedora\"\n    fps: 30\nextra:\n  mode: \"ignored\"\n";
         fs::write(&yaml_path, yaml_src).unwrap();
         let cfg = super::super::config::migrate_yaml_to_toml(&yaml_path, &toml_path).unwrap();
         assert_eq!(cfg.general.idle_timeout_secs, 180);
         assert_eq!(cfg.general.primary_output, "DP-1");
         assert_eq!(cfg.saver.active.as_deref(), Some("aurora"));
-        assert_eq!(cfg.saver.ascii.targets, vec!["os"]);
+        assert_eq!(cfg.saver.ascii.mode, "os");
+        assert_eq!(cfg.saver.ascii.targets, vec!["os", "de"]);
         assert!(toml_path.exists());
     }
 

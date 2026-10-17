@@ -19,13 +19,7 @@
 
 use std::collections::{HashMap, VecDeque};
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps,
-    parse_non_negative_int, parse_positive_int,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -39,12 +33,8 @@ use ttfx::utils::geometry::Coord;
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 use ttfx::utils::spanning_tree::RecursiveBacktracker;
 
-mod laseretch_step;
-#[allow(unused_imports)]
-use laseretch_step::*;
 mod laseretch_sim;
-#[allow(unused_imports)]
-use laseretch_sim::*;
+mod laseretch_step;
 
 /// Callback id: sparks_pool.reclaim(spark, hide=True, deactivate=True).
 pub(super) const CB_RECLAIM_SPARK: u32 = 0;
@@ -55,57 +45,45 @@ pub enum EtchPattern {
     Group(CharacterGroup),
     Algorithm,
 }
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct LaserEtchConfig {
-    /// Pattern used to etch the text.
-    #[arg(long = "etch-pattern", default_value = "algorithm", value_parser = parse_etch_pattern)]
     pub etch_pattern: EtchPattern,
-
-    /// Along with etch_delay, determines the speed at which the characters are etched onto the terminal. This value specifies the number of characters to etch simultaneously.
-    #[arg(long = "etch-speed", default_value_t = 6, value_parser = parse_positive_int)]
     pub etch_speed: i64,
-
-    /// Along with etch_speed, determines the speed at which the characters are etched onto the terminal. This values specifies the number of frames to wait before etching the next set of characters.
-    #[arg(long = "etch-delay", default_value_t = 0, value_parser = parse_non_negative_int)]
     pub etch_delay: i64,
-
-    /// Space separated, unquoted, list of colors for the gradient used to cool the characters after etching.
-    #[arg(long = "cool-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["ffe680", "ff7b00"])]
     pub cool_gradient_stops: Vec<Color>,
-
-    /// Space separated, unquoted, list of colors for the laser gradient.
-    #[arg(long = "laser-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["ffffff", "376cff"])]
     pub laser_gradient_stops: Vec<Color>,
-
-    /// Space separated, unquoted, list of colors for the spark cooling gradient.
-    #[arg(long = "spark-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["ffffff", "ffe680", "ff7b00", "1a0900"])]
     pub spark_gradient_stops: Vec<Color>,
-
-    /// Number of frames to display each spark cooling gradient step. Increase to slow down the rate of cooling.
-    #[arg(long = "spark-cooling-frames", default_value_t = 3, value_parser = parse_positive_int)]
     pub spark_cooling_frames: i64,
-
-    /// Space separated, unquoted, list of colors for the character gradient (applied across the canvas).
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["8A008A", "00D1FF", "ffffff"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["8"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Number of frames to display each gradient step. Increase to slow down the gradient animation.
-    #[arg(long = "final-gradient-frames", default_value_t = 1, value_parser = parse_positive_int)]
     pub final_gradient_frames: i64,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for LaserEtchConfig {
+    fn default() -> Self {
+        Self {
+            etch_pattern: EtchPattern::Algorithm,
+            etch_speed: 6,
+            etch_delay: 0,
+            cool_gradient_stops: vec![hex_color("ffe680"), hex_color("ff7b00")],
+            laser_gradient_stops: vec![hex_color("ffffff"), hex_color("376cff")],
+            spark_gradient_stops: vec![
+                hex_color("ffffff"),
+                hex_color("ffe680"),
+                hex_color("ff7b00"),
+                hex_color("1a0900"),
+            ],
+            spark_cooling_frames: 3,
+            final_gradient_stops: vec![
+                hex_color("8A008A"),
+                hex_color("00D1FF"),
+                hex_color("ffffff"),
+            ],
+            final_gradient_steps: vec![8],
+            final_gradient_frames: 1,
+            final_gradient_direction: GradientDirection::Vertical,
+        }
+    }
 }
 /// LaserEtchIterator.Laser state (methods live on LaserEtch for hooks access).
 pub(super) struct Laser {
@@ -121,12 +99,6 @@ pub struct LaserEtch {
     pub(super) char_delay: i64,
     pub(super) laser: Option<Laser>,
 }
-pub(super) fn parse_etch_pattern(s: &str) -> Result<EtchPattern, String> {
-    if s == "algorithm" {
-        return Ok(EtchPattern::Algorithm);
-    }
-    crate::ascii::scenes::canvas_ops::parse_character_group(s).map(EtchPattern::Group)
-}
 /// Laser._make_sparks_pool initialize_sparks closure.
 pub(super) fn initialize_spark(
     ctx: &mut EngineCtx,
@@ -139,18 +111,17 @@ pub(super) fn initialize_spark(
     let input_symbol = ch.input_symbol.clone();
     let uses_pre = ch.uses_input_preexisting_colors;
     let spark_scn = ch.animation.new_scene(false, None, None, "spark", uses_pre);
-    let scene = ch.animation.scenes.get_mut(&spark_scn).must_val();
-    for color in spark_colors {
-        scene
-            .add_frame(
+    if let Some(scene) = ch.animation.scenes.get_mut(&spark_scn) {
+        for color in spark_colors {
+            let _ = scene.add_frame(
                 &input_symbol,
                 cooling_frames,
                 VisualParams {
-                    colors: Some(ColorPair::new(Some(color.clone()), None)),
+                    colors: Some(ColorPair::new(Some(*color), None)),
                     ..Default::default()
                 },
-            )
-            .must_val();
+            );
+        }
     }
 }
 /// LaserEtchIterator._has_input_colors.

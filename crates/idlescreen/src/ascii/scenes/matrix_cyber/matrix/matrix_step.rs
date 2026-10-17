@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    Animation, CharId, Color, ColorPair, ColumnPhase, Coord, EngineCtx, MatrixConfig, RainColumn,
+    floor_div, set_appearance,
+};
 
 impl RainColumn {
     /// RainColumn.__init__ (calls setup_column("rain")).
@@ -116,7 +119,8 @@ impl RainColumn {
 
     /// RainColumn.resolve_char.
     pub(super) fn resolve_char(&mut self, ctx: &mut EngineCtx) -> CharId {
-        let index = ctx.rng.randint(0, self.visible_characters.len() as i64 - 1) as usize;
+        let max_idx = (self.visible_characters.len() as i64 - 1).max(0);
+        let index = ctx.rng.randint(0, max_idx) as usize;
         self.visible_characters.remove(index)
     }
 }
@@ -136,7 +140,7 @@ impl RainColumn {
                     ctx,
                     next_char,
                     &symbol,
-                    ColorPair::new(Some(config.highlight_color.clone()), None),
+                    ColorPair::new(Some(config.highlight_color), None),
                 );
                 let previous_character = self.visible_characters.last().copied();
                 // if there is a previous character, remove the highlight
@@ -146,7 +150,7 @@ impl RainColumn {
                         .current_character_visual
                         .symbol
                         .clone();
-                    let fg = ctx.rng.choice(rain_colors).clone();
+                    let fg = *ctx.rng.choice(rain_colors);
                     set_appearance(
                         ctx,
                         previous_character,
@@ -156,9 +160,8 @@ impl RainColumn {
                 }
                 ctx.terminal.set_character_visibility(next_char, true);
                 self.visible_characters.push(next_char);
-            } else if !self.visible_characters.is_empty() {
+            } else if let Some(&last_char) = self.visible_characters.last() {
                 // adjust the bottom character color to remove the highlight
-                let last_char = *self.visible_characters.last().must_val();
                 let last_is_highlight = {
                     let visual = &ctx.terminal.arena[last_char.0 as usize]
                         .animation
@@ -173,7 +176,7 @@ impl RainColumn {
                         .current_character_visual
                         .symbol
                         .clone();
-                    let fg = ctx.rng.choice(rain_colors).clone();
+                    let fg = *ctx.rng.choice(rain_colors);
                     set_appearance(ctx, last_char, &symbol, ColorPair::new(Some(fg), None));
                 }
 
@@ -237,8 +240,8 @@ impl RainColumn {
                     .current_character_visual;
                 let sym = next_symbol.map_or_else(|| vis.symbol.clone(), str::to_owned);
                 let col = next_color
-                    .cloned()
-                    .or_else(|| vis.colors.as_ref().and_then(|c| c.fg_color.clone()));
+                    .copied()
+                    .or_else(|| vis.colors.as_ref().and_then(|c| c.fg_color));
                 (sym, col)
             };
             set_appearance(ctx, character, &sym, ColorPair::new(col, None));

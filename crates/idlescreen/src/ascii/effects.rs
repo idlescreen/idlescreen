@@ -143,11 +143,11 @@ impl EffectKind {
             | Self::Zero => 1,
             Self::Slide | Self::Slice | Self::Sweep | Self::Expand
             | Self::Middleout | Self::Highlight | Self::Overflow => 2,
-            Self::Spotlights | Self::Matrix | Self::Thunderstorm | Self::Rings
-            | Self::Synthgrid | Self::Beams | Self::Fireworks | Self::Rain
-            | Self::Orbittingvolley | Self::Crumble | Self::Decrypt => 4,
+            Self::Spotlights | Self::Matrix | Self::Rings | Self::Synthgrid
+            | Self::Beams | Self::Fireworks | Self::Rain | Self::Orbittingvolley
+            | Self::Crumble | Self::Decrypt => 4,
             Self::Binarypath | Self::Print | Self::Pour | Self::Burn
-            | Self::Errorcorrect | Self::Bouncyballs => 5,
+            | Self::Errorcorrect | Self::Bouncyballs | Self::Thunderstorm => 5,
             Self::Bubbles | Self::Swarm => 6,
             Self::Blackhole => 7,
             _ => 3,

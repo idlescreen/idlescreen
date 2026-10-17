@@ -10,12 +10,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps, parse_symbol,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -27,43 +22,39 @@ use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 use ttfx::utils::spanning_tree::{BreadthFirst, PrimsWeighted};
 
 mod smoke_step;
-#[allow(unused_imports)]
-use smoke_step::*;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct SmokeConfig {
-    /// Color of the text before being colorized by the smoke.
-    #[arg(long = "starting-color", default_value = "7A7A7A", value_parser = parse_color)]
     pub starting_color: Color,
-
-    /// Symbols to use for the smoke. Strings will be used in sequence to create an animation.
-    #[arg(long = "smoke-symbols", num_args = 1.., value_parser = parse_symbol,
-          default_values = ["░", "▒", "▓", "▒", "░"])]
     pub smoke_symbols: Vec<String>,
-
-    /// Space separated, unquoted, list of colors for the smoke gradient.
-    #[arg(long = "smoke-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["242424", "FFFFFF"])]
     pub smoke_gradient_stops: Vec<Color>,
-
-    /// If True, the entire canvas will be flooded. Otherwise the effect is limited to the text boundary.
-    #[arg(long = "use-whole-canvas", default_value_t = false)]
     pub use_whole_canvas: bool,
-
-    /// Space separated, unquoted, list of colors for the character gradient (applied across the canvas).
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["8A008A", "00D1FF", "FFFFFF"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for SmokeConfig {
+    fn default() -> Self {
+        Self {
+            starting_color: hex_color("7A7A7A"),
+            smoke_symbols: vec![
+                "░".to_string(),
+                "▒".to_string(),
+                "▓".to_string(),
+                "▒".to_string(),
+                "░".to_string(),
+            ],
+            smoke_gradient_stops: vec![hex_color("242424"), hex_color("FFFFFF")],
+            use_whole_canvas: false,
+            final_gradient_stops: vec![
+                hex_color("8A008A"),
+                hex_color("00D1FF"),
+                hex_color("FFFFFF"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Vertical,
+        }
+    }
 }
 pub struct Smoke {
     pub(super) config: SmokeConfig,

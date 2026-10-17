@@ -11,13 +11,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps,
-    parse_non_negative_ratio,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -32,41 +26,36 @@ use ttfx::utils::spanning_tree::PrimsSimple;
 
 /// Callback id: EventHandler.Callback(lambda c: self._emit_smoke(c.input_coord, ...)).
 mod burn_step;
-#[allow(unused_imports)]
-use burn_step::*;
 
 pub(super) const CB_EMIT_SMOKE: u32 = 0;
 /// Callback id: ParticlePool.reclaim_on_event's reclaim closure.
 pub(super) const CB_RECLAIM_SMOKE: u32 = 1;
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct BurnConfig {
-    /// Color of the characters before they start to burn.
-    #[arg(long = "starting-color", default_value = "837373", value_parser = parse_color)]
     pub starting_color: Color,
-
-    /// Colors transitioned through as the characters burn.
-    #[arg(long = "burn-colors", num_args = 1.., value_parser = parse_color,
-          default_values = ["ffffff", "fff75d", "fe650d", "8A003C", "510100"])]
     pub burn_colors: Vec<Color>,
-
-    /// Chance a given character will produce smoke while burning. Use 0 for no smoke.
-    #[arg(long = "smoke-chance", default_value_t = 0.7, value_parser = parse_non_negative_ratio)]
     pub smoke_chance: f64,
-
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["00c3ff", "ffff1c"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for BurnConfig {
+    fn default() -> Self {
+        Self {
+            starting_color: hex_color("837373"),
+            burn_colors: vec![
+                hex_color("ffffff"),
+                hex_color("fff75d"),
+                hex_color("fe650d"),
+                hex_color("8A003C"),
+                hex_color("510100"),
+            ],
+            smoke_chance: 0.7,
+            final_gradient_stops: vec![hex_color("00c3ff"), hex_color("ffff1c")],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Vertical,
+        }
+    }
 }
 pub(super) const BURN_CHAR_ORDER: [&str; 9] = ["'", ".", "▖", "▙", "█", "▜", "▀", "▝", "."];
 pub(super) const SMOKE_SYMBOLS: [&str; 6] = [".", ",", "'", "`", "#", "*"];
@@ -117,29 +106,24 @@ impl Burn {
             let ch = &ctx.terminal.arena[id.0 as usize];
             (ch.input_symbol.clone(), ch.uses_input_preexisting_colors)
         };
-        let gradient = Gradient::with_steps(
-            &[
-                Color::from_hex("504F4F").must_val(),
-                Color::from_hex("C7C7C7").must_val(),
-            ],
-            9,
-            false,
-        )
-        .must_val();
+        let Ok(gradient) =
+            Gradient::with_steps(&[hex_color("504F4F"), hex_color("C7C7C7")], 9, false)
+        else {
+            return;
+        };
         let ch = &mut ctx.terminal.arena[id.0 as usize];
         let smoke_scn = ch.animation.new_scene(false, None, None, "smoke", uses_pre);
-        let scene = ch.animation.scenes.get_mut(&smoke_scn).must_val();
-        for color in &gradient.spectrum {
-            scene
-                .add_frame(
+        if let Some(scene) = ch.animation.scenes.get_mut(&smoke_scn) {
+            for color in &gradient.spectrum {
+                let _ = scene.add_frame(
                     &input_symbol,
                     10,
                     VisualParams {
-                        colors: Some(ColorPair::new(Some(color.clone()), None)),
+                        colors: Some(ColorPair::new(Some(*color), None)),
                         ..Default::default()
                     },
-                )
-                .must_val();
+                );
+            }
         }
         ch.layer = 2;
     }
@@ -154,11 +138,9 @@ impl Burn {
         let reset = ParticleReset::default();
         self.emission_counter += 1;
         let emission_id = self.emission_counter;
-        // Move the pool out of self so the on_emit closure can borrow self as
-        // EffectHooks. Safe: on_emit only fires PATH_ACTIVATED/SCENE_ACTIVATED,
-        // for which smoke particles never register actions, so CB_RECLAIM_SMOKE
-        // cannot dispatch while the pool is out.
-        let mut pool = self.smoke_particles.take().must_val();
+        let Some(mut pool) = self.smoke_particles.take() else {
+            return;
+        };
         pool.emit(
             ctx,
             origin,
@@ -168,31 +150,34 @@ impl Burn {
             Self::initialize_smoke,
             |ctx, next_particle| {
                 // on_emit_smoke
-                ctx.terminal.arena[next_particle.0 as usize]
+                if let Some(scn) = ctx.terminal.arena[next_particle.0 as usize]
                     .animation
                     .scenes
                     .get_mut("smoke")
-                    .must_val()
-                    .reset_scene();
-                let smoke_path = ctx.terminal.arena[next_particle.0 as usize]
+                {
+                    scn.reset_scene();
+                }
+                let Ok(smoke_path) = ctx.terminal.arena[next_particle.0 as usize]
                     .motion
                     .new_path(0.85, None, None, 0, false, "")
-                    .must_val();
+                else {
+                    return;
+                };
                 let rise_target_coord = Coord::new(
                     ctx.rng.randint(origin.column - 4, origin.column + 4),
                     ctx.terminal.canvas.top + 1,
                 );
-                ctx.terminal.arena[next_particle.0 as usize]
+                if let Some(p) = ctx.terminal.arena[next_particle.0 as usize]
                     .motion
                     .paths
                     .get_mut(&smoke_path)
-                    .must_val()
-                    .new_waypoint(rise_target_coord, None, "")
-                    .must_val();
+                {
+                    let _ = p.new_waypoint(rise_target_coord, None, "");
+                }
                 ctx.activate_path(self, next_particle, &smoke_path);
                 ctx.activate_scene(self, next_particle, "smoke");
                 // ParticlePool.reclaim_on_event(next_particle, caller="smoke")
-                ctx.register_event(
+                let _ = ctx.register_event(
                     next_particle,
                     Event::SceneComplete,
                     CallerKey::Scene("smoke".to_string()),
@@ -200,8 +185,7 @@ impl Burn {
                         id: CB_RECLAIM_SMOKE,
                         args: vec![CallbackValue::Int(emission_id)],
                     }),
-                )
-                .must_val();
+                );
             },
         );
         self.smoke_particles = Some(pool);
@@ -221,10 +205,9 @@ impl EffectHooks for Burn {
             }
             CB_RECLAIM_SMOKE => {
                 // reclaim(completed_character, hide=True, deactivate=True)
-                self.smoke_particles
-                    .as_mut()
-                    .must_val()
-                    .reclaim(ctx, character, true, true);
+                if let Some(pool) = self.smoke_particles.as_mut() {
+                    pool.reclaim(ctx, character, true, true);
+                }
             }
             _ => {}
         }

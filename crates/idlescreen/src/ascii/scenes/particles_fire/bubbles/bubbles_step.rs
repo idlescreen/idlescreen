@@ -1,20 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    Bubble, Bubbles, BubblesConfig, CallerKey, CharId, Color, ColorPair, Coord, Easing,
+    EffectCallback, EffectHooks, EngineCtx, EngineError, Event, EventAction, Gradient, HashMap,
+    PopCondition, VisualParams, geometry, hex_color,
+};
 
 impl Bubbles {
     pub fn new(config: BubblesConfig) -> Self {
         let rainbow_stops = [
-            Color::from_hex("e81416").must_val(), // red
-            Color::from_hex("ffa500").must_val(), // orange
-            Color::from_hex("faeb36").must_val(), // yellow
-            Color::from_hex("79c314").must_val(), // green
-            Color::from_hex("487de7").must_val(), // blue
-            Color::from_hex("4b369d").must_val(), // indigo
-            Color::from_hex("70369d").must_val(), // violet
+            hex_color("e81416"), // red
+            hex_color("ffa500"), // orange
+            hex_color("faeb36"), // yellow
+            hex_color("79c314"), // green
+            hex_color("487de7"), // blue
+            hex_color("4b369d"), // indigo
+            hex_color("70369d"), // violet
         ];
-        let rainbow_gradient = Gradient::with_steps(&rainbow_stops, 5, false).must_val();
+        let rainbow_gradient = Gradient::with_steps(&rainbow_stops, 5, false).unwrap_or(Gradient {
+            spectrum: Vec::new(),
+        });
         Bubbles {
             config,
             bubbles: Vec::new(),
@@ -68,7 +74,7 @@ impl Bubbles {
                 .iter()
                 .map(|&id| ctx.terminal.arena[id.0 as usize].input_coord.row)
                 .min()
-                .must_val()
+                .ok_or_else(|| EngineError::Other(String::new()))?
         } else {
             ctx.terminal.canvas.bottom
         };
@@ -94,7 +100,7 @@ impl Bubbles {
             ch.motion
                 .paths
                 .get_mut(&path_id)
-                .must_val()
+                .ok_or_else(|| EngineError::Other(String::new()))?
                 .new_waypoint(Coord::new(waypoint_column, bubble.lowest_row), None, "")
                 .map_err(EngineError::Other)?;
             path_id
@@ -112,14 +118,18 @@ impl Bubbles {
                 let sheen_scene = {
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
                     let scene_id = ch.animation.new_scene(false, None, None, "", uses_pre);
-                    let scene = ch.animation.scenes.get_mut(&scene_id).must_val();
+                    let scene = ch
+                        .animation
+                        .scenes
+                        .get_mut(&scene_id)
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     for step in &rainbow_gradient {
                         scene
                             .add_frame(
                                 &input_symbol,
                                 4,
                                 VisualParams {
-                                    colors: Some(ColorPair::new(Some(step.clone()), None)),
+                                    colors: Some(ColorPair::new(Some(*step), None)),
                                     ..Default::default()
                                 },
                             )
@@ -142,12 +152,12 @@ impl Bubbles {
                         .animation
                         .scenes
                         .get_mut(&scene_id)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .is_looping = true;
                 }
             }
         } else {
-            let bubble_color = ctx.rng.choice(&self.config.bubble_colors).clone();
+            let bubble_color = *ctx.rng.choice(&self.config.bubble_colors);
             for &id in &bubble.characters {
                 let (input_symbol, uses_pre) = {
                     let ch = &ctx.terminal.arena[id.0 as usize];
@@ -159,12 +169,12 @@ impl Bubbles {
                     ch.animation
                         .scenes
                         .get_mut(&scene_id)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .add_frame(
                             &input_symbol,
                             1,
                             VisualParams {
-                                colors: Some(ColorPair::new(Some(bubble_color.clone()), None)),
+                                colors: Some(ColorPair::new(Some(bubble_color), None)),
                                 ..Default::default()
                             },
                         )
@@ -192,24 +202,20 @@ impl Bubbles {
         for (&id, &point) in bubble.characters.iter().zip(points.iter()) {
             {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
-                let pop_out_path = ch
-                    .motion
-                    .new_path(0.3, Some(Easing::OutExpo), None, 0, false, "pop_out")
-                    .must_val();
-                ch.motion
-                    .paths
-                    .get_mut(&pop_out_path)
-                    .must_val()
-                    .new_waypoint(point, None, "")
-                    .must_val();
+                if let Ok(pop_out_path) =
+                    ch.motion
+                        .new_path(0.3, Some(Easing::OutExpo), None, 0, false, "pop_out")
+                    && let Some(p) = ch.motion.paths.get_mut(&pop_out_path)
+                {
+                    let _ = p.new_waypoint(point, None, "");
+                }
             }
-            ctx.register_event(
+            let _ = ctx.register_event(
                 id,
                 Event::PathComplete,
                 CallerKey::Path("pop_out".to_string()),
                 EventAction::ActivatePath("final".to_string()),
-            )
-            .must_val();
+            );
         }
         for &id in &bubble.characters {
             ctx.activate_scene(self, id, "pop_1");

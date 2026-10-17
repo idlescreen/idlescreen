@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    BURN_CHAR_ORDER, Burn, BurnConfig, CB_EMIT_SMOKE, CallerKey, CharacterFilter, CharacterSort,
+    ColorPair, Effect, EffectCallback, EngineCtx, EngineError, Event, EventAction,
+    ExistingColorHandling, Gradient, ParticlePool, PrimsSimple, SMOKE_SYMBOLS, VisualParams,
+    emit_frame,
+};
 
 impl Effect for Burn {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -9,7 +14,10 @@ impl Effect for Burn {
         // then the pool preallocation (2000 choice() draws + initializer each).
         let mut algo = PrimsSimple::new(ctx, None, true).map_err(EngineError::Other)?;
         let mut pool = ParticlePool::new(
-            SMOKE_SYMBOLS.iter().map(|s| s.to_string()).collect(),
+            SMOKE_SYMBOLS
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
             Some(2000),
             None,
         )
@@ -19,7 +27,10 @@ impl Effect for Burn {
         self.smoke_particles = Some(pool);
 
         // BurnIterator.build()
-        let burn_char_order: Vec<String> = BURN_CHAR_ORDER.iter().map(|s| s.to_string()).collect();
+        let burn_char_order: Vec<String> = BURN_CHAR_ORDER
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
         let final_gradient = Gradient::new(
             &self.config.final_gradient_stops,
             &self.config.final_gradient_steps,
@@ -43,8 +54,12 @@ impl Effect for Burn {
         };
         for &id in &characters {
             let coord = ctx.terminal.arena[id.0 as usize].input_coord;
-            self.character_final_color_map
-                .insert(id, final_gradient_mapping.get(&coord).must_val().clone());
+            self.character_final_color_map.insert(
+                id,
+                *final_gradient_mapping
+                    .get(&coord)
+                    .ok_or_else(|| EngineError::Other(String::new()))?,
+            );
         }
         let fire_gradient = Gradient::with_steps(&self.config.burn_colors, 10, false)
             .map_err(EngineError::Other)?;
@@ -65,8 +80,8 @@ impl Effect for Burn {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
                     ch.input_symbol.clone(),
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.uses_input_preexisting_colors,
                 )
             };
@@ -76,10 +91,7 @@ impl Effect for Burn {
                     &input_symbol,
                     uses_pre,
                     Some(&input_symbol),
-                    Some(ColorPair::new(
-                        Some(self.config.starting_color.clone()),
-                        None,
-                    )),
+                    Some(ColorPair::new(Some(self.config.starting_color), None)),
                 );
             }
             let burn_scn = {
@@ -88,7 +100,7 @@ impl Effect for Burn {
                 ch.animation
                     .scenes
                     .get_mut(&scene_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(&burn_char_order, 4, Some(&fire_gradient), None)
                     .map_err(EngineError::Other)?;
                 scene_id
@@ -97,28 +109,35 @@ impl Effect for Burn {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation.new_scene(false, None, None, "", uses_pre)
             };
-            let fire_last = fire_gradient.spectrum.last().must_val().clone();
+            let fire_last = *fire_gradient
+                .spectrum
+                .last()
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             if dynamic {
                 let fg_gradient = match &input_fg {
                     Some(fg) => Some(
-                        Gradient::with_steps(&[fire_last.clone(), fg.clone()], 8, false)
+                        Gradient::with_steps(&[fire_last, *fg], 8, false)
                             .map_err(EngineError::Other)?,
                     ),
                     None => None,
                 };
                 let bg_gradient = match &input_bg {
                     Some(bg) => Some(
-                        Gradient::with_steps(&[fire_last.clone(), bg.clone()], 8, false)
+                        Gradient::with_steps(&[fire_last, *bg], 8, false)
                             .map_err(EngineError::Other)?,
                     ),
                     None => None,
                 };
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
-                let scene = ch.animation.scenes.get_mut(&final_color_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&final_color_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 if fg_gradient.is_some() || bg_gradient.is_some() {
                     scene
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             4,
                             fg_gradient.as_ref(),
                             bg_gradient.as_ref(),
@@ -137,18 +156,25 @@ impl Effect for Burn {
                         .map_err(EngineError::Other)?;
                 }
             } else {
-                let final_color = self.character_final_color_map.get(&id).must_val().clone();
+                let final_color = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let char_gradient = Gradient::with_steps(&[fire_last, final_color], 8, false)
                     .map_err(EngineError::Other)?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
-                let scene = ch.animation.scenes.get_mut(&final_color_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&final_color_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 for color in &char_gradient.spectrum {
                     scene
                         .add_frame(
                             &input_symbol,
                             4,
                             VisualParams {
-                                colors: Some(ColorPair::new(Some(color.clone()), None)),
+                                colors: Some(ColorPair::new(Some(*color), None)),
                                 ..Default::default()
                             },
                         )
@@ -195,11 +221,7 @@ impl Effect for Burn {
         None
     }
 }
-impl Default for BurnConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Burn {
     fn default() -> Self {
         Self::new(BurnConfig::default())

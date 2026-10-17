@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharacterFilter, CharacterGroup, CharacterSort, ColorPair, Coord, EngineCtx, EngineError,
+    ExistingColorHandling, Gradient, Slide, SlideGrouping, VisualParams,
+};
 
 impl Slide {
     pub(super) fn build_scene(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -31,8 +34,8 @@ impl Slide {
             let (input_fg, input_bg, input_coord) = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.input_coord,
                 )
             };
@@ -40,7 +43,11 @@ impl Slide {
                 ColorPair::new(input_fg, input_bg)
             } else {
                 ColorPair::new(
-                    Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                    Some(
+                        *final_gradient_mapping
+                            .get(&input_coord)
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
+                    ),
                     None,
                 )
             };
@@ -72,7 +79,7 @@ impl Slide {
                 motion
                     .paths
                     .get_mut("input_path")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
             }
@@ -83,13 +90,12 @@ impl Slide {
             let group = groups[group_index].clone();
             match self.config.grouping {
                 SlideGrouping::Row => {
-                    let starting_column;
-                    if self.config.merge && group_index % 2 == 0 {
-                        starting_column = ctx.terminal.canvas.right + 1;
+                    let starting_column = if self.config.merge && group_index % 2 == 0 {
+                        ctx.terminal.canvas.right + 1
                     } else {
                         groups[group_index].reverse();
-                        starting_column = ctx.terminal.canvas.left - 1;
-                    }
+                        ctx.terminal.canvas.left - 1
+                    };
                     let starting_column = if self.config.reverse_direction && !self.config.merge {
                         groups[group_index].reverse();
                         ctx.terminal.canvas.right + 1
@@ -105,13 +111,12 @@ impl Slide {
                     }
                 }
                 SlideGrouping::Column => {
-                    let starting_row;
-                    if self.config.merge && group_index % 2 == 0 {
-                        starting_row = ctx.terminal.canvas.bottom - 1;
+                    let starting_row = if self.config.merge && group_index % 2 == 0 {
+                        ctx.terminal.canvas.bottom - 1
                     } else {
                         groups[group_index].reverse();
-                        starting_row = ctx.terminal.canvas.top + 1;
-                    }
+                        ctx.terminal.canvas.top + 1
+                    };
                     let starting_row = if self.config.reverse_direction && !self.config.merge {
                         groups[group_index].reverse();
                         ctx.terminal.canvas.bottom - 1
@@ -129,7 +134,11 @@ impl Slide {
                 SlideGrouping::Diagonal => {}
             }
             if self.config.grouping == SlideGrouping::Diagonal {
-                let last_coord = ctx.terminal.arena[group.last().must_val().0 as usize].input_coord;
+                let last_coord = ctx.terminal.arena[group
+                    .last()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
+                    .0 as usize]
+                    .input_coord;
                 let distance_from_outside_bottom =
                     last_coord.row - (ctx.terminal.canvas.bottom - 1);
                 let mut starting_coord = Coord::new(
@@ -166,14 +175,21 @@ impl Slide {
                     let ch = &ctx.terminal.arena[id.0 as usize];
                     (ch.input_symbol.clone(), ch.uses_input_preexisting_colors)
                 };
-                let final_colors = self.character_final_color_map.get(&id).must_val().clone();
+                let final_colors = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let gradient_scn = {
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
                     ch.animation.new_scene(false, None, None, "", uses_pre)
                 };
                 {
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
-                    let scene = ch.animation.scenes.get_mut(&gradient_scn).must_val();
+                    let scene = ch
+                        .animation
+                        .scenes
+                        .get_mut(&gradient_scn)
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     if dynamic {
                         scene
                             .add_frame(
@@ -186,16 +202,18 @@ impl Slide {
                             )
                             .map_err(EngineError::Other)?;
                     } else {
-                        let final_fg_color = final_colors.fg_color.clone().must_val();
+                        let final_fg_color = final_colors
+                            .fg_color
+                            .ok_or_else(|| EngineError::Other(String::new()))?;
                         let char_gradient = Gradient::with_steps(
-                            &[self.config.final_gradient_stops[0].clone(), final_fg_color],
+                            &[self.config.final_gradient_stops[0], final_fg_color],
                             10,
                             false,
                         )
                         .map_err(EngineError::Other)?;
                         scene
                             .apply_gradient_to_symbols(
-                                &[input_symbol.clone()],
+                                std::slice::from_ref(&input_symbol),
                                 self.config.final_gradient_frames,
                                 Some(&char_gradient),
                                 None,
@@ -211,46 +229,5 @@ impl Slide {
         self.active_groups = Vec::new();
         self.current_gap = 0;
         Ok(())
-    }
-}
-impl Effect for Slide {
-    fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
-        self.build_scene(ctx)
-    }
-
-    fn next_frame(&mut self, ctx: &mut EngineCtx) -> Option<String> {
-        if !self.pending_groups.is_empty()
-            || !ctx.active_characters.is_empty()
-            || !self.active_groups.is_empty()
-        {
-            if self.current_gap == self.config.gap && !self.pending_groups.is_empty() {
-                self.active_groups.push(self.pending_groups.remove(0));
-                self.current_gap = 0;
-            } else if !self.pending_groups.is_empty() {
-                self.current_gap += 1;
-            }
-            for group_index in 0..self.active_groups.len() {
-                if !self.active_groups[group_index].is_empty() {
-                    let next_char = self.active_groups[group_index].remove(0);
-                    ctx.terminal.set_character_visibility(next_char, true);
-                    ctx.activate_path(self, next_char, "input_path");
-                    ctx.active_characters.insert(next_char);
-                }
-            }
-            self.active_groups.retain(|group| !group.is_empty());
-            ctx.update(self);
-            return Some(emit_frame(ctx));
-        }
-        None
-    }
-}
-impl Default for SlideConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
-impl Default for Slide {
-    fn default() -> Self {
-        Self::new(SlideConfig::default())
     }
 }

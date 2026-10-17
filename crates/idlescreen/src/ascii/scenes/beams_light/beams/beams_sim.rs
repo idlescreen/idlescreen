@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{Beams, BeamsConfig, Effect, EngineCtx, EngineError, Phase, emit_frame};
 
 impl Effect for Beams {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -31,10 +31,10 @@ impl Effect for Beams {
                         let count = group.next_character_counter as i64;
                         if count > 1 {
                             for _ in 0..count {
-                                if !group.characters.is_empty() {
-                                    if let Some(next_char) = self.get_next_character(ctx, group) {
-                                        ctx.active_characters.insert(next_char);
-                                    }
+                                if !group.characters.is_empty()
+                                    && let Some(next_char) = self.get_next_character(ctx, group)
+                                {
+                                    ctx.active_characters.insert(next_char);
                                 }
                             }
                         }
@@ -49,7 +49,9 @@ impl Effect for Beams {
                     }
                 }
                 Phase::FinalWipe => {
-                    if !self.final_wipe_groups.is_empty() {
+                    if self.final_wipe_groups.is_empty() {
+                        self.phase = Phase::Complete;
+                    } else {
                         for _ in 0..self.config.final_wipe_speed {
                             if self.final_wipe_groups.is_empty() {
                                 break;
@@ -61,8 +63,6 @@ impl Effect for Beams {
                                 ctx.active_characters.insert(id);
                             }
                         }
-                    } else {
-                        self.phase = Phase::Complete;
                     }
                 }
                 Phase::Complete => {}
@@ -73,11 +73,7 @@ impl Effect for Beams {
         None
     }
 }
-impl Default for BeamsConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Beams {
     fn default() -> Self {
         Self::new(BeamsConfig::default())

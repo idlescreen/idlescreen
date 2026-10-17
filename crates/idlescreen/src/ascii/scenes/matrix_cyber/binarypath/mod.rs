@@ -6,13 +6,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps,
-    parse_non_negative_ratio, parse_positive_float,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{Animation, ExistingColorHandling, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -24,42 +18,34 @@ use ttfx::utils::easing::Easing;
 use ttfx::utils::geometry::Coord;
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 
-mod binarypath_step;
-#[allow(unused_imports)]
-use binarypath_step::*;
 mod binarypath_sim;
-#[allow(unused_imports)]
-use binarypath_sim::*;
+mod binarypath_step;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct BinaryPathConfig {
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["00d500", "007500"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "radial", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
-
-    /// Space separated, unquoted, list of colors for the binary characters. Character color is randomly assigned from this list.
-    #[arg(long = "binary-colors", num_args = 1.., value_parser = parse_color,
-          default_values = ["044E29", "157e38", "45bf55", "95ed87"])]
     pub binary_colors: Vec<Color>,
-
-    /// Speed of the binary groups as they travel around the terminal.
-    #[arg(long = "movement-speed", default_value_t = 2.0, value_parser = parse_positive_float)]
     pub movement_speed: f64,
-
-    /// Maximum number of binary groups that are active at any given time as a percentage of the total number of binary groups. Lower this to improve performance.
-    #[arg(long = "active-binary-groups", default_value_t = 0.20, value_parser = parse_non_negative_ratio)]
     pub active_binary_groups: f64,
+}
+impl Default for BinaryPathConfig {
+    fn default() -> Self {
+        Self {
+            final_gradient_stops: vec![hex_color("00d500"), hex_color("007500")],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Radial,
+            binary_colors: vec![
+                hex_color("044E29"),
+                hex_color("157e38"),
+                hex_color("45bf55"),
+                hex_color("95ed87"),
+            ],
+            movement_speed: 2.0,
+            active_binary_groups: 0.20,
+        }
+    }
 }
 /// BinaryPathIterator._BinaryRepresentation.
 pub(super) struct BinaryRepresentation {
@@ -74,7 +60,7 @@ pub(super) enum Phase {
     Travel,
     Wipe,
 }
-/// typing.Literal["col", "row"].
+/// Orientation: `"col"` or `"row"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Orientation {
     Col,

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CallerKey, CharacterFilter, CharacterGroup, ColorPair, Coord, Effect, EffectCallback,
+    EngineCtx, EngineError, Event, EventAction, ExistingColorHandling, Gradient, Print,
+    PrintConfig, Row, SET_INVISIBLE_CALLBACK, emit_frame, hex_color,
+};
 
 impl Effect for Print {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -39,17 +43,14 @@ impl Effect for Print {
             let final_colors = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 if dynamic {
-                    ColorPair::new(
-                        ch.animation.input_fg_color.clone(),
-                        ch.animation.input_bg_color.clone(),
-                    )
+                    ColorPair::new(ch.animation.input_fg_color, ch.animation.input_bg_color)
                 } else {
                     ColorPair::new(
                         Some(
                             final_gradient_mapping
                                 .get(&ch.input_coord)
-                                .cloned()
-                                .unwrap_or_else(|| Color::from_hex("ffffff").must_val()),
+                                .copied()
+                                .unwrap_or_else(|| hex_color("ffffff")),
                         ),
                         None,
                     )
@@ -100,15 +101,16 @@ impl Effect for Print {
                     },
                 );
                 self.processed_rows.push(finished_row);
-                if !self.pending_rows.is_empty() {
+                if self.pending_rows.is_empty() {
+                    self.typing = false;
+                } else {
                     for row in &self.processed_rows {
                         row.move_up(ctx);
                     }
                     self.current_row = self.pending_rows.remove(0);
                     let last_row_all_fill = self
                         .processed_rows
-                        .last()
-                        .must_val()
+                        .last()?
                         .typed_chars
                         .iter()
                         .all(|&id| ctx.terminal.arena[id.0 as usize].is_fill_character);
@@ -125,8 +127,7 @@ impl Effect for Print {
                             .copied()
                             .filter(|&id| !ctx.terminal.arena[id.0 as usize].is_fill_character)
                             .map(|id| ctx.terminal.arena[id.0 as usize].input_coord.column)
-                            .min()
-                            .must_val();
+                            .min()?;
                         let text_right = ctx.terminal.canvas.text_right;
                         let arena = &ctx.terminal.arena;
                         self.current_row.untyped_chars.retain(|&id| {
@@ -157,13 +158,12 @@ impl Effect for Print {
                                 false,
                                 "carriage_return_path",
                             )
-                            .must_val();
+                            .ok()?;
                         head.motion
                             .paths
-                            .get_mut(&path_id)
-                            .must_val()
+                            .get_mut(&path_id)?
                             .new_waypoint(Coord::new(target_column, 1), None, "")
-                            .must_val();
+                            .ok()?;
                     }
                     let typing_head = self.typing_head;
                     ctx.activate_path(self, typing_head, "carriage_return_path");
@@ -180,8 +180,6 @@ impl Effect for Print {
                         }),
                     );
                     ctx.active_characters.insert(self.typing_head);
-                } else {
-                    self.typing = false;
                 }
             }
             ctx.update(self);
@@ -190,11 +188,7 @@ impl Effect for Print {
         None
     }
 }
-impl Default for PrintConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Print {
     fn default() -> Self {
         Self::new(PrintConfig::default())

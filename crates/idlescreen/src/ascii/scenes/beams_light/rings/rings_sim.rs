@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CB_SET_INVISIBLE, CallerKey, CharId, CharacterFilter, CharacterSort, ColorPair, Easing,
+    EffectCallback, EngineCtx, EngineError, Event, EventAction, ExistingColorHandling, Gradient,
+    HashSet, Phase, Ring, Rings, VisualParams, geometry, round_half_even,
+};
 
 impl Rings {
     pub(super) fn build_scene(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -42,8 +46,8 @@ impl Rings {
                 (
                     ch.input_coord,
                     ch.input_symbol.clone(),
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.uses_input_preexisting_colors,
                 )
             };
@@ -51,19 +55,22 @@ impl Rings {
                 ColorPair::new(input_fg, input_bg)
             } else {
                 ColorPair::new(
-                    Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                    Some(
+                        *final_gradient_mapping
+                            .get(&input_coord)
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
+                    ),
                     None,
                 )
             };
-            self.character_final_color_map
-                .insert(id, final_colors.clone());
+            self.character_final_color_map.insert(id, final_colors);
             let start_scn = {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 let scene_id = ch.animation.new_scene(false, None, None, "", uses_pre);
                 ch.animation
                     .scenes
                     .get_mut(&scene_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &input_symbol,
                         1,
@@ -84,7 +91,7 @@ impl Rings {
                 ch.motion
                     .paths
                     .get_mut(&home_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
             }
@@ -110,17 +117,8 @@ impl Rings {
             if (in_canvas_count as f64) / (ring_coords.len() as f64) < 0.25 {
                 break;
             }
-            let ring_color =
-                self.config.ring_colors[rings.len() % self.config.ring_colors.len()].clone();
-            let ring = Ring::new(
-                ctx,
-                &self.config,
-                radius,
-                center,
-                ring_coords,
-                ring_gap,
-                ring_color,
-            );
+            let ring_color = self.config.ring_colors[rings.len() % self.config.ring_colors.len()];
+            let ring = Ring::new(ctx, &self.config, ring_coords, ring_gap, ring_color);
             rings.push(ring);
             radius += ring_gap;
         }
@@ -162,7 +160,7 @@ impl Rings {
                 ch.motion
                     .paths
                     .get_mut(&external_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(external_coord, None, "")
                     .map_err(EngineError::Other)?;
             }

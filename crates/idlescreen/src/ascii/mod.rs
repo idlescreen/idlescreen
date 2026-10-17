@@ -9,7 +9,6 @@ pub mod effects;
 pub mod engine;
 pub mod layout;
 mod runtime;
-#[allow(clippy::all, unused)]
 pub mod scenes;
 pub mod state;
 pub mod sys_info;

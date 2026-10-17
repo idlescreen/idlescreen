@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CallerKey, CharId, CharacterFilter, CharacterSort, ColorPair, Decrypt, DecryptConfig, Effect,
+    EffectCallback, EffectHooks, EngineCtx, EngineError, Event, EventAction, ExistingColorHandling,
+    Gradient, Phase, VisualParams, emit_frame,
+};
 
 impl Decrypt {
     /// DecryptIterator.prepare_data_for_type_effect.
@@ -22,12 +26,12 @@ impl Decrypt {
                     .new_scene(false, None, None, "typing", uses_pre);
             }
             for block_char in ["▉", "▓", "▒", "░"] {
-                let color = ctx.rng.choice(&self.config.ciphertext_colors).clone();
+                let color = *ctx.rng.choice(&self.config.ciphertext_colors);
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut("typing")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         block_char,
                         2,
@@ -39,13 +43,13 @@ impl Decrypt {
                     .map_err(EngineError::Other)?;
             }
             let symbol = ctx.rng.choice(&self.encrypted_symbols).clone();
-            let color = ctx.rng.choice(&self.config.ciphertext_colors).clone();
+            let color = *ctx.rng.choice(&self.config.ciphertext_colors);
             {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut("typing")
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &symbol,
                         1,
@@ -130,17 +134,13 @@ impl Effect for Decrypt {
             let final_colors = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 if dynamic {
-                    ColorPair::new(
-                        ch.animation.input_fg_color.clone(),
-                        ch.animation.input_bg_color.clone(),
-                    )
+                    ColorPair::new(ch.animation.input_fg_color, ch.animation.input_bg_color)
                 } else {
                     ColorPair::new(
                         Some(
-                            final_gradient_mapping
+                            *final_gradient_mapping
                                 .get(&ch.input_coord)
-                                .must_val()
-                                .clone(),
+                                .ok_or_else(|| EngineError::Other(String::new()))?,
                         ),
                         None,
                     )
@@ -194,11 +194,7 @@ impl Effect for Decrypt {
         None
     }
 }
-impl Default for DecryptConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Decrypt {
     fn default() -> Self {
         Self::new(DecryptConfig::default())

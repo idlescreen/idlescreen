@@ -9,13 +9,7 @@
 //! No observable set iteration beyond the engine-canonical active_characters
 //! (docs/ordering-inventory.md).
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps, parse_positive_int,
-    parse_symbol,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{Animation, ExistingColorHandling, Scene, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx, NoopHooks};
@@ -30,18 +24,11 @@ use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 use ttfx::utils::pycompat::floor_div;
 
 /// fade_complete (effect_thunderstorm.py:388): phase -> storm, restart clock.
-mod thunderstorm_step;
-#[allow(unused_imports)]
-use thunderstorm_step::*;
-mod thunderstorm_sim;
-#[allow(unused_imports)]
-use thunderstorm_sim::*;
 mod thunderstorm_build;
-#[allow(unused_imports)]
-use thunderstorm_build::*;
 mod thunderstorm_fx;
-#[allow(unused_imports)]
-use thunderstorm_fx::*;
+mod thunderstorm_sim;
+mod thunderstorm_step;
+use thunderstorm_step::{initialize_spark, setup_raindrop, setup_sparks_for_impact};
 
 pub(super) const CB_FADE_COMPLETE: u32 = 0;
 /// ThunderstormIterator.hide_character.
@@ -56,60 +43,42 @@ pub(super) const CB_SET_STRIKE_IN_PROGRESS_FALSE: u32 = 4;
 pub(super) const CB_RECLAIM_RAIN: u32 = 5;
 /// spark_pool.reclaim_on_event closure.
 pub(super) const CB_RECLAIM_SPARK: u32 = 6;
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct ThunderstormConfig {
-    /// Color for the lightning strike.
-    #[arg(long = "lightning-color", default_value = "68A3E8", value_parser = parse_color)]
     pub lightning_color: Color,
-
-    /// Color for the text when glowing after a lightning strike.
-    #[arg(long = "glowing-text-color", default_value = "EF5411", value_parser = parse_color)]
     pub glowing_text_color: Color,
-
-    /// Number of frames to display each color in the post-lightning text glow cooling gradient. Increase to slow down the cooling animation.
-    #[arg(long = "text-glow-time", default_value_t = 3, value_parser = parse_positive_int)]
     pub text_glow_time: i64,
-
-    /// Symbols to use for the raindrops.
-    #[arg(long = "raindrop-symbols", num_args = 1.., value_parser = parse_symbol,
-          default_values = ["\\", ".", ","])]
     pub raindrop_symbols: Vec<String>,
-
-    /// Symbols to use for the lightning impact sparks.
-    #[arg(long = "spark-symbols", num_args = 1.., value_parser = parse_symbol,
-          default_values = ["*", ".", "'"])]
     pub spark_symbols: Vec<String>,
-
-    /// Color for the spark glow after a lightning strike.
-    #[arg(long = "spark-glow-color", default_value = "ff4d00", value_parser = parse_color)]
     pub spark_glow_color: Color,
-
-    /// Number of frames to display each color in the post-lightning spark cooling gradient. Increase to slow down the cooling animation.
-    #[arg(long = "spark-glow-time", default_value_t = 8, value_parser = parse_positive_int)]
     pub spark_glow_time: i64,
-
-    /// Duration, in seconds, the storm will occur.
-    #[arg(long = "storm-time", default_value_t = 2, value_parser = parse_positive_int)]
     pub storm_time: i64,
-
-    /// Space separated, unquoted, list of colors for the character gradient (applied across the canvas).
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["8A008A", "00D1FF", "FFFFFF"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Number of frames to display each gradient step. Increase to slow down the gradient animation.
-    #[arg(long = "final-gradient-frames", default_value_t = 1, value_parser = parse_positive_int)]
     pub final_gradient_frames: i64,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for ThunderstormConfig {
+    fn default() -> Self {
+        Self {
+            lightning_color: hex_color("68A3E8"),
+            glowing_text_color: hex_color("EF5411"),
+            text_glow_time: 3,
+            raindrop_symbols: vec!["\\".to_string(), ".".to_string(), ",".to_string()],
+            spark_symbols: vec!["*".to_string(), ".".to_string(), "'".to_string()],
+            spark_glow_color: hex_color("ff4d00"),
+            spark_glow_time: 8,
+            storm_time: 2,
+            final_gradient_stops: vec![
+                hex_color("8A008A"),
+                hex_color("00D1FF"),
+                hex_color("FFFFFF"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_frames: 1,
+            final_gradient_direction: GradientDirection::Vertical,
+        }
+    }
 }
 /// self.phase string states.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -161,46 +130,32 @@ pub(super) fn add_color_pair_gradient_frames(
     duration: i64,
 ) -> Result<(), String> {
     let fg_steps: Vec<Option<Color>> =
-        if start_colors.fg_color.is_some() && end_colors.fg_color.is_some() {
-            Gradient::with_steps(
-                &[
-                    start_colors.fg_color.clone().must_val(),
-                    end_colors.fg_color.clone().must_val(),
-                ],
-                steps,
-                false,
-            )?
-            .spectrum
-            .into_iter()
-            .map(Some)
-            .collect()
+        if let (Some(s), Some(e)) = (&start_colors.fg_color, &end_colors.fg_color) {
+            Gradient::with_steps(&[*s, *e], steps, false)?
+                .spectrum
+                .into_iter()
+                .map(Some)
+                .collect()
         } else {
             let filler = if end_colors.fg_color.is_some() {
-                end_colors.fg_color.clone()
+                end_colors.fg_color
             } else {
-                start_colors.fg_color.clone()
+                start_colors.fg_color
             };
             vec![filler; steps as usize]
         };
     let bg_steps: Vec<Option<Color>> =
-        if start_colors.bg_color.is_some() && end_colors.bg_color.is_some() {
-            Gradient::with_steps(
-                &[
-                    start_colors.bg_color.clone().must_val(),
-                    end_colors.bg_color.clone().must_val(),
-                ],
-                steps,
-                false,
-            )?
-            .spectrum
-            .into_iter()
-            .map(Some)
-            .collect()
+        if let (Some(s), Some(e)) = (&start_colors.bg_color, &end_colors.bg_color) {
+            Gradient::with_steps(&[*s, *e], steps, false)?
+                .spectrum
+                .into_iter()
+                .map(Some)
+                .collect()
         } else {
             let filler = if end_colors.bg_color.is_some() {
-                end_colors.bg_color.clone()
+                end_colors.bg_color
             } else {
-                start_colors.bg_color.clone()
+                start_colors.bg_color
             };
             vec![filler; steps as usize]
         };
@@ -209,10 +164,7 @@ pub(super) fn add_color_pair_gradient_frames(
             symbol,
             duration,
             VisualParams {
-                colors: Some(ColorPair::new(
-                    fg_steps[index].clone(),
-                    bg_steps[index].clone(),
-                )),
+                colors: Some(ColorPair::new(fg_steps[index], bg_steps[index])),
                 ..Default::default()
             },
         )?;
@@ -229,9 +181,39 @@ pub(super) fn initialize_raindrop(ctx: &mut EngineCtx, id: CharId) {
         &input_symbol,
         uses_pre,
         Some(&input_symbol),
-        Some(ColorPair::new(
-            Some(Color::from_hex("aaaaff").must_val()),
-            None,
-        )),
+        Some(ColorPair::new(Some(hex_color("aaaaff")), None)),
     );
+}
+
+impl EffectHooks for Thunderstorm {
+    fn dispatch_callback(
+        &mut self,
+        ctx: &mut EngineCtx,
+        character: CharId,
+        callback: &EffectCallback,
+    ) {
+        match callback.id {
+            CB_FADE_COMPLETE => {
+                self.phase = Phase::Storm;
+                self.storm_start_time = ctx.clock.now_monotonic();
+            }
+            CB_HIDE_CHARACTER => ctx.terminal.set_character_visibility(character, false),
+            CB_MAKE_CHAR_GLOW => {
+                let coord = ctx.terminal.arena[character.0 as usize]
+                    .motion
+                    .current_coord;
+                if let Some(input_char) = ctx.terminal.get_character_by_input_coord(coord)
+                    && ctx.terminal.arena[input_char.0 as usize].is_visible
+                {
+                    ctx.activate_scene(self, input_char, "glow");
+                    self.pending_glow_chars.push(input_char);
+                }
+            }
+            CB_RETURN_STRIKE_TO_POOL => self.available_strike_chars.push(character),
+            CB_SET_STRIKE_IN_PROGRESS_FALSE => self.strike_in_progress = false,
+            CB_RECLAIM_RAIN => self.rain_pool.reclaim(ctx, character, true, true),
+            CB_RECLAIM_SPARK => self.spark_pool.reclaim(ctx, character, true, true),
+            _ => {}
+        }
+    }
 }

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CallerKey, CharacterFilter, CharacterSort, ColorPair, Coord, Effect, EngineCtx, EngineError,
+    Event, EventAction, ExistingColorHandling, Gradient, Spray, SprayConfig, SprayPosition,
+    VisualParams, emit_frame, floor_div,
+};
 
 impl Effect for Spray {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -32,17 +36,13 @@ impl Effect for Spray {
             let final_colors = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 if dynamic {
-                    ColorPair::new(
-                        ch.animation.input_fg_color.clone(),
-                        ch.animation.input_bg_color.clone(),
-                    )
+                    ColorPair::new(ch.animation.input_fg_color, ch.animation.input_bg_color)
                 } else {
                     ColorPair::new(
                         Some(
-                            final_gradient_mapping
+                            *final_gradient_mapping
                                 .get(&ch.input_coord)
-                                .must_val()
-                                .clone(),
+                                .ok_or_else(|| EngineError::Other(String::new()))?,
                         ),
                         None,
                     )
@@ -87,7 +87,7 @@ impl Effect for Spray {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
                 path_id
@@ -111,34 +111,43 @@ impl Effect for Spray {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation.new_scene(false, None, None, "", uses_pre)
             };
-            let final_colors = self.character_final_color_map.get(&id).must_val().clone();
+            let final_colors = *self
+                .character_final_color_map
+                .get(&id)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             if dynamic {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
-                let scene = ch.animation.scenes.get_mut(&droplet_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&droplet_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 for _ in 0..7 {
                     scene
                         .add_frame(
                             &input_symbol,
                             20,
                             VisualParams {
-                                colors: Some(final_colors.clone()),
+                                colors: Some(final_colors),
                                 ..Default::default()
                             },
                         )
                         .map_err(EngineError::Other)?;
                 }
             } else {
-                let start_color = ctx.rng.choice(&final_gradient.spectrum).clone();
-                let final_fg = final_colors.fg_color.clone().must_val();
+                let start_color = *ctx.rng.choice(&final_gradient.spectrum);
+                let final_fg = final_colors
+                    .fg_color
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let spray_gradient = Gradient::with_steps(&[start_color, final_fg], 7, false)
                     .map_err(EngineError::Other)?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut(&droplet_scn)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(
-                        &[input_symbol.clone()],
+                        std::slice::from_ref(&input_symbol),
                         20,
                         Some(&spray_gradient),
                         None,
@@ -173,11 +182,7 @@ impl Effect for Spray {
         None
     }
 }
-impl Default for SprayConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Spray {
     fn default() -> Self {
         Self::new(SprayConfig::default())

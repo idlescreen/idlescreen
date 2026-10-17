@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    Animation, Beams, CharacterFilter, CharacterGroup, CharacterSort, ColorPair, Direction,
+    EngineCtx, EngineError, ExistingColorHandling, Gradient, Group, VisualParams, hex_color,
+};
 
 impl Beams {
     pub(super) fn build_scene(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -42,24 +45,18 @@ impl Beams {
         for id in characters {
             let ch = &ctx.terminal.arena[id.0 as usize];
             if ch.is_fill_character {
-                self.character_final_color_map.insert(
-                    id,
-                    ColorPair::new(Some(Color::from_hex("#000000").must_val()), None),
-                );
+                self.character_final_color_map
+                    .insert(id, ColorPair::new(Some(hex_color("#000000")), None));
                 continue;
             }
             let final_colors = if dynamic {
-                ColorPair::new(
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
-                )
+                ColorPair::new(ch.animation.input_fg_color, ch.animation.input_bg_color)
             } else {
                 ColorPair::new(
                     Some(
-                        final_gradient_mapping
+                        *final_gradient_mapping
                             .get(&ch.input_coord)
-                            .must_val()
-                            .clone(),
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
                     ),
                     None,
                 )
@@ -108,7 +105,7 @@ impl Beams {
                     ch.animation
                         .scenes
                         .get_mut("beam_row")
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .apply_gradient_to_symbols(
                             &self.config.beam_row_symbols,
                             self.config.beam_gradient_frames,
@@ -119,7 +116,7 @@ impl Beams {
                     ch.animation
                         .scenes
                         .get_mut("beam_column")
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .apply_gradient_to_symbols(
                             &self.config.beam_column_symbols,
                             self.config.beam_gradient_frames,
@@ -128,7 +125,10 @@ impl Beams {
                         )
                         .map_err(EngineError::Other)?;
                 }
-                let char_colors = self.character_final_color_map.get(&id).must_val().clone();
+                let char_colors = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let mut fg_fade_gradient: Option<Gradient> = None;
                 let mut bg_fade_gradient: Option<Gradient> = None;
                 let mut fg_brighten_gradient: Option<Gradient> = None;
@@ -136,22 +136,22 @@ impl Beams {
                 if let Some(fg) = &char_colors.fg_color {
                     let faded_fg_color = Animation::adjust_color_brightness(fg, 0.3);
                     fg_fade_gradient = Some(
-                        Gradient::with_steps(&[fg.clone(), faded_fg_color.clone()], 10, false)
+                        Gradient::with_steps(&[*fg, faded_fg_color], 10, false)
                             .map_err(EngineError::Other)?,
                     );
                     fg_brighten_gradient = Some(
-                        Gradient::with_steps(&[faded_fg_color, fg.clone()], 10, false)
+                        Gradient::with_steps(&[faded_fg_color, *fg], 10, false)
                             .map_err(EngineError::Other)?,
                     );
                 }
                 if let Some(bg) = &char_colors.bg_color {
                     let faded_bg_color = Animation::adjust_color_brightness(bg, 0.3);
                     bg_fade_gradient = Some(
-                        Gradient::with_steps(&[bg.clone(), faded_bg_color.clone()], 10, false)
+                        Gradient::with_steps(&[*bg, faded_bg_color], 10, false)
                             .map_err(EngineError::Other)?,
                     );
                     bg_brighten_gradient = Some(
-                        Gradient::with_steps(&[faded_bg_color, bg.clone()], 10, false)
+                        Gradient::with_steps(&[faded_bg_color, *bg], 10, false)
                             .map_err(EngineError::Other)?,
                     );
                 }
@@ -161,9 +161,9 @@ impl Beams {
                     ch.animation
                         .scenes
                         .get_mut("beam_row")
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             2,
                             fg_fade_gradient.as_ref(),
                             bg_fade_gradient.as_ref(),
@@ -172,9 +172,9 @@ impl Beams {
                     ch.animation
                         .scenes
                         .get_mut("beam_column")
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             2,
                             fg_fade_gradient.as_ref(),
                             bg_fade_gradient.as_ref(),
@@ -184,7 +184,7 @@ impl Beams {
                     ch.animation
                         .scenes
                         .get_mut("beam_row")
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .add_frame(
                             &input_symbol,
                             2,
@@ -197,7 +197,7 @@ impl Beams {
                     ch.animation
                         .scenes
                         .get_mut("beam_column")
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .add_frame(
                             &input_symbol,
                             2,
@@ -213,9 +213,9 @@ impl Beams {
                     ch.animation
                         .scenes
                         .get_mut("brighten")
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             self.config.final_gradient_frames,
                             fg_brighten_gradient.as_ref(),
                             bg_brighten_gradient.as_ref(),
@@ -225,7 +225,7 @@ impl Beams {
                     ch.animation
                         .scenes
                         .get_mut("brighten")
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .add_frame(
                             &input_symbol,
                             self.config.final_gradient_frames,

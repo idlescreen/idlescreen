@@ -5,8 +5,7 @@
 
 mod spotlights_step;
 
-use clap::Parser;
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::hex_color;
 use ttfx::engine::active_characters::ActiveCharacters;
 use ttfx::engine::animation::{Animation, ExistingColorHandling};
 use ttfx::engine::character::CharId;
@@ -17,49 +16,19 @@ use ttfx::utils::geometry::{self, Coord};
 use ttfx::utils::graphics::{Color, ColorPair, GradientDirection};
 use ttfx::utils::pycompat::floor_div;
 
-use crate::ascii::scenes::canvas_ops::{
-    parse_gradient_direction, parse_gradient_steps, parse_non_negative_float, parse_positive_float,
-    parse_positive_float_range, parse_positive_int,
-};
-
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct SpotlightsConfig {
-    /// Width of the beam of light as min(width, height) // n of the input text. Values less than 1 are raised to 1.
-    #[arg(long = "beam-width-ratio", default_value_t = 2.0, value_parser = parse_positive_float)]
     pub beam_width_ratio: f64,
-
-    /// Distance from the edge of the beam where the brightness begins to fall off, as a percentage of total beam width.
-    #[arg(long = "beam-falloff", default_value_t = 0.3, value_parser = parse_non_negative_float)]
     pub beam_falloff: f64,
-
-    /// Duration of the search phase, in frames, before the spotlights converge in the center.
-    #[arg(long = "search-duration", default_value_t = 160, value_parser = parse_positive_int)]
     pub search_duration: i64,
-
-    /// Range of speeds for the spotlights during the search phase.
-    #[arg(long = "search-speed-range", default_value = "0.85-1.60", value_parser = parse_positive_float_range)]
     pub search_speed_range: (f64, f64),
-
-    /// Number of spotlights to use.
-    #[arg(long = "spotlight-count", default_value_t = 4, value_parser = parse_positive_int)]
     pub spotlight_count: i64,
-
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["00f5d4", "51a2da", "ffbe0b"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
 }
 
+#[allow(clippy::struct_field_names)]
 pub struct Spotlights {
     pub(super) config: SpotlightsConfig,
     pub(super) illuminated_chars: ActiveCharacters,
@@ -126,7 +95,7 @@ impl Spotlights {
         }
         let ch = &ctx.terminal.arena[id.0 as usize];
         if ch.animation.input_fg_color.is_none() && ch.animation.input_bg_color.is_some() {
-            return Some(ColorPair::new(None, ch.animation.input_bg_color.clone()));
+            return Some(ColorPair::new(None, ch.animation.input_bg_color));
         }
         if !Self::has_input_colors(ctx, id) {
             return Some(ColorPair::default());
@@ -214,7 +183,20 @@ impl Spotlights {
 
 impl Default for SpotlightsConfig {
     fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
+        Self {
+            beam_width_ratio: 2.0,
+            beam_falloff: 0.3,
+            search_duration: 160,
+            search_speed_range: (0.85, 1.60),
+            spotlight_count: 4,
+            final_gradient_stops: vec![
+                hex_color("00f5d4"),
+                hex_color("51a2da"),
+                hex_color("ffbe0b"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Vertical,
+        }
     }
 }
 

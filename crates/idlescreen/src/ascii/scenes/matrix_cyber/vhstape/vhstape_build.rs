@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharacterFilter, CharacterGroup, CharacterSort, ColorPair, Effect, EngineCtx, EngineError,
+    ExistingColorHandling, Gradient, Line, Phase, VhsTape, VhsTapeConfig, emit_frame, hex_color,
+};
 
 impl Effect for VhsTape {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -30,24 +33,20 @@ impl Effect for VhsTape {
         for id in characters {
             let ch = &ctx.terminal.arena[id.0 as usize];
             if dynamic {
-                let input_fg = ch.animation.input_fg_color.clone();
-                let input_bg = ch.animation.input_bg_color.clone();
+                let input_fg = ch.animation.input_fg_color;
+                let input_bg = ch.animation.input_bg_color;
                 // DYNAMIC_NEUTRAL_GRAY
-                let stable_fg = input_fg
-                    .clone()
-                    .or_else(|| Some(Color::from_hex("808080").must_val()));
+                let stable_fg = input_fg.or_else(|| Some(hex_color("808080")));
                 self.character_stable_color_map
-                    .insert(id, ColorPair::new(stable_fg, input_bg.clone()));
+                    .insert(id, ColorPair::new(stable_fg, input_bg));
                 self.character_final_color_map
                     .insert(id, ColorPair::new(input_fg, input_bg));
             } else {
-                let gradient_color = final_gradient_mapping
+                let gradient_color = *final_gradient_mapping
                     .get(&ch.input_coord)
-                    .must_val()
-                    .clone();
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let stable_colors = ColorPair::new(Some(gradient_color), None);
-                self.character_stable_color_map
-                    .insert(id, stable_colors.clone());
+                self.character_stable_color_map.insert(id, stable_colors);
                 self.character_final_color_map.insert(id, stable_colors);
             }
         }
@@ -176,11 +175,7 @@ impl Effect for VhsTape {
         Some(emit_frame(ctx))
     }
 }
-impl Default for VhsTapeConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for VhsTape {
     fn default() -> Self {
         Self::new(VhsTapeConfig::default())

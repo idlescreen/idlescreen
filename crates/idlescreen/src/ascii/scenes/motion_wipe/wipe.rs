@@ -2,13 +2,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_character_group, parse_easing, parse_gradient_direction,
-    parse_gradient_steps, parse_non_negative_int,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -19,41 +13,18 @@ use ttfx::engine::terminal::{CharacterFilter, CharacterGroup, CharacterSort};
 use ttfx::utils::easing::{Easing, SequenceEaser};
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct WipeConfig {
-    /// Direction the text will wipe.
-    #[arg(long = "wipe-direction", default_value = "diagonal_top_left_to_bottom_right",
-          value_parser = parse_character_group)]
     pub wipe_direction: CharacterGroup,
-
-    /// Number of frames to wait before adding the next character group.
-    #[arg(long = "wipe-delay", default_value_t = 0, value_parser = parse_non_negative_int)]
     pub wipe_delay: i64,
-
-    /// Easing function to use for the wipe effect.
-    #[arg(long = "wipe-ease", default_value = "out_expo", value_parser = parse_easing)]
     pub wipe_ease: Easing,
-
-    /// Space separated, unquoted, list of colors for the wipe gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["833ab4", "fd1d1d", "fcb045"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Number of frames to display each gradient step.
-    #[arg(long = "final-gradient-frames", default_value_t = 1)]
     pub final_gradient_frames: i64,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
 }
 
+#[allow(clippy::struct_field_names)]
 pub struct Wipe {
     config: WipeConfig,
     character_final_color_map: HashMap<CharId, ColorPair>,
@@ -117,8 +88,8 @@ impl Effect for Wipe {
             let (input_fg, input_bg, input_coord, input_symbol, uses_pre) = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.input_coord,
                     ch.input_symbol.clone(),
                     ch.uses_input_preexisting_colors,
@@ -128,17 +99,24 @@ impl Effect for Wipe {
                 ColorPair::new(input_fg, input_bg)
             } else {
                 ColorPair::new(
-                    Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                    Some(
+                        *final_gradient_mapping
+                            .get(&input_coord)
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
+                    ),
                     None,
                 )
             };
-            self.character_final_color_map
-                .insert(id, final_colors.clone());
+            self.character_final_color_map.insert(id, final_colors);
 
             {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation.new_scene(false, None, None, "wipe", uses_pre);
-                let scene = ch.animation.scenes.get_mut("wipe").must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut("wipe")
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 if dynamic {
                     let frame_count: i64 = self.config.final_gradient_steps.iter().sum::<i64>() + 1;
                     for _ in 0..frame_count {
@@ -147,16 +125,18 @@ impl Effect for Wipe {
                                 &input_symbol,
                                 self.config.final_gradient_frames,
                                 VisualParams {
-                                    colors: Some(final_colors.clone()),
+                                    colors: Some(final_colors),
                                     ..Default::default()
                                 },
                             )
                             .map_err(EngineError::Other)?;
                     }
                 } else {
-                    let final_fg = final_colors.fg_color.clone().must_val();
+                    let final_fg = final_colors
+                        .fg_color
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     let wipe_gradient = Gradient::new(
-                        &[final_gradient.spectrum[0].clone(), final_fg],
+                        &[final_gradient.spectrum[0], final_fg],
                         &self.config.final_gradient_steps,
                         false,
                         false,
@@ -164,7 +144,7 @@ impl Effect for Wipe {
                     .map_err(EngineError::Other)?;
                     scene
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             self.config.final_gradient_frames,
                             Some(&wipe_gradient),
                             None,
@@ -177,10 +157,10 @@ impl Effect for Wipe {
     }
 
     fn next_frame(&mut self, ctx: &mut EngineCtx) -> Option<String> {
-        let easer_complete = self.easer.as_ref().must_val().is_complete();
+        let easer_complete = self.easer.as_ref()?.is_complete();
         if !ctx.active_characters.is_empty() || !easer_complete {
             if self.wipe_delay == 0 {
-                let mut easer = self.easer.take().must_val();
+                let mut easer = self.easer.take()?;
                 let step = easer.step();
                 for group in step.added {
                     for &id in group {
@@ -195,8 +175,7 @@ impl Effect for Wipe {
                         ctx.terminal.arena[id.0 as usize]
                             .animation
                             .scenes
-                            .get_mut("wipe")
-                            .must_val()
+                            .get_mut("wipe")?
                             .reset_scene();
                         ctx.terminal.set_character_visibility(id, false);
                     }
@@ -215,7 +194,19 @@ impl Effect for Wipe {
 
 impl Default for WipeConfig {
     fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
+        Self {
+            wipe_direction: CharacterGroup::DiagonalTopLeftToBottomRight,
+            wipe_delay: 0,
+            wipe_ease: Easing::OutExpo,
+            final_gradient_stops: vec![
+                hex_color("833ab4"),
+                hex_color("fd1d1d"),
+                hex_color("fcb045"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_frames: 1,
+            final_gradient_direction: GradientDirection::Vertical,
+        }
     }
 }
 

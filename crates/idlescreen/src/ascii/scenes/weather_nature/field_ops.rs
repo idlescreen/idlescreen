@@ -73,7 +73,7 @@ pub fn build_canvas_cells(
     let aspect = (width / (height * 2.0)).clamp(0.5, 2.5);
     let fallback_color = stop_colors
         .last()
-        .cloned()
+        .copied()
         .unwrap_or_else(|| hex_color("#FFFFFF"));
     let top_row = ctx.terminal.canvas.top;
     let min_y = (top_row - ctx.terminal.canvas.text_top).max(0) as usize;
@@ -95,15 +95,9 @@ pub fn build_canvas_cells(
         let final_colors = if is_fill {
             ColorPair::new(None, None)
         } else if dynamic {
-            ColorPair::new(
-                ch.animation.input_fg_color.clone(),
-                ch.animation.input_bg_color.clone(),
-            )
+            ColorPair::new(ch.animation.input_fg_color, ch.animation.input_bg_color)
         } else {
-            let fg = final_mapping
-                .get(&coord)
-                .cloned()
-                .unwrap_or_else(|| fallback_color.clone());
+            let fg = final_mapping.get(&coord).copied().unwrap_or(fallback_color);
             ColorPair::new(Some(fg), None)
         };
         let settled_colors = if is_fill {
@@ -137,7 +131,7 @@ pub fn sample_palette(palette: &[Color], t: f64) -> Color {
     let clamped = t.clamp(0.0, 1.0);
     let max_idx = palette.len().saturating_sub(1);
     let idx = (clamped * max_idx as f64).round() as usize;
-    palette[idx.min(max_idx)].clone()
+    palette[idx.min(max_idx)]
 }
 
 pub fn paint_math_cell(
@@ -155,7 +149,7 @@ pub fn paint_math_cell(
             &cell.input_symbol,
             cell.uses_pre,
             Some(&cell.input_symbol),
-            Some(cell.final_colors.clone()),
+            Some(cell.final_colors),
         );
         return;
     }
@@ -199,7 +193,7 @@ pub fn paint_symbol_cell(
             &cell.input_symbol,
             cell.uses_pre,
             Some(&cell.input_symbol),
-            Some(cell.final_colors.clone()),
+            Some(cell.final_colors),
         );
         return;
     }
@@ -229,7 +223,7 @@ pub fn settle_canvas_cells(ctx: &mut EngineCtx, cells: &[CanvasCell]) {
                 &cell.input_symbol,
                 cell.uses_pre,
                 Some(&cell.input_symbol),
-                Some(cell.settled_colors.clone()),
+                Some(cell.settled_colors),
             );
         }
     }

@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CallerKey, CharId, Coord, EngineCtx, EngineError, Event, EventAction, ExistingColorHandling,
+    Gradient, HashMap, Phase, Ring, Rings, RingsConfig, VisualParams,
+};
 
 impl Rings {
     pub fn new(config: RingsConfig) -> Self {
@@ -41,9 +44,16 @@ impl Rings {
             let gradient_scn = ch
                 .animation
                 .new_scene(false, None, None, "gradient", uses_pre);
-            let scene = ch.animation.scenes.get_mut(&gradient_scn).must_val();
+            let scene = ch
+                .animation
+                .scenes
+                .get_mut(&gradient_scn)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             if dynamic {
-                let colors = self.character_final_color_map.get(&id).must_val().clone();
+                let colors = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 scene
                     .add_frame(
                         &input_symbol,
@@ -58,16 +68,15 @@ impl Rings {
                 let final_fg_color = self
                     .character_final_color_map
                     .get(&id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .fg_color
-                    .clone()
-                    .must_val();
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let char_gradient =
-                    Gradient::with_steps(&[final_fg_color, ring.ring_color.clone()], 8, false)
+                    Gradient::with_steps(&[final_fg_color, ring.ring_color], 8, false)
                         .map_err(EngineError::Other)?;
                 scene
                     .apply_gradient_to_symbols(
-                        &[input_symbol.clone()],
+                        std::slice::from_ref(&input_symbol),
                         3,
                         Some(&char_gradient),
                         None,
@@ -102,7 +111,11 @@ impl Rings {
                     &ring_paths.len().to_string(),
                 )
                 .map_err(EngineError::Other)?;
-            let path = ch.motion.paths.get_mut(&path_id).must_val();
+            let path = ch
+                .motion
+                .paths
+                .get_mut(&path_id)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             let waypoint_id = path.waypoints.len().to_string();
             path.new_waypoint(coord, None, &waypoint_id)
                 .map_err(EngineError::Other)?;
@@ -117,9 +130,16 @@ impl Rings {
             let disperse_scn = ch
                 .animation
                 .new_scene(false, None, None, "disperse", uses_pre);
-            let scene = ch.animation.scenes.get_mut(&disperse_scn).must_val();
+            let scene = ch
+                .animation
+                .scenes
+                .get_mut(&disperse_scn)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             if dynamic {
-                let colors = self.character_final_color_map.get(&id).must_val().clone();
+                let colors = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 scene
                     .add_frame(
                         &input_symbol,
@@ -134,16 +154,15 @@ impl Rings {
                 let final_fg_color = self
                     .character_final_color_map
                     .get(&id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .fg_color
-                    .clone()
-                    .must_val();
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let disperse_gradient =
-                    Gradient::with_steps(&[ring.ring_color.clone(), final_fg_color], 8, false)
+                    Gradient::with_steps(&[ring.ring_color, final_fg_color], 8, false)
                         .map_err(EngineError::Other)?;
                 scene
                     .apply_gradient_to_symbols(
-                        &[input_symbol.clone()],
+                        std::slice::from_ref(&input_symbol),
                         10,
                         Some(&disperse_gradient),
                         None,
@@ -189,11 +208,20 @@ impl Rings {
     ) -> Result<(), EngineError> {
         let characters = ring.characters.clone();
         for id in characters {
-            let last_ring_path = ring.character_last_ring_path.get(&id).must_val().clone();
+            let last_ring_path = ring
+                .character_last_ring_path
+                .get(&id)
+                .ok_or_else(|| EngineError::Other(String::new()))?
+                .clone();
             let condense_path = {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
-                let first_waypoint_coord =
-                    ch.motion.paths.get(&last_ring_path).must_val().waypoints[0].coord;
+                let first_waypoint_coord = ch
+                    .motion
+                    .paths
+                    .get(&last_ring_path)
+                    .ok_or_else(|| EngineError::Other(String::new()))?
+                    .waypoints[0]
+                    .coord;
                 let path_id = ch
                     .motion
                     .new_path(0.1, None, None, 0, false, "")
@@ -201,7 +229,7 @@ impl Rings {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(first_waypoint_coord, None, "")
                     .map_err(EngineError::Other)?;
                 path_id
@@ -217,17 +245,5 @@ impl Rings {
             ctx.activate_scene(self, id, "gradient");
         }
         Ok(())
-    }
-}
-impl EffectHooks for Rings {
-    fn dispatch_callback(
-        &mut self,
-        ctx: &mut EngineCtx,
-        character: CharId,
-        callback: &EffectCallback,
-    ) {
-        if callback.id == CB_SET_INVISIBLE {
-            ctx.terminal.set_character_visibility(character, false);
-        }
     }
 }

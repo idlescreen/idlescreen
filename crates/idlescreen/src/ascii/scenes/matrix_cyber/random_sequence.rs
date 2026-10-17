@@ -2,11 +2,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps, parse_positive_float,
-};
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::ExistingColorHandling;
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -16,31 +12,12 @@ use ttfx::engine::events::EffectCallback;
 use ttfx::engine::terminal::{CharacterFilter, CharacterSort};
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 
-use ttfx::cli::parse_color;
-
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct RandomSequenceConfig {
-    /// Speed of the animation as a percentage of the total number of characters to reveal in each tick.
-    #[arg(long, default_value_t = 0.007, value_parser = parse_positive_float)]
     pub speed: f64,
-
-    /// Space separated, unquoted, list of colors for the final gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["8A008A", "00D1FF", "FFFFFF"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Number of frames to display each gradient step.
-    #[arg(long = "final-gradient-frames", default_value_t = 8)]
     pub final_gradient_frames: i64,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
 }
 
@@ -82,7 +59,7 @@ impl Effect for RandomSequence {
             1,
         );
 
-        let terminal_background_color = ctx.terminal.config.terminal_background_color.clone();
+        let terminal_background_color = ctx.terminal.config.terminal_background_color;
         let final_gradient = Gradient::new(
             &self.config.final_gradient_stops,
             &self.config.final_gradient_steps,
@@ -110,8 +87,8 @@ impl Effect for RandomSequence {
             let (input_fg, input_bg, input_coord, input_symbol, uses_pre) = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.input_coord,
                     ch.input_symbol.clone(),
                     ch.uses_input_preexisting_colors,
@@ -121,12 +98,15 @@ impl Effect for RandomSequence {
                 ColorPair::new(input_fg, input_bg)
             } else {
                 ColorPair::new(
-                    Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                    Some(
+                        *final_gradient_mapping
+                            .get(&input_coord)
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
+                    ),
                     None,
                 )
             };
-            self.character_final_color_map
-                .insert(id, final_colors.clone());
+            self.character_final_color_map.insert(id, final_colors);
             ctx.terminal.set_character_visibility(id, false);
 
             let scene_id = {
@@ -138,31 +118,26 @@ impl Effect for RandomSequence {
             {
                 let scene = {
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
-                    ch.animation.scenes.get_mut(&scene_id).must_val()
+                    ch.animation
+                        .scenes
+                        .get_mut(&scene_id)
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                 };
                 if dynamic {
-                    let final_fg = final_colors.fg_color.clone();
-                    let final_bg = final_colors.bg_color.clone();
+                    let final_fg = final_colors.fg_color;
+                    let final_bg = final_colors.bg_color;
                     if final_fg.is_some() || final_bg.is_some() {
                         let fg_gradient = match &final_fg {
                             Some(c) => Some(
-                                Gradient::with_steps(
-                                    &[terminal_background_color.clone(), c.clone()],
-                                    7,
-                                    false,
-                                )
-                                .map_err(EngineError::Other)?,
+                                Gradient::with_steps(&[terminal_background_color, *c], 7, false)
+                                    .map_err(EngineError::Other)?,
                             ),
                             None => None,
                         };
                         let bg_gradient = match &final_bg {
                             Some(c) => Some(
-                                Gradient::with_steps(
-                                    &[terminal_background_color.clone(), c.clone()],
-                                    7,
-                                    false,
-                                )
-                                .map_err(EngineError::Other)?,
+                                Gradient::with_steps(&[terminal_background_color, *c], 7, false)
+                                    .map_err(EngineError::Other)?,
                             ),
                             None => None,
                         };
@@ -176,10 +151,7 @@ impl Effect for RandomSequence {
                             .map_err(EngineError::Other)?;
                     } else {
                         let neutral = Gradient::with_steps(
-                            &[
-                                terminal_background_color.clone(),
-                                Color::from_hex(DYNAMIC_NEUTRAL_GRAY).must_val(),
-                            ],
+                            &[terminal_background_color, hex_color(DYNAMIC_NEUTRAL_GRAY)],
                             7,
                             false,
                         )
@@ -199,13 +171,12 @@ impl Effect for RandomSequence {
                             .map_err(EngineError::Other)?;
                     }
                 } else {
-                    let final_fg = final_colors.fg_color.clone().must_val();
-                    let gradient = Gradient::with_steps(
-                        &[terminal_background_color.clone(), final_fg],
-                        7,
-                        false,
-                    )
-                    .map_err(EngineError::Other)?;
+                    let final_fg = final_colors
+                        .fg_color
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
+                    let gradient =
+                        Gradient::with_steps(&[terminal_background_color, final_fg], 7, false)
+                            .map_err(EngineError::Other)?;
                     scene
                         .apply_gradient_to_symbols(&symbols, frames, Some(&gradient), None)
                         .map_err(EngineError::Other)?;
@@ -235,7 +206,17 @@ impl Effect for RandomSequence {
 
 impl Default for RandomSequenceConfig {
     fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
+        Self {
+            speed: 0.007,
+            final_gradient_stops: vec![
+                hex_color("8A008A"),
+                hex_color("00D1FF"),
+                hex_color("FFFFFF"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_frames: 8,
+            final_gradient_direction: GradientDirection::Vertical,
+        }
     }
 }
 

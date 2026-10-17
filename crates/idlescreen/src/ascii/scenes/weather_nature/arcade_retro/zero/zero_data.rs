@@ -181,7 +181,8 @@ pub fn sample_subcell_halfblock(px_buf: &[u8], sub_w: usize, cx: usize, hy: usiz
 
 #[inline]
 fn sample_window(sprite: &SpriteFrame, sx0: usize, sx1: usize, sy0: usize, sy1: usize) -> u8 {
-    let center = sprite.pixels[((sy0 + sy1) / 2) * sprite.width + ((sx0 + sx1) / 2)];
+    let center =
+        sprite.pixels[usize::midpoint(sy0, sy1) * sprite.width + usize::midpoint(sx0, sx1)];
     let (mut best_raw, mut best_prio) = (center, pixel_priority(center));
     let (mut non_zero, mut total) = (0usize, 0usize);
     for sy in sy0..sy1 {

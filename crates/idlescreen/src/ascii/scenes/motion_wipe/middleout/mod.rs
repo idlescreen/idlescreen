@@ -8,13 +8,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_easing, parse_gradient_direction, parse_gradient_steps,
-    parse_positive_float,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -26,56 +20,44 @@ use ttfx::utils::easing::Easing;
 use ttfx::utils::geometry::Coord;
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 
-/// typing.Literal["vertical", "horizontal"].
 mod middleout_step;
-#[allow(unused_imports)]
-use middleout_step::*;
 
+/// Expand direction: `"vertical"` or `"horizontal"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExpandDirection {
     Vertical,
     Horizontal,
 }
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct MiddleoutConfig {
-    /// Color for the initial text in the center of the canvas.
-    #[arg(long = "starting-color", default_value = "ffffff", value_parser = parse_color)]
     pub starting_color: Color,
-
-    /// Direction the text will expand.
-    #[arg(long = "expand-direction", default_value = "vertical", value_parser = parse_expand_direction)]
     pub expand_direction: ExpandDirection,
-
-    /// Speed of the characters during the initial expansion of the center vertical/horiztonal line.
-    #[arg(long = "center-movement-speed", default_value_t = 1.1, value_parser = parse_positive_float)]
     pub center_movement_speed: f64,
-
-    /// Speed of the characters during the final full expansion.
-    #[arg(long = "full-movement-speed", default_value_t = 1.1, value_parser = parse_positive_float)]
     pub full_movement_speed: f64,
-
-    /// Easing function to use for initial expansion.
-    #[arg(long = "center-easing", default_value = "out_expo", value_parser = parse_easing)]
     pub center_easing: Easing,
-
-    /// Easing function to use for full expansion.
-    #[arg(long = "full-easing", default_value = "out_expo", value_parser = parse_easing)]
     pub full_easing: Easing,
-
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["8A008A", "00D1FF", "FFFFFF"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for MiddleoutConfig {
+    fn default() -> Self {
+        Self {
+            starting_color: hex_color("ffffff"),
+            expand_direction: ExpandDirection::Vertical,
+            center_movement_speed: 1.1,
+            full_movement_speed: 1.1,
+            center_easing: Easing::OutExpo,
+            full_easing: Easing::OutExpo,
+            final_gradient_stops: vec![
+                hex_color("8A008A"),
+                hex_color("00D1FF"),
+                hex_color("FFFFFF"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Vertical,
+        }
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Phase {
@@ -86,17 +68,6 @@ pub struct Middleout {
     pub(super) config: MiddleoutConfig,
     pub(super) character_final_color_map: HashMap<CharId, ColorPair>,
     pub(super) phase: Phase,
-}
-pub(super) fn parse_expand_direction(s: &str) -> Result<ExpandDirection, String> {
-    Ok(match s {
-        "vertical" => ExpandDirection::Vertical,
-        "horizontal" => ExpandDirection::Horizontal,
-        _ => {
-            return Err(format!(
-                "invalid choice: '{s}' (choose from 'vertical', 'horizontal')"
-            ));
-        }
-    })
 }
 impl Middleout {
     pub fn new(config: MiddleoutConfig) -> Self {

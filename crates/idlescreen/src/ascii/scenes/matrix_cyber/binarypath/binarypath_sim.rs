@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    Animation, BinaryPath, BinaryPathConfig, CharId, ColorPair, Easing, EngineCtx, EngineError,
+    Gradient, Phase, VisualParams, emit_frame, hex_color,
+};
 
 impl BinaryPath {
     pub(super) fn setup_binarypath_scenes(
@@ -14,9 +17,12 @@ impl BinaryPath {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (ch.input_symbol.clone(), ch.uses_input_preexisting_colors)
             };
-            let final_colors = self.character_final_color_map.get(&id).must_val().clone();
-            let final_fg_color = final_colors.fg_color.clone();
-            let final_bg_color = final_colors.bg_color.clone();
+            let final_colors = *self
+                .character_final_color_map
+                .get(&id)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
+            let final_fg_color = final_colors.fg_color;
+            let final_bg_color = final_colors.bg_color;
             let dim_fg_color = final_fg_color
                 .as_ref()
                 .map(|c| Animation::adjust_color_brightness(c, 0.5));
@@ -25,23 +31,15 @@ impl BinaryPath {
                 .map(|c| Animation::adjust_color_brightness(c, 0.5));
             let collapse_fg_gradient = match &dim_fg_color {
                 Some(dim) => Some(
-                    Gradient::with_steps(
-                        &[Color::from_hex("ffffff").must_val(), dim.clone()],
-                        7,
-                        false,
-                    )
-                    .map_err(EngineError::Other)?,
+                    Gradient::with_steps(&[hex_color("ffffff"), *dim], 7, false)
+                        .map_err(EngineError::Other)?,
                 ),
                 None => None,
             };
             let collapse_bg_gradient = match &dim_bg_color {
                 Some(dim) => Some(
-                    Gradient::with_steps(
-                        &[Color::from_hex("ffffff").must_val(), dim.clone()],
-                        7,
-                        false,
-                    )
-                    .map_err(EngineError::Other)?,
+                    Gradient::with_steps(&[hex_color("ffffff"), *dim], 7, false)
+                        .map_err(EngineError::Other)?,
                 ),
                 None => None,
             };
@@ -54,11 +52,15 @@ impl BinaryPath {
                     "collapse_scn",
                     uses_pre,
                 );
-                let scene = ch.animation.scenes.get_mut(&collapse_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&collapse_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 if collapse_fg_gradient.is_some() || collapse_bg_gradient.is_some() {
                     scene
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             3,
                             collapse_fg_gradient.as_ref(),
                             collapse_bg_gradient.as_ref(),
@@ -80,14 +82,14 @@ impl BinaryPath {
 
             let brighten_fg_gradient = match (&dim_fg_color, &final_fg_color) {
                 (Some(dim), Some(final_fg)) => Some(
-                    Gradient::with_steps(&[dim.clone(), final_fg.clone()], 10, false)
+                    Gradient::with_steps(&[*dim, *final_fg], 10, false)
                         .map_err(EngineError::Other)?,
                 ),
                 _ => None,
             };
             let brighten_bg_gradient = match (&dim_bg_color, &final_bg_color) {
                 (Some(dim), Some(final_bg)) => Some(
-                    Gradient::with_steps(&[dim.clone(), final_bg.clone()], 10, false)
+                    Gradient::with_steps(&[*dim, *final_bg], 10, false)
                         .map_err(EngineError::Other)?,
                 ),
                 _ => None,
@@ -97,11 +99,15 @@ impl BinaryPath {
                 let brighten_scn =
                     ch.animation
                         .new_scene(false, None, None, "brighten_scn", uses_pre);
-                let scene = ch.animation.scenes.get_mut(&brighten_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&brighten_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 if brighten_fg_gradient.is_some() || brighten_bg_gradient.is_some() {
                     scene
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             2,
                             brighten_fg_gradient.as_ref(),
                             brighten_bg_gradient.as_ref(),
@@ -170,15 +176,15 @@ impl BinaryPath {
 
             if self.phase == Phase::Wipe {
                 for _ in 0..2 {
-                    if !self.final_wipe_chars.is_empty() {
+                    if self.final_wipe_chars.is_empty() {
+                        self.complete = true;
+                    } else {
                         let next_group = self.final_wipe_chars.remove(0);
                         for character in next_group {
                             ctx.activate_scene(self, character, "brighten_scn");
                             ctx.terminal.set_character_visibility(character, true);
                             ctx.active_characters.insert(character);
                         }
-                    } else {
-                        self.complete = true;
                     }
                 }
             }
@@ -195,11 +201,7 @@ impl BinaryPath {
         None
     }
 }
-impl Default for BinaryPathConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for BinaryPath {
     fn default() -> Self {
         Self::new(BinaryPathConfig::default())

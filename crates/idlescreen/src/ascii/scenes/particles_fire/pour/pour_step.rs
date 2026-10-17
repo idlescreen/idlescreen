@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharacterFilter, CharacterGroup, CharacterSort, ColorPair, Coord, Effect, EngineCtx,
+    EngineError, ExistingColorHandling, Gradient, Pour, PourConfig, PourDirection, VisualParams,
+    emit_frame,
+};
 
 impl Effect for Pour {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -32,8 +36,8 @@ impl Effect for Pour {
             let (input_fg, input_bg, input_coord) = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.input_coord,
                 )
             };
@@ -41,7 +45,11 @@ impl Effect for Pour {
                 ColorPair::new(input_fg, input_bg)
             } else {
                 ColorPair::new(
-                    Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                    Some(
+                        *final_gradient_mapping
+                            .get(&input_coord)
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
+                    ),
                     None,
                 )
             };
@@ -88,7 +96,7 @@ impl Effect for Pour {
                     .motion
                     .paths
                     .get_mut(&input_coord_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
                 ctx.activate_path(self, id, &input_coord_path);
@@ -97,39 +105,38 @@ impl Effect for Pour {
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
                     ch.animation.new_scene(false, None, None, "", uses_pre)
                 };
-                let final_colors = self.character_final_color_map.get(&id).must_val().clone();
+                let final_colors = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 {
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
-                    let scene = ch.animation.scenes.get_mut(&pour_scn).must_val();
+                    let scene = ch
+                        .animation
+                        .scenes
+                        .get_mut(&pour_scn)
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     if dynamic {
-                        let final_fg_color = final_colors.fg_color.clone();
-                        let final_bg_color = final_colors.bg_color.clone();
+                        let final_fg_color = final_colors.fg_color;
+                        let final_bg_color = final_colors.bg_color;
                         let fg_gradient = match &final_fg_color {
                             Some(c) => Some(
-                                Gradient::with_steps(
-                                    &[self.config.starting_color.clone(), c.clone()],
-                                    10,
-                                    false,
-                                )
-                                .map_err(EngineError::Other)?,
+                                Gradient::with_steps(&[self.config.starting_color, *c], 10, false)
+                                    .map_err(EngineError::Other)?,
                             ),
                             None => None,
                         };
                         let bg_gradient = match &final_bg_color {
                             Some(c) => Some(
-                                Gradient::with_steps(
-                                    &[self.config.starting_color.clone(), c.clone()],
-                                    10,
-                                    false,
-                                )
-                                .map_err(EngineError::Other)?,
+                                Gradient::with_steps(&[self.config.starting_color, *c], 10, false)
+                                    .map_err(EngineError::Other)?,
                             ),
                             None => None,
                         };
                         if fg_gradient.is_some() || bg_gradient.is_some() {
                             scene
                                 .apply_gradient_to_symbols(
-                                    &[input_symbol.clone()],
+                                    std::slice::from_ref(&input_symbol),
                                     self.config.final_gradient_frames,
                                     fg_gradient.as_ref(),
                                     bg_gradient.as_ref(),
@@ -148,9 +155,11 @@ impl Effect for Pour {
                                 .map_err(EngineError::Other)?;
                         }
                     } else {
-                        let final_fg_color = final_colors.fg_color.clone().must_val();
+                        let final_fg_color = final_colors
+                            .fg_color
+                            .ok_or_else(|| EngineError::Other(String::new()))?;
                         let pour_gradient = Gradient::new(
-                            &[self.config.starting_color.clone(), final_fg_color],
+                            &[self.config.starting_color, final_fg_color],
                             &self.config.final_gradient_steps,
                             false,
                             false,
@@ -158,7 +167,7 @@ impl Effect for Pour {
                         .map_err(EngineError::Other)?;
                         scene
                             .apply_gradient_to_symbols(
-                                &[input_symbol.clone()],
+                                std::slice::from_ref(&input_symbol),
                                 self.config.final_gradient_frames,
                                 Some(&pour_gradient),
                                 None,
@@ -209,11 +218,7 @@ impl Effect for Pour {
         None
     }
 }
-impl Default for PourConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Pour {
     fn default() -> Self {
         Self::new(PourConfig::default())

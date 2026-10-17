@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharId, CharacterFilter, CharacterGroup, ColorPair, Effect, EngineCtx, EngineError,
+    ExistingColorHandling, Gradient, Overflow, OverflowConfig, Row, emit_frame, floor_div,
+    hex_color,
+};
 
 impl Effect for Overflow {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -35,8 +39,8 @@ impl Effect for Overflow {
             let coord = ctx.terminal.arena[id.0 as usize].input_coord;
             let color = final_gradient_mapping
                 .get(&coord)
-                .cloned()
-                .unwrap_or_else(|| Color::from_hex("000000").must_val());
+                .copied()
+                .unwrap_or_else(|| hex_color("000000"));
             self.character_final_color_map.insert(id, color);
         }
         let (lower_range, upper_range) = self.config.overflow_cycles_range;
@@ -68,8 +72,8 @@ impl Effect for Overflow {
                                 ch.input_ansi_bg_sequence.clone(),
                                 ch.animation.no_color,
                                 ch.animation.use_xterm_colors,
-                                ch.animation.input_fg_color.clone(),
-                                ch.animation.input_bg_color.clone(),
+                                ch.animation.input_fg_color,
+                                ch.animation.input_bg_color,
                             )
                         };
                         let copy_id = ctx.terminal.add_character(&symbol, coord);
@@ -104,8 +108,8 @@ impl Effect for Overflow {
                 let input_symbol = ch.input_symbol.clone();
                 let uses_pre = ch.uses_input_preexisting_colors;
                 if dynamic {
-                    let input_fg = ch.animation.input_fg_color.clone();
-                    let input_bg = ch.animation.input_bg_color.clone();
+                    let input_fg = ch.animation.input_fg_color;
+                    let input_bg = ch.animation.input_bg_color;
                     if input_fg.is_some() || input_bg.is_some() {
                         ch.animation.set_appearance(
                             &input_symbol,
@@ -122,7 +126,10 @@ impl Effect for Overflow {
                         );
                     }
                 } else {
-                    let final_color = self.character_final_color_map.get(&id).must_val().clone();
+                    let final_color = *self
+                        .character_final_color_map
+                        .get(&id)
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     ch.animation.set_appearance(
                         &input_symbol,
                         uses_pre,
@@ -154,7 +161,7 @@ impl Effect for Overflow {
     fn next_frame(&mut self, ctx: &mut EngineCtx) -> Option<String> {
         if !self.pending_rows.is_empty() {
             if self.delay == 0 {
-                let spectrum = &self.overflow_gradient.as_ref().must_val().spectrum;
+                let spectrum = &self.overflow_gradient.as_ref()?.spectrum;
                 for _ in 0..ctx.rng.randint(1, self.config.overflow_speed) {
                     if !self.pending_rows.is_empty() {
                         for row in &self.active_rows {
@@ -165,15 +172,15 @@ impl Effect for Overflow {
                                     .current_coord
                                     .row;
                                 let index =
-                                    std::cmp::min(head_row, spectrum.len() as i64 - 1) as usize;
-                                row.set_color(ctx, Some(spectrum[index].clone()), None);
+                                    head_row.clamp(0, (spectrum.len() as i64 - 1).max(0)) as usize;
+                                row.set_color(ctx, Some(spectrum[index]), None);
                             }
                         }
-                        let next_row = self.pending_rows.pop_front().must_val();
+                        let next_row = self.pending_rows.pop_front()?;
                         next_row.setup(ctx);
                         next_row.move_up(ctx);
                         if !next_row.final_ {
-                            next_row.set_color(ctx, Some(spectrum[0].clone()), None);
+                            next_row.set_color(ctx, Some(spectrum[0]), None);
                         }
                         for &id in &next_row.characters {
                             ctx.terminal.set_character_visibility(id, true);
@@ -196,11 +203,7 @@ impl Effect for Overflow {
         None
     }
 }
-impl Default for OverflowConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Overflow {
     fn default() -> Self {
         Self::new(OverflowConfig::default())

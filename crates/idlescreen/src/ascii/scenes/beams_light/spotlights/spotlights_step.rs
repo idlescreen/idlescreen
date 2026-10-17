@@ -46,7 +46,7 @@ impl Spotlights {
                 None => self
                     .character_color_map
                     .get(id.0 as usize)
-                    .map_or_else(ColorPair::default, |p| p.1.clone()),
+                    .map_or_else(ColorPair::default, |p| p.1),
                 Some(overridden) => overridden,
             };
             let ch = &mut ctx.terminal.arena[id.0 as usize];
@@ -68,7 +68,7 @@ impl Spotlights {
             let bright_base = self
                 .character_color_map
                 .get(id.0 as usize)
-                .map_or_else(ColorPair::default, |p| p.0.clone());
+                .map_or_else(ColorPair::default, |p| p.0);
 
             let adjusted_color = if distance > falloff_start {
                 let brightness_factor = (1.0 - (distance - falloff_start) / falloff_span).max(0.2);
@@ -135,17 +135,17 @@ impl Effect for Spotlights {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
                     ch.input_coord,
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                 )
             };
             let (bright_pair, dark_pair) = if dynamic {
                 if input_fg.is_some() || input_bg.is_some() {
-                    let mut bright_fg = input_fg.clone();
+                    let mut bright_fg = input_fg;
                     if bright_fg.is_none() && input_bg.is_some() {
-                        bright_fg = Some(dynamic_neutral_gray.clone());
+                        bright_fg = Some(dynamic_neutral_gray);
                     }
-                    let bp = ColorPair::new(bright_fg.clone(), input_bg.clone());
+                    let bp = ColorPair::new(bright_fg, input_bg);
                     let dp = ColorPair::new(
                         bright_fg
                             .as_ref()
@@ -156,7 +156,7 @@ impl Effect for Spotlights {
                     );
                     (bp, dp)
                 } else {
-                    let bp = ColorPair::new(Some(dynamic_neutral_gray.clone()), None);
+                    let bp = ColorPair::new(Some(dynamic_neutral_gray), None);
                     let dp = ColorPair::new(
                         Some(Animation::adjust_color_brightness(
                             &dynamic_neutral_gray,
@@ -169,8 +169,8 @@ impl Effect for Spotlights {
             } else {
                 let color_bright = final_gradient_mapping
                     .get(&input_coord)
-                    .cloned()
-                    .unwrap_or_else(|| dynamic_neutral_gray.clone());
+                    .copied()
+                    .unwrap_or(dynamic_neutral_gray);
                 let dp = ColorPair::new(
                     Some(Animation::adjust_color_brightness(&color_bright, 0.2)),
                     None,
@@ -184,7 +184,7 @@ impl Effect for Spotlights {
                 self.character_color_map
                     .resize(idx + 1, (ColorPair::default(), ColorPair::default()));
             }
-            self.character_color_map[idx] = (bright_pair, dark_pair.clone());
+            self.character_color_map[idx] = (bright_pair, dark_pair);
             let ch = &mut ctx.terminal.arena[idx];
             let input_symbol = ch.input_symbol.clone();
             let uses_pre = ch.uses_input_preexisting_colors;

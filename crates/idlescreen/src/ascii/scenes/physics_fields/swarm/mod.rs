@@ -2,13 +2,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps,
-    parse_non_negative_ratio, parse_positive_int_range,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, SyncMetric, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -21,54 +15,36 @@ use ttfx::utils::geometry::{self, Coord};
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 use ttfx::utils::pycompat::{floor_div, round_half_even};
 
-mod swarm_step;
-#[allow(unused_imports)]
-use swarm_step::*;
-mod swarm_sim;
-#[allow(unused_imports)]
-use swarm_sim::*;
 mod swarm_build;
-#[allow(unused_imports)]
-use swarm_build::*;
+mod swarm_sim;
+mod swarm_step;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct SwarmConfig {
-    /// Space separated, unquoted, list of colors for the swarms.
-    #[arg(long = "base-color", num_args = 1.., value_parser = parse_color,
-          default_values = ["31a0d4"])]
     pub base_color: Vec<Color>,
-
-    /// Color for the character flash. Characters flash when moving.
-    #[arg(long = "flash-color", default_value = "f2ea79", value_parser = parse_color)]
     pub flash_color: Color,
-
-    /// Percent of total characters in each swarm.
-    #[arg(long = "swarm-size", default_value_t = 0.30, value_parser = parse_non_negative_ratio)]
     pub swarm_size: f64,
-
-    /// Percent of characters in a swarm that move as a group.
-    #[arg(long = "swarm-coordination", default_value_t = 0.80, value_parser = parse_non_negative_ratio)]
     pub swarm_coordination: f64,
-
-    /// Range of the number of areas where characters will swarm.
-    #[arg(long = "swarm-area-count-range", default_value = "2-4", value_parser = parse_positive_int_range)]
     pub swarm_area_count_range: (i64, i64),
-
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["31b900", "f0ff65"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "horizontal", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
 }
+impl Default for SwarmConfig {
+    fn default() -> Self {
+        Self {
+            base_color: vec![hex_color("31a0d4")],
+            flash_color: hex_color("f2ea79"),
+            swarm_size: 0.30,
+            swarm_coordination: 0.80,
+            swarm_area_count_range: (2, 4),
+            final_gradient_stops: vec![hex_color("31b900"), hex_color("f0ff65")],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Horizontal,
+        }
+    }
+}
+#[allow(clippy::struct_field_names)]
 pub struct Swarm {
     pub(super) config: SwarmConfig,
     pub(super) swarms: Vec<Vec<CharId>>,
@@ -107,9 +83,15 @@ impl Swarm {
             }
             self.swarms.push(new_swarm);
         }
-        let final_swarm = self.swarms.pop().must_val();
+        let Some(final_swarm) = self.swarms.pop() else {
+            return;
+        };
         if (final_swarm.len() as i64) < floor_div(swarm_size, 2) {
-            self.swarms.last_mut().must_val().extend(final_swarm);
+            if let Some(last) = self.swarms.last_mut() {
+                last.extend(final_swarm);
+            } else {
+                self.swarms.push(final_swarm);
+            }
         } else {
             self.swarms.push(final_swarm);
         }
@@ -117,7 +99,7 @@ impl Swarm {
 }
 /// int(s[0]) on a path id string (effect_swarm.py's first-character parse).
 pub(super) fn first_char_digit(s: &str) -> i64 {
-    s.chars().next().and_then(|c| c.to_digit(10)).must_val() as i64
+    s.chars().next().and_then(|c| c.to_digit(10)).unwrap_or(0) as i64
 }
 impl EffectHooks for Swarm {
     fn dispatch_callback(

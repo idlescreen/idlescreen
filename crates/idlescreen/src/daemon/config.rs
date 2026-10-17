@@ -36,6 +36,18 @@ fn default_idle_enabled() -> bool {
 fn default_idle_timeout_secs() -> u64 {
     120
 }
+fn default_mode() -> String {
+    "os".to_string()
+}
+fn default_targets() -> Vec<String> {
+    vec!["os".to_string()]
+}
+fn default_dwell_secs() -> f32 {
+    5.0
+}
+fn default_dissolve_duration_secs() -> f32 {
+    0.7
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct AsciiSaverConfig {
@@ -51,18 +63,6 @@ pub struct AsciiSaverConfig {
     pub dwell_secs: f32,
     #[serde(default = "default_dissolve_duration_secs")]
     pub dissolve_duration_secs: f32,
-}
-fn default_mode() -> String {
-    "os".to_string()
-}
-fn default_targets() -> Vec<String> {
-    vec!["os".to_string()]
-}
-fn default_dwell_secs() -> f32 {
-    5.0
-}
-fn default_dissolve_duration_secs() -> f32 {
-    0.7
 }
 
 pub fn parse_targets_from_mode(mode: &str) -> Vec<String> {
@@ -121,13 +121,11 @@ pub struct Config {
 
 impl Config {
     pub fn load_or_migrate() -> Self {
-        let config_dir = resolve_config_dir();
-        let toml_path = config_dir.join("config.toml");
-        let yaml_path = config_dir.join("config.yaml");
-
-        if toml_path.exists()
-            && let Ok(content) = fs::read_to_string(&toml_path)
-            && let Ok(mut cfg) = toml::from_str::<Config>(&content)
+        let dir = resolve_config_dir();
+        let (toml_p, yaml_p) = (dir.join("config.toml"), dir.join("config.yaml"));
+        if toml_p.exists()
+            && let Ok(s) = fs::read_to_string(&toml_p)
+            && let Ok(mut cfg) = toml::from_str::<Config>(&s)
         {
             if cfg.saver.ascii.targets.is_empty()
                 || cfg.saver.ascii.mode.trim().eq_ignore_ascii_case("cycle")
@@ -137,32 +135,28 @@ impl Config {
             }
             return cfg;
         }
-        if yaml_path.exists()
-            && let Ok(cfg) = migrate_yaml_to_toml(&yaml_path, &toml_path)
+        if yaml_p.exists()
+            && let Ok(cfg) = migrate_yaml_to_toml(&yaml_p, &toml_p)
         {
             return cfg;
         }
         Self::default()
     }
-
     pub fn save_to_path(&self, toml_path: &Path) -> std::io::Result<()> {
-        let toml_string = toml::to_string_pretty(self)
+        let toml_str = toml::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
         if let Some(parent) = toml_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let tmp_path = toml_path.with_extension(format!("tmp.{}", std::process::id()));
+        let tmp = toml_path.with_extension(format!("tmp.{}", std::process::id()));
         {
-            let mut f = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&tmp_path)?;
-            f.write_all(toml_string.as_bytes())?;
+            let mut opt = OpenOptions::new();
+            let mut f = opt.write(true).create(true).truncate(true).open(&tmp)?;
+            f.write_all(toml_str.as_bytes())?;
             f.flush()?;
             f.sync_all()?;
         }
-        fs::rename(&tmp_path, toml_path)
+        fs::rename(&tmp, toml_path)
     }
 
     pub fn save(&self) -> std::io::Result<()> {
@@ -182,63 +176,80 @@ pub fn resolve_config_dir() -> PathBuf {
     PathBuf::from("/etc/idlescreen")
 }
 
+fn strip_yaml_scalar(s: &str) -> &str {
+    let s = s.trim();
+    for q in ['"', '\''] {
+        if let Some(inner) = s.strip_prefix(q).and_then(|r| r.split_once(q)) {
+            return inner.0;
+        }
+    }
+    s.split('#').next().unwrap_or("").trim()
+}
+
 pub fn migrate_yaml_to_toml(yaml_path: &Path, toml_path: &Path) -> std::io::Result<Config> {
     let raw = fs::read_to_string(yaml_path)?;
-    let yml: serde_yaml::Value = serde_yaml::from_str(&raw)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
-
-    let mut cfg = Config::default();
-    let u64_f = serde_yaml::Value::as_u64;
-    if let Some(g) = yml.get("general") {
-        if let Some(v) = g.get("idle_enabled").and_then(serde_yaml::Value::as_bool) {
-            cfg.general.idle_enabled = v;
+    let (mut cfg, mut sec, mut in_targets, mut targets) = (Config::default(), "", false, vec![]);
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
         }
-        if let Some(v) = g.get("idle_timeout_secs").and_then(u64_f) {
-            cfg.general.idle_timeout_secs = v;
+        if in_targets && let Some(item) = trimmed.strip_prefix('-') {
+            let v = strip_yaml_scalar(item);
+            if !v.is_empty() {
+                targets.push(v.to_string());
+            }
+            continue;
         }
-        if let Some(v) = g.get("dpms_timeout_secs").and_then(u64_f) {
-            cfg.general.dpms_timeout_secs = v;
+        in_targets = false;
+        let Some((k, v_raw)) = trimmed.split_once(':') else {
+            continue;
+        };
+        let (key, val) = (k.trim(), strip_yaml_scalar(v_raw));
+        if val.is_empty() {
+            match (line.len() - line.trim_start().len(), key) {
+                (0, _) => sec = key,
+                (_, "ascii") if matches!(sec, "saver" | "screensaver" | "ascii") => sec = "ascii",
+                (_, "targets") if sec == "ascii" => in_targets = true,
+                _ => {}
+            }
+            continue;
         }
-        if let Some(v) = g.get("primary_output").and_then(|v| v.as_str()) {
-            cfg.general.primary_output = v.to_string();
+        match (sec, key) {
+            ("", "idle_timeout") | ("general", "idle_timeout_secs") => {
+                cfg.general.idle_timeout_secs = val.parse().unwrap_or(120)
+            }
+            ("general", "idle_enabled") => cfg.general.idle_enabled = val == "true",
+            ("general", "dpms_timeout_secs") => {
+                cfg.general.dpms_timeout_secs = val.parse().unwrap_or(0)
+            }
+            ("general", "primary_output") => cfg.general.primary_output = val.to_string(),
+            ("saver" | "screensaver", "active") => cfg.saver.active = Some(val.to_string()),
+            ("ascii", "mode") => cfg.saver.ascii.mode = val.to_string(),
+            ("ascii", "text") => cfg.saver.ascii.text = val.to_string(),
+            ("ascii", "fps") => cfg.saver.ascii.fps = val.parse().unwrap_or(0),
+            ("ascii", "dwell_secs") => cfg.saver.ascii.dwell_secs = val.parse().unwrap_or(5.0),
+            ("ascii", "dissolve_duration_secs") => {
+                cfg.saver.ascii.dissolve_duration_secs = val.parse().unwrap_or(0.7)
+            }
+            ("ascii", "targets") => {
+                for s in val
+                    .trim_matches(['[', ']'])
+                    .split(',')
+                    .map(strip_yaml_scalar)
+                {
+                    if !s.is_empty() {
+                        targets.push(s.to_string());
+                    }
+                }
+            }
+            _ => {}
         }
-    } else if let Some(v) = yml.get("idle_timeout").and_then(u64_f) {
-        cfg.general.idle_timeout_secs = v;
     }
-
-    if let Some(s) = yml.get("saver").or_else(|| yml.get("screensaver")) {
-        if let Some(active) = s.get("active").and_then(|v| v.as_str()) {
-            cfg.saver.active = Some(active.to_string());
-        }
-        if let Some(ascii) = s.get("ascii") {
-            let a = &mut cfg.saver.ascii;
-            let f64_f = serde_yaml::Value::as_f64;
-            if let Some(v) = ascii.get("mode").and_then(|v| v.as_str()) {
-                a.mode = v.to_string();
-            }
-            if let Some(v) = ascii.get("text").and_then(|v| v.as_str()) {
-                a.text = v.to_string();
-            }
-            if let Some(v) = ascii.get("fps").and_then(u64_f) {
-                a.fps = u32::try_from(v).unwrap_or(0);
-            }
-            if let Some(v) = ascii.get("dwell_secs").and_then(f64_f) {
-                a.dwell_secs = v as f32;
-            }
-            if let Some(v) = ascii.get("dissolve_duration_secs").and_then(f64_f) {
-                a.dissolve_duration_secs = v as f32;
-            }
-            let seq = ascii.get("targets").and_then(|v| v.as_sequence());
-            a.targets = seq.map_or_else(
-                || parse_targets_from_mode(&a.mode),
-                |sq| {
-                    sq.iter()
-                        .filter_map(|v| v.as_str().map(str::to_owned))
-                        .collect()
-                },
-            );
-        }
+    if targets.is_empty() {
+        targets = parse_targets_from_mode(&cfg.saver.ascii.mode);
     }
+    cfg.saver.ascii.targets = targets;
     let _ = cfg.save_to_path(toml_path);
     let _ = fs::rename(yaml_path, yaml_path.with_file_name("config.yaml.migrated"));
     Ok(cfg)

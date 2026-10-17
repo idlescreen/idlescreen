@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CB_RECLAIM_RAIN, CB_RECLAIM_SPARK, CallerKey, CharId, ColorPair, Coord, Easing, EffectCallback,
+    EngineCtx, Event, EventAction, Gradient, NoopHooks, ParticlePool, Phase, Thunderstorm,
+    ThunderstormConfig, VisualParams, floor_div,
+};
 
 /// build_spark_pool's _build_spark_characters.
 pub(super) fn initialize_spark(
@@ -17,18 +21,17 @@ pub(super) fn initialize_spark(
     let spark_scn = ch
         .animation
         .new_scene(false, None, Some(Easing::InCirc), "glow", uses_pre);
-    let scene = ch.animation.scenes.get_mut(&spark_scn).must_val();
-    for color in &spark_gradient.spectrum {
-        scene
-            .add_frame(
+    if let Some(scene) = ch.animation.scenes.get_mut(&spark_scn) {
+        for color in &spark_gradient.spectrum {
+            let _ = scene.add_frame(
                 &input_symbol,
                 spark_glow_time,
                 VisualParams {
-                    colors: Some(ColorPair::new(Some(color.clone()), None)),
+                    colors: Some(ColorPair::new(Some(*color), None)),
                     ..Default::default()
                 },
-            )
-            .must_val();
+            );
+        }
     }
 }
 /// ThunderstormIterator._setup_raindrop.
@@ -39,24 +42,20 @@ pub(super) fn setup_raindrop(ctx: &mut EngineCtx, id: CharId) {
     let canvas_bottom = ctx.terminal.canvas.bottom;
     let fall_path = {
         let ch = &mut ctx.terminal.arena[id.0 as usize];
-        let path_id = ch
-            .motion
-            .new_path(speed, None, None, 0, false, "")
-            .must_val();
-        ch.motion
-            .paths
-            .get_mut(&path_id)
-            .must_val()
-            .new_waypoint(
+        let Ok(path_id) = ch.motion.new_path(speed, None, None, 0, false, "") else {
+            return;
+        };
+        if let Some(p) = ch.motion.paths.get_mut(&path_id) {
+            let _ = p.new_waypoint(
                 Coord::new(origin.column + canvas_top + 1, canvas_bottom - 1),
                 None,
                 "",
-            )
-            .must_val();
+            );
+        }
         path_id
     };
     // rain_pool.reclaim_on_event(rain_char, fall_path, event=PATH_COMPLETE)
-    ctx.register_event(
+    let _ = ctx.register_event(
         id,
         Event::PathComplete,
         CallerKey::Path(fall_path.clone()),
@@ -64,39 +63,40 @@ pub(super) fn setup_raindrop(ctx: &mut EngineCtx, id: CharId) {
             id: CB_RECLAIM_RAIN,
             args: Vec::new(),
         }),
-    )
-    .must_val();
-    // PATH_ACTIVATED has no registered handlers on the raindrop (events were
-    // cleared this emit; only PATH_COMPLETE is registered), so NoopHooks is
-    // observably identical to dispatching through the effect.
+    );
     ctx.activate_path(&mut NoopHooks, id, &fall_path);
 }
 /// ThunderstormIterator._setup_sparks_for_impact.
 pub(super) fn setup_sparks_for_impact(ctx: &mut EngineCtx, id: CharId) {
     let impact_coord = ctx.terminal.arena[id.0 as usize].motion.current_coord;
     let speed = ctx.rng.uniform(0.1, 0.25);
-    let spark_path = ctx.terminal.arena[id.0 as usize]
-        .motion
-        .new_path(speed, Some(Easing::OutQuint), None, 30, false, "")
-        .must_val();
+    let Ok(spark_path) = ctx.terminal.arena[id.0 as usize].motion.new_path(
+        speed,
+        Some(Easing::OutQuint),
+        None,
+        30,
+        false,
+        "",
+    ) else {
+        return;
+    };
     let offset = ctx.rng.randint(4, 20) * *ctx.rng.choice(&[1i64, -1]);
     let spark_target = Coord::new(impact_coord.column + offset, ctx.terminal.canvas.bottom);
     let bezier_column =
         impact_coord.column - floor_div(impact_coord.column - spark_target.column, 2);
     let bezier_row = ctx.rng.randint(1, ctx.terminal.canvas.top);
-    ctx.terminal.arena[id.0 as usize]
+    if let Some(p) = ctx.terminal.arena[id.0 as usize]
         .motion
         .paths
         .get_mut(&spark_path)
-        .must_val()
-        .new_waypoint(
+    {
+        let _ = p.new_waypoint(
             spark_target,
             Some(vec![Coord::new(bezier_column, bezier_row)]),
             "",
-        )
-        .must_val();
-    // spark_pool.reclaim_on_event(spark_char, "glow", event=SCENE_COMPLETE)
-    ctx.register_event(
+        );
+    }
+    let _ = ctx.register_event(
         id,
         Event::SceneComplete,
         CallerKey::Scene("glow".to_string()),
@@ -104,20 +104,28 @@ pub(super) fn setup_sparks_for_impact(ctx: &mut EngineCtx, id: CharId) {
             id: CB_RECLAIM_SPARK,
             args: Vec::new(),
         }),
-    )
-    .must_val();
-    // SCENE_ACTIVATED / PATH_ACTIVATED have no registered handlers here
-    // (events were cleared this emit; only SCENE_COMPLETE is registered).
+    );
     ctx.activate_scene(&mut NoopHooks, id, "glow");
     ctx.activate_path(&mut NoopHooks, id, &spark_path);
 }
 impl Thunderstorm {
     pub fn new(config: ThunderstormConfig) -> Self {
-        // build_rain_pool / build_spark_pool construction (preallocation runs
-        // in build(), where ctx is available, in upstream __init__ order).
-        let rain_pool = ParticlePool::new(config.raindrop_symbols.clone(), None, None).must_val();
-        let spark_pool =
-            ParticlePool::new(config.spark_symbols.clone(), Some(2000), None).must_val();
+        let rain_pool = ParticlePool::new(config.raindrop_symbols.clone(), None, None)
+            .unwrap_or_else(|_| ParticlePool {
+                symbols: vec!["/".to_string()],
+                particles: Vec::new(),
+                available: std::collections::VecDeque::new(),
+                max_size: None,
+                coord: Coord::new(1, 1),
+            });
+        let spark_pool = ParticlePool::new(config.spark_symbols.clone(), Some(2000), None)
+            .unwrap_or_else(|_| ParticlePool {
+                symbols: vec!["*".to_string()],
+                particles: Vec::new(),
+                available: std::collections::VecDeque::new(),
+                max_size: Some(2000),
+                coord: Coord::new(1, 1),
+            });
         Thunderstorm {
             config,
             delay: 0,
@@ -151,7 +159,10 @@ impl Thunderstorm {
         if self.available_strike_chars.is_empty() {
             self.build_strike_characters(ctx, 20);
         }
-        let strike_char = self.available_strike_chars.pop().must_val();
+        let strike_char = self
+            .available_strike_chars
+            .pop()
+            .unwrap_or_else(|| ctx.terminal.add_character("|", Coord::new(1, 1)));
         let ch = &mut ctx.terminal.arena[strike_char.0 as usize];
         ch.animation.scenes.clear();
         ch.event_handler.clear();
@@ -210,10 +221,7 @@ impl Thunderstorm {
                     &input_symbol,
                     uses_pre,
                     Some(symbol),
-                    Some(ColorPair::new(
-                        Some(self.config.lightning_color.clone()),
-                        None,
-                    )),
+                    Some(ColorPair::new(Some(self.config.lightning_color), None)),
                 );
             }
             row -= 1;

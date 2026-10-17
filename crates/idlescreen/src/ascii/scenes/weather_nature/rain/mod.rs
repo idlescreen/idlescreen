@@ -2,13 +2,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_easing, parse_gradient_direction, parse_gradient_steps,
-    parse_positive_float_range, parse_symbol,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -21,43 +15,48 @@ use ttfx::utils::geometry::Coord;
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 
 mod rain_step;
-#[allow(unused_imports)]
-use rain_step::*;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct RainConfig {
-    /// List of colors for the rain drops. Colors are randomly chosen from the list.
-    #[arg(long = "rain-colors", num_args = 1.., value_parser = parse_color,
-          default_values = ["00315C", "004C8F", "0075DB", "3F91D9", "78B9F2", "9AC8F5", "B8D8F8", "E3EFFC"])]
     pub rain_colors: Vec<Color>,
-
-    /// Falling speed range of the rain drops.
-    #[arg(long = "movement-speed", default_value = "0.6-1.1", value_parser = parse_positive_float_range)]
     pub movement_speed: (f64, f64),
-
-    /// Space separated list of symbols to use for the rain drops. Symbols are randomly chosen from the list.
-    #[arg(long = "rain-symbols", num_args = 1.., value_parser = parse_symbol,
-          default_values = ["o", ".", ",", "*", "|"])]
     pub rain_symbols: Vec<String>,
-
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["488bff", "b2e7de", "57eaf7"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "diagonal", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
-
-    /// Easing function to use for character movement.
-    #[arg(long = "movement-easing", default_value = "in_expo", value_parser = parse_easing)]
     pub movement_easing: Easing,
+}
+impl Default for RainConfig {
+    fn default() -> Self {
+        Self {
+            rain_colors: vec![
+                hex_color("00315C"),
+                hex_color("004C8F"),
+                hex_color("0075DB"),
+                hex_color("3F91D9"),
+                hex_color("78B9F2"),
+                hex_color("9AC8F5"),
+                hex_color("B8D8F8"),
+                hex_color("E3EFFC"),
+            ],
+            movement_speed: (0.6, 1.1),
+            rain_symbols: vec![
+                "o".to_string(),
+                ".".to_string(),
+                ",".to_string(),
+                "*".to_string(),
+                "|".to_string(),
+            ],
+            final_gradient_stops: vec![
+                hex_color("488bff"),
+                hex_color("b2e7de"),
+                hex_color("57eaf7"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Diagonal,
+            movement_easing: Easing::InExpo,
+        }
+    }
 }
 pub struct Rain {
     pub(super) config: RainConfig,

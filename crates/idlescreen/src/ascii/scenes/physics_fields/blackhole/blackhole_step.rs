@@ -1,32 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    Blackhole, CallerKey, CharId, CharacterFilter, CharacterSort, ColorPair, Easing, EngineCtx,
+    EngineError, Event, EventAction, Gradient, HashSet, SyncMetric, VisualParams, geometry,
+    hex_color,
+};
 
 impl Blackhole {
     /// BlackholeIterator.prepare_blackhole.
     pub(super) fn prepare_blackhole(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
         let star_symbols = ["*", "'", "`", "¤", "•", "°", "·"];
-        let starfield_colors = Gradient::with_steps(
-            &[
-                Color::from_hex("#4a4a4d").must_val(),
-                Color::from_hex("#ffffff").must_val(),
-            ],
-            6,
-            false,
-        )
-        .map_err(EngineError::Other)?
-        .spectrum;
+        let starfield_colors =
+            Gradient::with_steps(&[hex_color("#4a4a4d"), hex_color("#ffffff")], 6, false)
+                .map_err(EngineError::Other)?
+                .spectrum;
         // gradient_map: dict keyed by starfield color, indexed here by spectrum position
         let mut gradient_map: Vec<Gradient> = Vec::new();
         for color in &starfield_colors {
             gradient_map.push(
-                Gradient::with_steps(
-                    &[color.clone(), Color::from_hex("#000000").must_val()],
-                    10,
-                    false,
-                )
-                .map_err(EngineError::Other)?,
+                Gradient::with_steps(&[*color, hex_color("#000000")], 10, false)
+                    .map_err(EngineError::Other)?,
             );
         }
         let mut available_chars: Vec<CharId> = ctx.terminal.input_characters.clone();
@@ -53,7 +47,7 @@ impl Blackhole {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(starting_pos, None, "")
                     .map_err(EngineError::Other)?;
                 path_id
@@ -67,15 +61,12 @@ impl Blackhole {
                 ch.animation
                     .scenes
                     .get_mut(&blackhole_scn)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         "*",
                         1,
                         VisualParams {
-                            colors: Some(ColorPair::new(
-                                Some(self.config.blackhole_color.clone()),
-                                None,
-                            )),
+                            colors: Some(ColorPair::new(Some(self.config.blackhole_color), None)),
                             ..Default::default()
                         },
                     )
@@ -101,7 +92,11 @@ impl Blackhole {
                     .copied()
                     .collect();
                 for coord in rotated {
-                    let path = ch.motion.paths.get_mut(&rotation_path).must_val();
+                    let path = ch
+                        .motion
+                        .paths
+                        .get_mut(&rotation_path)
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     let waypoint_id = path.waypoints.len().to_string();
                     path.new_waypoint(coord, None, &waypoint_id)
                         .map_err(EngineError::Other)?;
@@ -123,7 +118,7 @@ impl Blackhole {
                 let _ = &starfield_colors;
                 ctx.rng.choice_index(starfield_colors.len())
             };
-            let star_color = starfield_colors[star_color_index].clone();
+            let star_color = starfield_colors[star_color_index];
             let starting_scn = {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 let uses_pre = ch.uses_input_preexisting_colors;
@@ -131,12 +126,12 @@ impl Blackhole {
                 ch.animation
                     .scenes
                     .get_mut(&scene_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         star_symbol,
                         1,
                         VisualParams {
-                            colors: Some(ColorPair::new(Some(star_color.clone()), None)),
+                            colors: Some(ColorPair::new(Some(star_color), None)),
                             ..Default::default()
                         },
                     )
@@ -157,7 +152,7 @@ impl Blackhole {
                     ch.motion
                         .paths
                         .get_mut(&path_id)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .new_waypoint(canvas_center, None, "")
                         .map_err(EngineError::Other)?;
                     path_id
@@ -166,14 +161,18 @@ impl Blackhole {
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
                     let uses_pre = ch.uses_input_preexisting_colors;
                     let scene_id = ch.animation.new_scene(false, None, None, "", uses_pre);
-                    let scene = ch.animation.scenes.get_mut(&scene_id).must_val();
+                    let scene = ch
+                        .animation
+                        .scenes
+                        .get_mut(&scene_id)
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     for color in &gradient_map[star_color_index].spectrum {
                         scene
                             .add_frame(
                                 star_symbol,
                                 1,
                                 VisualParams {
-                                    colors: Some(ColorPair::new(Some(color.clone()), None)),
+                                    colors: Some(ColorPair::new(Some(*color), None)),
                                     ..Default::default()
                                 },
                             )
@@ -208,7 +207,8 @@ impl Blackhole {
 
     /// BlackholeIterator.rotate_blackhole.
     pub(super) fn rotate_blackhole(&mut self, ctx: &mut EngineCtx) {
-        for &id in &self.blackhole_chars.clone() {
+        for i in 0..self.blackhole_chars.len() {
+            let id = self.blackhole_chars[i];
             ctx.activate_path(self, id, "blackhole_rotation");
             ctx.active_characters.insert(id);
         }

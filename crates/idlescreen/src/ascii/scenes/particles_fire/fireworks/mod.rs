@@ -2,13 +2,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps,
-    parse_non_negative_int, parse_non_negative_ratio, parse_symbol,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, SyncMetric, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -22,50 +16,43 @@ use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 use ttfx::utils::pycompat::{floor_div, round_half_even};
 
 mod fireworks_step;
-#[allow(unused_imports)]
-use fireworks_step::*;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct FireworksConfig {
-    /// If set, fireworks explode anywhere in the canvas. Otherwise, fireworks explode above highest settled row of text.
-    #[arg(long = "explode-anywhere", default_value_t = false)]
     pub explode_anywhere: bool,
-
-    /// Space separated list of colors from which firework colors will be randomly selected.
-    #[arg(long = "firework-colors", num_args = 1.., value_parser = parse_color,
-          default_values = ["88F7E2", "44D492", "F5EB67", "FFA15C", "FA233E"])]
     pub firework_colors: Vec<Color>,
-
-    /// Symbol to use for the firework shell.
-    #[arg(long = "firework-symbol", default_value = "o", value_parser = parse_symbol)]
     pub firework_symbol: String,
-
-    /// Percent of total characters in each firework shell.
-    #[arg(long = "firework-volume", default_value_t = 0.08, value_parser = parse_non_negative_ratio)]
     pub firework_volume: f64,
-
-    /// Number of frames to wait between launching each firework shell. +/- 0-50 percent randomness is applied to this value.
-    #[arg(long = "launch-delay", default_value_t = 15, value_parser = parse_non_negative_int)]
     pub launch_delay: i64,
-
-    /// Maximum distance from the firework shell origin to the explode waypoint as a percentage of the total canvas width.
-    #[arg(long = "explode-distance", default_value_t = 0.2, value_parser = parse_non_negative_ratio)]
     pub explode_distance: f64,
-
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["8A008A", "00D1FF", "FFFFFF"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "horizontal", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for FireworksConfig {
+    fn default() -> Self {
+        Self {
+            explode_anywhere: false,
+            firework_colors: vec![
+                hex_color("88F7E2"),
+                hex_color("44D492"),
+                hex_color("F5EB67"),
+                hex_color("FFA15C"),
+                hex_color("FA233E"),
+            ],
+            firework_symbol: "o".to_string(),
+            firework_volume: 0.08,
+            launch_delay: 15,
+            explode_distance: 0.2,
+            final_gradient_stops: vec![
+                hex_color("8A008A"),
+                hex_color("00D1FF"),
+                hex_color("FFFFFF"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Horizontal,
+        }
+    }
 }
 pub struct Fireworks {
     pub(super) config: FireworksConfig,
@@ -107,10 +94,10 @@ impl Fireworks {
             if firework_shell.len() as i64 == self.firework_volume || firework_shell.is_empty() {
                 origin_x = ctx.rng.randrange(0, canvas_right);
                 self.shells.push(std::mem::take(&mut firework_shell));
-                let min_row = if !self.config.explode_anywhere {
-                    ctx.terminal.arena[id.0 as usize].input_coord.row
-                } else {
+                let min_row = if self.config.explode_anywhere {
                     canvas_bottom
+                } else {
+                    ctx.terminal.arena[id.0 as usize].input_coord.row
                 };
                 let origin_y = ctx.rng.randrange(min_row, canvas_top + 1);
                 origin_coord = Coord::new(origin_x, origin_y);
@@ -129,7 +116,7 @@ impl Fireworks {
                 ch.motion
                     .paths
                     .get_mut(&apex_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(origin_coord, None, "")
                     .map_err(EngineError::Other)?;
             }
@@ -147,7 +134,7 @@ impl Fireworks {
                 ch.motion
                     .paths
                     .get_mut(&explode_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(explode_wpt_coord, None, "")
                     .map_err(EngineError::Other)?;
             }
@@ -166,7 +153,7 @@ impl Fireworks {
                 ch.motion
                     .paths
                     .get_mut(&explode_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(bloom_wpt_coord, Some(vec![bloom_control_point]), "")
                     .map_err(EngineError::Other)?;
             }
@@ -187,7 +174,7 @@ impl Fireworks {
                 ch.motion
                     .paths
                     .get_mut(&input_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, Some(vec![input_control_point]), "")
                     .map_err(EngineError::Other)?;
             }

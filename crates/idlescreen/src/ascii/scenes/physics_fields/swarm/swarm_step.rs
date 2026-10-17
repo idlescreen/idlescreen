@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharacterFilter, CharacterSort, Color, ColorPair, Coord, Effect, EngineCtx, EngineError,
+    ExistingColorHandling, Gradient, HashMap, Swarm, floor_div, geometry, hex_color,
+    round_half_even,
+};
 
 impl Effect for Swarm {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
         // SwarmIterator.DYNAMIC_CLEAR_COLOR
-        let dynamic_clear_color = Color::from_hex("#ffffff").must_val();
+        let dynamic_clear_color = hex_color("#ffffff");
         let characters = {
             let filter = CharacterFilter::default();
             ctx.terminal
@@ -37,40 +41,35 @@ impl Effect for Swarm {
         for &id in &characters {
             let ch = &ctx.terminal.arena[id.0 as usize];
             let final_colors = if dynamic {
-                ColorPair::new(
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
-                )
+                ColorPair::new(ch.animation.input_fg_color, ch.animation.input_bg_color)
             } else {
                 ColorPair::new(
                     Some(
-                        final_gradient_mapping
+                        *final_gradient_mapping
                             .get(&ch.input_coord)
-                            .must_val()
-                            .clone(),
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
                     ),
                     None,
                 )
             };
             self.character_final_color_map.insert(id, final_colors);
         }
-        let flash_list: Vec<Color> = (0..10).map(|_| self.config.flash_color.clone()).collect();
+        let flash_list: Vec<Color> = (0..10).map(|_| self.config.flash_color).collect();
         let canvas_right = ctx.terminal.canvas.right;
         let canvas_top = ctx.terminal.canvas.top;
         // stands in for upstream's process-wide find_coords_on_circle lru_cache
         let mut circle_cache: HashMap<Coord, Vec<Coord>> = HashMap::new();
         for swarm_index in 0..self.swarms.len() {
             let swarm = self.swarms[swarm_index].clone();
-            let base = ctx.rng.choice(&self.config.base_color).clone();
-            let swarm_gradient =
-                Gradient::with_steps(&[base, self.config.flash_color.clone()], 7, false)
-                    .map_err(EngineError::Other)?;
+            let base = *ctx.rng.choice(&self.config.base_color);
+            let swarm_gradient = Gradient::with_steps(&[base, self.config.flash_color], 7, false)
+                .map_err(EngineError::Other)?;
             let swarm_gradient_mirror: Vec<Color> = swarm_gradient
                 .spectrum
                 .iter()
-                .cloned()
-                .chain(flash_list.iter().cloned())
-                .chain(swarm_gradient.spectrum.iter().rev().cloned())
+                .copied()
+                .chain(flash_list.iter().copied())
+                .chain(swarm_gradient.spectrum.iter().rev().copied())
                 .collect();
             // dict[Coord, list[Coord]] — insertion-ordered with key-overwrite-in-place
             let mut swarm_area_coordinate_map: Vec<(Coord, Vec<Coord>)> = Vec::new();

@@ -3,11 +3,24 @@
 
 //! Default trait implementations for UnstableConfig and Unstable.
 
-use super::*;
+use super::{Easing, GradientDirection, Unstable, UnstableConfig, hex_color};
 
 impl Default for UnstableConfig {
     fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
+        Self {
+            unstable_color: hex_color("ff9200"),
+            explosion_ease: Easing::OutExpo,
+            explosion_speed: 1.75,
+            reassembly_ease: Easing::OutExpo,
+            reassembly_speed: 1.6,
+            final_gradient_stops: vec![
+                hex_color("8A008A"),
+                hex_color("00D1FF"),
+                hex_color("FFFFFF"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Vertical,
+        }
     }
 }
 impl Default for Unstable {

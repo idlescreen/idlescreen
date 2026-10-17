@@ -18,7 +18,9 @@ pub use watchers as gnome;
 
 pub use config::Config;
 pub use control_sock::{ControlClient, ControlListener};
-pub use notify::{notify_fd3, notify_ready, notify_stopping, notify_watchdog, sd_notify};
+pub use notify::{
+    log_status, notify_fd3, notify_ready, notify_stopping, notify_watchdog, sd_notify,
+};
 pub use pidfile::PidFile;
 pub use reactor::EpollReactor;
 
@@ -30,7 +32,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     let _pidfile = match PidFile::acquire() {
         Ok(pf) => pf,
         Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-            eprintln!("idlescreen-daemon is already running (PID lock held)");
+            log_status("idlescreen-daemon is already running (PID lock held)");
             return Ok(());
         }
         Err(e) => return Err(e.into()),
@@ -39,7 +41,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(conn) = zbus::blocking::Connection::session()
         && watchers::mutter::has_bus_owner(&conn, "io.github.idlescreen.Idle")
     {
-        eprintln!("idlescreen-daemon is already running (D-Bus name owned)");
+        log_status("idlescreen-daemon is already running (D-Bus name owned)");
         return Ok(());
     }
 
@@ -47,7 +49,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     let control_listener = match ControlListener::bind() {
         Ok(l) => l,
         Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
-            eprintln!("idlescreen-daemon is already running (control socket active)");
+            log_status("idlescreen-daemon is already running (control socket active)");
             return Ok(());
         }
         Err(e) => return Err(e.into()),

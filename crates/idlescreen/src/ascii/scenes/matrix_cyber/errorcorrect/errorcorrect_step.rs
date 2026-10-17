@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    BLOCK_WIPE_END, BLOCK_WIPE_START, CallerKey, CharId, Color, ColorPair, EffectCallback,
+    EffectHooks, EngineCtx, EngineError, ErrorCorrect, Event, EventAction, ExistingColorHandling,
+    Gradient, HashMap, SyncMetric, VisualParams, hex_color,
+};
 
 impl ErrorCorrect {
     /// ErrorCorrectIterator._configure_swapped_character.
@@ -24,27 +28,35 @@ impl ErrorCorrect {
         };
         {
             let ch = &mut ctx.terminal.arena[id.0 as usize];
-            let scene = ch.animation.scenes.get_mut(&first_block_wipe).must_val();
+            let scene = ch
+                .animation
+                .scenes
+                .get_mut(&first_block_wipe)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             for block in BLOCK_WIPE_START {
                 scene
                     .add_frame(
                         block,
                         3,
                         VisualParams {
-                            colors: Some(ColorPair::new(
-                                Some(self.config.error_color.clone()),
-                                None,
-                            )),
+                            colors: Some(ColorPair::new(Some(self.config.error_color), None)),
                             ..Default::default()
                         },
                     )
                     .map_err(EngineError::Other)?;
             }
         }
-        let final_colors = self.character_final_color_map.get(&id).must_val().clone();
+        let final_colors = *self
+            .character_final_color_map
+            .get(&id)
+            .ok_or_else(|| EngineError::Other(String::new()))?;
         {
             let ch = &mut ctx.terminal.arena[id.0 as usize];
-            let scene = ch.animation.scenes.get_mut(&last_block_wipe).must_val();
+            let scene = ch
+                .animation
+                .scenes
+                .get_mut(&last_block_wipe)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             if dynamic {
                 for block in &BLOCK_WIPE_END[..BLOCK_WIPE_END.len() - 1] {
                     scene
@@ -52,10 +64,7 @@ impl ErrorCorrect {
                             block,
                             3,
                             VisualParams {
-                                colors: Some(ColorPair::new(
-                                    Some(self.config.correct_color.clone()),
-                                    None,
-                                )),
+                                colors: Some(ColorPair::new(Some(self.config.correct_color), None)),
                                 ..Default::default()
                             },
                         )
@@ -78,10 +87,7 @@ impl ErrorCorrect {
                             block,
                             3,
                             VisualParams {
-                                colors: Some(ColorPair::new(
-                                    Some(self.config.correct_color.clone()),
-                                    None,
-                                )),
+                                colors: Some(ColorPair::new(Some(self.config.correct_color), None)),
                                 ..Default::default()
                             },
                         )
@@ -95,12 +101,12 @@ impl ErrorCorrect {
             ch.animation
                 .scenes
                 .get_mut(&scene_id)
-                .must_val()
+                .ok_or_else(|| EngineError::Other(String::new()))?
                 .add_frame(
                     &input_symbol,
                     1,
                     VisualParams {
-                        colors: Some(ColorPair::new(Some(self.config.error_color.clone()), None)),
+                        colors: Some(ColorPair::new(Some(self.config.error_color), None)),
                         ..Default::default()
                     },
                 )
@@ -111,17 +117,18 @@ impl ErrorCorrect {
         {
             let ch = &mut ctx.terminal.arena[id.0 as usize];
             let error_scene = ch.animation.new_scene(false, None, None, "error", uses_pre);
-            let scene = ch.animation.scenes.get_mut(&error_scene).must_val();
+            let scene = ch
+                .animation
+                .scenes
+                .get_mut(&error_scene)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             for _ in 0..10 {
                 scene
                     .add_frame(
                         "▓",
                         3,
                         VisualParams {
-                            colors: Some(ColorPair::new(
-                                Some(self.config.error_color.clone()),
-                                None,
-                            )),
+                            colors: Some(ColorPair::new(Some(self.config.error_color), None)),
                             ..Default::default()
                         },
                     )
@@ -131,10 +138,7 @@ impl ErrorCorrect {
                         &input_symbol,
                         3,
                         VisualParams {
-                            colors: Some(ColorPair::new(
-                                Some(Color::from_hex("ffffff").must_val()),
-                                None,
-                            )),
+                            colors: Some(ColorPair::new(Some(hex_color("ffffff")), None)),
                             ..Default::default()
                         },
                     )
@@ -149,7 +153,7 @@ impl ErrorCorrect {
             ch.animation
                 .scenes
                 .get_mut(&scene_id)
-                .must_val()
+                .ok_or_else(|| EngineError::Other(String::new()))?
                 .apply_gradient_to_symbols(&["█".to_string()], 3, Some(correcting_gradient), None)
                 .map_err(EngineError::Other)?;
             scene_id
@@ -159,16 +163,16 @@ impl ErrorCorrect {
         } else {
             let final_fg = final_colors_fg(&self.character_final_color_map, id);
             let char_final_gradient =
-                Gradient::with_steps(&[self.config.correct_color.clone(), final_fg], 10, false)
+                Gradient::with_steps(&[self.config.correct_color, final_fg], 10, false)
                     .map_err(EngineError::Other)?;
             let ch = &mut ctx.terminal.arena[id.0 as usize];
             let scene_id = ch.animation.new_scene(false, None, None, "", uses_pre);
             ch.animation
                 .scenes
                 .get_mut(&scene_id)
-                .must_val()
+                .ok_or_else(|| EngineError::Other(String::new()))?
                 .apply_gradient_to_symbols(
-                    &[input_symbol.clone()],
+                    std::slice::from_ref(&input_symbol),
                     3,
                     Some(&char_final_gradient),
                     None,
@@ -229,7 +233,9 @@ impl ErrorCorrect {
     }
 }
 pub(super) fn final_colors_fg(map: &HashMap<CharId, ColorPair>, id: CharId) -> Color {
-    map.get(&id).must_val().fg_color.clone().must_val()
+    map.get(&id)
+        .and_then(|cp| cp.fg_color)
+        .unwrap_or_else(|| hex_color("ffffff"))
 }
 impl EffectHooks for ErrorCorrect {
     fn dispatch_callback(

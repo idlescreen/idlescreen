@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    Blackhole, CallerKey, ColorPair, Easing, EngineCtx, EngineError, Event, EventAction,
+    VisualParams, geometry,
+};
 
 impl Blackhole {
     /// BlackholeIterator.collapse_blackhole.
@@ -15,7 +18,8 @@ impl Blackhole {
         let unstable_symbols = ["◦", "◎", "◉", "●", "◉", "◎", "◦"];
         let mut point_char_made = false;
         let canvas_center = ctx.terminal.canvas.center;
-        for &id in &self.blackhole_chars.clone() {
+        for i in 0..self.blackhole_chars.len() {
+            let id = self.blackhole_chars[i];
             let next_pos = black_hole_ring_positions.remove(0);
             let (expand_path, collapse_path) = {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
@@ -26,7 +30,7 @@ impl Blackhole {
                 ch.motion
                     .paths
                     .get_mut(&expand_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(next_pos, None, "")
                     .map_err(EngineError::Other)?;
                 let collapse_path = ch
@@ -36,7 +40,7 @@ impl Blackhole {
                 ch.motion
                     .paths
                     .get_mut(&collapse_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(canvas_center, None, "")
                     .map_err(EngineError::Other)?;
                 (expand_path, collapse_path)
@@ -56,12 +60,12 @@ impl Blackhole {
                 };
                 for _ in 0..3 {
                     for symbol in unstable_symbols {
-                        let color = ctx.rng.choice(&self.config.star_colors).clone();
+                        let color = *ctx.rng.choice(&self.config.star_colors);
                         let ch = &mut ctx.terminal.arena[id.0 as usize];
                         ch.animation
                             .scenes
                             .get_mut(&point_scn)
-                            .must_val()
+                            .ok_or_else(|| EngineError::Other(String::new()))?
                             .add_frame(
                                 symbol,
                                 3,

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-#![allow(clippy::all, clippy::pedantic, unused)]
-
 pub mod beams_light;
 pub mod canvas_ops;
 pub mod matrix_cyber;

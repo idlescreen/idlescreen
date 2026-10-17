@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharId, CharacterFilter, CharacterSort, Color, ColorPair, Coord, EngineCtx, EngineError,
+    Gradient, Phase, Unstable, VisualParams, emit_frame, neutral_gray,
+};
 
 impl Unstable {
     pub(super) fn setup_unstable_final(
@@ -13,117 +16,110 @@ impl Unstable {
         dynamic: bool,
     ) -> Result<(), EngineError> {
         let input_symbol = input_symbol.to_string();
-        {
-            {
-                let ch = &mut ctx.terminal.arena[id.0 as usize];
-                ch.animation.new_scene(false, None, None, "final", uses_pre);
-            }
-            if dynamic {
-                let final_pair = self.character_final_color_map.get(&id).must_val().clone();
-                let final_fg_color = final_pair.fg_color.clone();
-                let final_bg_color = final_pair.bg_color.clone();
-                if final_fg_color.is_none() && final_bg_color.is_none() {
-                    let fg_gradient = Gradient::with_steps(
-                        &[self.config.unstable_color.clone(), neutral_gray()],
-                        12,
-                        false,
+        ctx.terminal.arena[id.0 as usize]
+            .animation
+            .new_scene(false, None, None, "final", uses_pre);
+        let final_pair = *self
+            .character_final_color_map
+            .get(&id)
+            .ok_or_else(|| EngineError::Other(String::new()))?;
+        if dynamic {
+            let (final_fg_color, final_bg_color) = (final_pair.fg_color, final_pair.bg_color);
+            if final_fg_color.is_none() && final_bg_color.is_none() {
+                let fg_gradient =
+                    Gradient::with_steps(&[self.config.unstable_color, neutral_gray()], 12, false)
+                        .map_err(EngineError::Other)?;
+                let scene = ctx.terminal.arena[id.0 as usize]
+                    .animation
+                    .scenes
+                    .get_mut("final")
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
+                scene
+                    .apply_gradient_to_symbols(
+                        std::slice::from_ref(&input_symbol),
+                        3,
+                        Some(&fg_gradient),
+                        None,
                     )
                     .map_err(EngineError::Other)?;
-                    let ch = &mut ctx.terminal.arena[id.0 as usize];
-                    let scene = ch.animation.scenes.get_mut("final").must_val();
-                    scene
-                        .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
-                            3,
-                            Some(&fg_gradient),
-                            None,
-                        )
-                        .map_err(EngineError::Other)?;
+                scene
+                    .add_frame(
+                        &input_symbol,
+                        3,
+                        VisualParams {
+                            colors: Some(ColorPair::default()),
+                            ..Default::default()
+                        },
+                    )
+                    .map_err(EngineError::Other)?;
+            } else {
+                let step_grad = |opt: &Option<Color>| {
+                    opt.as_ref()
+                        .map(|c| {
+                            Gradient::with_steps(&[self.config.unstable_color, *c], 12, false)
+                                .map_err(EngineError::Other)
+                        })
+                        .transpose()
+                };
+                let fg_gradient = step_grad(&final_fg_color)?;
+                let bg_gradient = step_grad(&final_bg_color)?;
+                let scene = ctx.terminal.arena[id.0 as usize]
+                    .animation
+                    .scenes
+                    .get_mut("final")
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
+                scene
+                    .apply_gradient_to_symbols(
+                        std::slice::from_ref(&input_symbol),
+                        3,
+                        fg_gradient.as_ref(),
+                        bg_gradient.as_ref(),
+                    )
+                    .map_err(EngineError::Other)?;
+                if final_fg_color.is_none() {
                     scene
                         .add_frame(
                             &input_symbol,
                             3,
                             VisualParams {
-                                colors: Some(ColorPair::default()),
+                                colors: Some(ColorPair::new(None, final_bg_color)),
                                 ..Default::default()
                             },
                         )
                         .map_err(EngineError::Other)?;
-                } else {
-                    let step_grad = |opt: &Option<Color>| {
-                        opt.as_ref()
-                            .map(|c| {
-                                Gradient::with_steps(
-                                    &[self.config.unstable_color.clone(), c.clone()],
-                                    12,
-                                    false,
-                                )
-                                .map_err(EngineError::Other)
-                            })
-                            .transpose()
-                    };
-                    let fg_gradient = step_grad(&final_fg_color)?;
-                    let bg_gradient = step_grad(&final_bg_color)?;
-                    let ch = &mut ctx.terminal.arena[id.0 as usize];
-                    let scene = ch.animation.scenes.get_mut("final").must_val();
-                    scene
-                        .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
-                            3,
-                            fg_gradient.as_ref(),
-                            bg_gradient.as_ref(),
-                        )
-                        .map_err(EngineError::Other)?;
-                    if final_fg_color.is_none() {
-                        scene
-                            .add_frame(
-                                &input_symbol,
-                                3,
-                                VisualParams {
-                                    colors: Some(ColorPair::new(None, final_bg_color)),
-                                    ..Default::default()
-                                },
-                            )
-                            .map_err(EngineError::Other)?;
-                    }
                 }
-            } else {
-                let final_fg_color = self
-                    .character_final_color_map
-                    .get(&id)
-                    .must_val()
-                    .fg_color
-                    .clone()
-                    .unwrap_or_else(neutral_gray);
-                let final_color = Gradient::with_steps(
-                    &[self.config.unstable_color.clone(), final_fg_color],
-                    12,
-                    false,
+            }
+        } else {
+            let final_fg_color = final_pair.fg_color.unwrap_or_else(neutral_gray);
+            let final_color =
+                Gradient::with_steps(&[self.config.unstable_color, final_fg_color], 12, false)
+                    .map_err(EngineError::Other)?;
+            ctx.terminal.arena[id.0 as usize]
+                .animation
+                .scenes
+                .get_mut("final")
+                .ok_or_else(|| EngineError::Other(String::new()))?
+                .apply_gradient_to_symbols(
+                    std::slice::from_ref(&input_symbol),
+                    3,
+                    Some(&final_color),
+                    None,
                 )
                 .map_err(EngineError::Other)?;
-                let ch = &mut ctx.terminal.arena[id.0 as usize];
-                ch.animation
-                    .scenes
-                    .get_mut("final")
-                    .must_val()
-                    .apply_gradient_to_symbols(&[input_symbol.clone()], 3, Some(&final_color), None)
-                    .map_err(EngineError::Other)?;
-            }
-            ctx.activate_scene(self, id, "rumble");
-            if dynamic {
-                let start_pair = self.character_start_color_map.get(&id).must_val().clone();
-                let ch = &mut ctx.terminal.arena[id.0 as usize];
-                let input_symbol = ch.input_symbol.clone();
-                let uses = ch.uses_input_preexisting_colors;
-                ch.animation.set_appearance(
-                    &input_symbol,
-                    uses,
-                    Some(&input_symbol.clone()),
-                    Some(start_pair),
-                );
-            }
-            ctx.terminal.set_character_visibility(id, true);
         }
+        ctx.activate_scene(self, id, "rumble");
+        if dynamic {
+            let start_pair = *self
+                .character_start_color_map
+                .get(&id)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
+            let ch = &mut ctx.terminal.arena[id.0 as usize];
+            let sym = ch.input_symbol.clone();
+            let uses = ch.uses_input_preexisting_colors;
+            ch.animation
+                .set_appearance(&sym, uses, Some(&sym), Some(start_pair));
+        }
+        ctx.terminal.set_character_visibility(id, true);
         Ok(())
     }
 }
@@ -155,7 +151,7 @@ impl Unstable {
                     }
                     next_frame = Some(emit_frame(ctx));
                     for &id in &characters {
-                        let jumbled = *self.jumbled_coords.get(&id).must_val();
+                        let jumbled = *self.jumbled_coords.get(&id)?;
                         ctx.terminal.arena[id.0 as usize]
                             .motion
                             .set_coordinate(jumbled);
@@ -199,9 +195,10 @@ impl Unstable {
                     .iter()
                     .filter(|&id| {
                         let ch = &ctx.terminal.arena[id.0 as usize];
-                        let explosion_target =
-                            ch.motion.paths.get("explosion").must_val().waypoints[0].coord;
-                        ch.motion.current_coord != explosion_target
+                        ch.motion
+                            .paths
+                            .get("explosion")
+                            .is_some_and(|p| ch.motion.current_coord != p.waypoints[0].coord)
                     })
                     .collect();
                 ctx.active_characters.clear();
@@ -226,8 +223,6 @@ impl Unstable {
         }
 
         if self.phase == Phase::Reassembly && !ctx.active_characters.is_empty() {
-            // Upstream iterates the active_characters set (effect_unstable.py:354);
-            // canonical order is ascending character_id (shim patched to match).
             let snapshot: Vec<CharId> = ctx.active_characters.iter().collect();
             for id in snapshot {
                 ctx.tick(self, id);
@@ -237,10 +232,12 @@ impl Unstable {
                 .iter()
                 .filter(|&id| {
                     let ch = &ctx.terminal.arena[id.0 as usize];
-                    let reassembly_target =
-                        ch.motion.paths.get("reassembly").must_val().waypoints[0].coord;
-                    ch.motion.current_coord != reassembly_target
-                        || !ch.animation.active_scene_is_complete()
+                    let moving = ch
+                        .motion
+                        .paths
+                        .get("reassembly")
+                        .is_some_and(|p| ch.motion.current_coord != p.waypoints[0].coord);
+                    moving || !ch.animation.active_scene_is_complete()
                 })
                 .collect();
             ctx.active_characters.clear();

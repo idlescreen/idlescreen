@@ -1,18 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    Blackhole, CallerKey, CharId, CharacterFilter, CharacterSort, ColorPair, Easing,
+    EffectCallback, EffectHooks, EngineCtx, EngineError, Event, EventAction, ExistingColorHandling,
+    Gradient, VisualParams, geometry, hex_color,
+};
 
 impl Blackhole {
     /// BlackholeIterator.explode_singularity.
     pub(super) fn explode_singularity(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
         let star_colors = [
-            Color::from_hex("#ffcc0d").must_val(),
-            Color::from_hex("#ff7326").must_val(),
-            Color::from_hex("#ff194d").must_val(),
-            Color::from_hex("#bf2669").must_val(),
-            Color::from_hex("#702a8c").must_val(),
-            Color::from_hex("#049dbf").must_val(),
+            hex_color("#ffcc0d"),
+            hex_color("#ff7326"),
+            hex_color("#ff194d"),
+            hex_color("#bf2669"),
+            hex_color("#702a8c"),
+            hex_color("#049dbf"),
         ];
         let dynamic = ctx.terminal.config.existing_color_handling == ExistingColorHandling::Dynamic;
         let characters = {
@@ -26,8 +30,8 @@ impl Blackhole {
                 (
                     ch.input_coord,
                     ch.input_symbol.clone(),
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.uses_input_preexisting_colors,
                 )
             };
@@ -43,7 +47,7 @@ impl Blackhole {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(nearby_coord, None, "")
                     .map_err(EngineError::Other)?;
                 path_id
@@ -58,24 +62,24 @@ impl Blackhole {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
                 path_id
             };
-            let explode_star_color = ctx.rng.choice(&star_colors).clone();
+            let explode_star_color = *ctx.rng.choice(&star_colors);
             let explode_scn = {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 let scene_id = ch.animation.new_scene(false, None, None, "", uses_pre);
                 ch.animation
                     .scenes
                     .get_mut(&scene_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &input_symbol,
                         1,
                         VisualParams {
-                            colors: Some(ColorPair::new(Some(explode_star_color.clone()), None)),
+                            colors: Some(ColorPair::new(Some(explode_star_color), None)),
                             ..Default::default()
                         },
                     )
@@ -92,7 +96,7 @@ impl Blackhole {
                     ch.animation
                         .scenes
                         .get_mut(&cooling_scn)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .add_frame(
                             &input_symbol,
                             1,
@@ -105,23 +109,15 @@ impl Blackhole {
                 } else {
                     let cooling_gradient_fg = match &input_fg {
                         Some(fg) => Some(
-                            Gradient::with_steps(
-                                &[explode_star_color.clone(), fg.clone()],
-                                10,
-                                false,
-                            )
-                            .map_err(EngineError::Other)?,
+                            Gradient::with_steps(&[explode_star_color, *fg], 10, false)
+                                .map_err(EngineError::Other)?,
                         ),
                         None => None,
                     };
                     let cooling_gradient_bg = match &input_bg {
                         Some(bg) => Some(
-                            Gradient::with_steps(
-                                &[explode_star_color.clone(), bg.clone()],
-                                10,
-                                false,
-                            )
-                            .map_err(EngineError::Other)?,
+                            Gradient::with_steps(&[explode_star_color, *bg], 10, false)
+                                .map_err(EngineError::Other)?,
                         ),
                         None => None,
                     };
@@ -129,9 +125,9 @@ impl Blackhole {
                     ch.animation
                         .scenes
                         .get_mut(&cooling_scn)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             20,
                             cooling_gradient_fg.as_ref(),
                             cooling_gradient_bg.as_ref(),
@@ -139,17 +135,20 @@ impl Blackhole {
                         .map_err(EngineError::Other)?;
                 }
             } else {
-                let final_color = self.character_final_color_map.get(&id).must_val().clone();
+                let final_color = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let cooling_gradient =
-                    Gradient::with_steps(&[explode_star_color.clone(), final_color], 10, false)
+                    Gradient::with_steps(&[explode_star_color, final_color], 10, false)
                         .map_err(EngineError::Other)?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut(&cooling_scn)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(
-                        &[input_symbol.clone()],
+                        std::slice::from_ref(&input_symbol),
                         20,
                         Some(&cooling_gradient),
                         None,

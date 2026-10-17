@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CB_RECLAIM_SPARK, CallerKey, CharId, Color, ColorPair, Coord, Easing, EffectCallback,
+    EffectHooks, EngineCtx, EngineError, Event, EventAction, Gradient, HashMap, Laser, LaserEtch,
+    LaserEtchConfig, ParticlePool, ParticleReset, VecDeque, VisualParams, initialize_spark,
+};
 
 impl LaserEtch {
     pub fn new(config: LaserEtchConfig) -> Self {
@@ -70,14 +74,18 @@ impl LaserEtch {
                 let input_symbol = ch.input_symbol.clone();
                 let uses_pre = ch.uses_input_preexisting_colors;
                 let laser_scn = ch.animation.new_scene(true, None, None, "laser", uses_pre);
-                let scene = ch.animation.scenes.get_mut(&laser_scn).must_val();
-                for color in laser_gradient.iter() {
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&laser_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
+                for color in &laser_gradient {
                     scene
                         .add_frame(
                             &input_symbol,
                             3,
                             VisualParams {
-                                colors: Some(ColorPair::new(Some(color.clone()), None)),
+                                colors: Some(ColorPair::new(Some(*color), None)),
                                 ..Default::default()
                             },
                         )
@@ -100,16 +108,15 @@ impl LaserEtch {
 
     /// Laser.reposition.
     pub(super) fn laser_reposition(&mut self, ctx: &mut EngineCtx, target: Coord) {
-        let mut laser = self.laser.take().must_val();
+        let Some(mut laser) = self.laser.take() else {
+            return;
+        };
         laser.position = target;
-        let mut row = target.row;
-        let mut col = target.column;
-        for &char_id in &laser.beam_chars {
+        for (idx, &char_id) in laser.beam_chars.iter().enumerate() {
+            let offset = idx as i64;
             ctx.terminal.arena[char_id.0 as usize]
                 .motion
-                .set_coordinate(Coord::new(col, row));
-            row += 1;
-            col += 1;
+                .set_coordinate(Coord::new(target.column + offset, target.row + offset));
         }
         self.laser_emit_sparks(ctx, &mut laser, 1);
         self.laser = Some(laser);
@@ -139,10 +146,16 @@ impl LaserEtch {
                     ctx.terminal.arena[spark.0 as usize]
                         .motion
                         .set_coordinate(position);
-                    let spark_path = ctx.terminal.arena[spark.0 as usize]
-                        .motion
-                        .new_path(0.3, Some(Easing::OutSine), None, 0, false, "")
-                        .must_val();
+                    let Ok(spark_path) = ctx.terminal.arena[spark.0 as usize].motion.new_path(
+                        0.3,
+                        Some(Easing::OutSine),
+                        None,
+                        0,
+                        false,
+                        "",
+                    ) else {
+                        return;
+                    };
                     let fall_target_coord = Coord::new(
                         ctx.rng.randint(position.column - 20, position.column + 20),
                         bottom,
@@ -151,13 +164,13 @@ impl LaserEtch {
                         fall_target_coord.column,
                         position.row + ctx.rng.randint(-10, 20),
                     );
-                    ctx.terminal.arena[spark.0 as usize]
+                    if let Some(p) = ctx.terminal.arena[spark.0 as usize]
                         .motion
                         .paths
                         .get_mut(&spark_path)
-                        .must_val()
-                        .new_waypoint(fall_target_coord, Some(vec![control]), "")
-                        .must_val();
+                    {
+                        let _ = p.new_waypoint(fall_target_coord, Some(vec![control]), "");
+                    }
                     ctx.activate_path(self, spark, &spark_path);
                     ctx.activate_scene(self, spark, "spark");
                 },
@@ -167,7 +180,10 @@ impl LaserEtch {
 
     /// Laser.disable.
     pub(super) fn laser_disable(&mut self, ctx: &mut EngineCtx) {
-        let beam_chars = self.laser.as_ref().must_val().beam_chars.clone();
+        let Some(laser) = self.laser.as_ref() else {
+            return;
+        };
+        let beam_chars = laser.beam_chars.clone();
         for char_id in beam_chars {
             ctx.terminal.set_character_visibility(char_id, false);
         }
@@ -180,10 +196,10 @@ impl EffectHooks for LaserEtch {
         character: CharId,
         callback: &EffectCallback,
     ) {
-        if callback.id == CB_RECLAIM_SPARK {
-            if let Some(laser) = self.laser.as_mut() {
-                laser.sparks_pool.reclaim(ctx, character, true, true);
-            }
+        if callback.id == CB_RECLAIM_SPARK
+            && let Some(laser) = self.laser.as_mut()
+        {
+            laser.sparks_pool.reclaim(ctx, character, true, true);
         }
     }
 }

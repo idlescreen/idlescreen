@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CB_UPDATE_GROUP_TRACKER, CallbackValue, CharId, ColorPair, Coord, CoordColorMap, Direction,
+    EffectCallback, EffectHooks, EngineCtx, EngineError, GridLine, HashMap, Phase, SynthGrid,
+    SynthGridConfig, VisualParams, floor_div,
+};
 
 impl SynthGrid {
     pub fn new(config: SynthGridConfig) -> Self {
@@ -61,7 +65,7 @@ impl SynthGrid {
             Direction::Horizontal => self.config.grid_row_symbol.clone(),
             Direction::Vertical => self.config.grid_column_symbol.clone(),
         };
-        let mut characters: Vec<CharId> = Vec::new();
+        let mut collapsed_characters: Vec<CharId> = Vec::new();
         let coords: Vec<Coord> = match direction {
             Direction::Horizontal => (ctx.terminal.canvas.left..=ctx.terminal.canvas.right)
                 .map(|column_index| Coord::new(column_index, origin.row))
@@ -76,11 +80,13 @@ impl SynthGrid {
                 let ch = &mut ctx.terminal.arena[effect_char.0 as usize];
                 let uses_pre = ch.uses_input_preexisting_colors;
                 let scene_id = ch.animation.new_scene(false, None, None, "", uses_pre);
-                let fg = grid_gradient_mapping.get(&coord).must_val().clone();
+                let fg = *grid_gradient_mapping
+                    .get(&coord)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 ch.animation
                     .scenes
                     .get_mut(&scene_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &grid_symbol,
                         1,
@@ -96,12 +102,10 @@ impl SynthGrid {
             let ch = &mut ctx.terminal.arena[effect_char.0 as usize];
             ch.layer = 2;
             ch.motion.set_coordinate(coord);
-            characters.push(effect_char);
+            collapsed_characters.push(effect_char);
         }
-        let collapsed_characters = characters.clone();
         Ok(GridLine {
             direction,
-            characters,
             collapsed_characters,
             extended_characters: Vec::new(),
         })
@@ -114,10 +118,10 @@ impl EffectHooks for SynthGrid {
         _character: CharId,
         callback: &EffectCallback,
     ) {
-        if callback.id == CB_UPDATE_GROUP_TRACKER {
-            if let CallbackValue::Int(group_number) = callback.args[0] {
-                self.group_tracker[group_number as usize] -= 1;
-            }
+        if callback.id == CB_UPDATE_GROUP_TRACKER
+            && let CallbackValue::Int(group_number) = callback.args[0]
+        {
+            self.group_tracker[group_number as usize] -= 1;
         }
     }
 }

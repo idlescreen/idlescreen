@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharId, CharacterFilter, CharacterGroup, CharacterSort, ColorPair, Coord, Effect, EngineCtx,
+    EngineError, ExistingColorHandling, Gradient, Slice, SliceConfig, emit_frame,
+};
 
 impl Slice {
     pub(super) fn build_scene(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -32,8 +35,8 @@ impl Slice {
             let (input_fg, input_bg, input_coord, input_symbol, uses_pre) = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.input_coord,
                     ch.input_symbol.clone(),
                     ch.uses_input_preexisting_colors,
@@ -43,12 +46,15 @@ impl Slice {
                 ColorPair::new(input_fg, input_bg)
             } else {
                 ColorPair::new(
-                    Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                    Some(
+                        *final_gradient_mapping
+                            .get(&input_coord)
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
+                    ),
                     None,
                 )
             };
-            self.character_final_color_map
-                .insert(id, final_colors.clone());
+            self.character_final_color_map.insert(id, final_colors);
             let ch = &mut ctx.terminal.arena[id.0 as usize];
             ch.animation.set_appearance(
                 &input_symbol,
@@ -82,7 +88,7 @@ impl Slice {
                     ch.motion
                         .paths
                         .get_mut(&path_id)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .new_waypoint(input_coord, None, "")
                         .map_err(EngineError::Other)?;
                     path_id
@@ -242,11 +248,7 @@ impl Effect for Slice {
         None
     }
 }
-impl Default for SliceConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Slice {
     fn default() -> Self {
         Self::new(SliceConfig::default())

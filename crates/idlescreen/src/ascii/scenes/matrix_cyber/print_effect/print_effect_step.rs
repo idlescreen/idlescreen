@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharId, ColorPair, Coord, EffectCallback, EffectHooks, EngineCtx, EngineError,
+    ExistingColorHandling, Gradient, HashMap, Print, PrintConfig, Row, SET_INVISIBLE_CALLBACK,
+    VisualParams, hex_color,
+};
 
 impl Print {
     pub fn new(config: PrintConfig) -> Self {
@@ -27,7 +31,7 @@ impl Print {
         characters: Vec<CharId>,
     ) -> Result<Row, EngineError> {
         let dynamic = ctx.terminal.config.existing_color_handling == ExistingColorHandling::Dynamic;
-        let typing_head_color = Color::from_hex("ffffff").must_val();
+        let typing_head_color = hex_color("ffffff");
         let all_spaces = characters
             .iter()
             .all(|&id| ctx.terminal.arena[id.0 as usize].input_symbol == " ");
@@ -40,7 +44,7 @@ impl Print {
                 .filter(|&id| !ctx.terminal.arena[id.0 as usize].is_fill_character)
                 .map(|id| ctx.terminal.arena[id.0 as usize].input_coord.column)
                 .max()
-                .must_val();
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             characters
                 .into_iter()
                 .filter(|&id| ctx.terminal.arena[id.0 as usize].input_coord.column <= right_extent)
@@ -62,17 +66,20 @@ impl Print {
                 ch.animation.new_scene(false, None, None, "", uses_pre)
             };
             if dynamic {
-                let final_colors = self.character_final_color_map.get(&id).must_val().clone();
+                let final_colors = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let fg_gradient = match &final_colors.fg_color {
                     Some(fg) => Some(
-                        Gradient::with_steps(&[typing_head_color.clone(), fg.clone()], 5, false)
+                        Gradient::with_steps(&[typing_head_color, *fg], 5, false)
                             .map_err(EngineError::Other)?,
                     ),
                     None => None,
                 };
                 let bg_gradient = match &final_colors.bg_color {
                     Some(bg) => Some(
-                        Gradient::with_steps(&[typing_head_color.clone(), bg.clone()], 5, false)
+                        Gradient::with_steps(&[typing_head_color, *bg], 5, false)
                             .map_err(EngineError::Other)?,
                     ),
                     None => None,
@@ -82,7 +89,7 @@ impl Print {
                     ch.animation
                         .scenes
                         .get_mut(&typed_animation)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .apply_gradient_to_symbols(
                             &[
                                 "█".to_string(),
@@ -97,14 +104,15 @@ impl Print {
                         )
                         .map_err(EngineError::Other)?;
                 } else {
-                    let head_gradient = Gradient::with_steps(
-                        &[typing_head_color.clone(), typing_head_color.clone()],
-                        4,
-                        false,
-                    )
-                    .map_err(EngineError::Other)?;
+                    let head_gradient =
+                        Gradient::with_steps(&[typing_head_color, typing_head_color], 4, false)
+                            .map_err(EngineError::Other)?;
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
-                    let scene = ch.animation.scenes.get_mut(&typed_animation).must_val();
+                    let scene = ch
+                        .animation
+                        .scenes
+                        .get_mut(&typed_animation)
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
                     scene
                         .apply_gradient_to_symbols(
                             &[
@@ -133,18 +141,16 @@ impl Print {
                 let final_fg = self
                     .character_final_color_map
                     .get(&id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .fg_color
-                    .clone()
-                    .must_val();
-                let color_gradient =
-                    Gradient::with_steps(&[typing_head_color.clone(), final_fg], 5, false)
-                        .map_err(EngineError::Other)?;
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
+                let color_gradient = Gradient::with_steps(&[typing_head_color, final_fg], 5, false)
+                    .map_err(EngineError::Other)?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut(&typed_animation)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(
                         &[
                             "█".to_string(),

@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CallerKey, CharId, CharacterFilter, CharacterSort, Color, ColorPair, Coord, Crumble, Easing,
+    EngineCtx, EngineError, Event, EventAction, Gradient, Stage, SyncMetric, VisualParams,
+    emit_frame,
+};
 
 impl Crumble {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn setup_crumble_stage(
         &mut self,
         ctx: &mut EngineCtx,
@@ -34,7 +39,7 @@ impl Crumble {
                 ch.motion
                     .paths
                     .get_mut(&top_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(
                         Coord::new(input_coord.column, canvas_top),
                         Some(vec![Coord::new(canvas_center_column, canvas_center_row)]),
@@ -52,7 +57,7 @@ impl Crumble {
                 ch.motion
                     .paths
                     .get_mut(&input_path)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
             }
@@ -62,9 +67,9 @@ impl Crumble {
                 ch.animation
                     .scenes
                     .get_mut(&scene_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(
-                        &[input_symbol.clone()],
+                        std::slice::from_ref(&input_symbol),
                         4,
                         strengthen_flash_fg_gradient.as_ref(),
                         strengthen_flash_bg_gradient.as_ref(),
@@ -75,7 +80,11 @@ impl Crumble {
             let strengthen_scn = {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 let scene_id = ch.animation.new_scene(false, None, None, "", uses_pre);
-                let scene = ch.animation.scenes.get_mut(&scene_id).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&scene_id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 if dynamic_uncolored {
                     scene
                         .add_frame(
@@ -90,7 +99,7 @@ impl Crumble {
                 } else {
                     scene
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             4,
                             strengthen_fg_gradient.as_ref(),
                             strengthen_bg_gradient.as_ref(),
@@ -111,15 +120,12 @@ impl Crumble {
                 ch.animation
                     .scenes
                     .get_mut(&dust_scn)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         symbol,
                         1,
                         VisualParams {
-                            colors: Some(ColorPair::new(
-                                dust_fg_color.clone(),
-                                dust_bg_color.clone(),
-                            )),
+                            colors: Some(ColorPair::new(dust_fg_color, dust_bg_color)),
                             ..Default::default()
                         },
                     )
@@ -241,15 +247,5 @@ impl Crumble {
             return Some(emit_frame(ctx));
         }
         None
-    }
-}
-impl Default for CrumbleConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
-impl Default for Crumble {
-    fn default() -> Self {
-        Self::new(CrumbleConfig::default())
     }
 }

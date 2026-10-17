@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{Effect, EngineCtx, EngineError, Phase, SynthGrid, SynthGridConfig, emit_frame};
 
 impl Effect for SynthGrid {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -15,11 +15,9 @@ impl Effect for SynthGrid {
         {
             match self.phase {
                 Phase::GridExpand => {
-                    if !self
-                        .grid_lines
-                        .iter()
-                        .all(|grid_line| grid_line.is_extended())
-                    {
+                    if self.grid_lines.iter().all(super::GridLine::is_extended) {
+                        self.phase = Phase::AddChars;
+                    } else {
                         let mut grid_lines = std::mem::take(&mut self.grid_lines);
                         for grid_line in &mut grid_lines {
                             if !grid_line.is_extended() {
@@ -27,8 +25,6 @@ impl Effect for SynthGrid {
                             }
                         }
                         self.grid_lines = grid_lines;
-                    } else {
-                        self.phase = Phase::AddChars;
                     }
                 }
                 Phase::AddChars => {
@@ -51,11 +47,9 @@ impl Effect for SynthGrid {
                     }
                 }
                 Phase::Collapse => {
-                    if !self
-                        .grid_lines
-                        .iter()
-                        .all(|grid_line| grid_line.is_collapsed())
-                    {
+                    if self.grid_lines.iter().all(super::GridLine::is_collapsed) {
+                        self.phase = Phase::Complete;
+                    } else {
                         let mut grid_lines = std::mem::take(&mut self.grid_lines);
                         for grid_line in &mut grid_lines {
                             if !grid_line.is_collapsed() {
@@ -63,8 +57,6 @@ impl Effect for SynthGrid {
                             }
                         }
                         self.grid_lines = grid_lines;
-                    } else {
-                        self.phase = Phase::Complete;
                     }
                 }
                 Phase::Complete => {}
@@ -81,11 +73,7 @@ impl Effect for SynthGrid {
         None
     }
 }
-impl Default for SynthGridConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for SynthGrid {
     fn default() -> Self {
         Self::new(SynthGridConfig::default())

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    BouncyBalls, BouncyBallsConfig, CallerKey, CharacterFilter, CharacterSort, ColorPair, Coord,
+    Effect, EngineCtx, EngineError, Event, EventAction, ExistingColorHandling, Gradient,
+    VisualParams, emit_frame,
+};
 
 impl Effect for BouncyBalls {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -35,16 +39,18 @@ impl Effect for BouncyBalls {
                 (
                     ch.input_coord,
                     ch.input_symbol.clone(),
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.uses_input_preexisting_colors,
                 )
             };
             self.character_final_color_map.insert(
                 id,
-                final_gradient_mapping.get(&input_coord).must_val().clone(),
+                *final_gradient_mapping
+                    .get(&input_coord)
+                    .ok_or_else(|| EngineError::Other(String::new()))?,
             );
-            let color = ctx.rng.choice(&self.config.ball_colors).clone();
+            let color = *ctx.rng.choice(&self.config.ball_colors);
             let symbol = ctx.rng.choice(&self.config.ball_symbols).clone();
             let ball_scene = {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
@@ -52,12 +58,12 @@ impl Effect for BouncyBalls {
                 ch.animation
                     .scenes
                     .get_mut(&scene_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &symbol,
                         1,
                         VisualParams {
-                            colors: Some(ColorPair::new(Some(color.clone()), None)),
+                            colors: Some(ColorPair::new(Some(color), None)),
                             ..Default::default()
                         },
                     )
@@ -71,24 +77,28 @@ impl Effect for BouncyBalls {
             if dynamic {
                 let fg_gradient = match &input_fg {
                     Some(fg) => Some(
-                        Gradient::with_steps(&[color.clone(), fg.clone()], 10, false)
+                        Gradient::with_steps(&[color, *fg], 10, false)
                             .map_err(EngineError::Other)?,
                     ),
                     None => None,
                 };
                 let bg_gradient = match &input_bg {
                     Some(bg) => Some(
-                        Gradient::with_steps(&[color.clone(), bg.clone()], 10, false)
+                        Gradient::with_steps(&[color, *bg], 10, false)
                             .map_err(EngineError::Other)?,
                     ),
                     None => None,
                 };
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
-                let scene = ch.animation.scenes.get_mut(&final_scene).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&final_scene)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 if fg_gradient.is_some() || bg_gradient.is_some() {
                     scene
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             6,
                             fg_gradient.as_ref(),
                             bg_gradient.as_ref(),
@@ -107,17 +117,19 @@ impl Effect for BouncyBalls {
                         .map_err(EngineError::Other)?;
                 }
             } else {
-                let final_color = self.character_final_color_map.get(&id).must_val().clone();
-                let char_final_gradient =
-                    Gradient::with_steps(&[color.clone(), final_color], 10, false)
-                        .map_err(EngineError::Other)?;
+                let final_color = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
+                let char_final_gradient = Gradient::with_steps(&[color, final_color], 10, false)
+                    .map_err(EngineError::Other)?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut(&final_scene)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(
-                        &[input_symbol.clone()],
+                        std::slice::from_ref(&input_symbol),
                         6,
                         Some(&char_final_gradient),
                         None,
@@ -144,7 +156,7 @@ impl Effect for BouncyBalls {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
                 path_id
@@ -177,8 +189,8 @@ impl Effect for BouncyBalls {
             || !self.pending_chars.is_empty()
         {
             if self.pending_chars.is_empty() && !self.group_by_row.is_empty() {
-                let min_row = *self.group_by_row.keys().next().must_val();
-                let group = self.group_by_row.remove(&min_row).must_val();
+                let min_row = *self.group_by_row.keys().next()?;
+                let group = self.group_by_row.remove(&min_row)?;
                 self.pending_chars.extend(group);
             }
             if !self.pending_chars.is_empty() {
@@ -204,11 +216,7 @@ impl Effect for BouncyBalls {
         None
     }
 }
-impl Default for BouncyBallsConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for BouncyBalls {
     fn default() -> Self {
         Self::new(BouncyBallsConfig::default())

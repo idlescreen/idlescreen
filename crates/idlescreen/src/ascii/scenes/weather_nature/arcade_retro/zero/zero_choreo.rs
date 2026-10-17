@@ -70,7 +70,7 @@ pub fn compose_frame_pixels(px_buf: &mut [u8], cr: Dim, bounds: Bounds, frame: u
     let [d_i, base_x, foot_py, _, buster_x, buster_y] = zero_geometry(cr, bounds);
     let d = d_i as usize;
     let z_w = (1520 / d).max(4) as isize;
-    let mid_y = ((bounds.2 * 8 + (bounds.3 + 1) * 8) / 2) as isize;
+    let mid_y = usize::midpoint(bounds.2 * 8, (bounds.3 + 1) * 8) as isize;
     let slash_y = (foot_py - ((22 * 40) / d) as isize).max(0);
     let gy = |sp: &SpriteFrame| (foot_py - ((sp.height * 40) / d).max(1) as isize).max(0);
     let ox = |dx: isize| base_x + (dx * 40) / d_i;

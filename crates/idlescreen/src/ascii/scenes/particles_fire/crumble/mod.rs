@@ -2,12 +2,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{Animation, ExistingColorHandling, SyncMetric, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -19,29 +14,23 @@ use ttfx::utils::easing::Easing;
 use ttfx::utils::geometry::Coord;
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 
-mod crumble_step;
-#[allow(unused_imports)]
-use crumble_step::*;
 mod crumble_sim;
-#[allow(unused_imports)]
-use crumble_sim::*;
+mod crumble_step;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct CrumbleConfig {
-    /// Space separated, unquoted, list of colors for the final color gradient.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["5CE1FF", "FF8C00"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "diagonal", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for CrumbleConfig {
+    fn default() -> Self {
+        Self {
+            final_gradient_stops: vec![hex_color("5CE1FF"), hex_color("FF8C00")],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Diagonal,
+        }
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) enum Stage {
@@ -85,5 +74,11 @@ impl EffectHooks for Crumble {
         _character: CharId,
         _callback: &EffectCallback,
     ) {
+    }
+}
+
+impl Default for Crumble {
+    fn default() -> Self {
+        Self::new(CrumbleConfig::default())
     }
 }

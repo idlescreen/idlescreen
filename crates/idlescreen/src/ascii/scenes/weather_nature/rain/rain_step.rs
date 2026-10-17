@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CallerKey, CharacterFilter, CharacterSort, ColorPair, Coord, Effect, EngineCtx, EngineError,
+    Event, EventAction, ExistingColorHandling, Gradient, Rain, RainConfig, VisualParams,
+    emit_frame,
+};
 
 impl Effect for Rain {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -32,17 +36,13 @@ impl Effect for Rain {
             let final_colors = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 if dynamic {
-                    ColorPair::new(
-                        ch.animation.input_fg_color.clone(),
-                        ch.animation.input_bg_color.clone(),
-                    )
+                    ColorPair::new(ch.animation.input_fg_color, ch.animation.input_bg_color)
                 } else {
                     ColorPair::new(
                         Some(
-                            final_gradient_mapping
+                            *final_gradient_mapping
                                 .get(&ch.input_coord)
-                                .must_val()
-                                .clone(),
+                                .ok_or_else(|| EngineError::Other(String::new()))?,
                         ),
                         None,
                     )
@@ -61,7 +61,7 @@ impl Effect for Rain {
                     ch.uses_input_preexisting_colors,
                 )
             };
-            let raindrop_color = ctx.rng.choice(&self.config.rain_colors).clone();
+            let raindrop_color = *ctx.rng.choice(&self.config.rain_colors);
             let rain_scn = {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation.new_scene(false, None, None, "", uses_pre)
@@ -72,12 +72,12 @@ impl Effect for Rain {
                 ch.animation
                     .scenes
                     .get_mut(&rain_scn)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &rain_symbol,
                         1,
                         VisualParams {
-                            colors: Some(ColorPair::new(Some(raindrop_color.clone()), None)),
+                            colors: Some(ColorPair::new(Some(raindrop_color), None)),
                             ..Default::default()
                         },
                     )
@@ -87,28 +87,35 @@ impl Effect for Rain {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation.new_scene(false, None, None, "", uses_pre)
             };
-            let final_colors = self.character_final_color_map.get(&id).must_val().clone();
+            let final_colors = *self
+                .character_final_color_map
+                .get(&id)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             if dynamic {
                 let fg_gradient = match &final_colors.fg_color {
                     Some(fg) => Some(
-                        Gradient::with_steps(&[raindrop_color.clone(), fg.clone()], 7, false)
+                        Gradient::with_steps(&[raindrop_color, *fg], 7, false)
                             .map_err(EngineError::Other)?,
                     ),
                     None => None,
                 };
                 let bg_gradient = match &final_colors.bg_color {
                     Some(bg) => Some(
-                        Gradient::with_steps(&[raindrop_color.clone(), bg.clone()], 7, false)
+                        Gradient::with_steps(&[raindrop_color, *bg], 7, false)
                             .map_err(EngineError::Other)?,
                     ),
                     None => None,
                 };
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
-                let scene = ch.animation.scenes.get_mut(&fade_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&fade_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 if fg_gradient.is_some() || bg_gradient.is_some() {
                     scene
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             3,
                             fg_gradient.as_ref(),
                             bg_gradient.as_ref(),
@@ -127,17 +134,18 @@ impl Effect for Rain {
                         .map_err(EngineError::Other)?;
                 }
             } else {
-                let final_fg = final_colors.fg_color.clone().must_val();
-                let raindrop_gradient =
-                    Gradient::with_steps(&[raindrop_color.clone(), final_fg], 7, false)
-                        .map_err(EngineError::Other)?;
+                let final_fg = final_colors
+                    .fg_color
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
+                let raindrop_gradient = Gradient::with_steps(&[raindrop_color, final_fg], 7, false)
+                    .map_err(EngineError::Other)?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut(&fade_scn)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(
-                        &[input_symbol.clone()],
+                        std::slice::from_ref(&input_symbol),
                         3,
                         Some(&raindrop_gradient),
                         None,
@@ -159,7 +167,7 @@ impl Effect for Rain {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
                 path_id
@@ -190,8 +198,8 @@ impl Effect for Rain {
             || !self.pending_chars.is_empty()
         {
             if self.pending_chars.is_empty() && !self.group_by_row.is_empty() {
-                let min_row = *self.group_by_row.keys().next().must_val();
-                let group = self.group_by_row.remove(&min_row).must_val();
+                let min_row = *self.group_by_row.keys().next()?;
+                let group = self.group_by_row.remove(&min_row)?;
                 self.pending_chars.extend(group);
             }
             if !self.pending_chars.is_empty() {
@@ -211,11 +219,7 @@ impl Effect for Rain {
         None
     }
 }
-impl Default for RainConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Rain {
     fn default() -> Self {
         Self::new(RainConfig::default())

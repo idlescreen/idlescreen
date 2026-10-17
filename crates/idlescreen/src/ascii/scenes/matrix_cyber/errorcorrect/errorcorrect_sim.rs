@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharId, CharacterFilter, CharacterSort, ColorPair, Effect, EngineCtx, EngineError,
+    ErrorCorrect, ErrorCorrectConfig, ExistingColorHandling, Gradient, VisualParams, emit_frame,
+};
 
 impl Effect for ErrorCorrect {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -32,17 +35,13 @@ impl Effect for ErrorCorrect {
             let final_colors = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 if dynamic {
-                    ColorPair::new(
-                        ch.animation.input_fg_color.clone(),
-                        ch.animation.input_bg_color.clone(),
-                    )
+                    ColorPair::new(ch.animation.input_fg_color, ch.animation.input_bg_color)
                 } else {
                     ColorPair::new(
                         Some(
-                            final_gradient_mapping
+                            *final_gradient_mapping
                                 .get(&ch.input_coord)
-                                .must_val()
-                                .clone(),
+                                .ok_or_else(|| EngineError::Other(String::new()))?,
                         ),
                         None,
                     )
@@ -51,7 +50,10 @@ impl Effect for ErrorCorrect {
             self.character_final_color_map.insert(id, final_colors);
         }
         for &id in &characters {
-            let spawn_colors = self.character_final_color_map.get(&id).must_val().clone();
+            let spawn_colors = *self
+                .character_final_color_map
+                .get(&id)
+                .ok_or_else(|| EngineError::Other(String::new()))?;
             let spawn_scene = {
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 let uses_pre = ch.uses_input_preexisting_colors;
@@ -60,7 +62,7 @@ impl Effect for ErrorCorrect {
                 ch.animation
                     .scenes
                     .get_mut(&scene_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &input_symbol,
                         1,
@@ -78,10 +80,7 @@ impl Effect for ErrorCorrect {
 
         let mut all_characters: Vec<CharId> = ctx.terminal.input_characters.clone();
         let correcting_gradient = Gradient::with_steps(
-            &[
-                self.config.error_color.clone(),
-                self.config.correct_color.clone(),
-            ],
+            &[self.config.error_color, self.config.correct_color],
             10,
             false,
         )
@@ -115,7 +114,7 @@ impl Effect for ErrorCorrect {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(char1_input_coord, None, "")
                     .map_err(EngineError::Other)?;
             }
@@ -136,7 +135,7 @@ impl Effect for ErrorCorrect {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(char2_input_coord, None, "")
                     .map_err(EngineError::Other)?;
             }
@@ -166,11 +165,7 @@ impl Effect for ErrorCorrect {
         None
     }
 }
-impl Default for ErrorCorrectConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for ErrorCorrect {
     fn default() -> Self {
         Self::new(ErrorCorrectConfig::default())

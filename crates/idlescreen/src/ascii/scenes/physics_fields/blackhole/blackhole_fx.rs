@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    Blackhole, BlackholeConfig, CharacterFilter, CharacterSort, Effect, EngineCtx, EngineError,
+    Gradient, Phase, emit_frame, floor_div, round_half_even,
+};
 
 impl Effect for Blackhole {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -38,11 +41,14 @@ impl Effect for Blackhole {
             let input_coord = ctx.terminal.arena[id.0 as usize].input_coord;
             self.character_final_color_map.insert(
                 id,
-                final_gradient_mapping.get(&input_coord).must_val().clone(),
+                *final_gradient_mapping
+                    .get(&input_coord)
+                    .ok_or_else(|| EngineError::Other(String::new()))?,
             );
         }
         self.prepare_blackhole(ctx)?;
-        self.formation_delay = std::cmp::max(floor_div(100, self.blackhole_chars.len() as i64), 3);
+        let bh_len = (self.blackhole_chars.len() as i64).max(1);
+        self.formation_delay = std::cmp::max(floor_div(100, bh_len), 3);
         self.f_delay = self.formation_delay;
         self.phase = Phase::Forming;
         self.awaiting_blackhole_chars = self.blackhole_chars.clone();
@@ -70,25 +76,20 @@ impl Effect for Blackhole {
                 }
                 Phase::Consuming => {
                     if !self.awaiting_consumption_chars.is_empty() {
-                        for &id in &self.awaiting_consumption_chars.clone() {
+                        for id in std::mem::take(&mut self.awaiting_consumption_chars) {
                             ctx.activate_path(self, id, "singularity");
                             ctx.active_characters.insert(id);
                         }
-                        self.awaiting_consumption_chars.clear();
-                    } else {
-                        let blackhole_set: HashSet<CharId> =
-                            self.blackhole_chars.iter().copied().collect();
-                        if ctx
-                            .active_characters
-                            .iter()
-                            .all(|id| blackhole_set.contains(&id))
-                        {
-                            self.phase = Phase::Collapsing;
-                        }
+                    } else if ctx
+                        .active_characters
+                        .iter()
+                        .all(|id| self.blackhole_chars.contains(&id))
+                    {
+                        self.phase = Phase::Collapsing;
                     }
                 }
                 Phase::Collapsing => {
-                    self.collapse_blackhole(ctx).must_val();
+                    self.collapse_blackhole(ctx).ok()?;
                     self.phase = Phase::Exploding;
                 }
                 Phase::Exploding => {
@@ -96,7 +97,7 @@ impl Effect for Blackhole {
                         let ch = &ctx.terminal.arena[id.0 as usize];
                         ch.motion.active_path.is_none() && ch.animation.active_scene.is_none()
                     }) {
-                        self.explode_singularity(ctx).must_val();
+                        self.explode_singularity(ctx).ok()?;
                         self.phase = Phase::Complete;
                     }
                 }
@@ -108,11 +109,7 @@ impl Effect for Blackhole {
         None
     }
 }
-impl Default for BlackholeConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Blackhole {
     fn default() -> Self {
         Self::new(BlackholeConfig::default())

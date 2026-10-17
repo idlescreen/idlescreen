@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CallerKey, CharacterFilter, CharacterSort, Easing, Effect, EngineCtx, EngineError, Event,
+    EventAction, Phase, Rings, RingsConfig, emit_frame,
+};
 
 impl Effect for Rings {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -30,28 +33,25 @@ impl Effect for Rings {
                             let ring_start_coord = ctx.terminal.arena[id.0 as usize]
                                 .motion
                                 .paths
-                                .get("0")
-                                .must_val()
+                                .get("0")?
                                 .waypoints[0]
                                 .coord;
                             let disperse_path = ring
                                 .make_disperse_waypoints(ctx, id, ring_start_coord)
-                                .must_val();
+                                .ok()?;
                             let initial_path = {
                                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                                 let disperse_first_coord =
-                                    ch.motion.paths.get(&disperse_path).must_val().waypoints[0]
-                                        .coord;
+                                    ch.motion.paths.get(&disperse_path)?.waypoints[0].coord;
                                 let path_id = ch
                                     .motion
                                     .new_path(0.3, Some(Easing::OutCubic), None, 0, false, "")
-                                    .must_val();
+                                    .ok()?;
                                 ch.motion
                                     .paths
-                                    .get_mut(&path_id)
-                                    .must_val()
+                                    .get_mut(&path_id)?
                                     .new_waypoint(disperse_first_coord, None, "")
-                                    .must_val();
+                                    .ok()?;
                                 path_id
                             };
                             ctx.register_event(
@@ -60,7 +60,7 @@ impl Effect for Rings {
                                 CallerKey::Path(initial_path.clone()),
                                 EventAction::ActivatePath(disperse_path),
                             )
-                            .must_val();
+                            .ok()?;
                             ctx.activate_scene(self, id, "disperse");
                             ctx.activate_path(self, id, &initial_path);
                             ctx.active_characters.insert(id);
@@ -79,7 +79,7 @@ impl Effect for Rings {
                     self.spin_time_remaining = self.config.spin_duration;
                     let mut rings = std::mem::take(&mut self.rings);
                     for ring in &mut rings {
-                        self.ring_spin(ctx, ring).must_val();
+                        self.ring_spin(ctx, ring).ok()?;
                     }
                     self.rings = rings;
                 } else {
@@ -115,7 +115,7 @@ impl Effect for Rings {
                         self.disperse_time_remaining = self.config.disperse_duration;
                         let mut rings = std::mem::take(&mut self.rings);
                         for ring in &mut rings {
-                            self.ring_disperse(ctx, ring).must_val();
+                            self.ring_disperse(ctx, ring).ok()?;
                         }
                         self.rings = rings;
                         self.phase = Phase::Disperse;
@@ -129,17 +129,13 @@ impl Effect for Rings {
                     self.phase = Phase::Complete;
                 }
             }
-            Phase::Complete => unreachable!(),
+            Phase::Complete => return None,
         }
         ctx.update(self);
         Some(emit_frame(ctx))
     }
 }
-impl Default for RingsConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Rings {
     fn default() -> Self {
         Self::new(RingsConfig::default())

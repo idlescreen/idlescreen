@@ -2,13 +2,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_easing, parse_gradient_direction, parse_gradient_steps,
-    parse_positive_float,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, SyncMetric, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -19,20 +13,12 @@ use ttfx::engine::terminal::{CharacterFilter, CharacterSort};
 use ttfx::utils::easing::Easing;
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct ExpandConfig {
-    #[arg(long = "expand-easing", default_value = "in_out_quart", value_parser = parse_easing)]
     pub expand_easing: Easing,
-    #[arg(long = "movement-speed", default_value_t = 0.35, value_parser = parse_positive_float)]
     pub movement_speed: f64,
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["8A008A", "00D1FF", "FFFFFF"])]
     pub final_gradient_stops: Vec<Color>,
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
 }
 
@@ -89,8 +75,8 @@ impl Effect for Expand {
             let (input_fg, input_bg, input_coord) = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.input_coord,
                 )
             };
@@ -98,7 +84,11 @@ impl Effect for Expand {
                 ColorPair::new(input_fg, input_bg)
             } else {
                 ColorPair::new(
-                    Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                    Some(
+                        *final_gradient_mapping
+                            .get(&input_coord)
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
+                    ),
                     None,
                 )
             };
@@ -113,8 +103,8 @@ impl Effect for Expand {
             let (input_fg, input_bg, input_coord, input_symbol, uses_pre) = {
                 let ch = &ctx.terminal.arena[id.0 as usize];
                 (
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.input_coord,
                     ch.input_symbol.clone(),
                     ch.uses_input_preexisting_colors,
@@ -138,7 +128,7 @@ impl Effect for Expand {
                 ch.motion
                     .paths
                     .get_mut(&path_id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .new_waypoint(input_coord, None, "")
                     .map_err(EngineError::Other)?;
                 path_id
@@ -169,18 +159,17 @@ impl Effect for Expand {
             {
                 let scene = {
                     let ch = &mut ctx.terminal.arena[id.0 as usize];
-                    ch.animation.scenes.get_mut(&gradient_scn).must_val()
+                    ch.animation
+                        .scenes
+                        .get_mut(&gradient_scn)
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                 };
                 if dynamic {
                     let step_grad = |opt: &Option<Color>| {
                         opt.as_ref()
                             .map(|c| {
-                                Gradient::with_steps(
-                                    &[final_gradient.spectrum[0].clone(), c.clone()],
-                                    10,
-                                    false,
-                                )
-                                .map_err(EngineError::Other)
+                                Gradient::with_steps(&[final_gradient.spectrum[0], *c], 10, false)
+                                    .map_err(EngineError::Other)
                             })
                             .transpose()
                     };
@@ -210,14 +199,10 @@ impl Effect for Expand {
                 } else {
                     let final_fg = self.character_final_color_map[&id]
                         .fg_color
-                        .clone()
-                        .must_val();
-                    let gradient = Gradient::with_steps(
-                        &[final_gradient.spectrum[0].clone(), final_fg],
-                        10,
-                        false,
-                    )
-                    .map_err(EngineError::Other)?;
+                        .ok_or_else(|| EngineError::Other(String::new()))?;
+                    let gradient =
+                        Gradient::with_steps(&[final_gradient.spectrum[0], final_fg], 10, false)
+                            .map_err(EngineError::Other)?;
                     scene
                         .apply_gradient_to_symbols(&symbols, 5, Some(&gradient), None)
                         .map_err(EngineError::Other)?;
@@ -239,7 +224,17 @@ impl Effect for Expand {
 
 impl Default for ExpandConfig {
     fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
+        Self {
+            expand_easing: Easing::InOutQuart,
+            movement_speed: 0.35,
+            final_gradient_stops: vec![
+                hex_color("8A008A"),
+                hex_color("00D1FF"),
+                hex_color("FFFFFF"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Vertical,
+        }
     }
 }
 

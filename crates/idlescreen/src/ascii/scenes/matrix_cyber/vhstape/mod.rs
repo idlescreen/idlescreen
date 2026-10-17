@@ -9,13 +9,7 @@
 
 use std::collections::HashMap;
 
-use clap::Parser;
-
-use crate::ascii::scenes::canvas_ops::{
-    SceneValueExt, emit_frame, parse_gradient_direction, parse_gradient_steps,
-    parse_non_negative_ratio, parse_positive_int,
-};
-use ttfx::cli::parse_color;
+use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use ttfx::engine::animation::{ExistingColorHandling, SyncMetric, VisualParams};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
@@ -27,59 +21,59 @@ use ttfx::utils::geometry::Coord;
 use ttfx::utils::graphics::{Color, ColorPair, Gradient, GradientDirection};
 use ttfx::utils::pycompat::round_half_even;
 
-mod vhstape_step;
-#[allow(unused_imports)]
-use vhstape_step::*;
-mod vhstape_sim;
-#[allow(unused_imports)]
-use vhstape_sim::*;
 mod vhstape_build;
-#[allow(unused_imports)]
-use vhstape_build::*;
+mod vhstape_sim;
+mod vhstape_step;
 
-#[derive(Parser, Debug, Clone)]
-#[command(no_binary_name = true)]
+#[derive(Debug, Clone)]
 pub struct VhsTapeConfig {
-    /// Space separated, unquoted, list of colors for the characters when a single line is glitching. Colors are applied in order as an animation.
-    #[arg(long = "glitch-line-colors", num_args = 1.., value_parser = parse_color,
-          default_values = ["ffffff", "ff0000", "00ff00", "0000ff", "ffffff"])]
     pub glitch_line_colors: Vec<Color>,
-
-    /// Space separated, unquoted, list of colors for the characters in lines that are part of the glitch wave. Colors are applied in order as an animation.
-    #[arg(long = "glitch-wave-colors", num_args = 1.., value_parser = parse_color,
-          default_values = ["ffffff", "ff0000", "00ff00", "0000ff", "ffffff"])]
     pub glitch_wave_colors: Vec<Color>,
-
-    /// Space separated, unquoted, list of colors for the characters during the noise phase.
-    #[arg(long = "noise-colors", num_args = 1.., value_parser = parse_color,
-          default_values = ["1e1e1f", "3c3b3d", "6d6c70", "a2a1a6", "cbc9cf", "ffffff"])]
     pub noise_colors: Vec<Color>,
-
-    /// Chance that a line will glitch on any given frame.
-    #[arg(long = "glitch-line-chance", default_value_t = 0.22, value_parser = parse_non_negative_ratio)]
     pub glitch_line_chance: f64,
-
-    /// Chance that all characters will experience noise on any given frame.
-    #[arg(long = "noise-chance", default_value_t = 0.025, value_parser = parse_non_negative_ratio)]
     pub noise_chance: f64,
-
-    /// Total time, frames, that the glitching phase will last.
-    #[arg(long = "total-glitch-time", default_value_t = 90, value_parser = parse_positive_int)]
     pub total_glitch_time: i64,
-
-    /// Space separated, unquoted, list of colors for the final color gradient. If only one color is provided, the characters will be displayed in that color.
-    #[arg(long = "final-gradient-stops", num_args = 1.., value_parser = parse_color,
-          default_values = ["ab48ff", "e7b2b2", "fffebd"])]
     pub final_gradient_stops: Vec<Color>,
-
-    /// Number of gradient steps to use.
-    #[arg(long = "final-gradient-steps", num_args = 1.., value_parser = parse_gradient_steps,
-          default_values = ["12"])]
     pub final_gradient_steps: Vec<i64>,
-
-    /// Direction of the final gradient.
-    #[arg(long = "final-gradient-direction", default_value = "vertical", value_parser = parse_gradient_direction)]
     pub final_gradient_direction: GradientDirection,
+}
+impl Default for VhsTapeConfig {
+    fn default() -> Self {
+        Self {
+            glitch_line_colors: vec![
+                hex_color("ffffff"),
+                hex_color("ff0000"),
+                hex_color("00ff00"),
+                hex_color("0000ff"),
+                hex_color("ffffff"),
+            ],
+            glitch_wave_colors: vec![
+                hex_color("ffffff"),
+                hex_color("ff0000"),
+                hex_color("00ff00"),
+                hex_color("0000ff"),
+                hex_color("ffffff"),
+            ],
+            noise_colors: vec![
+                hex_color("1e1e1f"),
+                hex_color("3c3b3d"),
+                hex_color("6d6c70"),
+                hex_color("a2a1a6"),
+                hex_color("cbc9cf"),
+                hex_color("ffffff"),
+            ],
+            glitch_line_chance: 0.22,
+            noise_chance: 0.025,
+            total_glitch_time: 90,
+            final_gradient_stops: vec![
+                hex_color("ab48ff"),
+                hex_color("e7b2b2"),
+                hex_color("fffebd"),
+            ],
+            final_gradient_steps: vec![12],
+            final_gradient_direction: GradientDirection::Vertical,
+        }
+    }
 }
 /// VHSTapeIterator.Line state (methods live on VhsTape for hooks access).
 pub(super) struct Line {

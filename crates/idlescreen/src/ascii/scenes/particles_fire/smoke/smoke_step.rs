@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    BreadthFirst, CallerKey, CharacterFilter, CharacterSort, Color, ColorPair, Effect, EngineCtx,
+    EngineError, Event, EventAction, ExistingColorHandling, Gradient, PrimsWeighted, Smoke,
+    SmokeConfig, VisualParams, emit_frame, hex_color,
+};
 
 impl Effect for Smoke {
     fn build(&mut self, ctx: &mut EngineCtx) -> Result<(), EngineError> {
@@ -37,14 +41,14 @@ impl Effect for Smoke {
                 self.config.final_gradient_direction,
             )
             .map_err(EngineError::Other)?;
-        let blk = Color::from_hex("000000").must_val();
+        let blk = hex_color("000000");
         // Gradient(*smoke_gradient_stops, *final_gradient_stops[::-1], steps=(3, 4))
         let smoke_gradient_colors: Vec<Color> = self
             .config
             .smoke_gradient_stops
             .iter()
             .chain(self.config.final_gradient_stops.iter().rev())
-            .cloned()
+            .copied()
             .collect();
         let smoke_gradient = Gradient::new(&smoke_gradient_colors, &[3, 4], false, false)
             .map_err(EngineError::Other)?;
@@ -67,15 +71,15 @@ impl Effect for Smoke {
                 (
                     ch.input_coord,
                     ch.input_symbol.clone(),
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.uses_input_preexisting_colors,
                 )
             };
             let base_colors = if dynamic {
                 self.character_final_color_map
                     .insert(id, ColorPair::new(input_fg, input_bg));
-                ColorPair::new(Some(blk.clone()), None)
+                ColorPair::new(Some(blk), None)
             } else {
                 self.character_final_color_map.insert(
                     id,
@@ -83,13 +87,13 @@ impl Effect for Smoke {
                         Some(
                             final_gradient_mapping
                                 .get(&input_coord)
-                                .cloned()
-                                .unwrap_or_else(|| blk.clone()),
+                                .copied()
+                                .unwrap_or(blk),
                         ),
                         None,
                     ),
                 );
-                ColorPair::new(Some(self.config.starting_color.clone()), None)
+                ColorPair::new(Some(self.config.starting_color), None)
             };
             let paint_chars = [input_symbol.clone()];
             let paint_scn = {
@@ -97,12 +101,15 @@ impl Effect for Smoke {
                 ch.animation.new_scene(false, None, None, "paint", uses_pre)
             };
             if dynamic {
-                let colors = self.character_final_color_map.get(&id).must_val().clone();
+                let colors = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
                 ch.animation
                     .scenes
                     .get_mut(&paint_scn)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .add_frame(
                         &input_symbol,
                         5,
@@ -116,16 +123,15 @@ impl Effect for Smoke {
                 let final_fg_color = self
                     .character_final_color_map
                     .get(&id)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .fg_color
-                    .clone()
-                    .must_val();
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 // Gradient(*final_gradient_stops, final_fg_color, steps=5)
                 let paint_stops: Vec<Color> = self
                     .config
                     .final_gradient_stops
                     .iter()
-                    .cloned()
+                    .copied()
                     .chain(std::iter::once(final_fg_color))
                     .collect();
                 let paint_gradient =
@@ -134,7 +140,7 @@ impl Effect for Smoke {
                 ch.animation
                     .scenes
                     .get_mut(&paint_scn)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(&paint_chars, 5, Some(&paint_gradient), None)
                     .map_err(EngineError::Other)?;
             }
@@ -144,16 +150,23 @@ impl Effect for Smoke {
                 ch.animation.new_scene(false, None, None, "smoke", uses_pre)
             };
             if dynamic {
-                let colors = self.character_final_color_map.get(&id).must_val().clone();
+                let colors = *self
+                    .character_final_color_map
+                    .get(&id)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 let ch = &mut ctx.terminal.arena[id.0 as usize];
-                let scene = ch.animation.scenes.get_mut(&smoke_scn).must_val();
+                let scene = ch
+                    .animation
+                    .scenes
+                    .get_mut(&smoke_scn)
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 for smoke_symbol in &self.config.smoke_symbols {
                     scene
                         .add_frame(
                             smoke_symbol,
                             10,
                             VisualParams {
-                                colors: Some(colors.clone()),
+                                colors: Some(colors),
                                 ..Default::default()
                             },
                         )
@@ -164,7 +177,7 @@ impl Effect for Smoke {
                 ch.animation
                     .scenes
                     .get_mut(&smoke_scn)
-                    .must_val()
+                    .ok_or_else(|| EngineError::Other(String::new()))?
                     .apply_gradient_to_symbols(
                         &self.config.smoke_symbols,
                         3,
@@ -205,7 +218,7 @@ impl Effect for Smoke {
     }
 
     fn next_frame(&mut self, ctx: &mut EngineCtx) -> Option<String> {
-        let mut fill_alg = self.fill_alg.take().must_val();
+        let mut fill_alg = self.fill_alg.take()?;
         let result = if !fill_alg.complete || !ctx.active_characters.is_empty() {
             if !fill_alg.complete {
                 fill_alg.step(ctx);
@@ -224,11 +237,7 @@ impl Effect for Smoke {
         result
     }
 }
-impl Default for SmokeConfig {
-    fn default() -> Self {
-        clap::Parser::parse_from(std::iter::empty::<&str>())
-    }
-}
+
 impl Default for Smoke {
     fn default() -> Self {
         Self::new(SmokeConfig::default())

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-use super::*;
+use super::{
+    CharId, CharacterFilter, CharacterGroup, CharacterSort, ColorPair, ColumnPhase, EffectCallback,
+    EffectHooks, EngineCtx, EngineError, ExistingColorHandling, Gradient, HashMap, Matrix,
+    MatrixConfig, Phase, RainColumn, VisualParams,
+};
 
 impl Matrix {
     pub fn new(config: MatrixConfig) -> Self {
@@ -32,8 +36,7 @@ impl Matrix {
     pub(super) fn column_phase_for(&self) -> ColumnPhase {
         match self.phase {
             Phase::Rain => ColumnPhase::Rain,
-            Phase::Fill => ColumnPhase::Fill,
-            Phase::Resolve => unreachable!("columns are never set up during resolve"),
+            Phase::Fill | Phase::Resolve => ColumnPhase::Fill,
         }
     }
 }
@@ -81,8 +84,8 @@ impl Matrix {
                 (
                     ch.input_symbol.clone(),
                     ch.input_coord,
-                    ch.animation.input_fg_color.clone(),
-                    ch.animation.input_bg_color.clone(),
+                    ch.animation.input_fg_color,
+                    ch.animation.input_bg_color,
                     ch.uses_input_preexisting_colors,
                 )
             };
@@ -90,37 +93,33 @@ impl Matrix {
                 ColorPair::new(input_fg, input_bg)
             } else {
                 ColorPair::new(
-                    Some(final_gradient_mapping.get(&input_coord).must_val().clone()),
+                    Some(
+                        *final_gradient_mapping
+                            .get(&input_coord)
+                            .ok_or_else(|| EngineError::Other(String::new()))?,
+                    ),
                     None,
                 )
             };
             self.character_final_color_map
-                .insert(character, final_colors.clone());
-            let final_fg_color = final_colors.fg_color.clone();
-            let final_bg_color = final_colors.bg_color.clone();
+                .insert(character, final_colors);
+            let final_fg_color = final_colors.fg_color;
+            let final_bg_color = final_colors.bg_color;
             let resolve_scn = ctx.terminal.arena[character.0 as usize]
                 .animation
                 .new_scene(false, None, None, "resolve", uses_pre);
             if dynamic {
                 let fg_gradient = match &final_fg_color {
                     Some(fg) => Some(
-                        Gradient::with_steps(
-                            &[self.config.highlight_color.clone(), fg.clone()],
-                            8,
-                            false,
-                        )
-                        .map_err(EngineError::Other)?,
+                        Gradient::with_steps(&[self.config.highlight_color, *fg], 8, false)
+                            .map_err(EngineError::Other)?,
                     ),
                     None => None,
                 };
                 let bg_gradient = match &final_bg_color {
                     Some(bg) => Some(
-                        Gradient::with_steps(
-                            &[self.config.highlight_color.clone(), bg.clone()],
-                            8,
-                            false,
-                        )
-                        .map_err(EngineError::Other)?,
+                        Gradient::with_steps(&[self.config.highlight_color, *bg], 8, false)
+                            .map_err(EngineError::Other)?,
                     ),
                     None => None,
                 };
@@ -128,11 +127,11 @@ impl Matrix {
                     .animation
                     .scenes
                     .get_mut(&resolve_scn)
-                    .must_val();
+                    .ok_or_else(|| EngineError::Other(String::new()))?;
                 if fg_gradient.is_some() || bg_gradient.is_some() {
                     scene
                         .apply_gradient_to_symbols(
-                            &[input_symbol.clone()],
+                            std::slice::from_ref(&input_symbol),
                             self.config.final_gradient_frames,
                             fg_gradient.as_ref(),
                             bg_gradient.as_ref(),
@@ -151,24 +150,22 @@ impl Matrix {
                         .map_err(EngineError::Other)?;
                 }
             } else {
-                let final_fg_color = final_fg_color.must_val();
-                let resolve_gradient = Gradient::with_steps(
-                    &[self.config.highlight_color.clone(), final_fg_color],
-                    8,
-                    false,
-                )
-                .map_err(EngineError::Other)?;
+                let final_fg_color =
+                    final_fg_color.ok_or_else(|| EngineError::Other(String::new()))?;
+                let resolve_gradient =
+                    Gradient::with_steps(&[self.config.highlight_color, final_fg_color], 8, false)
+                        .map_err(EngineError::Other)?;
                 for color in &resolve_gradient.spectrum {
                     ctx.terminal.arena[character.0 as usize]
                         .animation
                         .scenes
                         .get_mut(&resolve_scn)
-                        .must_val()
+                        .ok_or_else(|| EngineError::Other(String::new()))?
                         .add_frame(
                             &input_symbol,
                             self.config.final_gradient_frames,
                             VisualParams {
-                                colors: Some(ColorPair::new(Some(color.clone()), None)),
+                                colors: Some(ColorPair::new(Some(*color), None)),
                                 ..Default::default()
                             },
                         )
