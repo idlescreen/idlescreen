@@ -87,6 +87,69 @@ fn test_system_theme_adaptation_and_parsing() {
     let bevel_bot = banner_bevel_color(10, 0, 10, false);
     assert_ne!(bevel_top, bevel_bot);
     assert_eq!(theme_bevel_band(6, (255, 32, 144)), (255, 32, 144));
+
+    use crate::ascii::sys_info::theme_probe::{
+        extract_conf_color, parse_cosmic_ron_rgb, probe_config_files,
+    };
+    assert_eq!(
+        parse_cosmic_ron_rgb("(red: 1.0, green: 0.5, blue: 0.0)"),
+        Some((255, 128, 0))
+    );
+    assert_eq!(
+        parse_cosmic_ron_rgb("(red: -0.5, green: 0.5, blue: 0.5)"),
+        None
+    );
+    assert_eq!(
+        parse_cosmic_ron_rgb("(red: 999.0, green: 0.5, blue: 0.5)"),
+        None
+    );
+    assert_eq!(
+        extract_conf_color(
+            "inactive_border = rgba(333333ff)\ncol.active_border = rgb(ff2090) rgb(00ff99) 45deg"
+        ),
+        Some((255, 32, 144))
+    );
+
+    let tmp = std::env::temp_dir().join(format!("idlescreen-theme-test-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(tmp.join("cosmic/com.system76.CosmicTheme.Mode/v1"));
+    let _ = std::fs::create_dir_all(tmp.join("cosmic/com.system76.CosmicTheme.Light/v1"));
+    let _ = std::fs::create_dir_all(tmp.join("gtk-4.0"));
+    let _ = std::fs::write(
+        tmp.join("cosmic/com.system76.CosmicTheme.Mode/v1/is_dark"),
+        "false\n",
+    );
+    let _ = std::fs::write(
+        tmp.join("cosmic/com.system76.CosmicTheme.Light/v1/accent"),
+        "(red: 0.2, green: 0.8, blue: 1.0)",
+    );
+    let _ = std::fs::write(
+        tmp.join("gtk-4.0/settings.ini"),
+        "[Settings]\ngtk-font-name=JetBrains Mono 11\n",
+    );
+    let (mut acc, mut sch, mut fnt) = (None, None, None);
+    probe_config_files(&tmp, &mut acc, &mut sch, &mut fnt);
+    let _ = std::fs::remove_dir_all(&tmp);
+    assert_eq!(sch, Some(ThemeColorScheme::Light));
+    assert_eq!(acc, Some((51, 204, 255)));
+    assert_eq!(fnt, Some(GlyphFontStyle::CyberSharp));
+
+    // Verify paint_transition preserves non-black Light theme background on empty space cells
+    let light_cell = TerminalCell {
+        ch: ' ',
+        fg: (248, 248, 242),
+        bg: (10, 18, 34),
+        bold: false,
+    };
+    let mut out_light = vec![TerminalCell::default(); 8];
+    paint_transition(
+        &[light_cell; 4],
+        &[light_cell; 4],
+        &mut out_light,
+        0.5,
+        2,
+        2,
+    );
+    assert!(out_light.iter().all(|c| c.bg == (10, 18, 34)));
 }
 
 #[test]

@@ -159,7 +159,7 @@ fn probe_xdg_portal(accent: &mut Option<(u8, u8, u8)>, scheme: &mut Option<Theme
     }
 }
 
-fn probe_config_files(
+pub(crate) fn probe_config_files(
     cfg: &Path,
     accent: &mut Option<(u8, u8, u8)>,
     scheme: &mut Option<ThemeColorScheme>,
@@ -233,17 +233,17 @@ pub fn parse_color_str(raw: &str) -> Option<(u8, u8, u8)> {
 }
 
 #[rustfmt::skip]
-fn parse_cosmic_ron_rgb(raw: &str) -> Option<(u8, u8, u8)> {
-    let mut it = raw.split(|c: char| !c.is_ascii_digit() && c != '.').filter_map(|p| p.parse::<f32>().ok())
-        .map(|f| (if f <= 1.0 { f * 255.0 } else { f }).clamp(0.0, 255.0).round() as u8);
+pub(crate) fn parse_cosmic_ron_rgb(raw: &str) -> Option<(u8, u8, u8)> {
+    let mut it = raw.split(|c: char| !c.is_ascii_digit() && c != '.' && c != '-').filter_map(|p| p.parse::<f32>().ok())
+        .filter(|&f| (0.0..=255.0).contains(&f)).map(|f| (if f <= 1.0 { f * 255.0 } else { f }).round() as u8);
     Some((it.next()?, it.next()?, it.next()?))
 }
 
-fn extract_conf_color(raw: &str) -> Option<(u8, u8, u8)> {
+pub(crate) fn extract_conf_color(raw: &str) -> Option<(u8, u8, u8)> {
     let keys = ["active_border", "accent", "AccentColor"];
     for line in raw.lines().map(str::trim).filter(|l| !l.starts_with('#')) {
-        if keys.iter().any(|k| line.contains(k))
-            && let Some((_, rhs)) = line.split_once('=')
+        if let Some((lhs, rhs)) = line.split_once('=')
+            && keys.iter().any(|k| lhs.trim().ends_with(k))
         {
             let inner = rhs.find("rgb(").and_then(|i| rhs[i + 4..].split_once(')'));
             if let Some(c) = parse_color_str(inner.map_or(rhs, |(hex, _)| hex)) {

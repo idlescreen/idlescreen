@@ -84,7 +84,7 @@ pub fn blit_cells_to_argb(
             let hide_coarse = subcell_active && !cell.bold && matches!(cell.ch, '▀' | '▄');
             let fg_color = pack_argb(cell.fg);
             let bg_color = if hide_coarse {
-                0xFF00_0000
+                pack_argb(crate::ascii::sys_info::detect_system_theme().bg_rgb)
             } else {
                 pack_argb(cell.bg)
             };
@@ -129,17 +129,18 @@ pub fn blit_cells_to_argb(
         );
     }
 
+    let margin_bg = cells.first().map_or(0xFF00_0000, |c| pack_argb(c.bg));
     if drawn_h < pixel_h {
         let (start, end) = (drawn_h * pixel_w, (pixel_w * pixel_h).min(buffer.len()));
         if start < end {
-            buffer[start..end].fill(0xFF00_0000);
+            buffer[start..end].fill(margin_bg);
         }
     }
     if drawn_w < pixel_w {
         for y in 0..drawn_h.min(pixel_h) {
             let (rs, re) = (y * pixel_w + drawn_w, ((y + 1) * pixel_w).min(buffer.len()));
             if rs < re {
-                buffer[rs..re].fill(0xFF00_0000);
+                buffer[rs..re].fill(margin_bg);
             }
         }
     }

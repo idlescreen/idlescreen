@@ -140,7 +140,10 @@ pub fn paint_transition(
             let src = if pick_to { to_cell } else { from_cell };
             let on_wavefront = t > 0.0 && t < 1.0 && t_byte.abs_diff(thresh) <= 24;
             out[idx] = if src.ch == ' ' {
-                TerminalCell::default()
+                TerminalCell {
+                    bg: src.bg,
+                    ..TerminalCell::default()
+                }
             } else {
                 TerminalCell {
                     ch: src.ch,
@@ -157,7 +160,11 @@ pub fn paint_transition(
     }
 
     if out.len() > n {
-        out[n..].fill(TerminalCell::default());
+        let fill_bg = to.first().map_or((0, 0, 0), |c| c.bg);
+        out[n..].fill(TerminalCell {
+            bg: fill_bg,
+            ..TerminalCell::default()
+        });
     }
 }
 

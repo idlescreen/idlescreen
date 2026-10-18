@@ -1,6 +1,6 @@
 {
  "repo": "idlescreen",
- "rev": "624a247",
+ "rev": "c0d59c1",
  "dirty": true,
  "pages": [
   {
@@ -26,8 +26,8 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/draw/post_fx.rs",
-   "lines": 171,
-   "bin_bytes": 5571,
+   "lines": 178,
+   "bin_bytes": 5987,
    "heat_pct": null,
    "reach": 1
   },
@@ -993,9 +993,9 @@
   {
    "path": "./crates/idlescreen/src/ascii/sys_info/theme_probe.rs",
    "lines": 255,
-   "bin_bytes": 13248,
+   "bin_bytes": 13359,
    "heat_pct": null,
-   "reach": 1
+   "reach": 2
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/art_tests.rs",
@@ -1041,7 +1041,7 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/transition_tests.rs",
-   "lines": 161,
+   "lines": 224,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
@@ -1356,8 +1356,8 @@
   },
   {
    "path": "./crates/idlescreen/src/wayland/blit.rs",
-   "lines": 191,
-   "bin_bytes": 6835,
+   "lines": 192,
+   "bin_bytes": 7138,
    "heat_pct": null,
    "reach": 8
   },
