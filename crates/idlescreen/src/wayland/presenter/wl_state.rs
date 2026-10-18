@@ -193,6 +193,7 @@ impl WaylandState {
                 current_buf: 0,
                 displayed_cells: Vec::new(),
                 displayed_subcell_gen: 0,
+                displayed_subcell: false,
                 needs_commit: true,
             });
         }

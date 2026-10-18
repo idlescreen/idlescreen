@@ -33,6 +33,13 @@ pub fn viewport_buffer_dimensions(width: u32, height: u32, cols: usize, rows: us
     (bw, bh)
 }
 
+#[inline]
+fn resolve_surface_dims(cw: u32, ch: u32, w: u32, h: u32) -> (u32, u32) {
+    let rw = [cw, w, 1920].into_iter().find(|&v| v > 0).unwrap_or(1920);
+    let rh = [ch, h, 1080].into_iter().find(|&v| v > 0).unwrap_or(1080);
+    (rw, rh)
+}
+
 pub(super) fn init_surface_buffers(
     state: &mut WaylandState,
     shm: &wl_shm::WlShm,
@@ -40,32 +47,19 @@ pub(super) fn init_surface_buffers(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (fmt, is_10bit) = state.preferred_shm_format();
     for s in &mut state.surfaces {
-        let width = if s.configured_width > 0 {
-            s.configured_width
-        } else if s.width > 0 {
-            s.width
-        } else {
-            1920
-        };
-        let height = if s.configured_height > 0 {
-            s.configured_height
-        } else if s.height > 0 {
-            s.height
-        } else {
-            1080
-        };
+        let (width, height) =
+            resolve_surface_dims(s.configured_width, s.configured_height, s.width, s.height);
         (s.configured_width, s.configured_height, s.width, s.height) =
             (width, height, width, height);
 
         let (cols, rows) = arcade_grid_dimensions(width as usize, height as usize);
         let (buf_w, buf_h) = if s.viewport.has_viewport() {
             let (bw, bh) = viewport_buffer_dimensions(width, height, cols, rows);
-            s.viewport.set_scaling(
+            let (sw, sh) = (
                 i32::try_from(width).unwrap_or(1920),
                 i32::try_from(height).unwrap_or(1080),
-                f64::from(bw),
-                f64::from(bh),
             );
+            s.viewport.set_scaling(sw, sh, f64::from(bw), f64::from(bh));
             (bw, bh)
         } else {
             (width, height)
@@ -77,7 +71,7 @@ pub(super) fn init_surface_buffers(
             .ok_or("Failed to allocate wl_shm buffer 1")?;
         s.buffers = Some([buf0, buf1]);
         s.displayed_cells.clear();
-        s.needs_commit = true;
+        (s.displayed_subcell, s.needs_commit) = (false, true);
     }
     Ok(())
 }
@@ -136,38 +130,24 @@ pub(super) fn step_and_present_surfaces(
     let (fmt, is_10bit) = state.preferred_shm_format();
     let (mut max_cols, mut max_rows) = default_grid;
     for s in &state.surfaces {
-        let (c, r) =
-            arcade_grid_dimensions(s.configured_width as usize, s.configured_height as usize);
+        let (sw, sh) =
+            resolve_surface_dims(s.configured_width, s.configured_height, s.width, s.height);
+        let (c, r) = arcade_grid_dimensions(sw as usize, sh as usize);
         (max_cols, max_rows) = (max_cols.max(c), max_rows.max(r));
     }
     ascii_saver.update(dt, max_cols, max_rows);
 
     for s in &mut state.surfaces {
-        let cur_w = if s.configured_width > 0 {
-            s.configured_width
-        } else {
-            1920
-        };
-        let cur_h = if s.configured_height > 0 {
-            s.configured_height
-        } else {
-            1080
-        };
-        let (out_cols, out_rows) = arcade_grid_dimensions(cur_w as usize, cur_h as usize);
-        let (target_buf_w, target_buf_h) = if s.viewport.has_viewport() {
-            let (bw, bh) = viewport_buffer_dimensions(cur_w, cur_h, out_cols, out_rows);
-            let (sw, sh) = (
-                i32::try_from(cur_w).unwrap_or(1920),
-                i32::try_from(cur_h).unwrap_or(1080),
-            );
-            s.viewport.set_scaling(sw, sh, f64::from(bw), f64::from(bh));
-            (bw, bh)
-        } else {
-            (cur_w, cur_h)
-        };
-
         let Some(ref mut bufs) = s.buffers else {
             continue;
+        };
+        let (cur_w, cur_h) =
+            resolve_surface_dims(s.configured_width, s.configured_height, s.width, s.height);
+        let (out_cols, out_rows) = arcade_grid_dimensions(cur_w as usize, cur_h as usize);
+        let (target_buf_w, target_buf_h) = if s.viewport.has_viewport() {
+            viewport_buffer_dimensions(cur_w, cur_h, out_cols, out_rows)
+        } else {
+            (cur_w, cur_h)
         };
         let total = out_cols * out_rows;
         if cells.len() < total {
@@ -192,6 +172,7 @@ pub(super) fn step_and_present_surfaces(
         let overlay_gen = subcell_overlay_generation();
         let force_full = s.needs_commit
             || subcell_now
+            || s.displayed_subcell
             || (s.displayed_subcell_gen != overlay_gen)
             || target_buf_w != bufs[s.current_buf].width
             || target_buf_h != bufs[s.current_buf].height;
@@ -226,6 +207,14 @@ pub(super) fn step_and_present_surfaces(
         let buf = &mut bufs[s.current_buf];
         let (actual_w, actual_h, is_hdr) =
             (buf.width as usize, buf.height as usize, buf.is_10bit_hdr);
+        if s.viewport.has_viewport() {
+            let (sw, sh) = (
+                i32::try_from(cur_w).unwrap_or(1920),
+                i32::try_from(cur_h).unwrap_or(1080),
+            );
+            s.viewport
+                .set_scaling(sw, sh, f64::from(buf.width), f64::from(buf.height));
+        }
         let (slice, prev_opt) = buf.as_mut_slice_and_prev(out_cols, out_rows);
         let subcell_drawn = blit_cells_with_format(
             active_cells,
@@ -241,13 +230,21 @@ pub(super) fn step_and_present_surfaces(
 
         s.displayed_cells.clear();
         s.displayed_cells.extend_from_slice(active_cells);
-        (s.displayed_subcell_gen, s.needs_commit) = (overlay_gen, false);
+        (s.displayed_subcell_gen, s.displayed_subcell, s.needs_commit) =
+            (overlay_gen, subcell_drawn, false);
 
         buf.busy.store(true, Ordering::Release);
         s.surface.attach(Some(&buf.wl_buffer), 0, 0);
         let (max_w, max_h) = (actual_w as i32, actual_h as i32);
-        s.surface
-            .damage_buffer(dx, dy, dw.min(max_w), dh.min(max_h));
+        let (cx, cy) = (
+            dx.clamp(0, max_w.saturating_sub(1)),
+            dy.clamp(0, max_h.saturating_sub(1)),
+        );
+        let (cw, ch) = (
+            dw.min(max_w.saturating_sub(cx)).max(1),
+            dh.min(max_h.saturating_sub(cy)).max(1),
+        );
+        s.surface.damage_buffer(cx, cy, cw, ch);
         s.surface.commit();
         s.current_buf ^= 1;
     }

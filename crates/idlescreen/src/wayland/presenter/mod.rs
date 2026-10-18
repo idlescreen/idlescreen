@@ -61,6 +61,7 @@ pub struct PresentationSurface {
     pub current_buf: usize,
     pub displayed_cells: Vec<crate::cell::TerminalCell>,
     pub displayed_subcell_gen: u64,
+    pub displayed_subcell: bool,
     pub needs_commit: bool,
 }
 

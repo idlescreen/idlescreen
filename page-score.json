@@ -1,7 +1,7 @@
 {
  "repo": "idlescreen",
- "rev": "f897d82",
- "dirty": true,
+ "rev": "baf6457",
+ "dirty": false,
  "pages": [
   {
    "path": "./crates/idlescreen/src/ascii/draw/ansi.rs",
@@ -1058,7 +1058,7 @@
    "lines": 95,
    "bin_bytes": 1880,
    "heat_pct": null,
-   "reach": 26
+   "reach": 27
   },
   {
    "path": "./crates/idlescreen/src/cli/doctor/fix.rs",
@@ -1398,21 +1398,21 @@
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/frame_step.rs",
-   "lines": 254,
-   "bin_bytes": 8847,
+   "lines": 251,
+   "bin_bytes": 9505,
    "heat_pct": null,
    "reach": 4
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/input_tests.rs",
-   "lines": 241,
+   "lines": 251,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/mod.rs",
-   "lines": 198,
+   "lines": 199,
    "bin_bytes": 3854,
    "heat_pct": null,
    "reach": 0
@@ -1433,15 +1433,15 @@
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/wl_dispatch.rs",
-   "lines": 243,
-   "bin_bytes": 8437,
+   "lines": 246,
+   "bin_bytes": 8633,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/wl_state.rs",
-   "lines": 244,
-   "bin_bytes": 11374,
+   "lines": 245,
+   "bin_bytes": 11382,
    "heat_pct": null,
    "reach": 5
   },

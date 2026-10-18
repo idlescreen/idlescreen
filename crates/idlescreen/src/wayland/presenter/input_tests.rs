@@ -228,7 +228,9 @@ fn test_build_ascii_saver_b4_gating() {
 }
 
 #[test]
-fn test_input_wakes_dpms_from_sleep() {
+fn test_input_wakes_dpms_and_subcell_teardown_damage() {
+    use super::compute_cell_damage_rect;
+    use crate::cell::TerminalCell;
     use crate::wayland::dpms::OutputPowerMode;
     let mut state = WaylandState::new();
     state.start_time = past_debounce();
@@ -236,6 +238,14 @@ fn test_input_wakes_dpms_from_sleep() {
     assert!(state.dpms.is_sleeping());
 
     state.handle_key_event(WEnum::Value(wl_keyboard::KeyState::Pressed));
-    assert!(state.exit_requested);
-    assert!(!state.dpms.is_sleeping());
+    assert!(state.exit_requested && !state.dpms.is_sleeping());
+
+    let mut prev = vec![TerminalCell::default(); 8];
+    prev[0].ch = '▀';
+    let mut next = prev.clone();
+    next[0].ch = '█';
+    assert_eq!(
+        compute_cell_damage_rect(&prev, &next, (4, 2), (32, 32), true),
+        Some((0, 0, 32, 32))
+    );
 }

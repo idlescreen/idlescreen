@@ -95,6 +95,9 @@ impl_dispatch!(wl_output::WlOutput, (state, output, event, _qh) => {
                 }
                 for s in state.surfaces.iter_mut().filter(|s| s.output.as_ref() == Some(output)) {
                     (s.width, s.height, s.refresh_mhz) = (w, h, refresh);
+                    if s.configured_width != w || s.configured_height != h {
+                        (s.configured_width, s.configured_height, s.needs_commit) = (w, h, true);
+                    }
                 }
                 if state.output.as_ref() == Some(output) || state.output_width == 0 {
                     (state.output_width, state.output_height, state.output_refresh_mhz) = (w, h, refresh);
@@ -129,7 +132,7 @@ impl_dispatch!(xdg_toplevel::XdgToplevel, (state, toplevel, event, _qh) => {
                 && h > 0
             {
                 if let Some(s) = state.surfaces.iter_mut().find(|s| s.xdg_toplevel.as_ref() == Some(toplevel)) {
-                    (s.configured_width, s.configured_height) = (w, h);
+                    (s.configured_width, s.configured_height, s.needs_commit) = (w, h, true);
                 }
                 if state.configured_width == 0 {
                     (state.configured_width, state.configured_height) = (w, h);
