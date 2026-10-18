@@ -37,6 +37,7 @@
 - **Overhauled TUI Dashboard with Live Side-by-Side Mini-Preview (`idlescreen tui`)**: Interactive terminal director with a live animated side-by-side 16-bit mini-preview viewport on wide terminals (`>= 105` cols), 52-scene selector (`superfedora`, `ascii` 52 shuffled, `tour` 1–52 in order, or any pinned scene), clean `OS Name` vs. `Custom Text` banner toggle, `Dwell`, `FPS`, and `DPMS Power-Off` controls, live daemon/inhibitor status bar, `[T]` standby toggle, and `[P]` Terminal / `[F]` Fullscreen preview triggers.
 - **First-Class SuperFedora Integration**: Native detection of SuperFedora (`SUPERFEDORA` arcade banner, Quickshell/Hyprland session awareness, and zero-conflict idle hand-off).
 - **Universal Linux OS, Desktop & Compositor Support**: Works across Wayland compositors via `wlr-layer-shell` + `ext-idle-notify-v1` (Hyprland, Sway, COSMIC, KDE Plasma, River, Wayfire, Labwc, Niri) plus native **GNOME Mutter** (`org.gnome.Mutter.IdleMonitor`) idle tracking.
+- **COSMIC Cage & Container Runtime Detection**: Autonomous zero-overhead detection of `CosmicCage`, `PodmanContainer`, `GenericContainer`, and bare-metal `Host` environments at daemon startup and in `idlescreen doctor`.
 - **Multi-Init First Class**: Built-in `idlescreen service install` provisioning for `systemd` (user unit), `OpenRC`, `runit`, `s6`, `dinit`, and XDG autostart (`~/.config/autostart/idlescreen.desktop`).
 
 ---
@@ -108,9 +109,13 @@ dwell_secs = 5.0
 
 ---
 
-## Running in Containers
+## Running in Containers & COSMIC Cages
 
-IdleScreen automatically detects its runtime environment at daemon startup — `Host`, `GenericContainer`, `PodmanContainer`, or `CosmicCage` — and reports it via `idlescreen doctor` (look for the `Runtime Environment` line, or `"runtime_env"` in `--json` output). No configuration is required.
+IdleScreen automatically detects its runtime environment at daemon startup — `CosmicCage` (priority 1), `PodmanContainer`, `GenericContainer`, or `Host` — and reports it via `idlescreen doctor` (look for `[✓] Runtime Environment: <env>`, or `"runtime_env"` in `--json` output). No configuration is required.
+
+- **COSMIC Cage (`CosmicCage`)**: Detected automatically via `COSMIC_CAGE`, `COSMIC_SANDBOX`, `container=cosmic-cage`, `XDG_SESSION_DESKTOP` / `XDG_CURRENT_DESKTOP`, `/.cosmic-cage`, or `/run/.cosmic-cage` markers (taking priority over container markers when a cage runs atop Podman/bubblewrap).
+- **Podman (`PodmanContainer`)**: Detected via `/run/.containerenv`, `container=podman`, `/run/systemd/container`, or `libpod` cgroups.
+- **Docker / OCI / Flatpak (`GenericContainer`)**: Detected via `/.dockerenv`, `/.flatpak-info`, `container` env, or `docker`/`containerd`/`kubepods`/`lxc` cgroups.
 
 Run inside Podman:
 
