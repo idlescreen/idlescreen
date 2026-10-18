@@ -20,35 +20,27 @@ pub enum KeyCode {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct KeyModifiers(u8);
 
+#[rustfmt::skip]
 impl KeyModifiers {
     pub const NONE: Self = Self(0);
     pub const SHIFT: Self = Self(1);
     pub const CONTROL: Self = Self(2);
     pub const ALT: Self = Self(4);
-
-    #[inline]
-    pub const fn contains(self, other: Self) -> bool {
-        (self.0 & other.0) == other.0
-    }
+    #[inline] pub const fn contains(self, other: Self) -> bool { (self.0 & other.0) == other.0 }
 }
 
+#[rustfmt::skip]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct KeyEvent {
-    pub code: KeyCode,
-    pub modifiers: KeyModifiers,
-}
+pub struct KeyEvent { pub code: KeyCode, pub modifiers: KeyModifiers }
 
+#[rustfmt::skip]
 impl KeyEvent {
-    pub const fn new(code: KeyCode, modifiers: KeyModifiers) -> Self {
-        Self { code, modifiers }
-    }
+    #[inline] pub const fn new(code: KeyCode, modifiers: KeyModifiers) -> Self { Self { code, modifiers } }
 }
 
+#[rustfmt::skip]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TermEvent {
-    Key(KeyEvent),
-    Resize(u16, u16),
-}
+pub enum TermEvent { Key(KeyEvent), Resize(u16, u16) }
 
 static PENDING_BYTES: Mutex<Vec<u8>> = Mutex::new(Vec::new());
 
@@ -66,12 +58,9 @@ pub fn terminal_size() -> Option<(u16, u16)> {
     None
 }
 
+#[rustfmt::skip]
 fn poll_stdin_ms(ms: i32) -> bool {
-    let mut pfd = libc::pollfd {
-        fd: libc::STDIN_FILENO,
-        events: libc::POLLIN,
-        revents: 0,
-    };
+    let mut pfd = libc::pollfd { fd: libc::STDIN_FILENO, events: libc::POLLIN, revents: 0 };
     // SAFETY: `pfd` is a valid single-element `pollfd` array watching `STDIN_FILENO`.
     unsafe { libc::poll(&raw mut pfd, 1, ms) > 0 && (pfd.revents & libc::POLLIN) != 0 }
 }
@@ -148,6 +137,17 @@ pub fn consume_one_key(b: &[u8]) -> (KeyEvent, usize) {
             return (KeyEvent::new(c, m), 3);
         }
     }
+    if b.starts_with(b"\x1b[") {
+        let end = b[2..]
+            .iter()
+            .position(|&x| (0x40..=0x7E).contains(&x))
+            .map_or(b.len(), |i| 3 + i);
+        return (KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE), end);
+    }
+    if let Some(&[0x1b, ch @ 0x20..=0x7E]) = b.get(..2) {
+        let ev = KeyEvent::new(KeyCode::Char(ch as char), KeyModifiers::ALT);
+        return (ev, 2);
+    }
     match b.first().copied().unwrap_or(0x1b) {
         0x1b => (KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE), 1),
         b'\r' | b'\n' => (KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), 1),
@@ -187,10 +187,12 @@ pub struct TerminalGuard {
 
 impl TerminalGuard {
     pub fn enter() -> Self {
-        let mut out = stdout();
-        let saved_termios = enable_raw_termios();
-        let raw_enabled = saved_termios.is_some();
-        let alt_enabled = write!(out, "\x1b[?1049h\x1b[?25l\x1b[2J\x1b[?7l").is_ok();
+        use std::io::IsTerminal;
+        let (mut out, saved_termios) = (stdout(), enable_raw_termios());
+        let (raw_enabled, alt_enabled) = (
+            saved_termios.is_some(),
+            out.is_terminal() && write!(out, "\x1b[?1049h\x1b[?25l\x1b[2J\x1b[?7l").is_ok(),
+        );
         let _ = out.flush();
         Self {
             raw_enabled,
@@ -244,6 +246,7 @@ mod tests {
         };
         assert!(!g.raw_enabled && !g.alt_enabled);
         assert_eq!(consume_one_key(b"\x1b[A\x1b[B").0.code, KeyCode::Up);
-        assert_eq!(consume_one_key(b"300").0.code, KeyCode::Char('3'));
+        assert_eq!(consume_one_key(b"\x1b[<0;10;20Mq").1, 11);
+        assert_eq!(consume_one_key(b"\x1bx").0.modifiers, KeyModifiers::ALT);
     }
 }

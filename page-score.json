@@ -1,7 +1,7 @@
 {
  "repo": "idlescreen",
- "rev": "65da889",
- "dirty": false,
+ "rev": "d6e9e30",
+ "dirty": true,
  "pages": [
   {
    "path": "./crates/idlescreen/src/ascii/draw/ansi.rs",
@@ -999,7 +999,7 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/art_tests.rs",
-   "lines": 203,
+   "lines": 221,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
@@ -1048,8 +1048,8 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/unicode.rs",
-   "lines": 180,
-   "bin_bytes": 8691,
+   "lines": 185,
+   "bin_bytes": 9528,
    "heat_pct": null,
    "reach": 4
   },
@@ -1146,8 +1146,8 @@
   },
   {
    "path": "./crates/idlescreen/src/cli/preview/term_guard.rs",
-   "lines": 249,
-   "bin_bytes": 5590,
+   "lines": 252,
+   "bin_bytes": 6265,
    "heat_pct": null,
    "reach": 5
   },
@@ -1195,8 +1195,8 @@
   },
   {
    "path": "./crates/idlescreen/src/daemon/config/parse_toml.rs",
-   "lines": 211,
-   "bin_bytes": 16263,
+   "lines": 253,
+   "bin_bytes": 20519,
    "heat_pct": null,
    "reach": 1
   },

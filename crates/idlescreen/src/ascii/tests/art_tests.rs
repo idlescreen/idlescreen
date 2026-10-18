@@ -55,6 +55,14 @@ fn test_unicode_nfkd_fold() {
     assert_eq!(normalize_to_ascii_fold("Česká"), "Ceska");
     assert_eq!(normalize_to_ascii_fold("Việt Nam"), "Viet Nam");
     assert_eq!(normalize_to_ascii_fold("ＦＥＤＯＲＡ"), "FEDORA");
+    assert_eq!(
+        normalize_to_ascii_fold("ＡＲＣＨ\u{3000}ＬＩＮＵＸ"),
+        "ARCH LINUX"
+    );
+    assert_eq!(
+        normalize_to_ascii_fold("Straße Ægir Cœur"),
+        "Strasse AEgir Coeur"
+    );
     assert_eq!(normalize_to_ascii_fold("e\u{0301}a\u{0300}"), "ea");
 }
 
@@ -74,19 +82,29 @@ fn test_toml_config_roundtrip_and_multiline() {
     assert_eq!(parsed, cfg);
 
     let legacy_pretty = r#"
+[general]
+idle_timeout_secs = 1_200
+
 [saver]
 active = "random" # inline comment
 
 [saver.ascii]
 mode = "system"
+text = "Caf\u00e9 \U00000021"
 targets = [
-    "os",
+    "os,de",
+    "tag]1",
     "kernel",
 ]
 "#;
     let parsed_legacy = Config::from_toml_str(legacy_pretty).unwrap();
+    assert_eq!(parsed_legacy.general.idle_timeout_secs, 1200);
     assert_eq!(parsed_legacy.saver.active.as_deref(), Some("random"));
-    assert_eq!(parsed_legacy.saver.ascii.targets, vec!["os", "kernel"]);
+    assert_eq!(parsed_legacy.saver.ascii.text, "Café !");
+    assert_eq!(
+        parsed_legacy.saver.ascii.targets,
+        vec!["os,de", "tag]1", "kernel"]
+    );
 }
 
 #[test]
