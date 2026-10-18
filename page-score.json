@@ -1,6 +1,6 @@
 {
  "repo": "idlescreen",
- "rev": "c0d59c1",
+ "rev": "f897d82",
  "dirty": true,
  "pages": [
   {
@@ -82,8 +82,8 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/runtime.rs",
-   "lines": 254,
-   "bin_bytes": 12168,
+   "lines": 255,
+   "bin_bytes": 12189,
    "heat_pct": null,
    "reach": 0
   },
@@ -1055,10 +1055,10 @@
   },
   {
    "path": "./crates/idlescreen/src/cell.rs",
-   "lines": 96,
-   "bin_bytes": 1754,
+   "lines": 95,
+   "bin_bytes": 1880,
    "heat_pct": null,
-   "reach": 24
+   "reach": 26
   },
   {
    "path": "./crates/idlescreen/src/cli/doctor/fix.rs",
@@ -1356,10 +1356,10 @@
   },
   {
    "path": "./crates/idlescreen/src/wayland/blit.rs",
-   "lines": 192,
-   "bin_bytes": 7138,
+   "lines": 254,
+   "bin_bytes": 10961,
    "heat_pct": null,
-   "reach": 8
+   "reach": 9
   },
   {
    "path": "./crates/idlescreen/src/wayland/dpms.rs",
@@ -1391,15 +1391,15 @@
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/daemon_run.rs",
-   "lines": 203,
-   "bin_bytes": 10781,
+   "lines": 214,
+   "bin_bytes": 11983,
    "heat_pct": null,
    "reach": 1
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/frame_step.rs",
-   "lines": 253,
-   "bin_bytes": 7507,
+   "lines": 254,
+   "bin_bytes": 8847,
    "heat_pct": null,
    "reach": 4
   },
@@ -1412,43 +1412,43 @@
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/mod.rs",
-   "lines": 193,
+   "lines": 198,
    "bin_bytes": 3854,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/preview_run.rs",
-   "lines": 130,
-   "bin_bytes": 6277,
+   "lines": 137,
+   "bin_bytes": 6819,
    "heat_pct": null,
    "reach": 1
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/shm_buf.rs",
-   "lines": 159,
-   "bin_bytes": 3459,
+   "lines": 245,
+   "bin_bytes": 6268,
    "heat_pct": null,
    "reach": 4
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/wl_dispatch.rs",
-   "lines": 240,
-   "bin_bytes": 8341,
+   "lines": 243,
+   "bin_bytes": 8437,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/wl_state.rs",
-   "lines": 241,
-   "bin_bytes": 10998,
+   "lines": 244,
+   "bin_bytes": 11374,
    "heat_pct": null,
    "reach": 5
   },
   {
    "path": "./crates/idlescreen/src/wayland/subcell_overlay.rs",
-   "lines": 209,
-   "bin_bytes": 7682,
+   "lines": 255,
+   "bin_bytes": 9324,
    "heat_pct": null,
    "reach": 2
   },

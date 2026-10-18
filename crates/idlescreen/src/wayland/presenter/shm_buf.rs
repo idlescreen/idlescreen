@@ -15,6 +15,7 @@ use wayland_client::protocol::{wl_buffer, wl_shm};
 use wayland_client::{Connection, QueueHandle};
 
 use super::wl_state::WaylandState;
+use crate::cell::TerminalCell;
 
 pub struct MappedBuffer {
     pub wl_buffer: wl_buffer::WlBuffer,
@@ -24,6 +25,10 @@ pub struct MappedBuffer {
     pub height: u32,
     pub is_10bit_hdr: bool,
     pub busy: Arc<AtomicBool>,
+    pub prev_cells: Vec<TerminalCell>,
+    pub prev_cols: usize,
+    pub prev_rows: usize,
+    pub prev_subcell: bool,
 }
 
 impl Drop for MappedBuffer {
@@ -43,14 +48,79 @@ impl Drop for MappedBuffer {
 }
 
 impl MappedBuffer {
-    pub fn as_mut_slice(&mut self) -> &mut [u32] {
+    pub fn as_mut_slice_and_prev(
+        &mut self,
+        cols: usize,
+        rows: usize,
+    ) -> (&mut [u32], Option<&[TerminalCell]>) {
         let len = (self.width as usize).saturating_mul(self.height as usize);
-        if self.mapped_ptr.is_null() || len == 0 {
-            return &mut [];
-        }
-        // SAFETY: `mapped_ptr` points to a valid `mmap` region of `len * 4` bytes aligned for `u32`.
-        unsafe { std::slice::from_raw_parts_mut(self.mapped_ptr, len) }
+        let slice = if self.mapped_ptr.is_null() || len == 0 {
+            &mut []
+        } else {
+            // SAFETY: `mapped_ptr` points to a valid `mmap` region of `len * 4` bytes aligned for `u32`.
+            unsafe { std::slice::from_raw_parts_mut(self.mapped_ptr, len) }
+        };
+        let valid = !self.prev_subcell
+            && self.prev_cols == cols
+            && self.prev_rows == rows
+            && self.prev_cells.len() == cols.saturating_mul(rows);
+        (slice, valid.then_some(self.prev_cells.as_slice()))
     }
+}
+
+/// Computes the tight pixel bounding box `(x, y, width, height)` between `prev` and `cells`,
+/// returning `None` when zero cells changed.
+pub fn compute_cell_damage_rect(
+    prev: &[TerminalCell],
+    cells: &[TerminalCell],
+    (cols, rows): (usize, usize),
+    (pixel_w, pixel_h): (usize, usize),
+    force_full: bool,
+) -> Option<(i32, i32, i32, i32)> {
+    let total = cols.saturating_mul(rows);
+    if pixel_w == 0 || pixel_h == 0 || cols == 0 || rows == 0 {
+        return None;
+    }
+    let full = (
+        0,
+        0,
+        i32::try_from(pixel_w).unwrap_or(i32::MAX),
+        i32::try_from(pixel_h).unwrap_or(i32::MAX),
+    );
+    if force_full
+        || prev.len() != total
+        || cells.len() < total
+        || prev.first().map(|c| c.bg) != cells.first().map(|c| c.bg)
+    {
+        return Some(full);
+    }
+    let (mut min_cx, mut max_cx) = (cols, 0usize);
+    let (mut min_cy, mut max_cy) = (rows, 0usize);
+    for cy in 0..rows {
+        let row_off = cy * cols;
+        for cx in 0..cols {
+            if prev[row_off + cx] != cells[row_off + cx] {
+                min_cx = min_cx.min(cx);
+                max_cx = max_cx.max(cx);
+                min_cy = min_cy.min(cy);
+                max_cy = max_cy.max(cy);
+            }
+        }
+    }
+    if min_cx > max_cx {
+        return None;
+    }
+    let (char_w, char_h) = ((pixel_w / cols).max(1), (pixel_h / rows).max(1));
+    let px0 = (min_cx * char_w).min(pixel_w);
+    let py0 = (min_cy * char_h).min(pixel_h);
+    let px1 = ((max_cx + 1) * char_w).min(pixel_w);
+    let py1 = ((max_cy + 1) * char_h).min(pixel_h);
+    Some((
+        i32::try_from(px0).unwrap_or(0),
+        i32::try_from(py0).unwrap_or(0),
+        i32::try_from(px1.saturating_sub(px0).max(1)).unwrap_or(i32::MAX),
+        i32::try_from(py1.saturating_sub(py0).max(1)).unwrap_or(i32::MAX),
+    ))
 }
 
 pub fn poll_and_read_events<D>(
@@ -78,6 +148,18 @@ pub fn poll_and_read_events<D>(
 
     event_queue.dispatch_pending(state)?;
     Ok(())
+}
+
+/// Releases cached sub-cell overlay buffers and returns freed heap arena pages back to the OS kernel.
+pub fn reclaim_presenter_memory() {
+    crate::wayland::blit::release_subcell_overlay();
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    {
+        // SAFETY: `libc::malloc_trim(0)` is thread-safe in glibc and releases free top-of-heap/arena pages to the kernel.
+        unsafe {
+            libc::malloc_trim(0);
+        }
+    }
 }
 
 pub fn allocate_shm_buffer(
@@ -155,5 +237,9 @@ pub fn allocate_shm_buffer_with_format(
         height,
         is_10bit_hdr,
         busy,
+        prev_cells: Vec::new(),
+        prev_cols: 0,
+        prev_rows: 0,
+        prev_subcell: false,
     })
 }

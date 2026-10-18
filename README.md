@@ -26,10 +26,10 @@
 
 </div>
 
-**IdleScreen** (`v4.6.0`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
+**IdleScreen** (`v4.6.1`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
 
-- **0.00% CPU at idle**: Pure event-driven reactor (`epoll` / `tokio`) sleeping with zero periodic wakeups and a ~2–3 MB resident memory footprint.
-- **10-Bit HDR Deep Color & 4K 2x Hi-Res `wp_viewporter` Scaling**: Negotiates 10-bit per channel HDR `wl_shm` pixel formats (`Argb2101010` / `Xrgb2101010` with seamless fallback to `Argb8888`) and automatically doubles internal sub-cell canvas density (`1920×1152`) on 4K/UHD (`>= 3840×2160`) outputs while offloading fullscreen scaling directly to the GPU/display controller via Wayland `wp_viewporter`.
+- **0.00% CPU at idle & Post-Session Arena Reclamation**: Pure event-driven reactor (`epoll` / `tokio`) sleeping with zero periodic wakeups, a ~2–3 MB resident memory footprint, and automatic post-screensaver heap/arena page reclamation (`release_subcell_overlay` + `malloc_trim`).
+- **Single-Pass 10-Bit HDR Deep Color, Branchless SIMD Blitting & Tight Partial `damage_buffer`**: Negotiates 10-bit per channel HDR `wl_shm` pixel formats (`Argb2101010` / `Xrgb2101010` with seamless fallback to `Argb8888`) and packs `fg`/`bg`/overlay colors in a single pass with branchless SIMD-vectorized glyph row writes, per-buffer dirty-cell diffing, and tight partial `wl_surface.damage_buffer` bounding boxes while offloading 2x 4K/UHD (`1920×1152`) fullscreen scaling to the GPU via `wp_viewporter`.
 - **System Theme Adaptation (Colors, Light/Dark & Glyph Fonts)**: Dynamically probes XDG Desktop Portal (`org.freedesktop.appearance` `color-scheme` and `accent-color`), COSMIC theme files, Hyprland/Omarchy/SuperFedora/GTK/KDE configs, and environment overrides (`IDLE_THEME_ACCENT`, `IDLE_THEME_MODE`, `IDLE_FONT_STYLE`) to adapt banner chrome bevels, starfield palettes, background tone (OLED black in Dark mode vs. low-glare deep midnight in Light mode), and bitmap glyph typography (`ArcadeBlock`, `CyberSharp`, `RetroRound`).
 - **Anamorphic Lens Flares & Neon Overdrive ("So Things Pop")**: Specular gleam sweeps across the 16-bit wordmark emit anamorphic horizontal lens-flare wings and soft vertical neon outer-glow halos, paired with a chroma-boosted neon overdrive pipeline that makes foreground characters pop vividly against the deep space backdrop.
 - **Dynamic 60–144 Hz refresh rate matching**: Queries Wayland `wl_output` display modes (60 Hz laptops $\to$ 60 FPS, 144 Hz+ desktops $\to$ 144 FPS) with delta-time-synchronized physics.
@@ -79,7 +79,7 @@ idlescreen inhibitors [--json]          Inspect active D-Bus / portal / audio id
 idlescreen service install [--init <X>] Install user service for systemd, openrc, runit, s6, dinit, or xdg
 idlescreen doctor [--fix] [--json]      Diagnose Wayland protocols, sockets, and service state (with auto-remediation via --fix)
 idlescreen config                       Display configuration path and active TOML settings
-idlescreen version                      Show version information (v4.6.0)
+idlescreen version                      Show version information (v4.6.1)
 ```
 
 ---

@@ -125,6 +125,13 @@ pub fn run_wayland_fullscreen_preview(
         poll_and_read_events(&connection, &mut event_queue, &mut state, sleep_dur)?;
     }
 
+    drop(cells);
+    drop(ascii_saver);
     state.cleanup_presentation(&mut event_queue);
+    drop(shm);
+    drop(state);
+    drop(event_queue);
+    drop(connection);
+    super::shm_buf::reclaim_presenter_memory();
     Ok(())
 }

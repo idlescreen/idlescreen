@@ -8,7 +8,6 @@ use std::time::SystemTime;
 
 static RNG_COUNTER: AtomicU64 = AtomicU64::new(0x9E37_79B9_7F4A_7C15);
 
-#[repr(C)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct TerminalCell {
     pub ch: char,

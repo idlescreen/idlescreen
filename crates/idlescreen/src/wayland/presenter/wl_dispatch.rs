@@ -115,7 +115,7 @@ impl_dispatch!(xdg_surface::XdgSurface, (state, surface, event, _qh) => {
     if let xdg_surface::Event::Configure { serial } = event {
         surface.ack_configure(serial);
         if let Some(surf) = state.surfaces.iter_mut().find(|s| s.xdg_surface.as_ref() == Some(surface)) {
-            surf.configured = true;
+            (surf.configured, surf.needs_commit) = (true, true);
         }
         state.configured = true;
     }
@@ -146,7 +146,7 @@ impl_dispatch!(zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, (state, layer_surface,
         zwlr_layer_surface_v1::Event::Configure { serial, width, height } => {
             layer_surface.ack_configure(serial);
             if let Some(s) = state.surfaces.iter_mut().find(|s| s.layer_surface.as_ref() == Some(layer_surface)) {
-                s.configured = true;
+                (s.configured, s.needs_commit) = (true, true);
                 if width > 0 && height > 0 {
                     (s.configured_width, s.configured_height) = (width, height);
                 }
@@ -172,6 +172,9 @@ impl_dispatch!(zwlr_output_power_v1::ZwlrOutputPowerV1, (state, proxy, event, _q
                     if state.dpms.on_compositor_mode(OutputPowerMode::On) =>
                 {
                     state.start_time = std::time::Instant::now();
+                    for s in &mut state.surfaces {
+                        s.needs_commit = true;
+                    }
                 }
                 _ => {}
             }

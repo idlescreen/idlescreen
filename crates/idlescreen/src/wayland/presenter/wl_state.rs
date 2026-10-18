@@ -191,6 +191,9 @@ impl WaylandState {
                 refresh_mhz,
                 buffers: None,
                 current_buf: 0,
+                displayed_cells: Vec::new(),
+                displayed_subcell_gen: 0,
+                needs_commit: true,
             });
         }
         let wl_outputs: Vec<_> = self.outputs.iter().map(|o| o.output.clone()).collect();

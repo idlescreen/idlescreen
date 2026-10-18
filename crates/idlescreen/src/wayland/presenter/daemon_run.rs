@@ -61,6 +61,10 @@ pub fn run_wayland_daemon_presenter(
             state.stop();
         }
         state_wl.cleanup_presentation(&mut event_queue);
+        drop(state_wl);
+        drop(event_queue);
+        drop(connection);
+        super::shm_buf::reclaim_presenter_memory();
         return Ok(());
     }
 
@@ -198,6 +202,13 @@ pub fn run_wayland_daemon_presenter(
         state.stop();
     }
 
+    drop(cells);
+    drop(ascii_saver);
     state_wl.cleanup_presentation(&mut event_queue);
+    drop(shm);
+    drop(state_wl);
+    drop(event_queue);
+    drop(connection);
+    super::shm_buf::reclaim_presenter_memory();
     Ok(())
 }

@@ -83,6 +83,7 @@ impl Ascii {
             if self.transition_left <= 0.0 {
                 (self.transition_active, self.transition_left) = (false, 0.0);
                 self.transition_from_grid.clear();
+                self.transition_from_grid.shrink_to_fit();
                 if self.rotation.targets.len() > 1 {
                     self.cycle_effect();
                 }

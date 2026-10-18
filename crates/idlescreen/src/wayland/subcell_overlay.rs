@@ -4,6 +4,7 @@
 //! High-resolution 4×8 sub-cell sprite overlay publisher and Scale2x compositor.
 
 use crate::cell::TerminalCell;
+use crate::wayland::blit::pack_argb2101010;
 use std::sync::Mutex;
 
 pub const SUBCELL_X: usize = 4;
@@ -15,6 +16,7 @@ pub const HUD_PILL_BG: (u8, u8, u8) = (14, 22, 42);
 struct SubcellOverlay {
     cols: usize,
     rows: usize,
+    generation: u64,
     palette: [u32; 40],
     pixels: Vec<u8>,
 }
@@ -22,14 +24,28 @@ struct SubcellOverlay {
 static SUBCELL_OVERLAY: Mutex<SubcellOverlay> = Mutex::new(SubcellOverlay {
     cols: 0,
     rows: 0,
+    generation: 0,
     palette: [0; 40],
     pixels: Vec::new(),
 });
 
 pub fn clear_subcell_overlay() {
     if let Ok(mut ov) = SUBCELL_OVERLAY.lock() {
-        (ov.cols, ov.rows) = (0, 0);
+        (ov.cols, ov.rows, ov.generation) = (0, 0, ov.generation.wrapping_add(1));
     }
+}
+
+pub fn release_subcell_overlay() {
+    if let Ok(mut ov) = SUBCELL_OVERLAY.lock() {
+        (ov.cols, ov.rows, ov.generation) = (0, 0, ov.generation.wrapping_add(1));
+        ov.palette.fill(0);
+        ov.pixels.clear();
+        ov.pixels.shrink_to_fit();
+    }
+}
+
+pub fn subcell_overlay_generation() -> u64 {
+    SUBCELL_OVERLAY.lock().map_or(0, |ov| ov.generation)
 }
 
 pub fn has_subcell_overlay(cols: usize, rows: usize) -> bool {
@@ -57,7 +73,7 @@ pub fn publish_subcell_overlay(
         return;
     }
     if let Ok(mut ov) = SUBCELL_OVERLAY.lock() {
-        (ov.cols, ov.rows) = (cols, rows);
+        (ov.cols, ov.rows, ov.generation) = (cols, rows, ov.generation.wrapping_add(1));
         ov.palette.fill(0);
         for (i, &(r, g, b)) in palette_rgb.iter().take(40).enumerate() {
             ov.palette[i] = 0xFF00_0000 | (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b);
@@ -71,10 +87,21 @@ pub fn publish_subcell_overlay(
 
 pub fn composite_subcell_overlay(
     cells: &[TerminalCell],
+    dims: (usize, usize),
+    buffer: &mut [u32],
+    px_dims: (usize, usize),
+    drawn_dims: (usize, usize),
+) {
+    composite_subcell_overlay_with_format(cells, dims, buffer, px_dims, drawn_dims, false);
+}
+
+pub fn composite_subcell_overlay_with_format(
+    cells: &[TerminalCell],
     (cols, rows): (usize, usize),
     buffer: &mut [u32],
     (pixel_w, pixel_h): (usize, usize),
     (drawn_w, drawn_h): (usize, usize),
+    is_10bit_hdr: bool,
 ) {
     let (sub_w, sub_h) = (
         cols.saturating_mul(SUBCELL_X),
@@ -87,11 +114,25 @@ pub fn composite_subcell_overlay(
     if ov.cols != cols || ov.rows != rows || needed == 0 || ov.pixels.len() < needed {
         return;
     }
+    let mut hdr_pal = [0u32; 40];
+    let pal = if is_10bit_hdr {
+        for (dst, &v) in hdr_pal.iter_mut().zip(ov.palette.iter()) {
+            let (r, g, b) = (
+                ((v >> 16) & 0xFF) as u8,
+                ((v >> 8) & 0xFF) as u8,
+                (v & 0xFF) as u8,
+            );
+            *dst = pack_argb2101010((r, g, b));
+        }
+        &hdr_pal
+    } else {
+        &ov.palette
+    };
     composite_overlay_pixels(
         cells,
         (cols, sub_w, sub_h),
         &ov.pixels,
-        &ov.palette,
+        pal,
         buffer,
         (pixel_w, pixel_h),
         (drawn_w, drawn_h),
@@ -108,6 +149,7 @@ pub(super) fn composite_overlay_pixels(
     (pixel_w, pixel_h): (usize, usize),
     (drawn_w, drawn_h): (usize, usize),
 ) {
+    let get_px = |x: usize, y: usize| pixels.get(y * sub_w + x).copied().unwrap_or(0);
     for sy in 0..sub_h {
         let (cy, py0) = (sy / SUBCELL_Y, (sy * drawn_h) / sub_h);
         let py1 = (((sy + 1) * drawn_h) / sub_h).max(py0 + 1).min(pixel_h);
@@ -118,24 +160,16 @@ pub(super) fn composite_overlay_pixels(
             {
                 continue;
             }
-            let p = pixels.get(sy * sub_w + sx).copied().unwrap_or(0);
-            let a = if sy > 0 {
-                pixels.get((sy - 1) * sub_w + sx).copied().unwrap_or(0)
-            } else {
-                0
-            };
+            let p = get_px(sx, sy);
+            let a = if sy > 0 { get_px(sx, sy - 1) } else { 0 };
             let b = if sx + 1 < sub_w {
-                pixels.get(sy * sub_w + sx + 1).copied().unwrap_or(0)
+                get_px(sx + 1, sy)
             } else {
                 0
             };
-            let c = if sx > 0 {
-                pixels.get(sy * sub_w + sx - 1).copied().unwrap_or(0)
-            } else {
-                0
-            };
+            let c = if sx > 0 { get_px(sx - 1, sy) } else { 0 };
             let d = if sy + 1 < sub_h {
-                pixels.get((sy + 1) * sub_w + sx).copied().unwrap_or(0)
+                get_px(sx, sy + 1)
             } else {
                 0
             };
@@ -183,8 +217,7 @@ mod tests {
         let mut px = vec![0u8; sw * sh];
         (px[0], px[1], px[sw], px[sw + 2]) = (1, 1, 2, 2);
         let mut pal = [0u32; 40];
-        pal[0] = pack_argb((16, 240, 96));
-        pal[1] = pack_argb((32, 255, 128));
+        (pal[0], pal[1]) = (pack_argb((16, 240, 96)), pack_argb((32, 255, 128)));
 
         let mut cells = vec![TerminalCell::default(); cols * rows];
         (cells[0].ch, cells[0].bold) = ('▀', false);
@@ -198,12 +231,25 @@ mod tests {
             (pw, ph),
             (pw, ph),
         );
-        assert_eq!(buf[0], 0xFF10_F060);
-        assert_eq!(buf[pw * 2 + 2], 0xFF10_F060);
-        assert_eq!(buf[5], 0xFF00_0000);
+        assert_eq!(
+            (buf[0], buf[pw * 2 + 2], buf[5]),
+            (0xFF10_F060, 0xFF10_F060, 0xFF00_0000)
+        );
 
         publish_subcell_overlay(cols, rows, &[(16, 240, 96), (32, 255, 128)], &px);
+        let mut hdr = vec![0xC000_0000u32; pw * ph];
+        composite_subcell_overlay_with_format(
+            &cells,
+            (cols, rows),
+            &mut hdr,
+            (pw, ph),
+            (pw, ph),
+            true,
+        );
+        assert_eq!(hdr[0], pack_argb2101010((16, 240, 96)));
         clear_subcell_overlay();
+        assert!(!has_subcell_overlay(cols, rows));
+        release_subcell_overlay();
         assert!(!has_subcell_overlay(cols, rows));
     }
 }

@@ -10,14 +10,15 @@ use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_shm;
 
 use super::arcade_grid_dimensions;
-use super::shm_buf::allocate_shm_buffer_with_format;
+use super::shm_buf::{allocate_shm_buffer_with_format, compute_cell_damage_rect};
 use super::wl_state::WaylandState;
 use crate::ascii::Ascii;
 use crate::ascii::effects::EffectKind;
 use crate::ascii::state::TextMode;
 use crate::cell::TerminalCell;
 use crate::wayland::blit::{
-    GLYPH_HEIGHT, GLYPH_WIDTH, blit_cells_to_argb, convert_argb8888_to_2101010_in_place,
+    GLYPH_HEIGHT, GLYPH_WIDTH, blit_cells_with_format, has_subcell_overlay,
+    subcell_overlay_generation,
 };
 
 #[inline]
@@ -75,6 +76,8 @@ pub(super) fn init_surface_buffers(
         let buf1 = allocate_shm_buffer_with_format(shm, qh, buf_w, buf_h, fmt, is_10bit)
             .ok_or("Failed to allocate wl_shm buffer 1")?;
         s.buffers = Some([buf0, buf1]);
+        s.displayed_cells.clear();
+        s.needs_commit = true;
     }
     Ok(())
 }
@@ -90,11 +93,9 @@ pub(super) fn build_ascii_saver(
 ) -> Ascii {
     let tour_mode =
         saver_name.eq_ignore_ascii_case("new") || saver_name.eq_ignore_ascii_case("tour");
-    let effect_kind = if tour_mode {
-        None
-    } else {
-        EffectKind::parse(saver_name)
-    };
+    let effect_kind = (!tour_mode)
+        .then(|| EffectKind::parse(saver_name))
+        .flatten();
     let text_mode = TextMode::parse(mode_str);
     let is_superfedora =
         saver_name == "superfedora" || mode_str.eq_ignore_ascii_case("superfedora");
@@ -133,24 +134,12 @@ pub(super) fn step_and_present_surfaces(
     cells: &mut Vec<TerminalCell>,
 ) {
     let (fmt, is_10bit) = state.preferred_shm_format();
-    let (cols, rows) = default_grid;
-    let max_cols = state
-        .surfaces
-        .iter()
-        .map(|s| {
-            arcade_grid_dimensions(s.configured_width as usize, s.configured_height as usize).0
-        })
-        .max()
-        .unwrap_or(cols);
-    let max_rows = state
-        .surfaces
-        .iter()
-        .map(|s| {
-            arcade_grid_dimensions(s.configured_width as usize, s.configured_height as usize).1
-        })
-        .max()
-        .unwrap_or(rows);
-
+    let (mut max_cols, mut max_rows) = default_grid;
+    for s in &state.surfaces {
+        let (c, r) =
+            arcade_grid_dimensions(s.configured_width as usize, s.configured_height as usize);
+        (max_cols, max_rows) = (max_cols.max(c), max_rows.max(r));
+    }
     ascii_saver.update(dt, max_cols, max_rows);
 
     for s in &mut state.surfaces {
@@ -167,87 +156,99 @@ pub(super) fn step_and_present_surfaces(
         let (out_cols, out_rows) = arcade_grid_dimensions(cur_w as usize, cur_h as usize);
         let (target_buf_w, target_buf_h) = if s.viewport.has_viewport() {
             let (bw, bh) = viewport_buffer_dimensions(cur_w, cur_h, out_cols, out_rows);
-            s.viewport.set_scaling(
+            let (sw, sh) = (
                 i32::try_from(cur_w).unwrap_or(1920),
                 i32::try_from(cur_h).unwrap_or(1080),
-                f64::from(bw),
-                f64::from(bh),
             );
+            s.viewport.set_scaling(sw, sh, f64::from(bw), f64::from(bh));
             (bw, bh)
         } else {
             (cur_w, cur_h)
         };
 
-        if let Some(ref mut bufs) = s.buffers {
-            if bufs[s.current_buf].busy.load(Ordering::Acquire) {
-                if !bufs[s.current_buf ^ 1].busy.load(Ordering::Acquire) {
-                    s.current_buf ^= 1;
-                } else if let Some(new_b) = allocate_shm_buffer_with_format(
-                    shm,
-                    qh,
-                    target_buf_w,
-                    target_buf_h,
-                    fmt,
-                    is_10bit,
-                ) {
-                    bufs[s.current_buf] = new_b;
-                }
-            }
-            if (target_buf_w != bufs[s.current_buf].width
-                || target_buf_h != bufs[s.current_buf].height)
-                && let Some(new_b) = allocate_shm_buffer_with_format(
-                    shm,
-                    qh,
-                    target_buf_w,
-                    target_buf_h,
-                    fmt,
-                    is_10bit,
-                )
-            {
-                bufs[s.current_buf] = new_b;
-            }
-
-            let buf = &mut bufs[s.current_buf];
-            let (buf_w, buf_h, is_hdr) =
-                (buf.width as usize, buf.height as usize, buf.is_10bit_hdr);
-
-            if cells.len() < out_cols * out_rows {
-                cells.resize(out_cols * out_rows, TerminalCell::default());
-            }
-            ascii_saver.draw(&mut cells[..out_cols * out_rows], out_cols, out_rows);
-            if state.preview_mode {
-                crate::wayland::glyph_font::draw_preview_hud(
-                    &mut cells[..out_cols * out_rows],
-                    out_cols,
-                    out_rows,
-                    ascii_saver.effect,
-                    state.tour_mode,
-                );
-            }
-
-            let slice = buf.as_mut_slice();
-            blit_cells_to_argb(
-                &cells[..out_cols * out_rows],
+        let Some(ref mut bufs) = s.buffers else {
+            continue;
+        };
+        let total = out_cols * out_rows;
+        if cells.len() < total {
+            cells.resize(total, TerminalCell::default());
+        }
+        let active_cells = &mut cells[..total];
+        ascii_saver.draw(active_cells, out_cols, out_rows);
+        if state.preview_mode {
+            crate::wayland::glyph_font::draw_preview_hud(
+                active_cells,
                 out_cols,
                 out_rows,
-                slice,
-                buf_w,
-                buf_h,
+                ascii_saver.effect,
+                state.tour_mode,
             );
-            if is_hdr {
-                convert_argb8888_to_2101010_in_place(slice);
-            }
-
-            buf.busy.store(true, Ordering::Release);
-            s.surface.attach(Some(&buf.wl_buffer), 0, 0);
-            s.surface.damage_buffer(
-                0,
-                0,
-                i32::try_from(buf_w).unwrap_or(i32::MAX),
-                i32::try_from(buf_h).unwrap_or(i32::MAX),
-            );
-            s.surface.commit();
-            s.current_buf ^= 1;
         }
+
+        let subcell_now = active_cells
+            .iter()
+            .any(|c| !c.bold && matches!(c.ch, '▀' | '▄'))
+            && has_subcell_overlay(out_cols, out_rows);
+        let overlay_gen = subcell_overlay_generation();
+        let force_full = s.needs_commit
+            || subcell_now
+            || (s.displayed_subcell_gen != overlay_gen)
+            || target_buf_w != bufs[s.current_buf].width
+            || target_buf_h != bufs[s.current_buf].height;
+
+        let (buf_w, buf_h) = (target_buf_w as usize, target_buf_h as usize);
+        let Some((dx, dy, dw, dh)) = compute_cell_damage_rect(
+            &s.displayed_cells,
+            active_cells,
+            (out_cols, out_rows),
+            (buf_w, buf_h),
+            force_full,
+        ) else {
+            continue;
+        };
+
+        if bufs[s.current_buf].busy.load(Ordering::Acquire) {
+            if !bufs[s.current_buf ^ 1].busy.load(Ordering::Acquire) {
+                s.current_buf ^= 1;
+            } else if let Some(b) =
+                allocate_shm_buffer_with_format(shm, qh, target_buf_w, target_buf_h, fmt, is_10bit)
+            {
+                bufs[s.current_buf] = b;
+            }
+        }
+        if (target_buf_w != bufs[s.current_buf].width || target_buf_h != bufs[s.current_buf].height)
+            && let Some(b) =
+                allocate_shm_buffer_with_format(shm, qh, target_buf_w, target_buf_h, fmt, is_10bit)
+        {
+            bufs[s.current_buf] = b;
+        }
+
+        let buf = &mut bufs[s.current_buf];
+        let (actual_w, actual_h, is_hdr) =
+            (buf.width as usize, buf.height as usize, buf.is_10bit_hdr);
+        let (slice, prev_opt) = buf.as_mut_slice_and_prev(out_cols, out_rows);
+        let subcell_drawn = blit_cells_with_format(
+            active_cells,
+            (out_cols, out_rows),
+            slice,
+            (actual_w, actual_h),
+            is_hdr,
+            prev_opt,
+        );
+        buf.prev_cells.clear();
+        buf.prev_cells.extend_from_slice(active_cells);
+        (buf.prev_cols, buf.prev_rows, buf.prev_subcell) = (out_cols, out_rows, subcell_drawn);
+
+        s.displayed_cells.clear();
+        s.displayed_cells.extend_from_slice(active_cells);
+        (s.displayed_subcell_gen, s.needs_commit) = (overlay_gen, false);
+
+        buf.busy.store(true, Ordering::Release);
+        s.surface.attach(Some(&buf.wl_buffer), 0, 0);
+        let (max_w, max_h) = (actual_w as i32, actual_h as i32);
+        s.surface
+            .damage_buffer(dx, dy, dw.min(max_w), dh.min(max_h));
+        s.surface.commit();
+        s.current_buf ^= 1;
     }
 }

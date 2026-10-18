@@ -26,7 +26,9 @@ use crate::wayland::viewport::SurfaceViewport;
 pub use daemon_run::run_wayland_daemon_presenter;
 pub use frame_step::viewport_buffer_dimensions;
 pub use preview_run::run_wayland_fullscreen_preview;
-pub use shm_buf::{MappedBuffer, allocate_shm_buffer, allocate_shm_buffer_with_format};
+pub use shm_buf::{
+    MappedBuffer, allocate_shm_buffer, allocate_shm_buffer_with_format, compute_cell_damage_rect,
+};
 pub use wl_state::WaylandState;
 
 pub const INPUT_DEBOUNCE_WINDOW: Duration = Duration::from_millis(500);
@@ -57,6 +59,9 @@ pub struct PresentationSurface {
     pub refresh_mhz: i32,
     pub buffers: Option<[MappedBuffer; 2]>,
     pub current_buf: usize,
+    pub displayed_cells: Vec<crate::cell::TerminalCell>,
+    pub displayed_subcell_gen: u64,
+    pub needs_commit: bool,
 }
 
 impl WaylandState {
