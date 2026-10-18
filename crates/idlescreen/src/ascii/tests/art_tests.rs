@@ -53,6 +53,40 @@ fn test_unicode_nfkd_fold() {
     assert_eq!(normalize_to_ascii_fold("Éléphant"), "Elephant");
     assert_eq!(normalize_to_ascii_fold("München"), "Munchen");
     assert_eq!(normalize_to_ascii_fold("Česká"), "Ceska");
+    assert_eq!(normalize_to_ascii_fold("Việt Nam"), "Viet Nam");
+    assert_eq!(normalize_to_ascii_fold("ＦＥＤＯＲＡ"), "FEDORA");
+    assert_eq!(normalize_to_ascii_fold("e\u{0301}a\u{0300}"), "ea");
+}
+
+#[test]
+fn test_toml_config_roundtrip_and_multiline() {
+    use crate::daemon::config::Config;
+    let mut cfg = Config::default();
+    cfg.general.idle_enabled = false;
+    cfg.general.idle_timeout_secs = 300;
+    cfg.saver.active = Some("single:matrix".to_string());
+    cfg.saver.ascii.mode = "custom".to_string();
+    cfg.saver.ascii.text = "Hello \"World\" #1".to_string();
+    cfg.saver.ascii.targets = vec!["os".to_string(), "de".to_string()];
+
+    let serialized = cfg.to_toml_string();
+    let parsed = Config::from_toml_str(&serialized).unwrap();
+    assert_eq!(parsed, cfg);
+
+    let legacy_pretty = r#"
+[saver]
+active = "random" # inline comment
+
+[saver.ascii]
+mode = "system"
+targets = [
+    "os",
+    "kernel",
+]
+"#;
+    let parsed_legacy = Config::from_toml_str(legacy_pretty).unwrap();
+    assert_eq!(parsed_legacy.saver.active.as_deref(), Some("random"));
+    assert_eq!(parsed_legacy.saver.ascii.targets, vec!["os", "kernel"]);
 }
 
 #[test]

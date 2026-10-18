@@ -1,6 +1,6 @@
 {
  "repo": "idlescreen",
- "rev": "baf6457",
+ "rev": "65da889",
  "dirty": false,
  "pages": [
   {
@@ -999,7 +999,7 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/art_tests.rs",
-   "lines": 169,
+   "lines": 203,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
@@ -1048,10 +1048,10 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/unicode.rs",
-   "lines": 72,
-   "bin_bytes": 2262,
+   "lines": 180,
+   "bin_bytes": 8691,
    "heat_pct": null,
-   "reach": 2
+   "reach": 4
   },
   {
    "path": "./crates/idlescreen/src/cell.rs",
@@ -1139,17 +1139,17 @@
   },
   {
    "path": "./crates/idlescreen/src/cli/preview/render.rs",
-   "lines": 230,
-   "bin_bytes": 9072,
+   "lines": 238,
+   "bin_bytes": 9228,
    "heat_pct": null,
    "reach": 2
   },
   {
    "path": "./crates/idlescreen/src/cli/preview/term_guard.rs",
-   "lines": 63,
-   "bin_bytes": 716,
+   "lines": 249,
+   "bin_bytes": 5590,
    "heat_pct": null,
-   "reach": 2
+   "reach": 5
   },
   {
    "path": "./crates/idlescreen/src/cli/preview/tests.rs",
@@ -1187,11 +1187,18 @@
    "reach": 1
   },
   {
-   "path": "./crates/idlescreen/src/daemon/config.rs",
-   "lines": 256,
-   "bin_bytes": 78261,
+   "path": "./crates/idlescreen/src/daemon/config/mod.rs",
+   "lines": 184,
+   "bin_bytes": 11151,
    "heat_pct": null,
-   "reach": 16
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/daemon/config/parse_toml.rs",
+   "lines": 211,
+   "bin_bytes": 16263,
+   "heat_pct": null,
+   "reach": 1
   },
   {
    "path": "./crates/idlescreen/src/daemon/control_sock.rs",
@@ -1301,7 +1308,7 @@
   {
    "path": "./crates/idlescreen/src/tui/input.rs",
    "lines": 178,
-   "bin_bytes": 3157,
+   "bin_bytes": 3136,
    "heat_pct": null,
    "reach": 2
   },
@@ -1328,8 +1335,8 @@
   },
   {
    "path": "./crates/idlescreen/src/tui/mod.rs",
-   "lines": 139,
-   "bin_bytes": 6101,
+   "lines": 146,
+   "bin_bytes": 6518,
    "heat_pct": null,
    "reach": 0
   },
@@ -1350,7 +1357,7 @@
   {
    "path": "./crates/idlescreen/src/tui/view.rs",
    "lines": 255,
-   "bin_bytes": 13460,
+   "bin_bytes": 13437,
    "heat_pct": null,
    "reach": 3
   },

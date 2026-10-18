@@ -5,21 +5,21 @@
 
 use std::fmt::Write as FmtWrite;
 use std::io::{Write, stdout};
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use super::mini_preview::{MiniPreview, WIDE_TERM_MIN_COLS};
 use super::model::{
     ModeChoice, TuiField, TuiModel, char_to_byte_idx, format_dpms_display, format_fps_display,
     format_saver_display,
 };
+use crate::ascii::unicode::{char_width, string_width};
+use crate::cli::preview::term_guard::terminal_size;
 
 pub fn render_view(model: &TuiModel) -> std::io::Result<()> {
-    let mut buf = String::with_capacity(8192);
-    render_view_into(model, &mut buf)
+    render_view_into(model, &mut String::with_capacity(8192))
 }
 
 pub fn render_view_into(model: &TuiModel, b: &mut String) -> std::io::Result<()> {
-    let term_cols = crossterm::terminal::size().map_or(80, |(c, _)| c as usize);
+    let term_cols = terminal_size().map_or(80, |(c, _)| c as usize);
     render_view_with_preview_into(model, None, term_cols, b)
 }
 
@@ -220,7 +220,7 @@ fn render_slider_row(b: &mut String, label: &str, val: &str, hint: &str, foc: bo
 }
 
 pub fn fit_to_width(text: &str, cursor_idx: usize, max_cols: usize, editing: bool) -> String {
-    let total_w = UnicodeWidthStr::width(text);
+    let total_w = string_width(text);
     if total_w <= max_cols {
         let mut res = text.to_string();
         res.extend(std::iter::repeat_n(' ', max_cols - total_w));
@@ -230,7 +230,7 @@ pub fn fit_to_width(text: &str, cursor_idx: usize, max_cols: usize, editing: boo
     let start_idx = if editing {
         let (mut w, mut s) = (0usize, cursor_idx.min(chars.len()));
         while s > 0 {
-            let cw = UnicodeWidthChar::width(chars[s - 1]).unwrap_or(0);
+            let cw = char_width(chars[s - 1]);
             if w + cw > max_cols.saturating_sub(2) {
                 break;
             }
@@ -243,7 +243,7 @@ pub fn fit_to_width(text: &str, cursor_idx: usize, max_cols: usize, editing: boo
     };
     let (mut out, mut used) = (String::new(), 0usize);
     for &ch in &chars[start_idx..] {
-        let cw = UnicodeWidthChar::width(ch).unwrap_or(0);
+        let cw = char_width(ch);
         if used + cw > max_cols {
             break;
         }

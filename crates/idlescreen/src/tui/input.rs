@@ -3,7 +3,7 @@
 
 //! Keyboard event dispatch, text editing methods, and action processing for the settings TUI.
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crate::cli::preview::term_guard::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::model::{ModeChoice, TuiField, TuiModel, char_to_byte_idx};
 use super::save::save_settings;

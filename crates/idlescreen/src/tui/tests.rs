@@ -7,9 +7,9 @@ use super::build_preview_args;
 use super::input::{TuiAction, handle_key_event};
 use super::model::{ModeChoice, TOTAL_FIELDS, TuiField, TuiModel};
 use super::view::fit_to_width;
+use crate::ascii::unicode::string_width;
+use crate::cli::preview::term_guard::{KeyCode, KeyEvent, KeyModifiers};
 use crate::daemon::config::Config;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use unicode_width::UnicodeWidthStr;
 
 #[test]
 fn test_mode_choice_conversions() {
@@ -140,7 +140,7 @@ fn test_text_editing_and_utf8_cursor() {
     assert_eq!(model.cursor_pos, 2);
 
     let fitted = fit_to_width(&model.custom_text, model.cursor_pos, 20, true);
-    assert_eq!(UnicodeWidthStr::width(fitted.as_str()), 20);
+    assert_eq!(string_width(fitted.as_str()), 20);
 }
 
 #[test]

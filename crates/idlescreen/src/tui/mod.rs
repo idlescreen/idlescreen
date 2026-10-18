@@ -15,9 +15,9 @@ pub mod view;
 use std::io::IsTerminal;
 use std::time::{Duration, Instant};
 
-use crossterm::event::{self, Event, KeyEventKind};
-
-use crate::cli::preview::term_guard::TerminalGuard;
+use crate::cli::preview::term_guard::{
+    TermEvent, TerminalGuard, poll_input, read_event, terminal_size,
+};
 use crate::daemon::config::Config;
 use input::{TuiAction, handle_key_event};
 use mini_preview::{MiniPreview, WIDE_TERM_MIN_COLS};
@@ -57,7 +57,7 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut guard = TerminalGuard::enter();
-    let mut term_cols = crossterm::terminal::size().map_or(80, |(c, _)| c as usize);
+    let mut term_cols = terminal_size().map_or(80, |(c, _)| c as usize);
     let mut mini_preview = MiniPreview::new(&model, term_cols);
     render_view_with_preview_into(&model, Some(&mini_preview), term_cols, &mut frame_buf)?;
     let mut last_tick = Instant::now();
@@ -65,6 +65,14 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         if model.should_quit {
             break;
+        }
+
+        if let Some((w, _)) = terminal_size()
+            && (w as usize) != term_cols
+        {
+            term_cols = w as usize;
+            mini_preview.sync_with_model(&model, term_cols);
+            render_view_with_preview_into(&model, Some(&mini_preview), term_cols, &mut frame_buf)?;
         }
 
         let poll_dur = if term_cols >= WIDE_TERM_MIN_COLS {
@@ -77,9 +85,9 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
             Duration::from_millis(500)
         };
 
-        if event::poll(poll_dur).unwrap_or(false) {
-            match event::read() {
-                Ok(Event::Key(key)) if key.kind != KeyEventKind::Release => {
+        if poll_input(poll_dur) {
+            match read_event() {
+                Ok(TermEvent::Key(key)) => {
                     match handle_key_event(&mut model, key) {
                         TuiAction::Quit => break,
                         action @ (TuiAction::TriggerTerminalPreview
@@ -89,10 +97,10 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
                             drop(guard);
                             let res = crate::cli::preview::execute(&preview_args);
                             guard = TerminalGuard::enter();
-                            while event::poll(Duration::from_millis(0)).unwrap_or(false) {
-                                let _ = event::read();
+                            while poll_input(Duration::from_millis(0)) {
+                                let _ = read_event();
                             }
-                            term_cols = crossterm::terminal::size().map_or(80, |(c, _)| c as usize);
+                            term_cols = terminal_size().map_or(80, |(c, _)| c as usize);
                             model.refresh_daemon_status();
                             model.status = match res {
                                 Ok(()) => format!(
@@ -113,7 +121,7 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
                         &mut frame_buf,
                     )?;
                 }
-                Ok(Event::Resize(w, _)) => {
+                Ok(TermEvent::Resize(w, _)) => {
                     term_cols = w as usize;
                     mini_preview.sync_with_model(&model, term_cols);
                     render_view_with_preview_into(
@@ -124,7 +132,6 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
                     )?;
                 }
                 Err(_) => break,
-                _ => {}
             }
         } else if term_cols >= WIDE_TERM_MIN_COLS {
             let now = Instant::now();

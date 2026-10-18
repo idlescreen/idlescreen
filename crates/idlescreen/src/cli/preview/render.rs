@@ -6,12 +6,9 @@
 use std::io::{IsTerminal, stdout};
 use std::time::{Duration, Instant};
 
-use crossterm::event::{self, Event, KeyCode};
-use crossterm::terminal::size;
-
 use super::ansi_out::draw_frame;
 use super::options::parse_preview_args;
-use super::term_guard::TerminalGuard;
+use super::term_guard::{KeyCode, TermEvent, TerminalGuard, poll_input, read_event, terminal_size};
 use crate::ascii::Ascii;
 use crate::ascii::effects::EffectKind;
 use crate::ascii::state::TextMode;
@@ -96,7 +93,7 @@ fn run_preview_loop(
     timeout: Option<Duration>,
     fps: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (raw_cols, raw_rows) = size().unwrap_or((80, 24));
+    let (raw_cols, raw_rows) = terminal_size().unwrap_or((80, 24));
     let mut cols = (raw_cols as usize).max(10);
     let mut rows = (raw_rows as usize).max(5);
 
@@ -144,8 +141,8 @@ fn run_preview_loop(
     let start_time = Instant::now();
     let mut last_frame = Instant::now();
 
-    while event::poll(Duration::from_millis(0)).unwrap_or(false) {
-        let _ = event::read();
+    while poll_input(Duration::from_millis(0)) {
+        let _ = read_event();
     }
 
     draw_frame(
@@ -164,15 +161,27 @@ fn run_preview_loop(
             break;
         }
 
+        if let Some((w, h)) = terminal_size() {
+            let new_c = (w as usize).max(10);
+            let new_r = (h as usize).max(5);
+            if new_c != cols || new_r != rows {
+                cols = new_c;
+                rows = new_r;
+                grid.resize(cols * rows, TerminalCell::default());
+                grid.fill(TerminalCell::default());
+                ascii_saver.init(cols, rows);
+            }
+        }
+
         let poll_dur = frame_dur.saturating_sub(last_frame.elapsed());
         let wait_dur = poll_dur.max(Duration::from_millis(1));
         let mut step_delta = 0i32;
 
-        if event::poll(wait_dur).unwrap_or(false) {
+        if poll_input(wait_dur) {
             let mut should_exit = false;
-            while let Ok(ev) = event::read() {
+            while let Ok(ev) = read_event() {
                 match ev {
-                    Event::Key(key) if key.kind != event::KeyEventKind::Release => match key.code {
+                    TermEvent::Key(key) => match key.code {
                         KeyCode::Right
                         | KeyCode::Down
                         | KeyCode::Tab
@@ -186,7 +195,7 @@ fn run_preview_loop(
                             break;
                         }
                     },
-                    Event::Resize(w, h) => {
+                    TermEvent::Resize(w, h) => {
                         let new_c = (w as usize).max(10);
                         let new_r = (h as usize).max(5);
                         if new_c != cols || new_r != rows {
@@ -197,9 +206,8 @@ fn run_preview_loop(
                             ascii_saver.init(cols, rows);
                         }
                     }
-                    _ => {}
                 }
-                if !event::poll(Duration::from_millis(0)).unwrap_or(false) {
+                if !poll_input(Duration::from_millis(0)) {
                     break;
                 }
             }
