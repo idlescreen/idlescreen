@@ -15,6 +15,25 @@ pub(super) fn pack_argb(c: (u8, u8, u8)) -> u32 {
     0xFF00_0000 | (u32::from(c.0) << 16) | (u32::from(c.1) << 8) | u32::from(c.2)
 }
 
+/// Packs 8-bit RGB channels into 10-bit `Argb2101010` (`[31:30] A=3, [29:20] R, [19:10] G, [9:0] B`).
+#[inline]
+pub fn pack_argb2101010(c: (u8, u8, u8)) -> u32 {
+    let expand10 = |v: u8| -> u32 { (u32::from(v) << 2) | (u32::from(v) >> 6) };
+    0xC000_0000 | (expand10(c.0) << 20) | (expand10(c.1) << 10) | expand10(c.2)
+}
+
+/// Converts an in-place `Argb8888` pixel buffer into 10-bit `Argb2101010` for HDR/deep-color `wl_shm`.
+#[inline]
+pub fn convert_argb8888_to_2101010_in_place(buffer: &mut [u32]) {
+    for px in buffer.iter_mut() {
+        let v = *px;
+        let r = ((v >> 16) & 0xFF) as u8;
+        let g = ((v >> 8) & 0xFF) as u8;
+        let b = (v & 0xFF) as u8;
+        *px = pack_argb2101010((r, g, b));
+    }
+}
+
 /// Blits an array of `TerminalCell`s directly into an ARGB8888 pixel buffer (`0xAARRGGBB`).
 #[inline]
 pub fn blit_cells_to_argb(

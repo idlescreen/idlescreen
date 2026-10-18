@@ -31,26 +31,6 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref_name }}
 
-      - name: Install Rust (from rust-toolchain.toml)
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-            sh -s -- -y --profile minimal --default-toolchain none
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          rustup show
-          rustc --version
-
-      - name: Install cargo-binstall
-        run: |
-          curl -L --proto '=https' --tlsv1.2 -sSf \
-            https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Install cargo-deb and cargo-generate-rpm
-        run: cargo binstall -y cargo-deb cargo-generate-rpm
-
-      - name: Build release binary
-        run: cargo build --release
-
       - name: Skip if already in packages pool
         id: plan
         env:
@@ -68,14 +48,38 @@ jobs:
           fi
           cat "$GITHUB_OUTPUT"
 
+      - name: Install Rust (from rust-toolchain.toml)
+        if: steps.plan.outputs.build == 'yes'
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+            sh -s -- -y --profile minimal --default-toolchain none
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          rustup show
+          rustc --version
+
+      - name: Install cargo-binstall
+        if: steps.plan.outputs.build == 'yes'
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install cargo-deb and cargo-generate-rpm
+        if: steps.plan.outputs.build == 'yes'
+        run: cargo binstall -y cargo-deb cargo-generate-rpm
+
+      - name: Build release binary
+        if: steps.plan.outputs.build == 'yes'
+        run: cargo build --release
+
       - name: Package
         if: steps.plan.outputs.build == 'yes'
         run: |
           cargo deb --no-build -p idlescreen
           (cd crates/idlescreen && cargo generate-rpm --target-dir ../../target)
 
-
       - name: Install Cosign
+        if: steps.plan.outputs.build == 'yes'
         run: |
           curl -Lo cosign https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64
           chmod +x cosign

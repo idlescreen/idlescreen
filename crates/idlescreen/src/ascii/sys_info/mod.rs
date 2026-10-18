@@ -6,15 +6,18 @@
 #![allow(unsafe_code)]
 
 mod de_telemetry;
+pub mod theme_probe;
 
 pub use de_telemetry::{
     SystemTelemetry, clean_desktop_env, clean_kernel_version, detect_desktop_env,
     detect_kernel_version, query_telemetry,
 };
+pub use theme_probe::{
+    GlyphFontStyle, SystemTheme, ThemeColorScheme, detect_system_theme, parse_color_str,
+    resolve_system_theme_with,
+};
 
-use std::fs;
-use std::path::Path;
-use std::sync::OnceLock;
+use std::{fs, path::Path, sync::OnceLock};
 
 /// Multi-probe detection for Host OS name.
 pub fn detect_os_name() -> String {

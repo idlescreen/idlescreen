@@ -24,8 +24,9 @@ use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1;
 
 use crate::wayland::viewport::SurfaceViewport;
 pub use daemon_run::run_wayland_daemon_presenter;
+pub use frame_step::viewport_buffer_dimensions;
 pub use preview_run::run_wayland_fullscreen_preview;
-pub use shm_buf::{MappedBuffer, allocate_shm_buffer};
+pub use shm_buf::{MappedBuffer, allocate_shm_buffer, allocate_shm_buffer_with_format};
 pub use wl_state::WaylandState;
 
 pub const INPUT_DEBOUNCE_WINDOW: Duration = Duration::from_millis(500);

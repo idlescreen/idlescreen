@@ -22,6 +22,7 @@ pub struct MappedBuffer {
     mapped_ptr: *mut u32,
     pub width: u32,
     pub height: u32,
+    pub is_10bit_hdr: bool,
     pub busy: Arc<AtomicBool>,
 }
 
@@ -85,6 +86,17 @@ pub fn allocate_shm_buffer(
     width: u32,
     height: u32,
 ) -> Option<MappedBuffer> {
+    allocate_shm_buffer_with_format(shm, qh, width, height, wl_shm::Format::Argb8888, false)
+}
+
+pub fn allocate_shm_buffer_with_format(
+    shm: &wl_shm::WlShm,
+    qh: &QueueHandle<WaylandState>,
+    width: u32,
+    height: u32,
+    format: wl_shm::Format,
+    is_10bit_hdr: bool,
+) -> Option<MappedBuffer> {
     if width == 0 || height == 0 {
         return None;
     }
@@ -129,7 +141,7 @@ pub fn allocate_shm_buffer(
         width_i32,
         height_i32,
         stride_i32,
-        wl_shm::Format::Argb8888,
+        format,
         qh,
         busy.clone(),
     );
@@ -141,6 +153,7 @@ pub fn allocate_shm_buffer(
         mapped_ptr: ptr.cast::<u32>(),
         width,
         height,
+        is_10bit_hdr,
         busy,
     })
 }

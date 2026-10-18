@@ -74,16 +74,15 @@ impl Ascii {
         let seed = LcgRng::new_random().next_u64();
         let mut saver = Self::new_with_seed(seed);
         saver.fg = (81, 162, 218);
-        saver.bg = (0, 0, 0);
+        saver.bg = sys_info::detect_system_theme().bg_rgb;
         saver.rotation.os_name = "SUPERFEDORA".to_string();
         saver.rotation.mode = TextMode::Os;
         saver.rotation.custom_text = None;
         saver.rotation.set_targets(vec!["superfedora".to_string()]);
         saver.pinned = false;
-        saver.dwell_duration = Some(2.6);
-        saver.dwell_left = 2.6;
-        saver.dissolve_duration = DEFAULT_DISSOLVE_SECS;
-        saver.transition_duration = DEFAULT_DISSOLVE_SECS;
+        (saver.dwell_duration, saver.dwell_left) = (Some(2.6), 2.6);
+        (saver.dissolve_duration, saver.transition_duration) =
+            (DEFAULT_DISSOLVE_SECS, DEFAULT_DISSOLVE_SECS);
         saver
     }
 
@@ -93,6 +92,7 @@ impl Ascii {
         let effect = playlist.next_effect(&mut rng);
         let rotation = TriRotationState::new_with_seed(TextMode::Os, None, seed);
         let backdrop_seed = draw::compute_backdrop_seed(effect as u64, seed);
+        let bg = sys_info::detect_system_theme().bg_rgb;
 
         Self {
             rng,
@@ -107,7 +107,7 @@ impl Ascii {
             elapsed_in_effect: 0.0,
             anim_left: 20.0,
             fg: (248, 248, 242),
-            bg: (0, 0, 0),
+            bg,
             last_cols: 0,
             last_rows: 0,
             art_text: String::new(),

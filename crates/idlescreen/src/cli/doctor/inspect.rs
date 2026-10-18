@@ -160,6 +160,7 @@ pub(crate) fn check_wayland_presenter_sanity() -> (bool, String) {
             let _registry = connection.display().get_registry(&qh, ());
             let mut state = crate::wayland::presenter::WaylandState::new();
             if event_queue.roundtrip(&mut state).is_ok() {
+                let _ = event_queue.roundtrip(&mut state);
                 let has_comp = state.compositor.is_some();
                 let has_shm = state.shm.is_some();
                 let has_shell = state.layer_shell.is_some() || state.xdg_wm_base.is_some();
@@ -174,10 +175,15 @@ pub(crate) fn check_wayland_presenter_sanity() -> (bool, String) {
                     } else {
                         ""
                     };
+                    let shm_desc = if state.preferred_shm_format().1 {
+                        "wl_shm (10-bit HDR)"
+                    } else {
+                        "wl_shm"
+                    };
                     (
                         true,
                         format!(
-                            "{shell_desc}{dpms_desc} + wl_shm ready, {}ms debounce active",
+                            "{shell_desc}{dpms_desc} + {shm_desc} ready, {}ms debounce active",
                             crate::wayland::presenter::INPUT_DEBOUNCE_WINDOW.as_millis()
                         ),
                     )

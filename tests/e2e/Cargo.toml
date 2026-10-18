@@ -1,6 +1,6 @@
 [package]
 name = "idlescreen-e2e-tests"
-version = "4.5.2"
+version = "4.6.0"
 
 edition = "2024"
 authors = ["idlescreen developers"]

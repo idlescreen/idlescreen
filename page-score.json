@@ -1,6 +1,6 @@
 {
  "repo": "idlescreen",
- "rev": "0c855cd",
+ "rev": "624a247",
  "dirty": true,
  "pages": [
   {
@@ -11,23 +11,30 @@
    "reach": 1
   },
   {
+   "path": "./crates/idlescreen/src/ascii/draw/lens_flare.rs",
+   "lines": 164,
+   "bin_bytes": 6157,
+   "heat_pct": null,
+   "reach": 1
+  },
+  {
    "path": "./crates/idlescreen/src/ascii/draw/mod.rs",
-   "lines": 241,
-   "bin_bytes": 5447,
+   "lines": 238,
+   "bin_bytes": 5314,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/ascii/draw/post_fx.rs",
-   "lines": 167,
-   "bin_bytes": 5433,
+   "lines": 171,
+   "bin_bytes": 5571,
    "heat_pct": null,
    "reach": 1
   },
   {
    "path": "./crates/idlescreen/src/ascii/draw/starfield.rs",
-   "lines": 248,
-   "bin_bytes": 3874,
+   "lines": 252,
+   "bin_bytes": 5024,
    "heat_pct": null,
    "reach": 1
   },
@@ -69,7 +76,7 @@
   {
    "path": "./crates/idlescreen/src/ascii/mod.rs",
    "lines": 253,
-   "bin_bytes": 6372,
+   "bin_bytes": 6547,
    "heat_pct": null,
    "reach": 0
   },
@@ -978,10 +985,17 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/sys_info/mod.rs",
-   "lines": 252,
+   "lines": 255,
    "bin_bytes": 16785,
    "heat_pct": null,
    "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/sys_info/theme_probe.rs",
+   "lines": 255,
+   "bin_bytes": 13248,
+   "heat_pct": null,
+   "reach": 1
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/art_tests.rs",
@@ -1027,7 +1041,7 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/transition_tests.rs",
-   "lines": 25,
+   "lines": 161,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
@@ -1044,7 +1058,7 @@
    "lines": 96,
    "bin_bytes": 1754,
    "heat_pct": null,
-   "reach": 23
+   "reach": 24
   },
   {
    "path": "./crates/idlescreen/src/cli/doctor/fix.rs",
@@ -1055,8 +1069,8 @@
   },
   {
    "path": "./crates/idlescreen/src/cli/doctor/inspect.rs",
-   "lines": 242,
-   "bin_bytes": 12493,
+   "lines": 248,
+   "bin_bytes": 12693,
    "heat_pct": null,
    "reach": 3
   },
@@ -1342,10 +1356,10 @@
   },
   {
    "path": "./crates/idlescreen/src/wayland/blit.rs",
-   "lines": 172,
-   "bin_bytes": 6472,
+   "lines": 191,
+   "bin_bytes": 6835,
    "heat_pct": null,
-   "reach": 7
+   "reach": 8
   },
   {
    "path": "./crates/idlescreen/src/wayland/dpms.rs",
@@ -1363,10 +1377,10 @@
   },
   {
    "path": "./crates/idlescreen/src/wayland/glyph_font.rs",
-   "lines": 249,
-   "bin_bytes": 9425,
+   "lines": 206,
+   "bin_bytes": 9894,
    "heat_pct": null,
-   "reach": 6
+   "reach": 7
   },
   {
    "path": "./crates/idlescreen/src/wayland/mod.rs",
@@ -1378,16 +1392,16 @@
   {
    "path": "./crates/idlescreen/src/wayland/presenter/daemon_run.rs",
    "lines": 203,
-   "bin_bytes": 10787,
+   "bin_bytes": 10781,
    "heat_pct": null,
    "reach": 1
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/frame_step.rs",
-   "lines": 224,
-   "bin_bytes": 7047,
+   "lines": 253,
+   "bin_bytes": 7507,
    "heat_pct": null,
-   "reach": 3
+   "reach": 4
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/input_tests.rs",
@@ -1398,7 +1412,7 @@
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/mod.rs",
-   "lines": 192,
+   "lines": 193,
    "bin_bytes": 3854,
    "heat_pct": null,
    "reach": 0
@@ -1406,28 +1420,28 @@
   {
    "path": "./crates/idlescreen/src/wayland/presenter/preview_run.rs",
    "lines": 130,
-   "bin_bytes": 6289,
+   "bin_bytes": 6277,
    "heat_pct": null,
    "reach": 1
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/shm_buf.rs",
-   "lines": 146,
-   "bin_bytes": 3349,
+   "lines": 159,
+   "bin_bytes": 3459,
    "heat_pct": null,
    "reach": 4
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/wl_dispatch.rs",
-   "lines": 233,
-   "bin_bytes": 8251,
+   "lines": 240,
+   "bin_bytes": 8341,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/wl_state.rs",
-   "lines": 253,
-   "bin_bytes": 10735,
+   "lines": 241,
+   "bin_bytes": 10998,
    "heat_pct": null,
    "reach": 5
   },

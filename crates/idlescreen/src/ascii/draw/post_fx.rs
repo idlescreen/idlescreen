@@ -4,7 +4,10 @@
 //! 16-bit SNES arcade post-processing (bevel, specular gleam, drop shadow, parallax starfield)
 //! and scene dissolve transitions.
 
-use super::{banner_bevel_color, find_solid_banner_bounds, paint_starfield_backdrop};
+use super::{
+    apply_anamorphic_lens_flare, banner_bevel_color, find_solid_banner_bounds,
+    paint_starfield_backdrop,
+};
 use crate::cell::TerminalCell;
 
 /// Applies 16-bit SNES arcade post-processing, scanning bounds if `settled` is true.
@@ -91,6 +94,7 @@ pub fn apply_arcade_fx_with_bounds(
         }
     }
 
+    apply_anamorphic_lens_flare(grid, cols, rows, gleam_pos, bg);
     paint_starfield_backdrop(grid, cols, rows, frame_tick, backdrop_seed, bg);
 }
 

@@ -21,6 +21,7 @@ use crate::wayland::viewport::SurfaceViewport;
 pub struct WaylandState {
     pub compositor: Option<wl_compositor::WlCompositor>,
     pub shm: Option<wl_shm::WlShm>,
+    pub shm_formats: Vec<wl_shm::Format>,
     pub viewporter: Option<WpViewporter>,
     pub seat: Option<wl_seat::WlSeat>,
     pub keyboard: Option<wl_keyboard::WlKeyboard>,
@@ -52,49 +53,39 @@ impl Default for WaylandState {
 }
 
 impl WaylandState {
+    #[rustfmt::skip]
     pub fn new() -> Self {
         Self {
-            compositor: None,
-            shm: None,
-            viewporter: None,
-            seat: None,
-            keyboard: None,
-            pointer: None,
-            layer_shell: None,
-            xdg_wm_base: None,
-            output: None,
-            output_width: 0,
-            output_height: 0,
-            output_refresh_mhz: 0,
-            outputs: Vec::new(),
-            surfaces: Vec::new(),
-            configured: false,
-            configured_width: 0,
-            configured_height: 0,
-            exit_requested: false,
-            preview_mode: false,
-            tour_mode: false,
-            scene_step_delta: 0,
-            initial_pointer_pos: None,
-            start_time: Instant::now(),
+            compositor: None, shm: None, shm_formats: Vec::new(), viewporter: None,
+            seat: None, keyboard: None, pointer: None, layer_shell: None, xdg_wm_base: None,
+            output: None, output_width: 0, output_height: 0, output_refresh_mhz: 0,
+            outputs: Vec::new(), surfaces: Vec::new(), configured: false,
+            configured_width: 0, configured_height: 0, exit_requested: false,
+            preview_mode: false, tour_mode: false, scene_step_delta: 0,
+            initial_pointer_pos: None, start_time: Instant::now(),
             dpms: crate::wayland::dpms::DpmsController::new(),
         }
     }
 
-    pub fn all_configured(&self) -> bool {
-        if self.surfaces.is_empty() {
-            self.configured
+    /// Selects 10-bit deep color (`Argb2101010` / `Xrgb2101010`) when advertised by the compositor,
+    /// falling back to `Argb8888`.
+    pub fn preferred_shm_format(&self) -> (wl_shm::Format, bool) {
+        if self.shm_formats.contains(&wl_shm::Format::Argb2101010) {
+            (wl_shm::Format::Argb2101010, true)
+        } else if self.shm_formats.contains(&wl_shm::Format::Xrgb2101010) {
+            (wl_shm::Format::Xrgb2101010, true)
         } else {
-            self.surfaces.iter().all(|s| s.configured)
+            (wl_shm::Format::Argb8888, false)
         }
     }
 
+    pub fn all_configured(&self) -> bool {
+        self.surfaces.is_empty() && self.configured
+            || !self.surfaces.is_empty() && self.surfaces.iter().all(|s| s.configured)
+    }
+
     pub fn any_configured(&self) -> bool {
-        if self.surfaces.is_empty() {
-            self.configured
-        } else {
-            self.surfaces.iter().any(|s| s.configured)
-        }
+        self.surfaces.is_empty() && self.configured || self.surfaces.iter().any(|s| s.configured)
     }
 
     pub fn primary_metrics(&self, configured_primary: Option<&str>) -> (u32, u32, i32) {
@@ -149,11 +140,10 @@ impl WaylandState {
             let (mut layer_surface, mut xdg_surface, mut xdg_toplevel) = (None, None, None);
 
             if let Some(ls_mgr) = &self.layer_shell {
-                let layer = zwlr_layer_shell_v1::Layer::Overlay;
                 let ls = ls_mgr.get_layer_surface(
                     &surface,
                     target_output.as_ref(),
-                    layer,
+                    zwlr_layer_shell_v1::Layer::Overlay,
                     "idlescreen".into(),
                     qh,
                     (),
@@ -186,7 +176,6 @@ impl WaylandState {
                 .as_ref()
                 .and_then(|o| self.outputs.iter().find(|out| &out.output == o))
                 .map_or(def_m, |out| (out.width, out.height, out.refresh_mhz));
-
             self.surfaces.push(PresentationSurface {
                 output: target_output,
                 surface,
@@ -204,8 +193,7 @@ impl WaylandState {
                 current_buf: 0,
             });
         }
-        let wl_outputs: Vec<wl_output::WlOutput> =
-            self.outputs.iter().map(|o| o.output.clone()).collect();
+        let wl_outputs: Vec<_> = self.outputs.iter().map(|o| o.output.clone()).collect();
         self.dpms.bind_outputs(&wl_outputs, qh);
         Ok(())
     }

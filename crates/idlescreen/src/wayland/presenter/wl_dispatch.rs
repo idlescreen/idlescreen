@@ -220,11 +220,18 @@ macro_rules! impl_empty_dispatch {
     };
 }
 
+impl_dispatch!(wl_shm::WlShm, (state, _shm, event, _qh) => {
+    if let wl_shm::Event::Format { format: WEnum::Value(fmt) } = event
+        && !state.shm_formats.contains(&fmt)
+    {
+        state.shm_formats.push(fmt);
+    }
+});
+
 impl_empty_dispatch!(
     zwlr_layer_shell_v1::ZwlrLayerShellV1,
     zwlr_output_power_manager_v1::ZwlrOutputPowerManagerV1,
     wl_compositor::WlCompositor,
-    wl_shm::WlShm,
     wl_shm_pool::WlShmPool,
     wl_surface::WlSurface,
     wl_seat::WlSeat,

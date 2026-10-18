@@ -10,19 +10,34 @@ use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_shm;
 
 use super::arcade_grid_dimensions;
-use super::shm_buf::allocate_shm_buffer;
+use super::shm_buf::allocate_shm_buffer_with_format;
 use super::wl_state::WaylandState;
 use crate::ascii::Ascii;
 use crate::ascii::effects::EffectKind;
 use crate::ascii::state::TextMode;
 use crate::cell::TerminalCell;
-use crate::wayland::blit::{GLYPH_HEIGHT, GLYPH_WIDTH, blit_cells_to_argb};
+use crate::wayland::blit::{
+    GLYPH_HEIGHT, GLYPH_WIDTH, blit_cells_to_argb, convert_argb8888_to_2101010_in_place,
+};
+
+#[inline]
+pub fn viewport_buffer_dimensions(width: u32, height: u32, cols: usize, rows: usize) -> (u32, u32) {
+    let scale = if width >= 3840 && height >= 2160 {
+        2
+    } else {
+        1
+    };
+    let bw = u32::try_from(cols * GLYPH_WIDTH * scale).unwrap_or(width);
+    let bh = u32::try_from(rows * GLYPH_HEIGHT * scale).unwrap_or(height);
+    (bw, bh)
+}
 
 pub(super) fn init_surface_buffers(
     state: &mut WaylandState,
     shm: &wl_shm::WlShm,
     qh: &QueueHandle<WaylandState>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let (fmt, is_10bit) = state.preferred_shm_format();
     for s in &mut state.surfaces {
         let width = if s.configured_width > 0 {
             s.configured_width
@@ -38,15 +53,12 @@ pub(super) fn init_surface_buffers(
         } else {
             1080
         };
-        s.configured_width = width;
-        s.configured_height = height;
-        s.width = width;
-        s.height = height;
+        (s.configured_width, s.configured_height, s.width, s.height) =
+            (width, height, width, height);
 
         let (cols, rows) = arcade_grid_dimensions(width as usize, height as usize);
         let (buf_w, buf_h) = if s.viewport.has_viewport() {
-            let bw = u32::try_from(cols * GLYPH_WIDTH).unwrap_or(width);
-            let bh = u32::try_from(rows * GLYPH_HEIGHT).unwrap_or(height);
+            let (bw, bh) = viewport_buffer_dimensions(width, height, cols, rows);
             s.viewport.set_scaling(
                 i32::try_from(width).unwrap_or(1920),
                 i32::try_from(height).unwrap_or(1080),
@@ -58,9 +70,9 @@ pub(super) fn init_surface_buffers(
             (width, height)
         };
 
-        let buf0 = allocate_shm_buffer(shm, qh, buf_w, buf_h)
+        let buf0 = allocate_shm_buffer_with_format(shm, qh, buf_w, buf_h, fmt, is_10bit)
             .ok_or("Failed to allocate wl_shm buffer 0")?;
-        let buf1 = allocate_shm_buffer(shm, qh, buf_w, buf_h)
+        let buf1 = allocate_shm_buffer_with_format(shm, qh, buf_w, buf_h, fmt, is_10bit)
             .ok_or("Failed to allocate wl_shm buffer 1")?;
         s.buffers = Some([buf0, buf1]);
     }
@@ -120,6 +132,7 @@ pub(super) fn step_and_present_surfaces(
     ascii_saver: &mut Ascii,
     cells: &mut Vec<TerminalCell>,
 ) {
+    let (fmt, is_10bit) = state.preferred_shm_format();
     let (cols, rows) = default_grid;
     let max_cols = state
         .surfaces
@@ -153,8 +166,7 @@ pub(super) fn step_and_present_surfaces(
         };
         let (out_cols, out_rows) = arcade_grid_dimensions(cur_w as usize, cur_h as usize);
         let (target_buf_w, target_buf_h) = if s.viewport.has_viewport() {
-            let bw = u32::try_from(out_cols * GLYPH_WIDTH).unwrap_or(cur_w);
-            let bh = u32::try_from(out_rows * GLYPH_HEIGHT).unwrap_or(cur_h);
+            let (bw, bh) = viewport_buffer_dimensions(cur_w, cur_h, out_cols, out_rows);
             s.viewport.set_scaling(
                 i32::try_from(cur_w).unwrap_or(1920),
                 i32::try_from(cur_h).unwrap_or(1080),
@@ -170,21 +182,34 @@ pub(super) fn step_and_present_surfaces(
             if bufs[s.current_buf].busy.load(Ordering::Acquire) {
                 if !bufs[s.current_buf ^ 1].busy.load(Ordering::Acquire) {
                     s.current_buf ^= 1;
-                } else if let Some(new_b) = allocate_shm_buffer(shm, qh, target_buf_w, target_buf_h)
-                {
+                } else if let Some(new_b) = allocate_shm_buffer_with_format(
+                    shm,
+                    qh,
+                    target_buf_w,
+                    target_buf_h,
+                    fmt,
+                    is_10bit,
+                ) {
                     bufs[s.current_buf] = new_b;
                 }
             }
             if (target_buf_w != bufs[s.current_buf].width
                 || target_buf_h != bufs[s.current_buf].height)
-                && let Some(new_b) = allocate_shm_buffer(shm, qh, target_buf_w, target_buf_h)
+                && let Some(new_b) = allocate_shm_buffer_with_format(
+                    shm,
+                    qh,
+                    target_buf_w,
+                    target_buf_h,
+                    fmt,
+                    is_10bit,
+                )
             {
                 bufs[s.current_buf] = new_b;
             }
 
             let buf = &mut bufs[s.current_buf];
-            let buf_w = buf.width as usize;
-            let buf_h = buf.height as usize;
+            let (buf_w, buf_h, is_hdr) =
+                (buf.width as usize, buf.height as usize, buf.is_10bit_hdr);
 
             if cells.len() < out_cols * out_rows {
                 cells.resize(out_cols * out_rows, TerminalCell::default());
@@ -200,14 +225,18 @@ pub(super) fn step_and_present_surfaces(
                 );
             }
 
+            let slice = buf.as_mut_slice();
             blit_cells_to_argb(
                 &cells[..out_cols * out_rows],
                 out_cols,
                 out_rows,
-                buf.as_mut_slice(),
+                slice,
                 buf_w,
                 buf_h,
             );
+            if is_hdr {
+                convert_argb8888_to_2101010_in_place(slice);
+            }
 
             buf.busy.store(true, Ordering::Release);
             s.surface.attach(Some(&buf.wl_buffer), 0, 0);

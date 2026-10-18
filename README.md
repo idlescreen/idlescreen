@@ -26,10 +26,12 @@
 
 </div>
 
-**IdleScreen** (`v4.5.2`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
+**IdleScreen** (`v4.6.0`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
 
 - **0.00% CPU at idle**: Pure event-driven reactor (`epoll` / `tokio`) sleeping with zero periodic wakeups and a ~2–3 MB resident memory footprint.
-- **1x Native Grid GPU Scaling (`wp_viewporter`)**: Rasterizes the character/pixel canvas at 1x native grid resolution into `wl_shm` (`<0.5 ms` frame time) and offloads fullscreen 4K/HiDPI upscaling directly to the GPU/display controller via Wayland `wp_viewporter`.
+- **10-Bit HDR Deep Color & 4K 2x Hi-Res `wp_viewporter` Scaling**: Negotiates 10-bit per channel HDR `wl_shm` pixel formats (`Argb2101010` / `Xrgb2101010` with seamless fallback to `Argb8888`) and automatically doubles internal sub-cell canvas density (`1920×1152`) on 4K/UHD (`>= 3840×2160`) outputs while offloading fullscreen scaling directly to the GPU/display controller via Wayland `wp_viewporter`.
+- **System Theme Adaptation (Colors, Light/Dark & Glyph Fonts)**: Dynamically probes XDG Desktop Portal (`org.freedesktop.appearance` `color-scheme` and `accent-color`), COSMIC theme files, Hyprland/Omarchy/SuperFedora/GTK/KDE configs, and environment overrides (`IDLE_THEME_ACCENT`, `IDLE_THEME_MODE`, `IDLE_FONT_STYLE`) to adapt banner chrome bevels, starfield palettes, background tone (OLED black in Dark mode vs. low-glare deep midnight in Light mode), and bitmap glyph typography (`ArcadeBlock`, `CyberSharp`, `RetroRound`).
+- **Anamorphic Lens Flares & Neon Overdrive ("So Things Pop")**: Specular gleam sweeps across the 16-bit wordmark emit anamorphic horizontal lens-flare wings and soft vertical neon outer-glow halos, paired with a chroma-boosted neon overdrive pipeline that makes foreground characters pop vividly against the deep space backdrop.
 - **Dynamic 60–144 Hz refresh rate matching**: Queries Wayland `wl_output` display modes (60 Hz laptops $\to$ 60 FPS, 144 Hz+ desktops $\to$ 144 FPS) with delta-time-synchronized physics.
 - **Unified Single-Binary 52-Scene 16-Bit Arcade Engine**: Renders your detected OS wordmark (`SUPERFEDORA`, `FEDORA`, `ARCH`, `UBUNTU`, `DEBIAN`, etc.) or custom text in bevelled 16-bit block typography (`U+2580..=U+259F`) with parallax starfields, 4×8 sub-cell sprite Scale2x compositing, and 400% responsive scaling across **52 built-in 16-bit arcade, demoscene, and mathematical scenes** (`aurora`, `breakout`, `chaos`, `cosmos`, `fireworks`, `life`, `matrix`, `metaballs`, `mmx`, `mystify`, `pipes`, `plasma`, `radar`, `ripple`, `synthgrid`, `tetris`, `tunnel`, `zero`, and more) — zero external helper binaries or IPC overhead.
 - **Hardware DPMS Power-Off (`zwlr-output-power-management-v1`)**: Optional `dpms_timeout_secs` puts displays into hardware DPMS standby after the screensaver runs (`0%` CPU/GPU while sleeping) and wakes outputs immediately upon user input or dismissal.
@@ -77,7 +79,7 @@ idlescreen inhibitors [--json]          Inspect active D-Bus / portal / audio id
 idlescreen service install [--init <X>] Install user service for systemd, openrc, runit, s6, dinit, or xdg
 idlescreen doctor [--fix] [--json]      Diagnose Wayland protocols, sockets, and service state (with auto-remediation via --fix)
 idlescreen config                       Display configuration path and active TOML settings
-idlescreen version                      Show version information (v4.5.2)
+idlescreen version                      Show version information (v4.6.0)
 ```
 
 ---

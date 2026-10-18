@@ -4,10 +4,14 @@
 //! Terminal cell buffer drawing, 16-bit pixel-art quantization, arcade post-FX, and transitions.
 
 mod ansi;
+pub mod lens_flare;
 mod post_fx;
 pub mod starfield;
 
 pub use ansi::paint_frame;
+pub use lens_flare::{
+    apply_anamorphic_lens_flare, blend_rgb, neon_overdrive_rgb, theme_bevel_band,
+};
 pub use post_fx::{apply_arcade_fx, apply_arcade_fx_with_bounds, paint_transition};
 pub use starfield::{compute_backdrop_seed, paint_starfield_backdrop};
 
@@ -75,21 +79,10 @@ pub fn pixel_art_glyph(ch: char, x: usize, y: usize) -> char {
     }
 }
 
-/// Boosts dull/dark RGB values into punchy, high-saturation 16-bit arcade colors.
+/// Boosts dull/dark RGB values into punchy, high-saturation 16-bit neon arcade colors.
 #[inline]
 pub(crate) fn boost_arcade_rgb(c: (u8, u8, u8)) -> (u8, u8, u8) {
-    let max_c = c.0.max(c.1).max(c.2);
-    if max_c == 0 {
-        return (56, 140, 235);
-    }
-    let min_c = c.0.min(c.1).min(c.2);
-    let target_max = max_c.max(150) as u16;
-    let scale = (target_max * 256) / (max_c as u16).max(1);
-    let boost = |v: u8| -> u8 {
-        let spread = (v.saturating_sub(min_c / 2) as u16 * scale) >> 8;
-        spread.min(255) as u8
-    };
-    (boost(c.0), boost(c.1), boost(c.2))
+    neon_overdrive_rgb(c)
 }
 
 /// Computes the 16-bit SNES vertical chrome bevel color for a solid banner block at row `y`
@@ -127,6 +120,10 @@ pub fn banner_bevel_color(
         let fedora_span = span.saturating_sub(fedora_start).max(1);
         let fedora_y = rel_y.saturating_sub(fedora_start);
         let band = (fedora_y * 10) / fedora_span;
+        let accent = crate::ascii::sys_info::detect_system_theme().accent_rgb;
+        if accent != (81, 162, 218) {
+            return theme_bevel_band(band, accent);
+        }
         match band {
             0 | 1 => (170, 245, 255),
             2..=4 => (100, 205, 255),

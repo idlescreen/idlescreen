@@ -98,37 +98,27 @@ fn layer_offsets(
     drift_mode: usize,
     tick: usize,
 ) -> ((usize, usize), (usize, usize), (usize, usize)) {
-    let fast = tick.wrapping_mul(2);
-    let med = tick / 2;
-    let slow = tick / 3;
+    let (fast, med, slow) = (tick.wrapping_mul(2), tick / 2, tick / 3);
     match drift_mode & 7 {
-        // 0: Classic side-scroller (right-to-left) with subtle midground vertical drift
         0 => ((fast, 0), (0, med), (slow, 0)),
-        // 1: Vertical shmup descent (top-to-bottom)
         1 => (
             (0, usize::MAX.wrapping_sub(fast)),
             (med, 0),
             (0, usize::MAX.wrapping_sub(slow)),
         ),
-        // 2: Hyperspace ascent (bottom-to-top)
         2 => ((0, fast), (usize::MAX.wrapping_sub(med), 0), (0, slow)),
-        // 3: Isometric diagonal drift (down-left)
         3 => (
             (fast, usize::MAX.wrapping_sub(med)),
             (med, usize::MAX.wrapping_sub(slow)),
             (slow, 0),
         ),
-        // 4: Star cruiser reverse scroll (left-to-right)
         4 => (
             (usize::MAX.wrapping_sub(fast), 0),
             (0, usize::MAX.wrapping_sub(med)),
             (usize::MAX.wrapping_sub(slow), 0),
         ),
-        // 5: Isometric ascent (up-left)
         5 => ((fast, med), (med, slow), (slow, tick / 5)),
-        // 6: Cross-vector orthogonal parallax
         6 => ((fast, 0), (med, med), (0, slow)),
-        // 7: Deep void slow drift with shimmer
         _ => ((tick, 0), (0, slow), (tick / 4, tick / 6)),
     }
 }
@@ -171,7 +161,21 @@ pub fn paint_starfield_backdrop(
     let seed = backdrop_seed as usize;
     let theme_idx = seed & 7;
     let drift_mode = (seed >> 3) & 7;
-    let theme = &THEMES[theme_idx];
+    let base_theme = &THEMES[theme_idx];
+    let sys_accent = crate::ascii::sys_info::detect_system_theme().accent_rgb;
+    let theme = if sys_accent == (81, 162, 218) {
+        *base_theme
+    } else {
+        use super::blend_rgb;
+        StarfieldTheme {
+            l1_primary: blend_rgb(base_theme.l1_primary, sys_accent, 96),
+            l1_accent: base_theme.l1_accent,
+            l2_primary: blend_rgb(base_theme.l2_primary, sys_accent, 80),
+            l2_secondary: base_theme.l2_secondary,
+            l3_dust: blend_rgb(base_theme.l3_dust, sys_accent, 64),
+            density: base_theme.density,
+        }
+    };
     let (d1, d2, d3) = theme.density;
 
     let tick = frame_tick as usize;
