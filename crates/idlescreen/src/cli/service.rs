@@ -15,25 +15,98 @@ fn has_systemd_user() -> bool {
     Path::new("/run/systemd/system").exists()
 }
 
-fn autostart_desktop_path() -> PathBuf {
+fn run_quiet(bin: &str, args: &[&str]) -> bool {
+    Command::new(bin)
+        .args(args)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
+}
+
+fn systemd_user_either(args: &[&str]) -> bool {
+    let mut a1 = vec!["--user"];
+    a1.extend_from_slice(args);
+    a1.push("idlescreen.service");
+    let mut a2 = vec!["--user"];
+    a2.extend_from_slice(args);
+    a2.push("idle-daemon.service");
+    run_quiet("systemctl", &a1) || run_quiet("systemctl", &a2)
+}
+
+fn systemd_reload_and_reset() {
+    let _ = run_quiet("systemctl", &["--user", "daemon-reload"]);
+    let _ = run_quiet(
+        "systemctl",
+        &["--user", "reset-failed", "idlescreen.service"],
+    );
+}
+
+fn config_subpath(rel: &str, fallback: &str) -> PathBuf {
     if let Ok(cfg_home) = std::env::var("XDG_CONFIG_HOME")
         && !cfg_home.trim().is_empty()
     {
-        return PathBuf::from(cfg_home).join("autostart/idlescreen.desktop");
+        return PathBuf::from(cfg_home).join(rel);
     }
     if let Ok(home) = std::env::var("HOME") {
-        return PathBuf::from(home).join(".config/autostart/idlescreen.desktop");
+        return PathBuf::from(home).join(".config").join(rel);
     }
-    PathBuf::from("/tmp/idlescreen.desktop")
+    PathBuf::from(fallback)
 }
+
+#[rustfmt::skip]
+fn autostart_desktop_path() -> PathBuf { config_subpath("autostart/idlescreen.desktop", "/tmp/idlescreen.desktop") }
+#[rustfmt::skip]
+fn systemd_user_unit_path() -> PathBuf { config_subpath("systemd/user/idlescreen.service", "/tmp/idlescreen.service") }
 
 fn write_xdg_autostart() -> std::io::Result<()> {
     let path = autostart_desktop_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let content = "[Desktop Entry]\nType=Application\nName=IdleScreen Daemon\nExec=idlescreen daemon\nOnlyShowIn=GNOME;KDE;Hyprland;sway;COSMIC;XFCE;LXQt;Wayfire;niri;\nX-GNOME-Autostart-enabled=true\n";
-    fs::write(path, content)
+    fs::write(path, include_str!("../../../../assets/idlescreen.desktop"))
+}
+
+pub fn install_service() -> Result<(), Box<dyn std::error::Error>> {
+    if has_systemd_user() {
+        let unit_path = systemd_user_unit_path();
+        if let Some(parent) = unit_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(
+            &unit_path,
+            include_str!("../../../../assets/idlescreen.service"),
+        )?;
+        systemd_reload_and_reset();
+        enable_service_quiet();
+        println!(
+            "Installed and enabled systemd user unit: {}",
+            unit_path.display()
+        );
+        return Ok(());
+    }
+    write_xdg_autostart()?;
+    enable_service_quiet();
+    println!(
+        "Installed XDG autostart entry: {}",
+        autostart_desktop_path().display()
+    );
+    Ok(())
+}
+
+pub fn handle_service_subcommand(sub_args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    match sub_args.first().map(String::as_str) {
+        Some("install") => install_service(),
+        Some("enable" | "start") => enable_service(),
+        Some("disable" | "stop") => disable_service(),
+        Some("restart" | "reload") => restart_service(),
+        Some("toggle") => toggle_service(),
+        Some("status") => super::status::execute_args(&sub_args[1..]),
+        _ => {
+            println!("Usage: idlescreen service <install|enable|disable|restart|toggle|status>");
+            Ok(())
+        }
+    }
 }
 
 fn spawn_background_daemon() -> bool {
@@ -48,47 +121,18 @@ fn spawn_background_daemon() -> bool {
 }
 
 pub fn is_service_active() -> bool {
-    if has_systemd_user() {
-        let sysd = Command::new("systemctl")
-            .args(["--user", "is-active", "--quiet", "idlescreen.service"])
-            .status()
-            .is_ok_and(|s| s.success())
-            || Command::new("systemctl")
-                .args(["--user", "is-active", "--quiet", "idle-daemon.service"])
-                .status()
-                .is_ok_and(|s| s.success());
-        if sysd {
-            return true;
-        }
-    }
-    ControlClient::send_command("ping").is_ok_and(|r| r == "PONG")
+    (has_systemd_user() && systemd_user_either(&["is-active", "--quiet"]))
+        || ControlClient::send_command("ping").is_ok_and(|r| r == "PONG")
 }
 
 pub fn enable_service_quiet() {
     if has_systemd_user() {
-        let status = Command::new("systemctl")
-            .args(["--user", "enable", "--now", "idlescreen.service"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .or_else(|_| {
-                Command::new("systemctl")
-                    .args(["--user", "enable", "--now", "idle-daemon.service"])
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .status()
-            });
-        if status.is_ok_and(|s| s.success()) {
+        systemd_reload_and_reset();
+        if systemd_user_either(&["enable", "--now"]) {
             return;
         }
     }
-    if Command::new("dinitctl")
-        .args(["enable", "idlescreen"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|s| s.success())
-    {
+    if run_quiet("dinitctl", &["enable", "idlescreen"]) {
         return;
     }
     let _ = write_xdg_autostart();
@@ -105,24 +149,9 @@ pub fn enable_service() -> Result<(), Box<dyn std::error::Error>> {
 
 pub fn disable_service_quiet() {
     if has_systemd_user() {
-        let _ = Command::new("systemctl")
-            .args(["--user", "disable", "--now", "idlescreen.service"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .or_else(|_| {
-                Command::new("systemctl")
-                    .args(["--user", "disable", "--now", "idle-daemon.service"])
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .status()
-            });
+        let _ = systemd_user_either(&["disable", "--now"]);
     }
-    let _ = Command::new("dinitctl")
-        .args(["disable", "idlescreen"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
+    let _ = run_quiet("dinitctl", &["disable", "idlescreen"]);
     let _ = fs::remove_file(autostart_desktop_path());
     let _ = ControlClient::send_command("quit");
 }
@@ -135,24 +164,13 @@ pub fn disable_service() -> Result<(), Box<dyn std::error::Error>> {
 
 pub fn restart_service() -> Result<(), Box<dyn std::error::Error>> {
     if has_systemd_user() {
-        let status = Command::new("systemctl")
-            .args(["--user", "restart", "idlescreen.service"])
-            .status()
-            .or_else(|_| {
-                Command::new("systemctl")
-                    .args(["--user", "restart", "idle-daemon.service"])
-                    .status()
-            });
-        if status.is_ok_and(|s| s.success()) {
+        systemd_reload_and_reset();
+        if systemd_user_either(&["restart"]) {
             println!("IdleScreen service restarted (systemd).");
             return Ok(());
         }
     }
-    if Command::new("dinitctl")
-        .args(["restart", "idlescreen"])
-        .status()
-        .is_ok_and(|s| s.success())
-    {
+    if run_quiet("dinitctl", &["restart", "idlescreen"]) {
         println!("IdleScreen service restarted (dinit).");
         return Ok(());
     }
@@ -164,13 +182,13 @@ pub fn restart_service() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn toggle_service_quiet() -> bool {
-    if is_service_active() {
+    let active = is_service_active();
+    if active {
         disable_service_quiet();
-        false
     } else {
         enable_service_quiet();
-        true
     }
+    !active
 }
 
 pub fn toggle_service() -> Result<(), Box<dyn std::error::Error>> {
@@ -190,16 +208,11 @@ pub fn handle_timeout(arg: Option<&str>) -> Result<(), Box<dyn std::error::Error
             .map_err(|_| "Invalid number of minutes for timeout")?;
         let secs = (mins * 60).clamp(30, 7200);
         config.general.idle_timeout_secs = secs;
-        let toml_path = resolve_config_dir().join("config.toml");
-        config.save_to_path(&toml_path)?;
-
-        let mut notified = false;
-        if let Ok(conn) = zbus::blocking::Connection::session()
-            && let Ok(proxy) = crate::daemon::dbus::IdleClientProxyBlocking::new(&conn)
-            && proxy.set_timeout(secs).is_ok()
-        {
-            notified = true;
-        }
+        config.save_to_path(&resolve_config_dir().join("config.toml"))?;
+        let notified = zbus::blocking::Connection::session().is_ok_and(|conn| {
+            crate::daemon::dbus::IdleClientProxyBlocking::new(&conn)
+                .is_ok_and(|p| p.set_timeout(secs).is_ok())
+        });
         if !notified {
             let _ = ControlClient::send_command(&format!("timeout {secs}"));
         }
@@ -218,34 +231,26 @@ pub fn handle_timeout(arg: Option<&str>) -> Result<(), Box<dyn std::error::Error
 pub fn handle_config() -> Result<(), Box<dyn std::error::Error>> {
     let toml_path = resolve_config_dir().join("config.toml");
     println!("Config file: {}", toml_path.display());
-    if toml_path.exists() {
-        if let Ok(c) = fs::read_to_string(&toml_path) {
-            println!("\n{c}");
-        }
+    if let Ok(c) = fs::read_to_string(&toml_path) {
+        println!("\n{c}");
     } else {
         println!("(No active config.toml on disk; using defaults)");
     }
     Ok(())
 }
 
+#[rustfmt::skip]
 pub fn handle_uninstall() -> Result<(), Box<dyn std::error::Error>> {
     println!("IdleScreen removal requested.");
     let _ = disable_service();
     let remove_script = Path::new("/usr/libexec/idlescreen/remove-product-stack");
     if remove_script.exists() {
         println!("Executing product stack uninstaller...");
-        if Command::new("sudo")
-            .arg(remove_script)
-            .status()
-            .is_ok_and(|s| s.success())
-        {
+        if Command::new("sudo").arg(remove_script).status().is_ok_and(|s| s.success()) {
             println!("IdleScreen product stack and configuration removed successfully.");
         }
     } else {
-        println!("To complete removal, run your system package manager:");
-        println!("  Fedora/RHEL:   sudo dnf remove idlescreen");
-        println!("  Debian/Ubuntu: sudo apt remove idlescreen");
-        println!("  Arch Linux:    sudo pacman -R idlescreen");
+        println!("To complete removal, run your system package manager:\n  Fedora/RHEL:   sudo dnf remove idlescreen\n  Debian/Ubuntu: sudo apt remove idlescreen\n  Arch Linux:    sudo pacman -R idlescreen");
     }
     Ok(())
 }

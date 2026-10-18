@@ -147,6 +147,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         if reactor.last_poll_suspended {
+            state.session_locked.store(false, Ordering::SeqCst);
             state.stop();
         }
 

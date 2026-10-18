@@ -72,7 +72,8 @@ impl WaylandIdleState {
             self.inhibited_at = None;
             return;
         }
-        let locked = std::env::var_os("XDG_RUNTIME_DIR").is_some_and(|d| std::path::Path::new(&d).join("superfedora.locked").exists());
+        let locked = self.daemon_state.session_locked.load(Ordering::SeqCst)
+            || std::env::var_os("XDG_RUNTIME_DIR").is_some_and(|d| std::path::Path::new(&d).join("superfedora.locked").exists());
         if locked || self.daemon_state.is_inhibited() {
             self.inhibited_at = Some(Instant::now());
             return;
@@ -139,6 +140,10 @@ impl Dispatch<ext_idle_notification_v1::ExtIdleNotificationV1, ()> for WaylandId
             ext_idle_notification_v1::Event::Resumed => {
                 state.seat_idled = false;
                 state.inhibited_at = None;
+                state
+                    .daemon_state
+                    .session_locked
+                    .store(false, Ordering::SeqCst);
                 if state.daemon_state.active.load(Ordering::SeqCst) {
                     state.daemon_state.stop();
                 }

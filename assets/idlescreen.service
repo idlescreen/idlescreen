@@ -7,6 +7,12 @@ PartOf=graphical-session.target
 [Service]
 Type=dbus
 BusName=io.github.idlescreen.Idle
+NotifyAccess=main
+WatchdogSec=30
+Slice=background-graphical.slice
+SyslogIdentifier=idlescreen
+StandardOutput=journal
+StandardError=journal
 ExecStartPre=-/usr/bin/mkdir -p %h/.config/idlescreen
 ExecStart=/usr/bin/idlescreen daemon
 Restart=on-failure
@@ -16,7 +22,7 @@ KillMode=mixed
 
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=%t -%h/.config -%h/.config/idlescreen -%h/.config/idle
+ReadWritePaths=%t -%h/.config -%h/.config/idlescreen -%h/.config/idle -%h/.local/state -%h/.local/state/idlescreen -%h/.cache -%h/.cache/idlescreen
 PrivateTmp=true
 ProtectHome=read-only
 MemoryDenyWriteExecute=true

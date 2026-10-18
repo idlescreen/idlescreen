@@ -26,7 +26,7 @@
 
 </div>
 
-**IdleScreen** (`v4.6.2`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
+**IdleScreen** (`v4.6.3`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
 
 - **0.00% CPU at idle & Post-Session Arena Reclamation**: Pure event-driven reactor (`epoll` / `tokio`) sleeping with zero periodic wakeups, a ~2–3 MB resident memory footprint, and automatic post-screensaver heap/arena page reclamation (`release_subcell_overlay` + `malloc_trim`).
 - **Single-Pass 10-Bit HDR Deep Color, Branchless SIMD Blitting & Tight Partial `damage_buffer`**: Negotiates 10-bit per channel HDR `wl_shm` pixel formats (`Argb2101010` / `Xrgb2101010` with seamless fallback to `Argb8888`) and packs `fg`/`bg`/overlay colors in a single pass with branchless SIMD-vectorized glyph row writes, per-buffer dirty-cell diffing, and tight partial `wl_surface.damage_buffer` bounding boxes while offloading 2x 4K/UHD (`1920×1152`) fullscreen scaling to the GPU via `wp_viewporter`.
@@ -79,7 +79,7 @@ idlescreen inhibitors [--json]          Inspect active D-Bus / portal / audio id
 idlescreen service install [--init <X>] Install user service for systemd, openrc, runit, s6, dinit, or xdg
 idlescreen doctor [--fix] [--json]      Diagnose Wayland protocols, sockets, and service state (with auto-remediation via --fix)
 idlescreen config                       Display configuration path and active TOML settings
-idlescreen version                      Show version information (v4.6.2)
+idlescreen version                      Show version information (v4.6.3)
 ```
 
 ---

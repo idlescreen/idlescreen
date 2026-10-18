@@ -108,7 +108,10 @@ pub fn spawn_mutter_idle_watcher(
                         if args.id == idle_watch_id {
                             // Re-arm one-shot user-active watch so subsequent activity fires WatchFired!
                             active_watch_id = proxy.add_user_active_watch().ok();
-                            if state.idle_enabled.load(Ordering::SeqCst) && !state.is_inhibited() {
+                            if state.idle_enabled.load(Ordering::SeqCst)
+                                && !state.session_locked.load(Ordering::SeqCst)
+                                && !state.is_inhibited()
+                            {
                                 state.active.store(true, Ordering::SeqCst);
                                 if let Ok(mut start) = state.started_at.lock() {
                                     *start = Some(Instant::now());
@@ -117,6 +120,7 @@ pub fn spawn_mutter_idle_watcher(
                             }
                         } else if Some(args.id) == active_watch_id {
                             active_watch_id = None;
+                            state.session_locked.store(false, Ordering::SeqCst);
                             if state.active.load(Ordering::SeqCst) {
                                 state.stop();
                             }
@@ -133,7 +137,8 @@ pub fn poll_mutter_fallback(
     gnome_ss: Option<&GnomeScreenSaverProxyBlocking<'_>>,
     state: &Arc<ScreenSaverState>,
 ) {
-    let is_locked = gnome_ss.and_then(|g| g.get_active().ok()).unwrap_or(false);
+    let is_locked = state.session_locked.load(Ordering::SeqCst)
+        || gnome_ss.and_then(|g| g.get_active().ok()).unwrap_or(false);
     let idle_timeout_ms = state.idle_timeout_secs.load(Ordering::SeqCst) * 1000;
     if let Ok(t) = mutter.get_idletime() {
         if state.idle_enabled.load(Ordering::SeqCst)

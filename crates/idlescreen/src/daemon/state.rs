@@ -13,6 +13,7 @@ use super::watchers::WakeHandle;
 
 pub struct ScreenSaverState {
     pub active: AtomicBool,
+    pub session_locked: AtomicBool,
     pub idle_enabled: AtomicBool,
     pub idle_timeout_secs: AtomicU64,
     pub dpms_timeout_secs: AtomicU64,
@@ -44,6 +45,7 @@ impl ScreenSaverState {
         let active_saver = canonical_saver_name(cfg.saver.active.as_deref().unwrap_or("ascii"));
         Self {
             active: AtomicBool::new(false),
+            session_locked: AtomicBool::new(false),
             idle_enabled: AtomicBool::new(cfg.general.idle_enabled),
             idle_timeout_secs: AtomicU64::new(cfg.general.idle_timeout_secs),
             dpms_timeout_secs: AtomicU64::new(cfg.general.dpms_timeout_secs),

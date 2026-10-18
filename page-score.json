@@ -1,7 +1,7 @@
 {
  "repo": "idlescreen",
- "rev": "d6e9e30",
- "dirty": true,
+ "rev": "16dc504",
+ "dirty": false,
  "pages": [
   {
    "path": "./crates/idlescreen/src/ascii/draw/ansi.rs",
@@ -1111,8 +1111,8 @@
   },
   {
    "path": "./crates/idlescreen/src/cli/mod.rs",
-   "lines": 174,
-   "bin_bytes": 6308,
+   "lines": 178,
+   "bin_bytes": 6401,
    "heat_pct": null,
    "reach": 0
   },
@@ -1160,8 +1160,8 @@
   },
   {
    "path": "./crates/idlescreen/src/cli/service.rs",
-   "lines": 251,
-   "bin_bytes": 11500,
+   "lines": 256,
+   "bin_bytes": 10477,
    "heat_pct": null,
    "reach": 4
   },
@@ -1177,7 +1177,7 @@
    "lines": 97,
    "bin_bytes": 5624,
    "heat_pct": null,
-   "reach": 1
+   "reach": 2
   },
   {
    "path": "./crates/idlescreen/src/cli/text.rs",
@@ -1202,8 +1202,8 @@
   },
   {
    "path": "./crates/idlescreen/src/daemon/control_sock.rs",
-   "lines": 247,
-   "bin_bytes": 6817,
+   "lines": 254,
+   "bin_bytes": 8850,
    "heat_pct": null,
    "reach": 12
   },
@@ -1216,8 +1216,8 @@
   },
   {
    "path": "./crates/idlescreen/src/daemon/mod.rs",
-   "lines": 248,
-   "bin_bytes": 11294,
+   "lines": 249,
+   "bin_bytes": 11345,
    "heat_pct": null,
    "reach": 0
   },
@@ -1251,8 +1251,8 @@
   },
   {
    "path": "./crates/idlescreen/src/daemon/state.rs",
-   "lines": 251,
-   "bin_bytes": 16122,
+   "lines": 253,
+   "bin_bytes": 16173,
    "heat_pct": null,
    "reach": 1
   },
@@ -1272,22 +1272,22 @@
   },
   {
    "path": "./crates/idlescreen/src/daemon/watchers/mutter.rs",
-   "lines": 149,
-   "bin_bytes": 14094,
+   "lines": 154,
+   "bin_bytes": 14280,
    "heat_pct": null,
    "reach": 3
   },
   {
    "path": "./crates/idlescreen/src/daemon/watchers/session.rs",
-   "lines": 236,
-   "bin_bytes": 72489,
+   "lines": 246,
+   "bin_bytes": 74664,
    "heat_pct": null,
    "reach": 2
   },
   {
    "path": "./crates/idlescreen/src/daemon/watchers/wayland_idle.rs",
-   "lines": 249,
-   "bin_bytes": 6783,
+   "lines": 254,
+   "bin_bytes": 6865,
    "heat_pct": null,
    "reach": 1
   },

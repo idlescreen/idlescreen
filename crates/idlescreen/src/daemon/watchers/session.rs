@@ -69,43 +69,26 @@ impl GnomeSessionManagerInterface {
         (flags == 0 || (flags & 8) != 0) && self.state.is_inhibited()
     }
 
-    fn get_inhibitors(&self) -> Vec<zbus::zvariant::OwnedObjectPath> {
-        Vec::new()
+    #[rustfmt::skip]
+    fn get_inhibitors(&self) -> Vec<zbus::zvariant::OwnedObjectPath> { Vec::new() }
+    #[rustfmt::skip]
+    fn get_clients(&self) -> Vec<zbus::zvariant::OwnedObjectPath> { Vec::new() }
+    #[rustfmt::skip]
+    fn register_client(&self, app_id: &str, client_startup_id: &str) -> zbus::zvariant::OwnedObjectPath {
+        zbus::zvariant::ObjectPath::from_static_str_unchecked("/org/gnome/SessionManager/Client1").into()
     }
-
-    fn get_clients(&self) -> Vec<zbus::zvariant::OwnedObjectPath> {
-        Vec::new()
-    }
-
-    fn register_client(
-        &self,
-        app_id: &str,
-        client_startup_id: &str,
-    ) -> zbus::zvariant::OwnedObjectPath {
-        zbus::zvariant::ObjectPath::from_static_str_unchecked("/org/gnome/SessionManager/Client1")
-            .into()
-    }
-
     fn unregister_client(&self, client_id: zbus::zvariant::ObjectPath<'_>) {}
-
-    fn is_session_running(&self) -> bool {
-        true
-    }
-
+    #[rustfmt::skip]
+    fn is_session_running(&self) -> bool { true }
     #[zbus(property)]
-    fn inhibited_actions(&self) -> u32 {
-        if self.state.is_inhibited() { 8 } else { 0 }
-    }
-
+    #[rustfmt::skip]
+    fn inhibited_actions(&self) -> u32 { if self.state.is_inhibited() { 8 } else { 0 } }
     #[zbus(property)]
-    fn session_is_active(&self) -> bool {
-        true
-    }
-
+    #[rustfmt::skip]
+    fn session_is_active(&self) -> bool { true }
     #[zbus(property)]
-    fn session_name(&self) -> String {
-        "idlescreen".to_string()
-    }
+    #[rustfmt::skip]
+    fn session_name(&self) -> String { "idlescreen".to_string() }
 }
 
 pub struct GnomeClientPrivateInterface;
@@ -137,6 +120,9 @@ pub trait LogindSession {
 
     #[zbus(signal)]
     fn unlock(&self) -> zbus::Result<()>;
+
+    #[zbus(property)]
+    fn locked_hint(&self) -> zbus::Result<bool>;
 }
 
 /// Spawns consolidated session and system D-Bus watchers (systemd-logind, elogind,
@@ -153,25 +139,21 @@ pub fn spawn_gnome_session_watchers(state: Arc<ScreenSaverState>, wake: WakeHand
             };
 
             // Add match rules for NameOwnerChanged and (if on GNOME) org.gnome.ScreenSaver
-            let _ = conn.call_method(
-                Some("org.freedesktop.DBus"),
-                "/org/freedesktop/DBus",
-                Some("org.freedesktop.DBus"),
-                "AddMatch",
-                &("type='signal',sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',member='NameOwnerChanged'",),
-            );
-            if has_bus_owner(&conn, "org.gnome.ScreenSaver") {
+            let add_match = |rule: &str| {
                 let _ = conn.call_method(
                     Some("org.freedesktop.DBus"),
                     "/org/freedesktop/DBus",
                     Some("org.freedesktop.DBus"),
                     "AddMatch",
-                    &("type='signal',interface='org.gnome.ScreenSaver'",),
+                    &(rule,),
                 );
+            };
+            add_match("type='signal',sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',member='NameOwnerChanged'");
+            if has_bus_owner(&conn, "org.gnome.ScreenSaver") {
+                add_match("type='signal',interface='org.gnome.ScreenSaver'");
             }
 
-            let iter = zbus::blocking::MessageIterator::from(&conn);
-            for msg in iter.flatten() {
+            for msg in zbus::blocking::MessageIterator::from(&conn).flatten() {
                 let hdr = msg.header();
                 let Some(member) = hdr.member().map(zbus::names::MemberName::as_str) else {
                     continue;
@@ -181,6 +163,12 @@ pub fn spawn_gnome_session_watchers(state: Arc<ScreenSaverState>, wake: WakeHand
                 if iface == Some("org.gnome.ScreenSaver")
                     && (member == "ActiveChanged" || member == "WakeUpScreen")
                 {
+                    if member == "ActiveChanged"
+                        && let Ok(locked) = msg.body().deserialize::<bool>()
+                    {
+                        st_session.session_locked.store(locked, Ordering::SeqCst);
+                        st_session.wake_idle_cfg();
+                    }
                     st_session.stop();
                     wake_session.wake();
                 } else if iface == Some("org.freedesktop.DBus")
@@ -204,6 +192,11 @@ pub fn spawn_gnome_session_watchers(state: Arc<ScreenSaverState>, wake: WakeHand
             let Ok(conn) = zbus::blocking::Connection::system() else {
                 return;
             };
+            if let Ok(sess) = LogindSessionProxyBlocking::new(&conn)
+                && let Ok(locked) = sess.locked_hint()
+            {
+                st_sys.session_locked.store(locked, Ordering::SeqCst);
+            }
             for rule in [
                 "type='signal',interface='org.freedesktop.login1.Manager',member='PrepareForSleep'",
                 "type='signal',interface='org.freedesktop.login1.Session',member='Lock'",
@@ -221,16 +214,33 @@ pub fn spawn_gnome_session_watchers(state: Arc<ScreenSaverState>, wake: WakeHand
             }
 
             let _ = GnomeScreenSaverProxyBlocking::builder(&conn);
-            let iter = zbus::blocking::MessageIterator::from(&conn);
-            for msg in iter.flatten() {
-                let hdr = msg.header();
-                if let Some(member) = hdr.member().map(zbus::names::MemberName::as_str)
+            for msg in zbus::blocking::MessageIterator::from(&conn).flatten() {
+                if let Some(member) = msg.header().member().map(zbus::names::MemberName::as_str)
                     && matches!(member, "PrepareForSleep" | "Lock" | "Unlock")
                 {
+                    st_sys
+                        .session_locked
+                        .store(member == "Lock", Ordering::SeqCst);
+                    st_sys.wake_idle_cfg();
                     st_sys.stop();
                     wake_sys.wake();
                 }
             }
         })
         .ok();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_session_locked_state_blocks_and_clears() {
+        let state = ScreenSaverState::new();
+        assert!(!state.session_locked.load(Ordering::SeqCst));
+        state.session_locked.store(true, Ordering::SeqCst);
+        assert!(state.session_locked.load(Ordering::SeqCst));
+        state.session_locked.store(false, Ordering::SeqCst);
+        assert!(!state.session_locked.load(Ordering::SeqCst));
+    }
 }

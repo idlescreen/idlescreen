@@ -37,6 +37,9 @@ pub fn print_help() {
     println!("  enable            Enable and start IdleScreen service");
     println!("  disable           Disable and stop IdleScreen service");
     println!("  restart           Restart IdleScreen service");
+    println!(
+        "  service <cmd>     Manage user service (install|enable|disable|restart|toggle|status)"
+    );
     println!("  timeout [mins]    Get or set idle timeout in minutes");
     println!("  config            Show configuration path and active TOML settings");
     println!("  doctor [options]  Run diagnostic check (--fix, --verbose, --json)");
@@ -75,6 +78,7 @@ pub fn run_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         "enable" => service::enable_service(),
         "disable" => service::disable_service(),
         "restart" => service::restart_service(),
+        "service" => service::handle_service_subcommand(sub_args),
         "timeout" => service::handle_timeout(args.get(1).map(String::as_str)),
         "config" => service::handle_config(),
         "doctor" => doctor::execute_args(sub_args),

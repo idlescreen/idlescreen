@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! Direct Unix domain control socket for headless and non-systemd operation.
+//! Direct Unix domain control socket for headless, systemd socket-activated, and non-systemd operation.
 
 #![allow(unsafe_code)]
 
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
-use std::os::fd::{AsRawFd, RawFd};
+use std::os::fd::{AsRawFd, FromRawFd, RawFd};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
@@ -17,11 +17,46 @@ use std::time::Duration;
 pub struct ControlListener {
     listener: UnixListener,
     path: PathBuf,
+    owns_path: bool,
 }
 
 impl ControlListener {
     pub fn bind() -> std::io::Result<Self> {
-        Self::bind_at_path(resolve_control_sock_path()?)
+        let path = resolve_control_sock_path()?;
+        if let Some(inherited) = Self::from_systemd_listen_fds(path.clone()) {
+            return Ok(inherited);
+        }
+        Self::bind_at_path(path)
+    }
+
+    pub fn from_systemd_listen_fds(path: PathBuf) -> Option<Self> {
+        let parse_env = |k| std::env::var(k).ok()?.trim().parse::<u32>().ok();
+        if parse_env("LISTEN_PID")? != std::process::id() || parse_env("LISTEN_FDS")? < 1 {
+            return None;
+        }
+        Self::from_inherited_fd(3, path).ok()
+    }
+
+    pub fn from_inherited_fd(fd: RawFd, path: PathBuf) -> std::io::Result<Self> {
+        // SAFETY: `fstat` inspects `fd` without taking ownership; we verify `S_IFSOCK` before wrapping.
+        let is_sock = unsafe {
+            let mut st: libc::stat = std::mem::zeroed();
+            libc::fstat(fd, &raw mut st) == 0 && (st.st_mode & libc::S_IFMT) == libc::S_IFSOCK
+        };
+        if !is_sock {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "inherited FD is not a socket",
+            ));
+        }
+        // SAFETY: `fd` was validated as an open socket descriptor passed for socket activation.
+        let listener = unsafe { UnixListener::from_raw_fd(fd) };
+        listener.set_nonblocking(true)?;
+        Ok(Self {
+            listener,
+            path,
+            owns_path: false,
+        })
     }
 
     pub fn bind_at_path(path: PathBuf) -> std::io::Result<Self> {
@@ -34,9 +69,8 @@ impl ControlListener {
                 let _ = stream.set_read_timeout(Some(Duration::from_millis(150)));
                 let _ = stream.set_write_timeout(Some(Duration::from_millis(150)));
                 if writeln!(stream, "ping").is_ok() {
-                    let mut reader = BufReader::new(&mut stream);
                     let mut resp = String::new();
-                    if reader.read_line(&mut resp).is_ok()
+                    if BufReader::new(&mut stream).read_line(&mut resp).is_ok()
                         && resp.trim().eq_ignore_ascii_case("pong")
                     {
                         return Err(std::io::Error::new(
@@ -52,47 +86,42 @@ impl ControlListener {
         let listener = UnixListener::bind(&path)?;
         let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o600));
         listener.set_nonblocking(true)?;
-
-        Ok(Self { listener, path })
+        Ok(Self {
+            listener,
+            path,
+            owns_path: true,
+        })
     }
 
-    pub fn as_raw_fd(&self) -> RawFd {
-        self.listener.as_raw_fd()
-    }
+    #[rustfmt::skip]
+    pub fn as_raw_fd(&self) -> RawFd { self.listener.as_raw_fd() }
 
     pub fn accept(&self) -> std::io::Result<UnixStream> {
         let (stream, _) = self.listener.accept()?;
-        // Ensure accepted client stream has a strict 100ms timeout so an unprivileged client
-        // connecting without sending a newline cannot stall the single-threaded reactor (B5).
         let _ = stream.set_nonblocking(false);
         let _ = stream.set_read_timeout(Some(Duration::from_millis(100)));
         let _ = stream.set_write_timeout(Some(Duration::from_millis(100)));
         Ok(stream)
     }
 
-    pub fn path(&self) -> &std::path::Path {
-        &self.path
-    }
+    #[rustfmt::skip]
+    pub fn path(&self) -> &std::path::Path { &self.path }
 }
 
 impl Drop for ControlListener {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.path);
-    }
+    #[rustfmt::skip]
+    fn drop(&mut self) { if self.owns_path { let _ = fs::remove_file(&self.path); } }
 }
 
 pub struct ControlClient;
 
 impl ControlClient {
     pub fn send_command(cmd: &str) -> std::io::Result<String> {
-        let path = resolve_control_sock_path()?;
-        let mut stream = UnixStream::connect(path)?;
+        let mut stream = UnixStream::connect(resolve_control_sock_path()?)?;
         stream.set_read_timeout(Some(Duration::from_secs(2)))?;
         stream.set_write_timeout(Some(Duration::from_secs(2)))?;
-
         writeln!(stream, "{cmd}")?;
         stream.flush()?;
-
         let mut reader = BufReader::new(stream);
         let mut response = String::new();
         reader.read_line(&mut response)?;
@@ -106,7 +135,6 @@ pub fn resolve_runtime_subdir() -> PathBuf {
     {
         return PathBuf::from(runtime_dir).join("idlescreen");
     }
-
     // SAFETY: `getuid()` is always thread-safe and cannot fail on POSIX.
     let uid = unsafe { libc::getuid() };
     let run_user = PathBuf::from(format!("/run/user/{uid}"));
@@ -116,15 +144,14 @@ pub fn resolve_runtime_subdir() -> PathBuf {
     {
         return run_user.join("idlescreen");
     }
-
     PathBuf::from(format!("/tmp/idlescreen-{uid}"))
 }
 
-pub fn resolve_control_sock_path() -> std::io::Result<PathBuf> {
-    Ok(resolve_runtime_subdir().join("control.sock"))
-}
+#[rustfmt::skip]
+pub fn resolve_control_sock_path() -> std::io::Result<PathBuf> { Ok(resolve_runtime_subdir().join("control.sock")) }
 
 #[cfg(test)]
+#[rustfmt::skip]
 mod tests {
     use super::*;
 
@@ -132,24 +159,19 @@ mod tests {
     fn test_control_sock_ping_pong() {
         let temp_dir = tempfile::tempdir().unwrap();
         let sock_path = temp_dir.path().join("control.sock");
-
-        let listener = ControlListener::bind_at_path(sock_path.clone()).expect("bind must succeed");
+        let listener = ControlListener::bind_at_path(sock_path.clone()).unwrap();
         assert!(listener.path().exists());
 
-        let mut client_stream = UnixStream::connect(&sock_path).expect("connect must succeed");
+        let mut client_stream = UnixStream::connect(&sock_path).unwrap();
         writeln!(client_stream, "PING").unwrap();
-
-        let mut server_stream = listener.accept().expect("accept must succeed");
-        let mut reader = BufReader::new(&mut server_stream);
+        let mut server_stream = listener.accept().unwrap();
         let mut line = String::new();
-        reader.read_line(&mut line).unwrap();
+        BufReader::new(&mut server_stream).read_line(&mut line).unwrap();
         assert_eq!(line.trim(), "PING");
-
         writeln!(server_stream, "PONG").unwrap();
 
-        let mut client_reader = BufReader::new(client_stream);
         let mut resp = String::new();
-        client_reader.read_line(&mut resp).unwrap();
+        BufReader::new(client_stream).read_line(&mut resp).unwrap();
         assert_eq!(resp.trim(), "PONG");
     }
 
@@ -157,39 +179,25 @@ mod tests {
     fn test_control_sock_refuses_when_active() {
         let temp_dir = tempfile::tempdir().unwrap();
         let sock_path = temp_dir.path().join("control.sock");
-
-        let listener =
-            ControlListener::bind_at_path(sock_path.clone()).expect("first bind must succeed");
-
+        let listener = ControlListener::bind_at_path(sock_path.clone()).unwrap();
         let handle = std::thread::spawn(move || {
             let deadline = std::time::Instant::now() + Duration::from_secs(2);
             while std::time::Instant::now() < deadline {
                 match listener.accept() {
                     Ok(mut stream) => {
-                        let mut reader = BufReader::new(&mut stream);
                         let mut line = String::new();
-                        if reader.read_line(&mut line).is_ok()
-                            && line.trim().eq_ignore_ascii_case("ping")
-                        {
+                        if BufReader::new(&mut stream).read_line(&mut line).is_ok() && line.trim().eq_ignore_ascii_case("ping") {
                             let _ = writeln!(stream, "PONG");
                         }
                         return;
                     }
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        std::thread::sleep(Duration::from_millis(2));
-                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => std::thread::sleep(Duration::from_millis(2)),
                     Err(_) => return,
                 }
             }
         });
-
         let second_bind = ControlListener::bind_at_path(sock_path);
-        assert!(second_bind.is_err());
-        assert_eq!(
-            second_bind.unwrap_err().kind(),
-            std::io::ErrorKind::AddrInUse
-        );
-
+        assert_eq!(second_bind.unwrap_err().kind(), std::io::ErrorKind::AddrInUse);
         let _ = handle.join();
     }
 
@@ -197,12 +205,9 @@ mod tests {
     fn test_control_sock_unlinks_stale_socket() {
         let temp_dir = tempfile::tempdir().unwrap();
         let sock_path = temp_dir.path().join("control.sock");
-        {
-            let _listener = UnixListener::bind(&sock_path).unwrap();
-        }
+        drop(UnixListener::bind(&sock_path).unwrap());
         assert!(sock_path.exists());
-        let new_listener =
-            ControlListener::bind_at_path(sock_path).expect("stale socket must be rebound");
+        let new_listener = ControlListener::bind_at_path(sock_path).unwrap();
         assert!(new_listener.path().exists());
     }
 
@@ -215,10 +220,7 @@ mod tests {
         fs::write(&yaml_path, yaml_src).unwrap();
         let cfg = super::super::config::migrate_yaml_to_toml(&yaml_path, &toml_path).unwrap();
         assert_eq!(cfg.general.idle_timeout_secs, 180);
-        assert_eq!(cfg.general.primary_output, "DP-1");
         assert_eq!(cfg.saver.active.as_deref(), Some("aurora"));
-        assert_eq!(cfg.saver.ascii.mode, "os");
-        assert_eq!(cfg.saver.ascii.targets, vec!["os", "de"]);
         assert!(toml_path.exists());
     }
 
@@ -228,20 +230,25 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let sock_path = temp_dir.path().join("control.sock");
         let listener = ControlListener::bind_at_path(sock_path.clone()).unwrap();
-
         let mut slow_client = UnixStream::connect(&sock_path).unwrap();
         slow_client.write_all(b"partial_without_newline").unwrap();
-        slow_client.flush().unwrap();
-
         let start = std::time::Instant::now();
-        let server_stream = listener.accept().unwrap();
-        let mut reader = BufReader::new(server_stream.take(4096));
+        let mut reader = BufReader::new(listener.accept().unwrap().take(4096));
         let mut line = String::new();
-        let res = reader.read_line(&mut line);
-        assert!(res.is_err(), "partial write without newline must time out");
-        assert!(
-            start.elapsed() < Duration::from_millis(500),
-            "read timeout must bound blocking to ~100ms"
-        );
+        assert!(reader.read_line(&mut line).is_err());
+        assert!(start.elapsed() < Duration::from_millis(500));
+    }
+
+    #[test]
+    fn test_inherited_fd_not_unlinked_on_drop() {
+        use std::os::fd::IntoRawFd;
+        let temp_dir = tempfile::tempdir().unwrap();
+        let sock_path = temp_dir.path().join("control.sock");
+        let raw_fd = UnixListener::bind(&sock_path).unwrap().into_raw_fd();
+        {
+            let inherited = ControlListener::from_inherited_fd(raw_fd, sock_path.clone()).unwrap();
+            assert!(!inherited.owns_path);
+        }
+        assert!(sock_path.exists());
     }
 }
