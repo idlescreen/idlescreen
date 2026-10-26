@@ -7,6 +7,7 @@
 #![allow(unsafe_code)]
 
 pub mod config;
+pub mod control_client;
 pub mod control_sock;
 pub mod dbus;
 pub mod notify;
@@ -26,7 +27,6 @@ pub use pidfile::PidFile;
 pub use reactor::EpollReactor;
 pub use runtime::{RuntimeEnvironment, detect_environment};
 
-use std::io::{BufRead, BufReader, Read, Write};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -50,7 +50,16 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let config = Config::load_or_migrate();
+    let config = match Config::load_checked() {
+        Ok(c) => c,
+        Err(e) => {
+            // Surface the problem instead of silently running on defaults.
+            log_status(&format!(
+                "config error: {e} — running with built-in defaults"
+            ));
+            Config::default()
+        }
+    };
     let control_listener = match ControlListener::bind() {
         Ok(l) => l,
         Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
@@ -84,6 +93,9 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let dbus_conn = dbus::register_dbus_services(state.clone());
+    // Inhibitor probes fork processes; they run on their own thread so the
+    // event thread never blocks on them.
+    watchers::inhibit_cache::start();
 
     let wake_handle = watchers::WakeHandle::new_eventfd();
     let cfg_wake = watchers::WakeHandle::new_eventfd();
@@ -155,7 +167,7 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
             match ev.u64 {
                 1 => {
                     if let Ok(mut stream) = control_listener.accept()
-                        && handle_control_client(&mut stream, &state)
+                        && control_client::handle_control_client(&mut stream, &state)
                     {
                         notify_stopping();
                         running = false;
@@ -194,21 +206,6 @@ pub fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
         unsafe { libc::close(sfd) };
     }
     Ok(())
-}
-
-fn handle_control_client(
-    stream: &mut std::os::unix::net::UnixStream,
-    state: &Arc<dbus::ScreenSaverState>,
-) -> bool {
-    let mut reader = BufReader::new(stream.take(4096));
-    let mut line = String::new();
-    if reader.read_line(&mut line).is_err() {
-        return false;
-    }
-    let (resp, should_stop) = state.dispatch_control_command(line.trim());
-    let inner = reader.into_inner().into_inner();
-    let _ = writeln!(inner, "{resp}");
-    should_stop
 }
 
 fn sync_presenter_thread(

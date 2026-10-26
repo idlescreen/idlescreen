@@ -70,7 +70,14 @@ pub fn spawn_mutter_idle_watcher(
     idle_timeout_ms: u64,
     wake: WakeHandle,
 ) -> bool {
-    let Ok(conn) = zbus::blocking::Connection::session() else {
+    let conn = zbus::blocking::connection::Builder::session()
+        .ok()
+        .and_then(|b| {
+            b.method_timeout(std::time::Duration::from_millis(500))
+                .build()
+                .ok()
+        });
+    let Some(conn) = conn else {
         return false;
     };
     if !has_bus_owner(&conn, "org.gnome.Mutter.IdleMonitor") {

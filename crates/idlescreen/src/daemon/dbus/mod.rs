@@ -4,6 +4,10 @@
 //! D-Bus service interfaces for org.freedesktop.ScreenSaver and io.github.idlescreen.Idle.
 
 pub use super::state::ScreenSaverState;
+pub use service::register_dbus_services;
+
+pub mod json_escape;
+pub mod service;
 
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -13,7 +17,7 @@ use zbus::interface;
 #[rustfmt::skip]
 pub const VALID_SAVERS: &[&str] = &[
     "ascii", "superfedora", "tour", "new", "aurora", "beams", "chaos", "cosmos", "radar",
-    "ripple", "plasma", "tunnel", "breakout", "tetris", "pipes", "mystify", "life", "metaballs", "mmx", "zero",
+    "ripple", "plasma", "tunnel", "breakout", "tetris", "pipes", "mystify", "life", "metaballs", "mmx", "moire", "zero",
 ];
 
 pub fn is_valid_saver(name: &str) -> bool {
@@ -44,8 +48,11 @@ pub struct InhibitEntry {
 #[rustfmt::skip]
 impl ScreenSaverState {
     pub fn is_inhibited(&self) -> bool {
+        // The inhibitor snapshot is refreshed by a dedicated thread: probing
+        // forks `busctl`/`pactl`/`hyprctl`, which must never happen on the
+        // event thread.
         self.inhibitors.lock().is_ok_and(|g| !g.is_empty())
-            || (!cfg!(test) && super::watchers::media_inhibit::is_media_or_system_inhibited())
+            || (!cfg!(test) && super::watchers::inhibit_cache::inhibited())
     }
 
     pub fn format_status_json(&self) -> String {
@@ -53,6 +60,9 @@ impl ScreenSaverState {
         let saver = self.current_saver.lock().map_or_else(|_| "ascii".into(), |s| s.clone());
         let inhibited = self.is_inhibited();
         let timeout = self.idle_timeout_secs.load(Ordering::SeqCst);
+        // The saver name comes from user configuration: escape it so one
+        // stray quote cannot break the document.
+        let saver = json_escape::escape(&saver);
         format!("{{\"running\":true,\"active\":{active},\"saver\":\"{saver}\",\"inhibited\":{inhibited},\"timeout\":{timeout}}}")
     }
 
@@ -227,20 +237,4 @@ pub trait IdleClient {
     fn get_text_targets(&self) -> zbus::Result<Vec<String>>;
     fn set_text(&self, text: &str) -> zbus::Result<()>;
     fn list_savers(&self) -> zbus::Result<Vec<String>>;
-}
-
-#[rustfmt::skip]
-pub fn register_dbus_services(state: Arc<ScreenSaverState>) -> Option<zbus::blocking::Connection> {
-    use super::watchers::session::{GnomeClientPrivateInterface, GnomeSessionManagerInterface};
-    let builder = zbus::blocking::connection::Builder::session().ok()?;
-    let conn = builder
-        .name("io.github.idlescreen.Idle").ok()?
-        .serve_at("/io/github/idlescreen/Idle", IdleInterface { state: state.clone() }).ok()?
-        .serve_at("/org/freedesktop/ScreenSaver", ScreenSaverInterface { state: state.clone() }).ok()?
-        .serve_at("/org/gnome/SessionManager", GnomeSessionManagerInterface { state }).ok()?
-        .serve_at("/org/gnome/SessionManager/Client1", GnomeClientPrivateInterface).ok()?
-        .build().ok()?;
-    let _ = conn.request_name("org.freedesktop.ScreenSaver");
-    let _ = conn.request_name("org.gnome.SessionManager");
-    Some(conn)
 }

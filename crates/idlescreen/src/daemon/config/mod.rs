@@ -93,27 +93,45 @@ pub fn parse_targets_from_mode(mode: &str) -> Vec<String> {
 }
 
 impl Config {
-    pub fn load_or_migrate() -> Self {
+    /// Loads the configuration, surfacing read/parse failures instead of
+    /// silently falling back to defaults.
+    ///
+    /// Returns `Err` when `config.toml` exists but cannot be read or
+    /// parsed. Every code path that writes the config back must use this
+    /// variant: a malformed file must never be overwritten with defaults
+    /// (that silently discards the user's settings).
+    pub fn load_checked() -> Result<Self, String> {
         let dir = resolve_config_dir();
         let (toml_p, yaml_p) = (dir.join("config.toml"), dir.join("config.yaml"));
-        if toml_p.exists()
-            && let Ok(s) = fs::read_to_string(&toml_p)
-            && let Ok(mut cfg) = Self::from_toml_str(&s)
-        {
+        if toml_p.exists() {
+            let s = fs::read_to_string(&toml_p)
+                .map_err(|e| format!("failed to read {}: {e}", toml_p.display()))?;
+            let mut cfg = Self::from_toml_str(&s).map_err(|e| {
+                format!(
+                    "failed to parse {}: {e} — fix or remove the file to continue",
+                    toml_p.display()
+                )
+            })?;
             if cfg.saver.ascii.targets.is_empty()
                 || cfg.saver.ascii.mode.trim().eq_ignore_ascii_case("cycle")
             {
                 cfg.saver.ascii.mode = "os".to_string();
                 cfg.saver.ascii.targets = vec!["os".to_string()];
             }
-            return cfg;
+            return Ok(cfg);
         }
         if yaml_p.exists()
             && let Ok(cfg) = migrate_yaml_to_toml(&yaml_p, &toml_p)
         {
-            return cfg;
+            return Ok(cfg);
         }
-        Self::default()
+        Ok(Self::default())
+    }
+
+    /// Read-only load. A malformed config degrades to defaults — use
+    /// `load_checked` on any path that persists the configuration.
+    pub fn load_or_migrate() -> Self {
+        Self::load_checked().unwrap_or_default()
     }
 
     pub fn from_toml_str(s: &str) -> Result<Self, String> {

@@ -8,7 +8,7 @@ use crate::daemon::config::{Config, parse_targets_from_mode, resolve_config_dir}
 use crate::daemon::control_sock::ControlClient;
 
 pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-    let mut config = Config::load_or_migrate();
+    let config = Config::load_or_migrate();
     let state = TriRotationState::default();
 
     if args.is_empty() || (args.len() == 1 && args[0].eq_ignore_ascii_case("status")) {
@@ -56,6 +56,9 @@ pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let toml_path = resolve_config_dir().join("config.toml");
+    // Re-read with errors surfaced: a config we cannot parse must not be
+    // overwritten with defaults.
+    let mut config = Config::load_checked()?;
     config.saver.ascii.targets.clone_from(&raw_targets);
     config.saver.ascii.mode = raw_targets.join(",");
     if config.saver.active.is_none() {

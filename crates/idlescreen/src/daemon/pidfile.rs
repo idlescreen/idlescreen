@@ -8,7 +8,7 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::PathBuf;
 
 use super::control_sock::resolve_runtime_subdir;
@@ -39,6 +39,10 @@ impl PidFile {
                 .write(true)
                 .create(true)
                 .truncate(false)
+                // Refuse to follow a symlink: the pidfile path is inside the
+                // user's runtime dir and must never be written through a
+                // link planted by another process.
+                .custom_flags(libc::O_NOFOLLOW)
                 .open(&path)?;
 
             let raw_fd = file.as_raw_fd();

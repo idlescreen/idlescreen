@@ -49,8 +49,11 @@ pub fn execute_args(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     // 2. Fallback to control socket
     if let Ok(resp) = ControlClient::send_command("status") {
         if json_mode {
+            // The daemon's response is itself a JSON document: embed it as
+            // an escaped string so the result stays parseable.
+            let raw = crate::daemon::dbus::json_escape::escape(resp.trim());
             println!(
-                r#"{{"active":true,"service_active":{service_active},"saver":"ascii","raw":"{resp}"}}"#
+                r#"{{"active":true,"service_active":{service_active},"saver":"ascii","raw":"{raw}"}}"#
             );
         } else {
             println!("IdleScreen Daemon: active (via control socket)");

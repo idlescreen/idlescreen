@@ -17,7 +17,7 @@ pub fn run_doctor_fix() -> Result<(), Box<dyn std::error::Error>> {
 
     let cfg_dir = resolve_config_dir();
     let toml_path = cfg_dir.join("config.toml");
-    let config = Config::load_or_migrate();
+    let config = Config::load_checked()?;
     config.save_to_path(&toml_path)?;
     println!(
         "  [✓] Configuration   : Verified and persisted {}",

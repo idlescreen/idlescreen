@@ -14,7 +14,7 @@ pub const ALL_KNOWN_SAVERS: &[&str] = &[
     "breakout", "bubbles", "burn", "chaos", "colorshift",
     "cosmos", "crumble", "decrypt", "errorcorrect", "expand",
     "fireworks", "highlight", "laseretch", "life", "matrix",
-    "metaballs", "middleout", "mmx", "mystify", "orbittingvolley",
+    "metaballs", "middleout", "mmx", "moire", "mystify", "orbittingvolley",
     "overflow", "pipes", "plasma", "pour", "print",
     "radar", "rain", "randomsequence", "rings", "ripple",
     "scattered", "slice", "slide", "smoke", "spotlights",
@@ -68,9 +68,13 @@ pub fn execute(saver_arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>
     }
 
     let toml_path = resolve_config_dir().join("config.toml");
-    let mut config = Config::load_or_migrate();
+    // Refuse to persist over a config we could not parse: writing defaults
+    // would silently discard the user's settings.
+    let mut config = Config::load_checked()?;
     config.saver.active = Some(canonical.clone());
-    let _ = config.save_to_path(&toml_path);
+    config
+        .save_to_path(&toml_path)
+        .map_err(|e| format!("failed to write {}: {e}", toml_path.display()))?;
 
     if !notified_daemon {
         println!("Active screensaver set to '{canonical}' (saved to config)");
@@ -85,8 +89,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_all_known_savers_contains_presets_and_all_52_scenes() {
-        assert_eq!(ALL_KNOWN_SAVERS.len(), 55);
+    fn test_all_known_savers_contains_presets_and_all_53_scenes() {
+        assert_eq!(ALL_KNOWN_SAVERS.len(), 56);
         assert!(ALL_KNOWN_SAVERS.contains(&"ascii"));
         assert!(ALL_KNOWN_SAVERS.contains(&"superfedora"));
         assert!(ALL_KNOWN_SAVERS.contains(&"tour"));
@@ -101,14 +105,8 @@ mod tests {
 
     #[test]
     fn test_superfedora_unlock_gate_enforcement() {
-        // SAFETY: unit test sets and restores scoped environment variable.
-        unsafe {
-            std::env::set_var("IDLE_SUPERFEDORA", "1");
-        }
+        crate::ascii::sys_info::set_superfedora_override(Some(true));
         assert!(crate::ascii::sys_info::is_superfedora_machine());
-        // SAFETY: unit test restores environment variable.
-        unsafe {
-            std::env::remove_var("IDLE_SUPERFEDORA");
-        }
+        crate::ascii::sys_info::set_superfedora_override(None);
     }
 }

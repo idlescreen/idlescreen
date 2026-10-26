@@ -201,7 +201,7 @@ pub fn toggle_service() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn handle_timeout(arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
-    let mut config = Config::load_or_migrate();
+    let mut config = Config::load_checked()?;
     if let Some(val_str) = arg {
         let mins: u64 = val_str
             .parse()

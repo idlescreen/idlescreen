@@ -6,6 +6,8 @@
 
 #![allow(unsafe_code)]
 
+pub mod capped_cmd;
+pub mod inhibit_cache;
 pub mod media_inhibit;
 pub mod mutter;
 pub mod session;

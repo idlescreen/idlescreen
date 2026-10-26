@@ -9,6 +9,8 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
+use super::capped_cmd::{self, DEFAULT_TIMEOUT};
+
 pub const MEDIA_COOKIE_BASE: u32 = 9000;
 
 /// Checks if an ALSA `/proc/asound/card*/pcm*p/sub*/status` payload reports active DMA playback.
@@ -150,14 +152,14 @@ pub fn extract_mpris_player_name(bus_name: &str) -> String {
 
 #[rustfmt::skip]
 pub fn probe_mpris_playing() -> Vec<(String, String)> {
-    let Ok(out) = Command::new("busctl").env("LC_ALL", "C").args(["--user", "--timeout=500ms", "list", "--acquired", "--no-legend"]).output() else { return Vec::new() };
+    let Some(out) = capped_cmd::run_capped(Command::new("busctl").env("LC_ALL", "C").args(["--user", "--timeout=500ms", "list", "--acquired", "--no-legend"]), DEFAULT_TIMEOUT) else { return Vec::new() };
     if !out.status.success() { return Vec::new(); }
     let mut active = Vec::new();
     for line in String::from_utf8_lossy(&out.stdout).lines() {
         let Some(name) = line.split_whitespace().next() else { continue };
         if !name.starts_with("org.mpris.MediaPlayer2.") || name.ends_with(".playerctld") { continue; }
         let args = ["--user", "--timeout=500ms", "get-property", name, "/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player", "PlaybackStatus"];
-        if let Ok(p) = Command::new("busctl").env("LC_ALL", "C").args(args).output() && p.status.success() && String::from_utf8_lossy(&p.stdout).to_ascii_lowercase().contains("\"playing\"") {
+        if let Some(p) = capped_cmd::run_capped(Command::new("busctl").env("LC_ALL", "C").args(args), DEFAULT_TIMEOUT) && p.status.success() && String::from_utf8_lossy(&p.stdout).to_ascii_lowercase().contains("\"playing\"") {
             active.push((format!("{} (MPRIS)", extract_mpris_player_name(name)), "Media playback active".into()));
         }
     }
@@ -166,11 +168,11 @@ pub fn probe_mpris_playing() -> Vec<(String, String)> {
 
 #[rustfmt::skip]
 pub fn probe_pactl_playing_opt() -> Option<Vec<(String, String)>> {
-    let out = Command::new("pactl").env("LC_ALL", "C").args(["list", "sink-inputs"]).output().ok()?;
+    let out = capped_cmd::run_capped(Command::new("pactl").env("LC_ALL", "C").args(["list", "sink-inputs"]), DEFAULT_TIMEOUT)?;
     if !out.status.success() { return None; }
-    let sinks_out = Command::new("pactl").env("LC_ALL", "C").args(["list", "sinks"]).output().ok();
+    let sinks_out = capped_cmd::run_capped(Command::new("pactl").env("LC_ALL", "C").args(["list", "sinks"]), DEFAULT_TIMEOUT);
     let muted_sinks = sinks_out.as_ref().filter(|o| o.status.success()).map_or_else(Vec::new, |o| parse_pactl_muted_sinks(&String::from_utf8_lossy(&o.stdout)));
-    let src_out = Command::new("pactl").env("LC_ALL", "C").args(["list", "source-outputs"]).output().ok();
+    let src_out = capped_cmd::run_capped(Command::new("pactl").env("LC_ALL", "C").args(["list", "source-outputs"]), DEFAULT_TIMEOUT);
     let has_mic = src_out.as_ref().filter(|o| o.status.success()).is_some_and(|o| has_active_mic_capture(&String::from_utf8_lossy(&o.stdout)));
     Some(filter_pactl_sink_inputs(&String::from_utf8_lossy(&out.stdout), &muted_sinks, has_mic))
 }
@@ -200,7 +202,10 @@ pub fn probe_hyprland_idle_inhibitors() -> Vec<(String, String)> {
     if std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_none() {
         return Vec::new();
     }
-    let Ok(out) = Command::new("hyprctl").args(["clients", "-j"]).output() else {
+    let Some(out) = capped_cmd::run_capped(
+        Command::new("hyprctl").args(["clients", "-j"]),
+        DEFAULT_TIMEOUT,
+    ) else {
         return Vec::new();
     };
     if !out.status.success() {
@@ -221,7 +226,7 @@ pub fn parse_logind_inhibitors_json(json_out: &str) -> Vec<(String, String)> {
 #[rustfmt::skip]
 pub fn probe_logind_idle_inhibitors() -> Vec<(String, String)> {
     let args = ["--system", "--timeout=500ms", "-j", "call", "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "ListInhibitors"];
-    let Ok(out) = Command::new("busctl").env("LC_ALL", "C").args(args).output() else { return Vec::new() };
+    let Some(out) = capped_cmd::run_capped(Command::new("busctl").env("LC_ALL", "C").args(args), DEFAULT_TIMEOUT) else { return Vec::new() };
     if !out.status.success() { return Vec::new(); }
     parse_logind_inhibitors_json(&String::from_utf8_lossy(&out.stdout))
 }

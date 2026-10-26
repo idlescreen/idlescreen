@@ -11,7 +11,7 @@ pub fn save_settings(model: &TuiModel) -> Result<String, String> {
     let cfg_dir = resolve_config_dir();
     let toml_path = cfg_dir.join("config.toml");
 
-    let mut config = Config::load_or_migrate();
+    let mut config = Config::load_checked()?;
 
     let targets = model.active_targets();
     let active_saver = model.active_saver_name().to_string();

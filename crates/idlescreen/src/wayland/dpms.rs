@@ -22,6 +22,10 @@ pub enum OutputPowerMode {
 
 pub struct DpmsController {
     is_sleeping: bool,
+    /// True when the *daemon* asked the outputs to power down. A sleep that
+    /// the compositor initiated (lid close, OSD "turn off display") must not
+    /// be undone by the daemon's own idle timer.
+    client_requested_sleep: bool,
     wake_at: Option<Instant>,
     timeout_secs: u64,
     power_manager: Option<ZwlrOutputPowerManagerV1>,
@@ -38,6 +42,7 @@ impl DpmsController {
     pub fn new() -> Self {
         Self {
             is_sleeping: false,
+            client_requested_sleep: false,
             wake_at: None,
             timeout_secs: 0,
             power_manager: None,
@@ -96,7 +101,10 @@ impl DpmsController {
 
     /// Updates internal sleep/debounce state from compositor `mode` event without echoing `set_mode`.
     pub fn on_compositor_mode(&mut self, mode: OutputPowerMode) -> bool {
-        self.apply_mode_state(mode)
+        let changed = self.apply_mode_state(mode);
+        // The compositor drove this transition: the daemon must not undo it.
+        self.client_requested_sleep = false;
+        changed
     }
 
     /// Handles compositor `failed` event on an output power control object.
@@ -115,6 +123,12 @@ impl DpmsController {
     /// or wakes outputs if DPMS was disabled/extended live while sleeping.
     pub fn check_idle_sleep(&mut self, presentation_elapsed: Duration) -> bool {
         if self.is_sleeping {
+            // A sleep the compositor started (lid close, OSD power-off) is
+            // not ours to undo: only a sleep we requested ourselves may be
+            // re-armed or ended by the idle timer.
+            if !self.client_requested_sleep {
+                return false;
+            }
             if self.timeout_secs == 0
                 || presentation_elapsed < Duration::from_secs(self.timeout_secs)
             {
@@ -164,10 +178,12 @@ impl DpmsController {
         match mode {
             OutputPowerMode::Off => {
                 self.is_sleeping = true;
+                self.client_requested_sleep = true;
                 self.wake_at = None;
                 false
             }
             OutputPowerMode::On => {
+                self.client_requested_sleep = false;
                 if self.is_sleeping {
                     self.is_sleeping = false;
                     self.wake_at = Some(Instant::now() + DPMS_WAKE_DEBOUNCE);
@@ -224,20 +240,29 @@ mod tests {
     fn test_dpms_destroy_and_live_disable_wake() {
         let mut dpms = DpmsController::new();
         dpms.set_timeout_secs(300);
+
+        // A compositor-initiated power-off (lid close, compositor OSD) is not
+        // the daemon's to undo: the idle timer must leave it alone.
         dpms.on_compositor_mode(OutputPowerMode::Off);
         assert!(dpms.is_sleeping());
+        assert!(!dpms.check_idle_sleep(Duration::from_mins(2)));
+        assert!(dpms.is_sleeping());
 
-        // Extending timeout above elapsed time wakes sleeping outputs
+        // A sleep the daemon requested itself is woken when the timeout is
+        // extended past the elapsed presentation time.
+        dpms.set_power_mode(OutputPowerMode::On);
+        dpms.set_power_mode(OutputPowerMode::Off);
+        assert!(dpms.is_sleeping());
         assert!(dpms.check_idle_sleep(Duration::from_mins(2)));
         assert!(!dpms.is_sleeping());
 
         // Disabling timeout (0) while sleeping wakes outputs
-        dpms.on_compositor_mode(OutputPowerMode::Off);
+        dpms.set_power_mode(OutputPowerMode::Off);
         dpms.set_timeout_secs(0);
         assert!(dpms.check_idle_sleep(Duration::from_mins(15)));
         assert!(!dpms.is_sleeping());
 
-        dpms.on_compositor_mode(OutputPowerMode::Off);
+        dpms.set_power_mode(OutputPowerMode::Off);
         assert!(dpms.is_sleeping());
         dpms.destroy();
         assert!(!dpms.is_sleeping());
