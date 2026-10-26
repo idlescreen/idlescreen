@@ -27,12 +27,35 @@ jobs:
       contents: write
       id-token: write
     steps:
+      - name: Skip when the release tag no longer exists
+        id: gate
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Deleting a release tag fires this workflow's tag trigger, and
+          # checking out a tag that is gone fails the job with an error
+          # that looks like a broken build. A retracted release is not a
+          # broken build: skip it. A dispatch that names a tag which does
+          # not exist is an operator error, and still fails.
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq .ref >/dev/null 2>&1; then
+            echo "build=yes" >> "$GITHUB_OUTPUT"
+          elif [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            echo "::error::tag ${RELEASE_TAG} does not exist"
+            exit 1
+          else
+            echo "::notice::tag ${RELEASE_TAG} no longer exists - the release was retracted, there is nothing to build"
+            echo "build=no" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        if: steps.gate.outputs.build == 'yes'
         with:
           ref: ${{ inputs.tag || github.ref_name }}
 
       - name: Skip if already in packages pool
         id: plan
+        if: steps.gate.outputs.build == 'yes'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
