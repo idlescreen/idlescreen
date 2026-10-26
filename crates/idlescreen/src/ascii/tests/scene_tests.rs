@@ -18,11 +18,11 @@ const ALL_37_TTFX_NAMES: &[&str] = &[
 ];
 
 #[rustfmt::skip]
-const ALL_52_NAMES: &[&str] = &[
+const ALL_53_NAMES: &[&str] = &[
     "aurora", "beams", "binarypath", "blackhole", "bouncyballs", "breakout",
     "bubbles", "burn", "chaos", "colorshift", "cosmos", "crumble",
     "decrypt", "errorcorrect", "expand", "fireworks", "highlight", "laseretch",
-    "life", "matrix", "metaballs", "middleout", "mmx", "mystify",
+    "life", "matrix", "metaballs", "middleout", "mmx", "moire", "mystify",
     "orbittingvolley", "overflow", "pipes", "plasma", "pour", "print",
     "radar", "rain", "randomsequence", "rings", "ripple", "scattered",
     "slice", "slide", "smoke", "spotlights", "spray", "swarm",
@@ -31,11 +31,11 @@ const ALL_52_NAMES: &[&str] = &[
 ];
 
 #[test]
-fn all_52_effects_can_be_parsed() {
-    assert_eq!(ALL_52_NAMES.len(), 52);
-    assert_eq!(EffectKind::ALL.len(), 52);
-    assert_eq!(EffectKind::NEW_SCENES.len(), 13);
-    for name in ALL_52_NAMES {
+fn all_53_effects_can_be_parsed() {
+    assert_eq!(ALL_53_NAMES.len(), 53);
+    assert_eq!(EffectKind::ALL.len(), 53);
+    assert_eq!(EffectKind::NEW_SCENES.len(), 14);
+    for name in ALL_53_NAMES {
         let kind = EffectKind::parse(name);
         assert!(kind.is_some(), "EffectKind::parse failed for {name}");
         assert_eq!(kind.unwrap().name(), *name);
@@ -50,13 +50,13 @@ fn all_52_effects_can_be_parsed() {
 }
 
 #[test]
-fn playlist_rotates_all_52_effects_without_immediate_repeats() {
+fn playlist_rotates_all_53_effects_without_immediate_repeats() {
     let mut rng = LcgRng::new(42);
     let mut playlist = super::super::effects::EffectPlaylist::new();
     let mut last = None;
     for _ in 0..30 {
-        let mut cycle = Vec::with_capacity(52);
-        for _ in 0..52 {
+        let mut cycle = Vec::with_capacity(53);
+        for _ in 0..53 {
             let eff = playlist.next_effect(&mut rng);
             if let Some(prev) = last {
                 assert_ne!(eff, prev, "no immediate repeat across cycles");
@@ -66,12 +66,12 @@ fn playlist_rotates_all_52_effects_without_immediate_repeats() {
         }
         cycle.sort_by_key(EffectKind::name);
         cycle.dedup();
-        assert_eq!(cycle.len(), 52, "all 52 effects must play in each cycle");
+        assert_eq!(cycle.len(), 53, "all 53 effects must play in each cycle");
     }
 }
 
 #[test]
-fn all_52_decomposed_scenes_can_build_and_render_frames() {
+fn all_53_decomposed_scenes_can_build_and_render_frames() {
     let art_data = "IDLESCREEN\nSCREENSAVER";
     for kind in EffectKind::ALL {
         let mut effect = crate::ascii::scenes::create_scene(kind);
@@ -182,7 +182,7 @@ fn zero_alloc_steady_state() {
 }
 
 #[test]
-fn tour_mode_rotates_through_all_52_scenes_on_dwell() {
+fn tour_mode_rotates_through_all_53_scenes_on_dwell() {
     let (cols, rows) = (80, 24);
     let mut saver = super::super::Ascii::new().with_dwell(0.5);
     saver.enable_tour_mode();
@@ -198,7 +198,7 @@ fn tour_mode_rotates_through_all_52_scenes_on_dwell() {
     assert_eq!(saver.effect, EffectKind::ALL[0]);
 
     saver.step_effect(&EffectKind::ALL, -1);
-    assert_eq!(saver.effect, EffectKind::ALL[51]);
+    assert_eq!(saver.effect, EffectKind::ALL[52]);
     saver.step_effect(&EffectKind::ALL, 1);
     assert_eq!(saver.effect, EffectKind::ALL[0]);
 }

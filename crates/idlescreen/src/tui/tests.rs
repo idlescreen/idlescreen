@@ -220,7 +220,7 @@ fn test_format_inhibitor_summary_extracts_app_names() {
     );
     assert_eq!(
         format_saver_display("tour"),
-        "tour (All 52 Arcade Scenes in Order 1-52)"
+        "tour (All 53 Arcade Scenes in Order 1-53)"
     );
 
     let mut cfg = Config::default();

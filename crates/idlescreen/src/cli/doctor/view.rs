@@ -69,7 +69,7 @@ pub fn print_concise(r: &DoctorReport) {
         |p| format!("{} ({tag})", p.display()),
     );
     println!("  [✓] Configuration   : {cfg_str}");
-    println!("  [✓] Savers Engine   : built-in 16-bit arcade engine (52 scenes)");
+    println!("  [✓] Savers Engine   : built-in 16-bit arcade engine (53 scenes)");
 
     let shm_str = if r.shm_writable {
         "/dev/shm writable"
@@ -198,7 +198,7 @@ pub fn print_verbose(r: &DoctorReport) {
         r.active_saver, r.mode_desc, r.dwell_secs, r.timeout_secs
     );
     println!(
-        "  [✓] Built-in Engine: 16-bit arcade animation engine (52 scenes)\n\nPermissions & IPC:"
+        "  [✓] Built-in Engine: 16-bit arcade animation engine (53 scenes)\n\nPermissions & IPC:"
     );
     let (shm_m, shm_d) = if r.shm_writable {
         ("✓", "writable (wl_shm ready)")
@@ -225,7 +225,7 @@ pub fn print_json(r: &DoctorReport) {
         .map_or_else(String::new, |p| p.display().to_string());
     let pid = r.daemon_pid.unwrap_or(0);
     println!(
-        r#"{{"nominal":{nominal},"session":{{"wayland_display":"{disp}","desktop":"{de}","runtime_dir_ok":{},"runtime_env":"{}"}},"presenter":{{"ok":{},"debounce_ms":{},"note":"{}"}},"daemon":{{"running":{},"pid":{pid},"control_active":{},"dbus_service_active":{},"systemd_active":{},"inhibited":{}}},"config":{{"path":"{cfg}","is_toml":{},"active_saver":"{}","timeout_secs":{},"dwell_secs":{:.1}}},"savers":{{"builtin_ascii":true,"scenes":52}},"system":{{"shm_writable":{},"session_bus_connected":{}}}}}"#,
+        r#"{{"nominal":{nominal},"session":{{"wayland_display":"{disp}","desktop":"{de}","runtime_dir_ok":{},"runtime_env":"{}"}},"presenter":{{"ok":{},"debounce_ms":{},"note":"{}"}},"daemon":{{"running":{},"pid":{pid},"control_active":{},"dbus_service_active":{},"systemd_active":{},"inhibited":{}}},"config":{{"path":"{cfg}","is_toml":{},"active_saver":"{}","timeout_secs":{},"dwell_secs":{:.1}}},"savers":{{"builtin_ascii":true,"scenes":53}},"system":{{"shm_writable":{},"session_bus_connected":{}}}}}"#,
         r.runtime_dir_ok,
         r.runtime_env,
         r.wayland_presenter_ok,

@@ -210,9 +210,22 @@ fn test_hdr_10bit_packing_4k_viewport_and_glyph_styles() {
     );
 
     // 1080p uses 1x native grid (960x576), 4K (3840x2160) uses 2x Hi-Res grid (1920x1152)
-    assert_eq!(viewport_buffer_dimensions(1920, 1080, 120, 36), (960, 576));
     assert_eq!(
-        viewport_buffer_dimensions(3840, 2160, 120, 36),
+        viewport_buffer_dimensions(1920, 1080, 120, 36, 120),
+        (960, 576)
+    );
+    assert_eq!(
+        viewport_buffer_dimensions(3840, 2160, 120, 36, 120),
+        (1920, 1152)
+    );
+    // A compositor-reported scale above 100% sizes the buffer with the
+    // standard fractional-scale rounding instead of the 4K heuristic.
+    assert_eq!(
+        viewport_buffer_dimensions(1920, 1080, 120, 36, 150),
+        (1200, 720)
+    );
+    assert_eq!(
+        viewport_buffer_dimensions(1920, 1080, 120, 36, 240),
         (1920, 1152)
     );
 

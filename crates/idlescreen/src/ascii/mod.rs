@@ -2,7 +2,7 @@
 // Copyright 2026 IdleScreen
 
 //! Built-in ASCII screensaver engine with dynamic tri-rotation mutation
-//! and 52 genuine 16-bit arcade visual text effects.
+//! and 53 genuine 16-bit arcade visual text effects.
 
 pub mod draw;
 pub mod effects;

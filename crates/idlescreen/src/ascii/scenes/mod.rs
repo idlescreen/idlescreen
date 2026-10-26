@@ -5,6 +5,7 @@ pub mod beams_light;
 pub mod canvas_ops;
 pub mod matrix_cyber;
 pub mod motion_wipe;
+pub mod optics;
 pub mod particles_fire;
 pub mod physics_fields;
 pub mod weather_nature;
@@ -14,6 +15,7 @@ pub use matrix_cyber::{
     binarypath, decrypt, errorcorrect, matrix, print_effect, random_sequence, vhstape,
 };
 pub use motion_wipe::{colorshift, expand, middleout, slice, slide, sweep, wipe};
+pub use optics::moire;
 pub use particles_fire::{bubbles, burn, crumble, fireworks, pour, smoke};
 pub use physics_fields::{
     blackhole, bouncyballs, orbittingvolley, overflow, scattered, swarm, unstable,
@@ -50,6 +52,7 @@ pub fn create_scene(kind: EffectKind) -> Box<dyn Effect> {
         EffectKind::Matrix => Box::new(matrix::Matrix::default()),
         EffectKind::Metaballs => Box::new(metaballs::Metaballs::default()),
         EffectKind::Middleout => Box::new(middleout::Middleout::default()),
+        EffectKind::Moire => Box::new(moire::Moire::default()),
         EffectKind::Mmx => Box::new(mmx::Mmx::default()),
         EffectKind::Mystify => Box::new(mystify::Mystify::default()),
         EffectKind::Orbittingvolley => Box::new(orbittingvolley::OrbittingVolley::default()),

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! State model and business logic for the settings TUI with 52-scene selector and live status.
+//! State model and business logic for the settings TUI with 53-scene selector and live status.
 
 pub use super::mode_choice::{
     FPS_PRESETS, ModeChoice, TOTAL_FIELDS, TuiField, build_available_savers, char_to_byte_idx,

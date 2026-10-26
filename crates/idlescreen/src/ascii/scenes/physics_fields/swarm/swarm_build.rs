@@ -9,8 +9,12 @@ impl Swarm {
             if !self.swarms.is_empty() && self.call_next {
                 self.call_next = false;
                 self.current_swarm = self.swarms.pop()?;
-                self.active_swarm_area = "0_swarm_area".to_string();
-                for &id in &self.current_swarm.clone() {
+                // Reuse the existing allocation: the steady-state path must
+                // not allocate per frame.
+                self.active_swarm_area.clear();
+                self.active_swarm_area.push_str("0_swarm_area");
+                for i in 0..self.current_swarm.len() {
+                    let id = self.current_swarm[i];
                     ctx.activate_path(self, id, "0_swarm_area");
                     ctx.terminal.set_character_visibility(id, true);
                     ctx.active_characters.insert(id);
@@ -21,23 +25,33 @@ impl Swarm {
                 self.call_next = true;
             }
             if !self.current_swarm.is_empty() {
-                for i in 0..self.current_swarm.len() {
-                    let id = self.current_swarm[i];
-                    let active_path_id =
-                        ctx.terminal.arena[id.0 as usize].motion.active_path.clone();
-                    if let Some(path_id) = active_path_id
-                        && path_id.as_ref() != self.active_swarm_area
-                        && path_id.contains("swarm_area")
-                        && first_char_digit(&path_id) > first_char_digit(&self.active_swarm_area)
-                    {
-                        self.active_swarm_area = path_id.to_string();
-                        for &other in &self.current_swarm.clone() {
-                            if other != id && ctx.rng.random() < self.config.swarm_coordination {
-                                let area = self.active_swarm_area.clone();
-                                ctx.activate_path(self, other, &area);
-                            }
+                // Find the member that reached the next swarm area. The
+                // borrow of the arena ends before the mutation below, so the
+                // per-member path no longer has to be cloned every frame.
+                let mut next_area: Option<(usize, String)> = None;
+                {
+                    let arena = &ctx.terminal.arena;
+                    for i in 0..self.current_swarm.len() {
+                        let id = self.current_swarm[i];
+                        let path_id = &arena[id.0 as usize].motion.active_path;
+                        if let Some(path_id) = path_id
+                            && path_id.as_ref() != self.active_swarm_area
+                            && path_id.contains("swarm_area")
+                            && first_char_digit(path_id) > first_char_digit(&self.active_swarm_area)
+                        {
+                            next_area = Some((i, path_id.to_string()));
+                            break;
                         }
-                        break;
+                    }
+                }
+                if let Some((idx, area)) = next_area {
+                    let id = self.current_swarm[idx];
+                    self.active_swarm_area.clone_from(&area);
+                    for i in 0..self.current_swarm.len() {
+                        let other = self.current_swarm[i];
+                        if other != id && ctx.rng.random() < self.config.swarm_coordination {
+                            ctx.activate_path(self, other, &area);
+                        }
                     }
                 }
             }

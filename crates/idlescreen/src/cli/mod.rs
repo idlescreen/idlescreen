@@ -27,7 +27,7 @@ pub fn print_help() {
     println!("  tui               Interactive settings dashboard for screensaver and timeouts");
     println!("  preview [saver]   Preview screensaver on Wayland display or in terminal");
     println!("  text [targets]    Set or inspect ASCII text targets (e.g. os, custom, status)");
-    println!("  list              List available 52-scene 16-bit arcade screensavers");
+    println!("  list              List available 53-scene 16-bit arcade screensavers");
     println!("  set <saver>       Set active screensaver (e.g. ascii, tour, aurora, plasma)");
     println!(
         "  start [options]   Activate screensaver immediately (--on-idle respects inhibitors)"

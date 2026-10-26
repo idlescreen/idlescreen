@@ -104,8 +104,8 @@ pub fn resolve_initial_mode_and_text(config: &Config, detected_os: &str) -> (Mod
 pub fn format_saver_display(name: &str) -> String {
     match name {
         "superfedora" => "superfedora (16-Bit SuperFedora Arcade)".to_string(),
-        "ascii" => "ascii (All 52 Arcade Scenes Shuffled)".to_string(),
-        "tour" => "tour (All 52 Arcade Scenes in Order 1-52)".to_string(),
+        "ascii" => "ascii (All 53 Arcade Scenes Shuffled)".to_string(),
+        "tour" => "tour (All 53 Arcade Scenes in Order 1-53)".to_string(),
         "mmx" => "mmx (16-Bit SNES Mega Man X Scene)".to_string(),
         "zero" => "zero (16-Bit SNES Mega Man X Zero Scene)".to_string(),
         scene => {

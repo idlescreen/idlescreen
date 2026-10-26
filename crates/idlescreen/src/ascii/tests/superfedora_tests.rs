@@ -22,15 +22,15 @@ fn test_clean_os_name_superfedora() {
 
 #[test]
 fn test_is_superfedora_machine_probe() {
-    // SAFETY: unit test sets and restores scoped environment variable.
-    unsafe {
-        std::env::set_var("IDLE_SUPERFEDORA", "1");
-    }
+    super::super::sys_info::set_superfedora_override(Some(true));
     assert!(super::super::sys_info::is_superfedora_machine());
-    // SAFETY: unit test restores environment variable.
-    unsafe {
-        std::env::remove_var("IDLE_SUPERFEDORA");
-    }
+    super::super::sys_info::set_superfedora_override(None);
+    // The override is thread-scoped: it must not leak into other threads.
+    assert!(
+        std::thread::spawn(super::super::sys_info::is_superfedora_machine)
+            .join()
+            .is_ok()
+    );
 }
 
 #[test]
@@ -66,10 +66,7 @@ fn test_superfedora_banner_stacked_rendering() {
 
 #[test]
 fn test_ascii_new_superfedora() {
-    // SAFETY: unit test sets and restores scoped environment variable.
-    unsafe {
-        std::env::set_var("IDLE_SUPERFEDORA", "1");
-    }
+    super::super::sys_info::set_superfedora_override(Some(true));
 
     let mut saver = Ascii::new_superfedora();
     assert_eq!(saver.fg, (81, 162, 218));
@@ -105,10 +102,9 @@ fn test_ascii_new_superfedora() {
         "all rendered cells in 80x24 must be pure pixel-art block elements"
     );
 
-    // SAFETY: unit test restores environment variable.
-    unsafe {
-        std::env::remove_var("IDLE_SUPERFEDORA");
-    }
+    // The override only applies to this thread, so clearing it here leaves
+    // every other test unaffected.
+    super::super::sys_info::set_superfedora_override(None);
 }
 
 #[test]
@@ -131,20 +127,20 @@ fn superfedora_rotates_scenes_past_dwell_without_pinning() {
 }
 
 #[test]
-fn superfedora_rotates_through_all_52_distinct_scenes_and_randomizes_start() {
+fn superfedora_rotates_through_all_53_distinct_scenes_and_randomizes_start() {
     let mut saver = Ascii::new_superfedora();
     assert!(EffectKind::ALL.contains(&saver.effect));
     let mut seen = std::collections::HashSet::new();
     seen.insert(saver.effect);
-    for _ in 1..52 {
+    for _ in 1..53 {
         saver.cycle_effect();
         assert!(
             seen.insert(saver.effect),
-            "effect {:?} was repeated before all 52 played",
+            "effect {:?} was repeated before all 53 played",
             saver.effect
         );
     }
-    assert_eq!(seen.len(), 52);
+    assert_eq!(seen.len(), 53);
     let last_effect = saver.effect;
     saver.cycle_effect();
     assert_ne!(
@@ -162,13 +158,13 @@ fn superfedora_rotates_through_all_52_distinct_scenes_and_randomizes_start() {
 }
 
 #[test]
-fn all_52_scenes_render_strictly_pixel_art_blocks_with_superfedora_banner() {
+fn all_53_scenes_render_strictly_pixel_art_blocks_with_superfedora_banner() {
     let (cols, rows) = (120, 36);
     let mut saver = Ascii::new_superfedora();
     saver.init(cols, rows);
     let mut grid = vec![TerminalCell::default(); cols * rows];
 
-    assert_eq!(EffectKind::ALL.len(), 52);
+    assert_eq!(EffectKind::ALL.len(), 53);
     for &kind in &EffectKind::ALL {
         saver.pin_effect(kind);
         assert_eq!(saver.rotation.active_text(), "SUPERFEDORA");

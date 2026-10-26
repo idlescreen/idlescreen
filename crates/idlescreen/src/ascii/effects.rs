@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! Effect identity and dispatch for all 52 built-in 16-bit arcade visual scenes.
+//! Effect identity and dispatch for all 53 built-in 16-bit arcade visual scenes.
 
 use crate::cell::LcgRng;
 
-/// The 52 visual effects supported by IdleScreen's built-in 16-bit arcade engine.
+/// The 53 visual effects supported by IdleScreen's built-in 16-bit arcade engine.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 #[rustfmt::skip]
 pub enum EffectKind {
     Aurora, Beams, Binarypath, Blackhole, Bouncyballs, Breakout, Bubbles, Burn,
     Chaos, Colorshift, Cosmos, Crumble, Decrypt, Errorcorrect, Expand, Fireworks,
-    Highlight, Laseretch, Life, Matrix, Metaballs, Middleout, Mmx, Mystify,
+    Highlight, Laseretch, Life, Matrix, Metaballs, Middleout, Mmx, Moire, Mystify,
     Orbittingvolley, Overflow, Pipes, Plasma, Pour, Print, Radar, Rain,
     Randomsequence, Rings, Ripple, Scattered, Slice, Slide, Smoke, Spotlights,
     Spray, Swarm, Sweep, Synthgrid, Tetris, Thunderstorm, Tunnel, Unstable,
@@ -20,12 +20,13 @@ pub enum EffectKind {
 
 impl EffectKind {
     #[rustfmt::skip]
-    pub const ALL: [EffectKind; 52] = [
+    pub const ALL: [EffectKind; 53] = [
         Self::Aurora, Self::Beams, Self::Binarypath, Self::Blackhole, Self::Bouncyballs,
         Self::Breakout, Self::Bubbles, Self::Burn, Self::Chaos, Self::Colorshift,
         Self::Cosmos, Self::Crumble, Self::Decrypt, Self::Errorcorrect, Self::Expand,
         Self::Fireworks, Self::Highlight, Self::Laseretch, Self::Life, Self::Matrix,
-        Self::Metaballs, Self::Middleout, Self::Mmx, Self::Mystify, Self::Orbittingvolley,
+        Self::Metaballs, Self::Middleout, Self::Mmx, Self::Moire, Self::Mystify,
+        Self::Orbittingvolley,
         Self::Overflow, Self::Pipes, Self::Plasma, Self::Pour, Self::Print,
         Self::Radar, Self::Rain, Self::Randomsequence, Self::Rings, Self::Ripple,
         Self::Scattered, Self::Slice, Self::Slide, Self::Smoke, Self::Spotlights,
@@ -35,10 +36,10 @@ impl EffectKind {
     ];
 
     #[rustfmt::skip]
-    pub const NEW_SCENES: [EffectKind; 13] = [
+    pub const NEW_SCENES: [EffectKind; 14] = [
         Self::Aurora, Self::Breakout, Self::Chaos, Self::Cosmos, Self::Life,
         Self::Metaballs, Self::Mystify, Self::Pipes, Self::Plasma, Self::Radar,
-        Self::Ripple, Self::Tetris, Self::Tunnel,
+        Self::Ripple, Self::Tetris, Self::Tunnel, Self::Moire,
     ];
 
     pub fn step_in_roster(self, roster: &[EffectKind], delta: i32) -> EffectKind {
@@ -93,6 +94,7 @@ impl EffectKind {
             Self::Metaballs => "metaballs",
             Self::Middleout => "middleout",
             Self::Mmx => "mmx",
+            Self::Moire => "moire",
             Self::Mystify => "mystify",
             Self::Orbittingvolley => "orbittingvolley",
             Self::Overflow => "overflow",
@@ -138,9 +140,9 @@ impl EffectKind {
     pub fn arcade_steps_per_frame(&self) -> usize {
         match self {
             Self::Wipe | Self::Aurora | Self::Breakout | Self::Chaos | Self::Cosmos
-            | Self::Life | Self::Metaballs | Self::Mmx | Self::Mystify | Self::Pipes
-            | Self::Plasma | Self::Radar | Self::Ripple | Self::Tetris | Self::Tunnel
-            | Self::Zero => 1,
+            | Self::Life | Self::Metaballs | Self::Mmx | Self::Moire | Self::Mystify
+            | Self::Pipes | Self::Plasma | Self::Radar | Self::Ripple | Self::Tetris
+            | Self::Tunnel | Self::Zero => 1,
             Self::Slide | Self::Slice | Self::Sweep | Self::Expand
             | Self::Middleout | Self::Highlight | Self::Overflow => 2,
             Self::Spotlights | Self::Matrix | Self::Rings | Self::Synthgrid
@@ -157,7 +159,7 @@ impl EffectKind {
 
 #[derive(Clone, Debug)]
 pub struct EffectPlaylist {
-    order: [EffectKind; 52],
+    order: [EffectKind; 53],
     cursor: usize,
     last: Option<EffectKind>,
 }
@@ -176,7 +178,7 @@ impl EffectPlaylist {
     pub fn new_with_last(last: Option<EffectKind>) -> Self {
         Self {
             order: EffectKind::ALL,
-            cursor: 52,
+            cursor: 53,
             last,
         }
     }

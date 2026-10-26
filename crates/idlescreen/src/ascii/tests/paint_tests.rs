@@ -26,9 +26,9 @@ fn test_place_banner_centered() {
 }
 
 #[test]
-fn new_13_scenes_complete_in_64_frames_with_block_elements() {
+fn new_14_scenes_complete_in_64_frames_with_block_elements() {
     let art_data = "█████\n█   █\n█████";
-    assert_eq!(EffectKind::NEW_SCENES.len(), 13);
+    assert_eq!(EffectKind::NEW_SCENES.len(), 14);
     for &kind in &EffectKind::NEW_SCENES {
         let mut effect = crate::ascii::scenes::create_scene(kind);
         let config = ttfx::engine::terminal::TerminalConfig {
@@ -80,7 +80,7 @@ fn test_draw_preview_hud_and_glyph_blitting() {
         .map(|cell| cell.ch)
         .collect();
     assert!(
-        bottom_row.contains("SCENE 28/52: PLASMA"),
+        bottom_row.contains("SCENE 29/53: PLASMA"),
         "bottom row was: {bottom_row:?}"
     );
     assert!(bottom_row.contains("[←/→: STEP | Q/ESC: EXIT]"));
@@ -91,7 +91,7 @@ fn test_draw_preview_hud_and_glyph_blitting() {
         .map(|cell| cell.ch)
         .collect();
     assert!(
-        tour_row.contains("TOUR 01/52: AURORA"),
+        tour_row.contains("TOUR 01/53: AURORA"),
         "tour row was: {tour_row:?}"
     );
 
@@ -101,7 +101,7 @@ fn test_draw_preview_hud_and_glyph_blitting() {
         .map(|cell| cell.ch)
         .collect();
     assert!(
-        tour_end_row.contains("TOUR 52/52: ZERO"),
+        tour_end_row.contains("TOUR 53/53: ZERO"),
         "tour end row was: {tour_end_row:?}"
     );
 
