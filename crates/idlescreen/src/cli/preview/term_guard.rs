@@ -44,6 +44,11 @@ pub enum TermEvent { Key(KeyEvent), Resize(u16, u16) }
 
 static PENDING_BYTES: Mutex<Vec<u8>> = Mutex::new(Vec::new());
 
+/// Latched once stdin reaches EOF. Sources such as /dev/null are always
+/// reported as readable by poll() while read() keeps returning 0 bytes, so
+/// without this latch every poll would look like pending input forever.
+static STDIN_EOF: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub fn terminal_size() -> Option<(u16, u16)> {
     for fd in [stdout().as_raw_fd(), stdin().as_raw_fd(), 2] {
         // SAFETY: `ws` is zero-initialized and passed to `ioctl(TIOCGWINSZ)`.
@@ -66,13 +71,22 @@ fn poll_stdin_ms(ms: i32) -> bool {
 }
 
 pub fn poll_input(timeout: Duration) -> bool {
+    if STDIN_EOF.load(std::sync::atomic::Ordering::Relaxed) {
+        return false;
+    }
     PENDING_BYTES.lock().is_ok_and(|q| !q.is_empty())
         || poll_stdin_ms(i32::try_from(timeout.as_millis()).unwrap_or(i32::MAX))
 }
 
 fn read_stdin(dst: &mut [u8]) -> isize {
     // SAFETY: `dst` is a valid mutable byte slice passed to `libc::read` on `STDIN_FILENO`.
-    unsafe { libc::read(libc::STDIN_FILENO, dst.as_mut_ptr().cast(), dst.len()) }
+    let n = unsafe { libc::read(libc::STDIN_FILENO, dst.as_mut_ptr().cast(), dst.len()) };
+    if n == 0 {
+        // A genuine end-of-file: latch it so poll() no longer reports the
+        // always-readable descriptor as pending input.
+        STDIN_EOF.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+    n
 }
 
 pub fn read_event() -> std::io::Result<TermEvent> {

@@ -125,9 +125,35 @@ fn uname_sysname() -> Option<String> {
     }
 }
 
+thread_local! {
+    /// Per-thread override for the SuperFedora gate.
+    ///
+    /// Production code leaves this unset, so the environment and the
+    /// filesystem probe decide. Tests set it on their own thread: a
+    /// process-global environment variable would otherwise be observed by
+    /// every test running in parallel, which made unrelated renders
+    /// non-deterministic.
+    static SUPERFEDORA_OVERRIDE: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
+}
+
+/// Forces the SuperFedora gate for the current thread only.
+///
+/// `None` restores environment/filesystem detection.
+pub fn set_superfedora_override(value: Option<bool>) {
+    SUPERFEDORA_OVERRIDE.with(|c| c.set(value));
+}
+
+/// Returns the current thread's SuperFedora override, if any.
+pub fn superfedora_override() -> Option<bool> {
+    SUPERFEDORA_OVERRIDE.with(std::cell::Cell::get)
+}
+
 /// Probes system markers to determine if IdleScreen is installed and run on a SuperFedora workstation.
 /// Caches the filesystem probe in `OnceLock` and excludes generic `sf` binaries (B4, §3.2 #5).
 pub fn is_superfedora_machine() -> bool {
+    if let Some(forced) = superfedora_override() {
+        return forced;
+    }
     for key in ["SUPERFEDORA", "IDLE_SUPERFEDORA"] {
         if let Ok(v) = std::env::var(key) {
             let t = v.trim();

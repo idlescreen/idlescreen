@@ -6,7 +6,10 @@ pub mod notify_probe;
 pub mod stat_probe;
 pub mod syslog_probe;
 
-pub use env_mock::{InitEnvironment, InitSystem, detect_mock_init, safe_exec_supervisor};
+pub use env_mock::{
+    InitEnvironment, InitSystem, detect_mock_init, repo_root, safe_exec_supervisor,
+    service_template_path, supervisor_binary,
+};
 pub use notify_probe::{NotifySocketProbe, PipeReadinessProbe, emit_notify_socket};
 pub use stat_probe::{
     ClockSample, compute_cpu_seconds, detect_suspend_divergence, parse_cgroup_v2_path,

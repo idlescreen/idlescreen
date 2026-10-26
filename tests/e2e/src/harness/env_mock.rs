@@ -84,14 +84,7 @@ pub fn safe_exec_supervisor(
     unit: &str,
     bin_path: Option<&Path>,
 ) -> Result<String, String> {
-    let binary = match init {
-        InitSystem::Systemd => "systemctl",
-        InitSystem::OpenRc => "rc-service",
-        InitSystem::Runit => "sv",
-        InitSystem::Dinit => "dinitctl",
-        InitSystem::S6 => "s6-rc",
-        InitSystem::Standalone => "idlescreen",
-    };
+    let binary = supervisor_binary(init);
 
     let bin_exists = if let Some(dir) = bin_path {
         dir.join(binary).exists()
@@ -106,4 +99,40 @@ pub fn safe_exec_supervisor(
     }
 
     Ok(format!("success:{binary}:{verb}:{unit}"))
+}
+
+/// The supervisor binary that drives each init system.
+pub fn supervisor_binary(init: InitSystem) -> &'static str {
+    match init {
+        InitSystem::Systemd => "systemctl",
+        InitSystem::OpenRc => "rc-service",
+        InitSystem::Runit => "sv",
+        InitSystem::Dinit => "dinitctl",
+        InitSystem::S6 => "s6-rc",
+        InitSystem::Standalone => "idlescreen",
+    }
+}
+
+/// Repository-relative path of the service template shipped for `init`.
+///
+/// `None` means the init system needs no template: standalone mode runs the
+/// daemon directly.
+pub fn service_template_path(init: InitSystem) -> Option<&'static str> {
+    match init {
+        InitSystem::Systemd => Some("assets/idlescreen.service"),
+        InitSystem::OpenRc => Some("assets/services/idlescreen.openrc"),
+        InitSystem::Runit => Some("assets/services/idlescreen.runit"),
+        InitSystem::Dinit => Some("assets/services/idlescreen.dinit"),
+        InitSystem::S6 => Some("assets/services/idlescreen.s6-run"),
+        InitSystem::Standalone => None,
+    }
+}
+
+/// Root of the IdleScreen repository under test.
+pub fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .canonicalize()
+        .unwrap_or_else(|_| Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
 }

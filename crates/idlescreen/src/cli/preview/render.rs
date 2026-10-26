@@ -15,6 +15,9 @@ use crate::ascii::state::TextMode;
 use crate::cell::TerminalCell;
 use crate::daemon::config::Config;
 
+/// Upper bound on keystrokes drained before the first preview frame.
+const DRAIN_LIMIT_BYTES: usize = 256;
+
 pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let Some(opts) = parse_preview_args(args)? else {
         return Ok(());
@@ -141,8 +144,16 @@ fn run_preview_loop(
     let start_time = Instant::now();
     let mut last_frame = Instant::now();
 
-    while poll_input(Duration::from_millis(0)) {
-        let _ = read_event();
+    // Drain any pending keystrokes before the first frame. The drain is
+    // bounded and stops on read error: /dev/null (and other always-readable
+    // stdin sources) makes poll() report readable forever while read() keeps
+    // returning EOF, which would otherwise spin this loop indefinitely.
+    let mut drained = 0usize;
+    while drained < DRAIN_LIMIT_BYTES && poll_input(Duration::from_millis(0)) {
+        match read_event() {
+            Ok(_) => drained += 1,
+            Err(_) => break,
+        }
     }
 
     draw_frame(
