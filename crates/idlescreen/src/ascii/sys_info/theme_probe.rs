@@ -4,8 +4,15 @@
 //! System theme adaptation probe (accent color, light/dark color-scheme, and bitmap glyph style).
 
 use crate::raster::glyph_style::GlyphFontStyle;
+// The desktop probes below are the only thing that reads the host's theme
+// settings, and they are the only thing that needs a filesystem path. The
+// pure parsers stay available to the test suite in either build.
+#[cfg(any(feature = "product", test))]
 use std::fs;
-use std::path::{Path, PathBuf};
+#[cfg(any(feature = "product", test))]
+use std::path::Path;
+#[cfg(feature = "product")]
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,22 +83,38 @@ where
 }
 
 fn probe_system_theme_uncached() -> SystemTheme {
-    let (mut accent, mut scheme, mut font) = (None, None, None);
-    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
-        let cfg =
-            std::env::var_os("XDG_CONFIG_HOME").map_or_else(|| home.join(".config"), PathBuf::from);
-        probe_config_files(&cfg, &mut accent, &mut scheme, &mut font);
+    // With the product feature there is a live desktop session to ask.
+    #[cfg(feature = "product")]
+    {
+        let (mut accent, mut scheme, mut font) = (None, None, None);
+        if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+            let cfg = std::env::var_os("XDG_CONFIG_HOME")
+                .map_or_else(|| home.join(".config"), PathBuf::from);
+            probe_config_files(&cfg, &mut accent, &mut scheme, &mut font);
+        }
+        if accent.is_none() || scheme.is_none() {
+            probe_xdg_portal(&mut accent, &mut scheme);
+        }
+        SystemTheme::from_parts(
+            accent.unwrap_or((81, 162, 218)),
+            scheme.unwrap_or(ThemeColorScheme::Dark),
+            font.unwrap_or(GlyphFontStyle::ArcadeBlock),
+        )
     }
-    if accent.is_none() || scheme.is_none() {
-        probe_xdg_portal(&mut accent, &mut scheme);
+    // Without it there is no desktop to probe. A renderer built this way must
+    // not inherit the host's theme: the same job has to produce the same
+    // pixels on every machine, or an export is not reproducible.
+    #[cfg(not(feature = "product"))]
+    {
+        SystemTheme::from_parts(
+            (81, 162, 218),
+            ThemeColorScheme::Dark,
+            GlyphFontStyle::ArcadeBlock,
+        )
     }
-    SystemTheme::from_parts(
-        accent.unwrap_or((81, 162, 218)),
-        scheme.unwrap_or(ThemeColorScheme::Dark),
-        font.unwrap_or(GlyphFontStyle::ArcadeBlock),
-    )
 }
 
+#[cfg(feature = "product")]
 fn probe_xdg_portal(accent: &mut Option<(u8, u8, u8)>, scheme: &mut Option<ThemeColorScheme>) {
     if std::env::var_os("DBUS_SESSION_BUS_ADDRESS").is_none() {
         return;
@@ -130,6 +153,7 @@ fn probe_xdg_portal(accent: &mut Option<(u8, u8, u8)>, scheme: &mut Option<Theme
     }
 }
 
+#[cfg(any(feature = "product", test))]
 pub(crate) fn probe_config_files(
     cfg: &Path,
     accent: &mut Option<(u8, u8, u8)>,
@@ -204,12 +228,14 @@ pub fn parse_color_str(raw: &str) -> Option<(u8, u8, u8)> {
 }
 
 #[rustfmt::skip]
+#[cfg(any(feature = "product", test))]
 pub(crate) fn parse_cosmic_ron_rgb(raw: &str) -> Option<(u8, u8, u8)> {
     let mut it = raw.split(|c: char| !c.is_ascii_digit() && c != '.' && c != '-').filter_map(|p| p.parse::<f32>().ok())
         .filter(|&f| (0.0..=255.0).contains(&f)).map(|f| (if f <= 1.0 { f * 255.0 } else { f }).round() as u8);
     Some((it.next()?, it.next()?, it.next()?))
 }
 
+#[cfg(any(feature = "product", test))]
 pub(crate) fn extract_conf_color(raw: &str) -> Option<(u8, u8, u8)> {
     let keys = ["active_border", "accent", "AccentColor"];
     for line in raw.lines().map(str::trim).filter(|l| !l.starts_with('#')) {

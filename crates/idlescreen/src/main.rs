@@ -5,6 +5,11 @@
 
 #![deny(unsafe_code)]
 
+// The binary is the desktop product: it drives the daemon, the TUI and the
+// CLI, all of which live behind the `product` feature.
+#[cfg(not(feature = "product"))]
+compile_error!("the idlescreen binary requires the `product` feature");
+
 use std::path::Path;
 
 /// `EX_CONFIG` (sysexits.h): the configuration is unusable.

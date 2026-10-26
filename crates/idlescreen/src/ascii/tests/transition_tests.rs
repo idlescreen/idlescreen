@@ -9,9 +9,16 @@ use super::super::sys_info::{
     GlyphFontStyle, SystemTheme, ThemeColorScheme, detect_system_theme, parse_color_str,
 };
 use crate::cell::TerminalCell;
+// The 10-bit packing helpers are only used by the HDR test, which needs
+// the Wayland presenter.
+#[cfg(feature = "product")]
 use crate::raster::blit::{convert_argb8888_to_2101010_in_place, pack_argb2101010};
+#[cfg(feature = "product")]
 use crate::raster::glyph_font::get_glyph_bitmap_for_style;
+// The presenter and the Wayland protocol bindings are product-only.
+#[cfg(feature = "product")]
 use crate::wayland::presenter::{WaylandState, viewport_buffer_dimensions};
+#[cfg(feature = "product")]
 use wayland_client::protocol::wl_shm;
 
 #[test]
@@ -182,6 +189,7 @@ fn test_anamorphic_lens_flare_and_neon_overdrive() {
 }
 
 #[test]
+#[cfg(feature = "product")]
 fn test_hdr_10bit_packing_4k_viewport_and_glyph_styles() {
     let white_10 = pack_argb2101010((255, 255, 255));
     assert_eq!(white_10, 0xFFFF_FFFF);

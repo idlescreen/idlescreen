@@ -12,12 +12,28 @@ default-run = "idlescreen"
 name = "idlescreen"
 path = "src/main.rs"
 
+[features]
+# `product` is the shipped screensaver: the daemon, the CLI, the TUI and the
+# Wayland presenter, with their D-Bus and Wayland protocol dependencies.
+#
+# It is a default feature so the binary is unchanged. A library consumer that
+# only wants the scenes and the rasterizer — the offline renderer in the
+# studio repo — turns it off and gets the scene engine and the cell
+# rasterizer without a compositor stack or a D-Bus client.
+default = ["product"]
+product = [
+    "dep:wayland-client",
+    "dep:wayland-protocols",
+    "dep:wayland-protocols-wlr",
+    "dep:zbus",
+]
+
 [dependencies]
 libc = "0.2"
-zbus = { version = "5.12", default-features = false, features = ["tokio", "blocking-api"] }
-wayland-client = "0.31"
-wayland-protocols = { version = "0.32", features = ["client", "staging"] }
-wayland-protocols-wlr = { version = "0.3.12", features = ["client"] }
+zbus = { version = "5.12", default-features = false, features = ["tokio", "blocking-api"], optional = true }
+wayland-client = { version = "0.31", optional = true }
+wayland-protocols = { version = "0.32", features = ["client", "staging"], optional = true }
+wayland-protocols-wlr = { version = "0.3.12", features = ["client"], optional = true }
 ttfx = { git = "https://github.com/omacom-io/ttfx", rev = "921bd551c308c235e01c5867f0199efe0691c271" }
 
 [dev-dependencies]

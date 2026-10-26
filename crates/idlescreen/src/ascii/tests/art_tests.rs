@@ -67,6 +67,7 @@ fn test_unicode_nfkd_fold() {
 }
 
 #[test]
+#[cfg(feature = "product")]
 fn test_toml_config_roundtrip_and_multiline() {
     use crate::daemon::config::Config;
     let mut cfg = Config::default();
