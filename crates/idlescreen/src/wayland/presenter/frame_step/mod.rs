@@ -13,53 +13,20 @@ use super::arcade_grid_dimensions;
 use super::bufpool;
 use super::shm_buf::{allocate_shm_buffer_with_format, compute_cell_damage_rect};
 use super::wl_state::WaylandState;
+
+mod dims;
+
 use crate::ascii::Ascii;
 use crate::ascii::effects::EffectKind;
 use crate::ascii::state::TextMode;
 use crate::cell::TerminalCell;
 use crate::wayland::blit::{
-    GLYPH_HEIGHT, GLYPH_WIDTH, blit_cells_with_format, has_subcell_overlay,
-    subcell_overlay_generation,
+    blit_cells_with_format, has_subcell_overlay, subcell_overlay_generation,
 };
-use crate::wayland::fractional;
+use dims::resolve_surface_dims;
+pub use dims::viewport_buffer_dimensions;
 
 #[inline]
-pub fn viewport_buffer_dimensions(
-    width: u32,
-    height: u32,
-    cols: usize,
-    rows: usize,
-    scale_120ths: u32,
-) -> (u32, u32) {
-    if scale_120ths > 120 {
-        // The compositor reported a scale above 100%: size the buffer with
-        // the standard fractional-scale rounding so the viewport scales the
-        // glyph grid without blurring it.
-        let cell_w = u32::try_from(cols * GLYPH_WIDTH).unwrap_or(width);
-        let cell_h = u32::try_from(rows * GLYPH_HEIGHT).unwrap_or(height);
-        return (
-            fractional::calculate_buffer_dimension(cell_w, scale_120ths),
-            fractional::calculate_buffer_dimension(cell_h, scale_120ths),
-        );
-    }
-    // No scale reported yet: fall back to the 4K heuristic.
-    let scale = if width >= 3840 && height >= 2160 {
-        2
-    } else {
-        1
-    };
-    let bw = u32::try_from(cols * GLYPH_WIDTH * scale).unwrap_or(width);
-    let bh = u32::try_from(rows * GLYPH_HEIGHT * scale).unwrap_or(height);
-    (bw, bh)
-}
-
-#[inline]
-fn resolve_surface_dims(cw: u32, ch: u32, w: u32, h: u32) -> (u32, u32) {
-    let rw = [cw, w, 1920].into_iter().find(|&v| v > 0).unwrap_or(1920);
-    let rh = [ch, h, 1080].into_iter().find(|&v| v > 0).unwrap_or(1080);
-    (rw, rh)
-}
-
 pub(super) fn init_surface_buffers(
     state: &mut WaylandState,
     shm: &wl_shm::WlShm,

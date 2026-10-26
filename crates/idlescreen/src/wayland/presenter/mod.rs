@@ -10,6 +10,7 @@ mod daemon_run;
 mod frame_step;
 mod preview_run;
 pub mod shm_buf;
+mod wl_buffer_dispatch;
 pub mod wl_dispatch;
 pub mod wl_state;
 

@@ -3,12 +3,9 @@
 
 //! Wayland protocol event dispatch implementations for `WaylandState`.
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-
 use wayland_client::protocol::{
-    wl_buffer, wl_compositor, wl_keyboard, wl_output, wl_pointer, wl_registry, wl_seat, wl_shm,
-    wl_shm_pool, wl_surface,
+    wl_compositor, wl_keyboard, wl_output, wl_pointer, wl_registry, wl_seat, wl_shm, wl_shm_pool,
+    wl_surface,
 };
 use wayland_client::{Connection, Dispatch, QueueHandle, WEnum};
 use wayland_protocols::wp::viewporter::client::{
@@ -220,21 +217,6 @@ impl_dispatch!(wl_pointer::WlPointer, (state, _ptr, event, _qh) => {
         _ => {}
     }
 });
-
-impl Dispatch<wl_buffer::WlBuffer, Arc<AtomicBool>> for WaylandState {
-    fn event(
-        _: &mut Self,
-        _: &wl_buffer::WlBuffer,
-        event: wl_buffer::Event,
-        busy: &Arc<AtomicBool>,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-    ) {
-        if matches!(event, wl_buffer::Event::Release) {
-            busy.store(false, Ordering::Release);
-        }
-    }
-}
 
 macro_rules! impl_empty_dispatch {
     ($($ty:ty),+ $(,)?) => {

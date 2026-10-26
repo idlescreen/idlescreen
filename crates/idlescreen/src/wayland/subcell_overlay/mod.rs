@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 IdleScreen
 
-//! High-resolution 4×8 sub-cell sprite overlay publisher and Scale2x compositor.
+//! High-resolution 4x8 sub-cell sprite overlay publisher and Scale2x compositor.
+
+mod blit;
+#[cfg(test)]
+mod tests;
 
 use crate::cell::TerminalCell;
 use crate::wayland::blit::pack_argb2101010;
 use std::sync::Mutex;
+
+pub(in crate::wayland) use blit::composite_overlay_pixels;
 
 pub const SUBCELL_X: usize = 4;
 pub const SUBCELL_Y: usize = 8;
@@ -204,123 +210,4 @@ pub(crate) fn publish_and_composite_for_test(spec: &OverlayTestSpec<'_>, buffer:
         spec.drawn_dims,
         spec.is_10bit_hdr,
     );
-}
-
-#[inline]
-pub(super) fn composite_overlay_pixels(
-    cells: &[TerminalCell],
-    (cols, sub_w, sub_h): (usize, usize, usize),
-    pixels: &[u8],
-    palette: &[u32; 40],
-    buffer: &mut [u32],
-    (pixel_w, pixel_h): (usize, usize),
-    (drawn_w, drawn_h): (usize, usize),
-) {
-    let get_px = |x: usize, y: usize| pixels.get(y * sub_w + x).copied().unwrap_or(0);
-    for sy in 0..sub_h {
-        let (cy, py0) = (sy / SUBCELL_Y, (sy * drawn_h) / sub_h);
-        let py1 = (((sy + 1) * drawn_h) / sub_h).max(py0 + 1).min(pixel_h);
-        for sx in 0..sub_w {
-            if cells
-                .get(cy * cols + sx / SUBCELL_X)
-                .is_some_and(|c| c.bg == HUD_PILL_BG)
-            {
-                continue;
-            }
-            let p = get_px(sx, sy);
-            let a = if sy > 0 { get_px(sx, sy - 1) } else { 0 };
-            let b = if sx + 1 < sub_w {
-                get_px(sx + 1, sy)
-            } else {
-                0
-            };
-            let c = if sx > 0 { get_px(sx - 1, sy) } else { 0 };
-            let d = if sy + 1 < sub_h {
-                get_px(sx, sy + 1)
-            } else {
-                0
-            };
-            let q = |u: u8, v: u8, ou: u8, ov: u8| {
-                if u != 0 && v != 0 && u != ou && v != ov && u.abs_diff(v) <= 1 {
-                    u.min(v)
-                } else {
-                    p
-                }
-            };
-            let e = [q(c, a, d, b), q(a, b, c, d), q(d, c, b, a), q(b, d, a, c)];
-            if (e[0] | e[1] | e[2] | e[3]) == 0 {
-                continue;
-            }
-            let px0 = (sx * drawn_w) / sub_w;
-            let px1 = (((sx + 1) * drawn_w) / sub_w).max(px0 + 1).min(pixel_w);
-            let (pxm, pym) = ((px0 + px1).div_ceil(2), (py0 + py1).div_ceil(2));
-            for py in py0..py1 {
-                let (row_off, qy) = (py * pixel_w, usize::from(py >= pym) * 2);
-                for px in px0..px1 {
-                    let idx = e[qy + usize::from(px >= pxm)];
-                    if idx != 0 && row_off + px < buffer.len() {
-                        buffer[row_off + px] = palette[(idx as usize - 1).min(39)];
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::wayland::blit::{GLYPH_HEIGHT, GLYPH_WIDTH, pack_argb};
-
-    #[test]
-    fn test_subcell_overlay_blitting() {
-        let (cols, rows) = (4, 2);
-        let (pw, ph, sw, sh) = (
-            cols * GLYPH_WIDTH,
-            rows * GLYPH_HEIGHT,
-            cols * SUBCELL_X,
-            rows * SUBCELL_Y,
-        );
-        let mut px = vec![0u8; sw * sh];
-        (px[0], px[1], px[sw], px[sw + 2]) = (1, 1, 2, 2);
-        let mut pal = [0u32; 40];
-        (pal[0], pal[1]) = (pack_argb((16, 240, 96)), pack_argb((32, 255, 128)));
-
-        let mut cells = vec![TerminalCell::default(); cols * rows];
-        (cells[0].ch, cells[0].bold) = ('▀', false);
-        let mut buf = vec![0xFF00_0000u32; pw * ph];
-        composite_overlay_pixels(
-            &cells,
-            (cols, sw, sh),
-            &px,
-            &pal,
-            &mut buf,
-            (pw, ph),
-            (pw, ph),
-        );
-        assert_eq!(
-            (buf[0], buf[pw * 2 + 2], buf[5]),
-            (0xFF10_F060, 0xFF10_F060, 0xFF00_0000)
-        );
-
-        let mut hdr = vec![0xC000_0000u32; pw * ph];
-        publish_and_composite_for_test(
-            &OverlayTestSpec {
-                cols,
-                rows,
-                palette_rgb: &[(16, 240, 96), (32, 255, 128)],
-                px_buf: &px,
-                cells: &cells,
-                px_dims: (pw, ph),
-                drawn_dims: (pw, ph),
-                is_10bit_hdr: true,
-            },
-            &mut hdr,
-        );
-        assert_eq!(hdr[0], pack_argb2101010((16, 240, 96)));
-        clear_subcell_overlay();
-        assert!(!has_subcell_overlay(cols, rows));
-        release_subcell_overlay();
-        assert!(!has_subcell_overlay(cols, rows));
-    }
 }
