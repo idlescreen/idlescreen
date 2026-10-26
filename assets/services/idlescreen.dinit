@@ -1,4 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 IdleScreen
+#
+# IdleScreen Wayland screensaver daemon — dinit service.
+#
+# Install as the desktop user (dinit user services live in ~/.config/dinit.d):
+#
+#   mkdir -p ~/.config/dinit.d
+#   cp /usr/share/idlescreen/services/idlescreen.dinit ~/.config/dinit.d/idlescreen
+#
+# Then add the service to a target, e.g. in ~/.config/dinit.d/login-session.target:
+#
+#   includescript ~/.config/dinit.d/idlescreen
+
 type = process
 command = /usr/bin/idlescreen daemon
-ready-notification = pipev3
-restart = yes
+restart = true
+restart-delay = 5
+depends-on = login-session.target

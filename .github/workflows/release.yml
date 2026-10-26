@@ -78,6 +78,53 @@ jobs:
           cargo deb --no-build -p idlescreen
           (cd crates/idlescreen && cargo generate-rpm --target-dir ../../target)
 
+      - name: Verify package payloads
+        if: steps.plan.outputs.build == 'yes'
+        run: |
+          set -euo pipefail
+          # A release that publishes a mislabelled or empty package is worse
+          # than a failed release: users get a package that does not match
+          # the version they were told about. Assert the payload here, before
+          # anything is signed or published.
+          sudo apt-get update
+          sudo apt-get install -y rpm
+          version=$(grep -m1 '^version' crates/idlescreen/Cargo.toml | cut -d'"' -f2)
+          [ -n "$version" ] || { echo "::error::could not read the crate version"; exit 1; }
+          shopt -s nullglob
+          debs=(target/debian/*.deb)
+          rpms=(target/generate-rpm/*.rpm)
+          [ "${#debs[@]}" -eq 1 ] || { echo "::error::expected exactly 1 .deb, found ${#debs[@]}"; exit 1; }
+          [ "${#rpms[@]}" -eq 1 ] || { echo "::error::expected exactly 1 .rpm, found ${#rpms[@]}"; exit 1; }
+          deb_name=$(basename "${debs[0]}")
+          rpm_name=$(basename "${rpms[0]}")
+          case "$deb_name" in
+            idlescreen_${version}-*_amd64.deb) ;;
+            *) echo "::error::$deb_name does not match crate version $version"; exit 1 ;;
+          esac
+          case "$rpm_name" in
+            idlescreen-${version}-*.x86_64.rpm) ;;
+            *) echo "::error::$rpm_name does not match crate version $version"; exit 1 ;;
+          esac
+          stage=$(mktemp -d)
+          dpkg-deb --fsys-tarfile "${debs[0]}" | tar -x -C "$stage"
+          for want in \
+            ./usr/bin/idlescreen \
+            ./usr/lib/systemd/user/idlescreen.service \
+            ./usr/share/man/man1/idlescreen.1 \
+            ./usr/share/idlescreen/services/idlescreen.openrc \
+            ./usr/share/idlescreen/services/idlescreen.runit \
+            ./usr/share/idlescreen/services/idlescreen.dinit \
+            ./usr/share/idlescreen/services/idlescreen.s6-run
+          do
+            [ -e "$stage/$want" ] || { echo "::error::deb payload is missing $want"; exit 1; }
+          done
+          rm -rf "$stage"
+          rpm -qlp "${rpms[0]}" | grep -qx '/usr/bin/idlescreen' \
+            || { echo "::error::rpm payload is missing /usr/bin/idlescreen"; exit 1; }
+          rpm -qlp "${rpms[0]}" | grep -qx '/usr/share/idlescreen/services/idlescreen.openrc' \
+            || { echo "::error::rpm payload is missing the OpenRC service template"; exit 1; }
+          echo "package payloads verified for version $version"
+
       - name: Install Cosign
         if: steps.plan.outputs.build == 'yes'
         run: |

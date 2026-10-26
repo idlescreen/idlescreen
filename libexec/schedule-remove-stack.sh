@@ -54,14 +54,24 @@ pkill -x idle-daemon 2>/dev/null || true
 pkill -f '/usr/bin/idle-daemon' 2>/dev/null || true
 
 run_later() {
-    /bin/sh -c 'sleep 3; /var/tmp/idlescreen-remove-product-stack' &
+    ( sleep 3; "$DST" ) &
 }
+
+# systemd-run needs a real executable rather than a shell string, so the
+# deferred cleanup is staged as its own tiny wrapper script.
+DELAYED="/var/tmp/idlescreen-remove-stack-delayed"
+cat > "$DELAYED" <<'WRAPPER'
+#!/bin/sh
+sleep 3
+exec /var/tmp/idlescreen-remove-product-stack
+WRAPPER
+chmod 755 "$DELAYED"
 
 if command -v systemd-run >/dev/null 2>&1; then
     systemd-run --no-block --collect \
         --unit="idlescreen-remove-stack.service" \
         --description="IdleScreen product stack cleanup after idlescreen erase" \
-        /bin/sh -c 'sleep 3; /var/tmp/idlescreen-remove-product-stack' \
+        "$DELAYED" \
         2>/dev/null || run_later
 else
     run_later

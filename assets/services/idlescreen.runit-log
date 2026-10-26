@@ -1,0 +1,10 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 IdleScreen
+#
+# IdleScreen Wayland screensaver daemon — runit log service.
+#
+# Install alongside idlescreen.runit as ~/service/idlescreen/log/run.
+# svlogd creates ./log on demand and rotates it into ./log@.
+
+exec svlogd -tt ./log

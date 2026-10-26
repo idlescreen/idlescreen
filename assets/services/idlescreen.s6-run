@@ -1,2 +1,17 @@
-#!/bin/execlineb -P
+#!/usr/bin/execlineb -P
+# IdleScreen Wayland screensaver daemon — s6-overlay service.
+#
+# Install system-wide (s6-overlay reads /etc/s6-overlay/s6-rc.d):
+#
+#   mkdir -p /etc/s6-overlay/s6-rc.d/idlescreen/dependencies.d
+#   cp /usr/share/idlescreen/services/idlescreen.s6-run \
+#      /etc/s6-overlay/s6-rc.d/idlescreen/run
+#   cp /usr/share/idlescreen/services/idlescreen.s6-type \
+#      /etc/s6-overlay/s6-rc.d/idlescreen/type
+#   printf /etc/s6-overlay/s6-rc.d/base \
+#      > /etc/s6-overlay/s6-rc.d/idlescreen/dependencies.d/base
+#
+# The daemon runs as the user whose session owns the Wayland display, so the
+# service must be started from that user's session scope.
+
 idlescreen daemon

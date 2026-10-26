@@ -1,3 +1,18 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 IdleScreen
+#
+# IdleScreen Wayland screensaver daemon — runit service.
+#
+# Install as the desktop user (runit user services live under ~/service):
+#
+#   mkdir -p ~/service/idlescreen/log
+#   cp /usr/share/idlescreen/services/idlescreen.runit ~/service/idlescreen/run
+#   cp /usr/share/idlescreen/services/idlescreen.runit-log ~/service/idlescreen/log/run
+#   chmod 0755 ~/service/idlescreen/run ~/service/idlescreen/log/run
+#
+# svlogd is optional: without the log/run script the daemon's output is
+# simply discarded by runit.
+
 exec 2>&1
-exec idlescreen daemon
+exec /usr/bin/idlescreen daemon

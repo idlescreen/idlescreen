@@ -1,6 +1,24 @@
 #!/sbin/openrc-run
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 IdleScreen
+#
+# IdleScreen Wayland screensaver daemon — OpenRC (user level).
+#
+# Install as the desktop user (never as root; the daemon needs the user's
+# Wayland session bus and XDG_RUNTIME_DIR):
+#
+#   cp /usr/share/idlescreen/services/idlescreen.openrc \
+#      ~/.local/etc/init.d/idlescreen
+#   chmod 0755 ~/.local/etc/init.d/idlescreen
+#   rc-update add idlescreen default
+#
+# supervise-daemon owns the child PID itself, so the daemon's own pidfile
+# under $XDG_RUNTIME_DIR/idlescreen/ is never fought over by start-stop-daemon.
+
 description="IdleScreen Wayland screensaver daemon"
+supervisor=supervise-daemon
 command="/usr/bin/idlescreen"
 command_args="daemon"
-command_background="yes"
-pidfile="/run/idlescreen.pid"
+respawn_delay=5
+respawn_max=0
+stop_grace_period=10
