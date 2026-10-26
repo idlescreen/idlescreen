@@ -29,8 +29,9 @@ jobs:
           
           if ! curl -fsSL -H "Accept: application/vnd.github.v3.raw" "$CANONICAL_API" -o "$_canonical" 2>/dev/null; then
             curl -fsSL "$CANONICAL_RAW" -o "$_canonical" || {
-              echo "WARNING: Could not reach upstream canonical AGENTS.md; skipping offline check."
-              exit 0
+              echo "::error::Could not reach the upstream canonical AGENTS.md." >&2
+              echo "The AGENTS.md drift gate cannot verify anything while the upstream is unreachable — fail closed." >&2
+              exit 1
             }
           fi
           

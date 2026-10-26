@@ -117,5 +117,23 @@ BANNED = {"util.rs", "utils.rs", "helper.rs", "helpers.rs", "common.rs", "misc.r
 banned_bad = [p.get("path", "") for p in pages if os.path.basename(p.get("path", "")) in BANNED]
 check("banned-names", not banned_bad, f"{len(banned_bad)} banned files, e.g. {banned_bad[:3]}")
 
+# 9. Provenance: the snapshot must name a commit that still exists and is an
+# ancestor of HEAD, and must have been taken from a clean tree. Without this,
+# a snapshot from an unrelated (or hand-edited) tree passes every other
+# check — the scorecard would look valid while describing different code.
+import subprocess
+def git(*args):
+    return subprocess.run(["git", *args], capture_output=True, text=True)
+rev = d.get("rev")
+rev_ok = False
+if isinstance(rev, str) and rev.strip():
+    exists = git("rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}").returncode == 0
+    ancestor = git("merge-base", "--is-ancestor", rev, "HEAD").returncode == 0
+    rev_ok = exists and ancestor
+check("scorecard-rev", rev_ok,
+      f"rev={rev!r} is not a commit reachable from HEAD (regenerate with qa/page_score.sh)")
+check("scorecard-clean", d.get("dirty") is False,
+      f"dirty={d.get('dirty')!r} (the snapshot was taken from a modified tree)")
+
 sys.exit(1 if fails else 0)
 EOF
