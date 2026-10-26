@@ -15,7 +15,6 @@ path = "src/main.rs"
 [dependencies]
 libc = "0.2"
 zbus = { version = "5.12", default-features = false, features = ["tokio", "blocking-api"] }
-tokio = { version = "1.40", features = ["rt", "net", "sync", "time", "macros", "io-util"] }
 wayland-client = "0.31"
 wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 wayland-protocols-wlr = { version = "0.3.12", features = ["client"] }
