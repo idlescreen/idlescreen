@@ -127,8 +127,20 @@ def git(*args):
 rev = d.get("rev")
 rev_ok = False
 if isinstance(rev, str) and rev.strip():
-    exists = git("rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}").returncode == 0
-    ancestor = git("merge-base", "--is-ancestor", rev, "HEAD").returncode == 0
+    def resolves():
+        return git("rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}").returncode == 0
+    if not resolves() and git("rev-parse", "--is-shallow-repository").stdout.strip() == "true":
+        # A CI checkout is a shallow clone: only the tip is present, so the
+        # recorded commit is missing even though it is a real ancestor.
+        # Deepen the clone just enough to prove it, instead of downloading
+        # the whole history (the release pool makes that very expensive).
+        branch = git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip() or "master"
+        for _ in range(25):
+            git("fetch", "--quiet", "--deepen=25", "origin", branch)
+            if resolves():
+                break
+    exists = resolves()
+    ancestor = exists and git("merge-base", "--is-ancestor", rev, "HEAD").returncode == 0
     rev_ok = exists and ancestor
 check("scorecard-rev", rev_ok,
       f"rev={rev!r} is not a commit reachable from HEAD (regenerate with qa/page_score.sh)")
