@@ -9,5 +9,6 @@ pub mod ascii;
 pub mod cell;
 pub mod cli;
 pub mod daemon;
+pub mod raster;
 pub mod tui;
 pub mod wayland;

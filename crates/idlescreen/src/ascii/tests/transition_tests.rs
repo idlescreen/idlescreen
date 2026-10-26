@@ -9,8 +9,8 @@ use super::super::sys_info::{
     GlyphFontStyle, SystemTheme, ThemeColorScheme, detect_system_theme, parse_color_str,
 };
 use crate::cell::TerminalCell;
-use crate::wayland::blit::{convert_argb8888_to_2101010_in_place, pack_argb2101010};
-use crate::wayland::glyph_font::get_glyph_bitmap_for_style;
+use crate::raster::blit::{convert_argb8888_to_2101010_in_place, pack_argb2101010};
+use crate::raster::glyph_font::get_glyph_bitmap_for_style;
 use crate::wayland::presenter::{WaylandState, viewport_buffer_dimensions};
 use wayland_client::protocol::wl_shm;
 

@@ -4,8 +4,8 @@
 use super::super::draw::{is_pixel_art_char, place_banner_centered};
 use super::super::effects::EffectKind;
 use crate::cell::TerminalCell;
-use crate::wayland::blit::{GLYPH_HEIGHT, GLYPH_WIDTH, blit_cells_to_argb};
-use crate::wayland::glyph_font::{draw_preview_hud, get_glyph_bitmap};
+use crate::raster::blit::{GLYPH_HEIGHT, GLYPH_WIDTH, blit_cells_to_argb};
+use crate::raster::glyph_font::{draw_preview_hud, get_glyph_bitmap};
 
 #[test]
 fn test_place_banner_centered() {

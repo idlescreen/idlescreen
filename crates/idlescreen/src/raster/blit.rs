@@ -5,8 +5,8 @@
 //! with branchless SIMD-friendly glyph row writes and dirty-cell partial damage tracking.
 
 use crate::cell::TerminalCell;
-pub use crate::wayland::glyph_font::{GLYPH_HEIGHT, GLYPH_WIDTH, get_glyph_bitmap};
-pub use crate::wayland::subcell_overlay::{
+pub use crate::raster::glyph_font::{GLYPH_HEIGHT, GLYPH_WIDTH, get_glyph_bitmap};
+pub use crate::raster::subcell_overlay::{
     SUBCELL_X, SUBCELL_Y, clear_subcell_overlay, composite_subcell_overlay,
     composite_subcell_overlay_with_format, has_subcell_overlay, publish_subcell_overlay,
     release_subcell_overlay, subcell_overlay_generation,
@@ -206,7 +206,7 @@ pub fn blit_cells_with_format(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::wayland::presenter::compute_cell_damage_rect;
+    use crate::raster::damage::compute_cell_damage_rect;
 
     #[test]
     fn test_blit_basic_scaled_hdr_and_dirty_diff() {

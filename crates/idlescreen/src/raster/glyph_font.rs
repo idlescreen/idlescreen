@@ -5,8 +5,9 @@
 //! 1/8th bars, chunky 2x2 Bayer dithers, and 16-bit arcade HUD glyphs.
 
 use crate::ascii::effects::EffectKind;
-use crate::ascii::sys_info::{GlyphFontStyle, detect_system_theme};
+use crate::ascii::sys_info::detect_system_theme;
 use crate::cell::TerminalCell;
+use crate::raster::glyph_style::GlyphFontStyle;
 
 pub const GLYPH_WIDTH: usize = 8;
 pub const GLYPH_HEIGHT: usize = 16;
@@ -169,7 +170,7 @@ pub fn draw_preview_hud(
     }
     let start_x = (cols - (total_chars + 2)) / 2;
     let row_off = (rows - 1) * cols;
-    let pill_bg = crate::wayland::subcell_overlay::HUD_PILL_BG;
+    let pill_bg = crate::raster::subcell_overlay::HUD_PILL_BG;
     let set_cell = |c: &mut [TerminalCell], x: usize, ch: char, fg: (u8, u8, u8), bold: bool| {
         c[row_off + x] = TerminalCell {
             ch,

@@ -169,7 +169,7 @@ fn zero_alloc_steady_state() {
         for _ in 0..8 {
             saver.update(Duration::from_millis(16), cols, rows);
             saver.draw(&mut grid, cols, rows);
-            crate::wayland::glyph_font::draw_preview_hud(&mut grid, cols, rows, kind, false);
+            crate::raster::glyph_font::draw_preview_hud(&mut grid, cols, rows, kind, false);
         }
 
         assert_eq!(grid.as_ptr(), grid_ptr);

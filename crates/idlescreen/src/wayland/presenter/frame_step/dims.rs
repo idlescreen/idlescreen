@@ -3,7 +3,7 @@
 
 //! Buffer dimension resolution for the compositor surface.
 
-use crate::wayland::blit::{GLYPH_HEIGHT, GLYPH_WIDTH};
+use crate::raster::blit::{GLYPH_HEIGHT, GLYPH_WIDTH};
 use crate::wayland::fractional;
 
 pub fn viewport_buffer_dimensions(

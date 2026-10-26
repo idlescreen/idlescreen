@@ -20,7 +20,7 @@ pub fn draw_frame(
 ) -> Result<(), Box<dyn std::error::Error>> {
     saver.update(dt, cols, rows);
     saver.draw(grid, cols, rows);
-    crate::wayland::glyph_font::draw_preview_hud(grid, cols, rows, saver.effect, tour_mode);
+    crate::raster::glyph_font::draw_preview_hud(grid, cols, rows, saver.effect, tour_mode);
     render_grid_to_terminal(out, grid, cols, rows)?;
     Ok(())
 }

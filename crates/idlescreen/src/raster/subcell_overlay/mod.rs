@@ -8,10 +8,10 @@ mod blit;
 mod tests;
 
 use crate::cell::TerminalCell;
-use crate::wayland::blit::pack_argb2101010;
+use crate::raster::blit::pack_argb2101010;
 use std::sync::Mutex;
 
-pub(in crate::wayland) use blit::composite_overlay_pixels;
+pub(in crate::raster) use blit::composite_overlay_pixels;
 
 pub const SUBCELL_X: usize = 4;
 pub const SUBCELL_Y: usize = 8;

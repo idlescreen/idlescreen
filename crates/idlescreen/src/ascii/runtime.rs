@@ -11,7 +11,7 @@ use std::time::Duration;
 
 impl Ascii {
     pub fn start_engine_session(&mut self) {
-        crate::wayland::blit::clear_subcell_overlay();
+        crate::raster::blit::clear_subcell_overlay();
         let seed = self.rng.next_u64();
         self.backdrop_seed = draw::compute_backdrop_seed(self.effect as u64, seed);
         self.current_frame.clear();

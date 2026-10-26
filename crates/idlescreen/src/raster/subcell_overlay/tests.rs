@@ -4,7 +4,7 @@
 //! Tests for the sub-cell sprite overlay publisher and Scale2x compositor.
 
 use super::*;
-use crate::wayland::blit::{GLYPH_HEIGHT, GLYPH_WIDTH, pack_argb};
+use crate::raster::blit::{GLYPH_HEIGHT, GLYPH_WIDTH, pack_argb};
 
 #[test]
 fn test_subcell_overlay_blitting() {

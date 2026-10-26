@@ -20,7 +20,7 @@ use crate::ascii::Ascii;
 use crate::ascii::effects::EffectKind;
 use crate::ascii::state::TextMode;
 use crate::cell::TerminalCell;
-use crate::wayland::blit::{
+use crate::raster::blit::{
     blit_cells_with_format, has_subcell_overlay, subcell_overlay_generation,
 };
 use dims::resolve_surface_dims;
@@ -144,7 +144,7 @@ pub(super) fn step_and_present_surfaces(
         let active_cells = &mut cells[..total];
         ascii_saver.draw(active_cells, out_cols, out_rows);
         if state.preview_mode {
-            crate::wayland::glyph_font::draw_preview_hud(
+            crate::raster::glyph_font::draw_preview_hud(
                 active_cells,
                 out_cols,
                 out_rows,

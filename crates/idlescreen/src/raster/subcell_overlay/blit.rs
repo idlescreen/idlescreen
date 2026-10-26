@@ -8,7 +8,7 @@ use crate::cell::TerminalCell;
 use super::{HUD_PILL_BG, SUBCELL_X, SUBCELL_Y};
 
 #[inline]
-pub(in crate::wayland) fn composite_overlay_pixels(
+pub(in crate::raster) fn composite_overlay_pixels(
     cells: &[TerminalCell],
     (cols, sub_w, sub_h): (usize, usize, usize),
     pixels: &[u8],

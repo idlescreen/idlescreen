@@ -3,6 +3,7 @@
 
 //! System theme adaptation probe (accent color, light/dark color-scheme, and bitmap glyph style).
 
+use crate::raster::glyph_style::GlyphFontStyle;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -11,36 +12,6 @@ use std::sync::OnceLock;
 pub enum ThemeColorScheme {
     Dark,
     Light,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum GlyphFontStyle {
-    ArcadeBlock,
-    CyberSharp,
-    RetroRound,
-}
-
-impl GlyphFontStyle {
-    pub fn parse(raw: &str) -> Self {
-        let l = raw.trim().to_ascii_lowercase();
-        let sharp = ["sharp", "cyber", "jetbrains", "iosevka", "fira", "hack"];
-        let round = ["round", "retro", "ubuntu", "cascadia", "comic"];
-        if sharp.iter().any(|k| l.contains(k)) {
-            Self::CyberSharp
-        } else if round.iter().any(|k| l.contains(k)) {
-            Self::RetroRound
-        } else {
-            Self::ArcadeBlock
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::ArcadeBlock => "arcade-block",
-            Self::CyberSharp => "cyber-sharp",
-            Self::RetroRound => "retro-round",
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

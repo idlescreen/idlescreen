@@ -14,9 +14,12 @@ pub use de_telemetry::{
     detect_kernel_version, query_telemetry,
 };
 pub use theme_probe::{
-    GlyphFontStyle, SystemTheme, ThemeColorScheme, detect_system_theme, parse_color_str,
-    resolve_system_theme_with,
+    SystemTheme, ThemeColorScheme, detect_system_theme, parse_color_str, resolve_system_theme_with,
 };
+// The glyph style is a rasterizer concern; it lives in `raster/` so the
+// raster tree stays independent of this probe. Re-exported here because the
+// theme resolution returns it.
+pub use crate::raster::glyph_style::GlyphFontStyle;
 
 use std::{fs, path::Path, sync::OnceLock};
 

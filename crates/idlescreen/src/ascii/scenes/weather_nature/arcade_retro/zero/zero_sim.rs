@@ -8,7 +8,7 @@ use super::zero_choreo::{compose_frame_pixels, destroy_front_for_row};
 use super::zero_data::{atlas, build_zero_colors, sample_subcell_halfblock, zero_palette_rgb};
 use crate::ascii::scenes::canvas_ops::{emit_frame, hex_color};
 use crate::ascii::scenes::weather_nature::field_ops::{CanvasCell, build_canvas_cells};
-use crate::wayland::blit::{clear_subcell_overlay, publish_subcell_overlay};
+use crate::raster::blit::{clear_subcell_overlay, publish_subcell_overlay};
 use ttfx::engine::character::CharId;
 use ttfx::engine::ctx::{EffectHooks, EngineCtx};
 use ttfx::engine::effect::Effect;
