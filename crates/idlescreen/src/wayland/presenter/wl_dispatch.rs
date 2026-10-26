@@ -59,6 +59,7 @@ impl_dispatch!(wl_registry::WlRegistry, (state, registry, event, qh) => {
                     width: 0,
                     height: 0,
                     refresh_mhz: 0,
+                    scale_120ths: 0,
                 });
             }
             "wl_seat" if state.seat.is_none() => {
@@ -102,6 +103,21 @@ impl_dispatch!(wl_output::WlOutput, (state, output, event, _qh) => {
                 if state.output.as_ref() == Some(output) || state.output_width == 0 {
                     (state.output_width, state.output_height, state.output_refresh_mhz) = (w, h, refresh);
                 }
+            }
+        }
+        wl_output::Event::Scale { factor } => {
+            // The compositor reports the output scale in 120ths. Use it to
+            // size the buffer so fractional scaling is honoured instead of
+            // guessing from the panel resolution.
+            let Ok(scale_120ths) = u32::try_from(factor) else {
+                return;
+            };
+            if let Some(out) = state.outputs.iter_mut().find(|o| &o.output == output) {
+                out.scale_120ths = scale_120ths;
+            }
+            for s in state.surfaces.iter_mut().filter(|s| s.output.as_ref() == Some(output)) {
+                s.scale_120ths = scale_120ths;
+                s.needs_commit = true;
             }
         }
         _ => {}

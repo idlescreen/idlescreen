@@ -10,6 +10,7 @@ use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_shm;
 
 use super::arcade_grid_dimensions;
+use super::bufpool;
 use super::shm_buf::{allocate_shm_buffer_with_format, compute_cell_damage_rect};
 use super::wl_state::WaylandState;
 use crate::ascii::Ascii;
@@ -20,9 +21,28 @@ use crate::wayland::blit::{
     GLYPH_HEIGHT, GLYPH_WIDTH, blit_cells_with_format, has_subcell_overlay,
     subcell_overlay_generation,
 };
+use crate::wayland::fractional;
 
 #[inline]
-pub fn viewport_buffer_dimensions(width: u32, height: u32, cols: usize, rows: usize) -> (u32, u32) {
+pub fn viewport_buffer_dimensions(
+    width: u32,
+    height: u32,
+    cols: usize,
+    rows: usize,
+    scale_120ths: u32,
+) -> (u32, u32) {
+    if scale_120ths > 120 {
+        // The compositor reported a scale above 100%: size the buffer with
+        // the standard fractional-scale rounding so the viewport scales the
+        // glyph grid without blurring it.
+        let cell_w = u32::try_from(cols * GLYPH_WIDTH).unwrap_or(width);
+        let cell_h = u32::try_from(rows * GLYPH_HEIGHT).unwrap_or(height);
+        return (
+            fractional::calculate_buffer_dimension(cell_w, scale_120ths),
+            fractional::calculate_buffer_dimension(cell_h, scale_120ths),
+        );
+    }
+    // No scale reported yet: fall back to the 4K heuristic.
     let scale = if width >= 3840 && height >= 2160 {
         2
     } else {
@@ -54,7 +74,7 @@ pub(super) fn init_surface_buffers(
 
         let (cols, rows) = arcade_grid_dimensions(width as usize, height as usize);
         let (buf_w, buf_h) = if s.viewport.has_viewport() {
-            let (bw, bh) = viewport_buffer_dimensions(width, height, cols, rows);
+            let (bw, bh) = viewport_buffer_dimensions(width, height, cols, rows, s.scale_120ths);
             let (sw, sh) = (
                 i32::try_from(width).unwrap_or(1920),
                 i32::try_from(height).unwrap_or(1080),
@@ -70,6 +90,7 @@ pub(super) fn init_surface_buffers(
         let buf1 = allocate_shm_buffer_with_format(shm, qh, buf_w, buf_h, fmt, is_10bit)
             .ok_or("Failed to allocate wl_shm buffer 1")?;
         s.buffers = Some([buf0, buf1]);
+        s.retired.clear();
         s.displayed_cells.clear();
         (s.displayed_subcell, s.needs_commit) = (false, true);
     }
@@ -145,7 +166,7 @@ pub(super) fn step_and_present_surfaces(
             resolve_surface_dims(s.configured_width, s.configured_height, s.width, s.height);
         let (out_cols, out_rows) = arcade_grid_dimensions(cur_w as usize, cur_h as usize);
         let (target_buf_w, target_buf_h) = if s.viewport.has_viewport() {
-            viewport_buffer_dimensions(cur_w, cur_h, out_cols, out_rows)
+            viewport_buffer_dimensions(cur_w, cur_h, out_cols, out_rows, s.scale_120ths)
         } else {
             (cur_w, cur_h)
         };
@@ -188,20 +209,24 @@ pub(super) fn step_and_present_surfaces(
             continue;
         };
 
-        if bufs[s.current_buf].busy.load(Ordering::Acquire) {
-            if !bufs[s.current_buf ^ 1].busy.load(Ordering::Acquire) {
-                s.current_buf ^= 1;
-            } else if let Some(b) =
-                allocate_shm_buffer_with_format(shm, qh, target_buf_w, target_buf_h, fmt, is_10bit)
-            {
-                bufs[s.current_buf] = b;
-            }
-        }
-        if (target_buf_w != bufs[s.current_buf].width || target_buf_h != bufs[s.current_buf].height)
-            && let Some(b) =
-                allocate_shm_buffer_with_format(shm, qh, target_buf_w, target_buf_h, fmt, is_10bit)
-        {
-            bufs[s.current_buf] = b;
+        // Reclaim retired buffers whose wl_buffer.release has arrived: the
+        // compositor is done reading them, so destroy() + munmap are safe.
+        bufpool::reclaim_released(&mut s.retired);
+
+        if !bufpool::select_buffer(
+            bufs,
+            &mut s.retired,
+            &mut s.current_buf,
+            shm,
+            qh,
+            &bufpool::BufferTarget {
+                width: target_buf_w,
+                height: target_buf_h,
+                format: fmt,
+                is_10bit,
+            },
+        ) {
+            continue;
         }
 
         let buf = &mut bufs[s.current_buf];

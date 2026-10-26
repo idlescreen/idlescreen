@@ -178,10 +178,7 @@ fn test_arcade_grid_dimensions_aspect_ratios() {
 #[allow(unsafe_code)]
 fn test_build_ascii_saver_b4_gating() {
     use super::frame_step::build_ascii_saver;
-    // SAFETY: unit test sets and restores scoped environment variable.
-    unsafe {
-        std::env::set_var("IDLE_SUPERFEDORA", "1");
-    }
+    crate::ascii::sys_info::set_superfedora_override(Some(true));
 
     // 1. saver_name = "superfedora" without custom text -> uses SuperFedora stacked preset
     let sf_saver = build_ascii_saver(
@@ -221,10 +218,9 @@ fn test_build_ascii_saver_b4_gating() {
     );
     assert_eq!(custom_saver.rotation.active_text(), "MYBOX");
 
-    // SAFETY: unit test restores environment variable.
-    unsafe {
-        std::env::remove_var("IDLE_SUPERFEDORA");
-    }
+    // The SuperFedora gate override is thread-scoped, so clearing it here
+    // leaves every other test unaffected.
+    crate::ascii::sys_info::set_superfedora_override(None);
 }
 
 #[test]

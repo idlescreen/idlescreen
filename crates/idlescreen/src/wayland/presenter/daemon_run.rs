@@ -94,7 +94,10 @@ pub fn run_wayland_daemon_presenter(
     let target_fps = if effective_fps > 0 {
         effective_fps
     } else if primary_refresh > 0 {
-        u32::try_from(((primary_refresh + 500) / 1000).max(1)).unwrap_or(60)
+        // `primary_refresh` is compositor-supplied: saturate instead of
+        // overflowing (a panic here would abort the daemon).
+        let mhz = primary_refresh.saturating_add(500) / 1000;
+        u32::try_from(mhz.max(1)).unwrap_or(60)
     } else {
         60
     };

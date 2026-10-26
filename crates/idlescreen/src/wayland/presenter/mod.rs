@@ -5,6 +5,7 @@
 //! zwlr_layer_shell_v1 (wlroots/COSMIC), wp_viewporter 1x cell-resolution scaling,
 //! direct wl_shm ARGB8888 blitting, and input event dismissal.
 
+mod bufpool;
 mod daemon_run;
 mod frame_step;
 mod preview_run;
@@ -42,6 +43,9 @@ pub struct DetectedOutput {
     pub width: u32,
     pub height: u32,
     pub refresh_mhz: i32,
+    /// Output scale in 120ths (120 = 100%). Zero means "not reported yet",
+    /// in which case the buffer size falls back to the 4K heuristic.
+    pub scale_120ths: u32,
 }
 
 pub struct PresentationSurface {
@@ -57,7 +61,13 @@ pub struct PresentationSurface {
     pub width: u32,
     pub height: u32,
     pub refresh_mhz: i32,
+    /// Output scale in 120ths (120 = 100%). Zero means "not reported yet".
+    pub scale_120ths: u32,
     pub buffers: Option<[MappedBuffer; 2]>,
+    /// Buffers replaced while the compositor still held them. A wl_buffer
+    /// must not be destroyed — and its shm mapping must not be unmapped —
+    /// until the compositor has sent `wl_buffer.release`.
+    pub retired: Vec<MappedBuffer>,
     pub current_buf: usize,
     pub displayed_cells: Vec<crate::cell::TerminalCell>,
     pub displayed_subcell_gen: u64,

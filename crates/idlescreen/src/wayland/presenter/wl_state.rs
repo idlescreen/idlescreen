@@ -189,7 +189,9 @@ impl WaylandState {
                 width,
                 height,
                 refresh_mhz,
+                scale_120ths: 0,
                 buffers: None,
+                retired: Vec::new(),
                 current_buf: 0,
                 displayed_cells: Vec::new(),
                 displayed_subcell_gen: 0,
@@ -217,6 +219,7 @@ impl WaylandState {
             }
             s.surface.destroy();
             drop(s.buffers);
+            s.retired.clear();
         }
         if let Some(kb) = self.keyboard.take() {
             kb.release();

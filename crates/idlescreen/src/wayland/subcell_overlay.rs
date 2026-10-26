@@ -65,24 +65,36 @@ pub fn publish_subcell_overlay(
     palette_rgb: &[(u8, u8, u8)],
     px_buf: &[u8],
 ) {
+    if let Ok(mut ov) = SUBCELL_OVERLAY.lock() {
+        publish_locked(&mut ov, cols, rows, palette_rgb, px_buf);
+    }
+}
+
+/// Publishes into an already-locked overlay instance.
+fn publish_locked(
+    ov: &mut SubcellOverlay,
+    cols: usize,
+    rows: usize,
+    palette_rgb: &[(u8, u8, u8)],
+    px_buf: &[u8],
+) -> bool {
     let needed = cols
         .saturating_mul(SUBCELL_X)
         .saturating_mul(rows)
         .saturating_mul(SUBCELL_Y);
     if needed == 0 || px_buf.len() < needed {
-        return;
+        return false;
     }
-    if let Ok(mut ov) = SUBCELL_OVERLAY.lock() {
-        (ov.cols, ov.rows, ov.generation) = (cols, rows, ov.generation.wrapping_add(1));
-        ov.palette.fill(0);
-        for (i, &(r, g, b)) in palette_rgb.iter().take(40).enumerate() {
-            ov.palette[i] = 0xFF00_0000 | (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b);
-        }
-        if ov.pixels.len() != needed {
-            ov.pixels.resize(needed, 0);
-        }
-        ov.pixels.copy_from_slice(&px_buf[..needed]);
+    (ov.cols, ov.rows, ov.generation) = (cols, rows, ov.generation.wrapping_add(1));
+    ov.palette.fill(0);
+    for (i, &(r, g, b)) in palette_rgb.iter().take(40).enumerate() {
+        ov.palette[i] = 0xFF00_0000 | (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b);
     }
+    if ov.pixels.len() != needed {
+        ov.pixels.resize(needed, 0);
+    }
+    ov.pixels.copy_from_slice(&px_buf[..needed]);
+    true
 }
 
 pub fn composite_subcell_overlay(
@@ -103,14 +115,35 @@ pub fn composite_subcell_overlay_with_format(
     (drawn_w, drawn_h): (usize, usize),
     is_10bit_hdr: bool,
 ) {
+    let Ok(ov) = SUBCELL_OVERLAY.lock() else {
+        return;
+    };
+    composite_locked(
+        &ov,
+        cells,
+        (cols, rows),
+        buffer,
+        (pixel_w, pixel_h),
+        (drawn_w, drawn_h),
+        is_10bit_hdr,
+    );
+}
+
+/// Composites an already-locked overlay instance.
+fn composite_locked(
+    ov: &SubcellOverlay,
+    cells: &[TerminalCell],
+    (cols, rows): (usize, usize),
+    buffer: &mut [u32],
+    (pixel_w, pixel_h): (usize, usize),
+    (drawn_w, drawn_h): (usize, usize),
+    is_10bit_hdr: bool,
+) {
     let (sub_w, sub_h) = (
         cols.saturating_mul(SUBCELL_X),
         rows.saturating_mul(SUBCELL_Y),
     );
     let needed = sub_w.saturating_mul(sub_h);
-    let Ok(ov) = SUBCELL_OVERLAY.lock() else {
-        return;
-    };
     if ov.cols != cols || ov.rows != rows || needed == 0 || ov.pixels.len() < needed {
         return;
     }
@@ -136,6 +169,40 @@ pub fn composite_subcell_overlay_with_format(
         buffer,
         (pixel_w, pixel_h),
         (drawn_w, drawn_h),
+    );
+}
+
+/// Inputs for the atomic publish-and-composite test helper.
+#[cfg(test)]
+pub(crate) struct OverlayTestSpec<'a> {
+    pub cols: usize,
+    pub rows: usize,
+    pub palette_rgb: &'a [(u8, u8, u8)],
+    pub px_buf: &'a [u8],
+    pub cells: &'a [TerminalCell],
+    pub px_dims: (usize, usize),
+    pub drawn_dims: (usize, usize),
+    pub is_10bit_hdr: bool,
+}
+
+/// Publishes and composites in one critical section.
+///
+/// The overlay is process-global, so a scene-driven publish/clear from another
+/// thread could otherwise land between the two halves of this operation.
+#[cfg(test)]
+pub(crate) fn publish_and_composite_for_test(spec: &OverlayTestSpec<'_>, buffer: &mut [u32]) {
+    let Ok(mut ov) = SUBCELL_OVERLAY.lock() else {
+        return;
+    };
+    publish_locked(&mut ov, spec.cols, spec.rows, spec.palette_rgb, spec.px_buf);
+    composite_locked(
+        &ov,
+        spec.cells,
+        (spec.cols, spec.rows),
+        buffer,
+        spec.px_dims,
+        spec.drawn_dims,
+        spec.is_10bit_hdr,
     );
 }
 
@@ -236,15 +303,19 @@ mod tests {
             (0xFF10_F060, 0xFF10_F060, 0xFF00_0000)
         );
 
-        publish_subcell_overlay(cols, rows, &[(16, 240, 96), (32, 255, 128)], &px);
         let mut hdr = vec![0xC000_0000u32; pw * ph];
-        composite_subcell_overlay_with_format(
-            &cells,
-            (cols, rows),
+        publish_and_composite_for_test(
+            &OverlayTestSpec {
+                cols,
+                rows,
+                palette_rgb: &[(16, 240, 96), (32, 255, 128)],
+                px_buf: &px,
+                cells: &cells,
+                px_dims: (pw, ph),
+                drawn_dims: (pw, ph),
+                is_10bit_hdr: true,
+            },
             &mut hdr,
-            (pw, ph),
-            (pw, ph),
-            true,
         );
         assert_eq!(hdr[0], pack_argb2101010((16, 240, 96)));
         clear_subcell_overlay();
