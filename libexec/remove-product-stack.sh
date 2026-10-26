@@ -8,7 +8,13 @@
 
 set -eu
 
-# Product stack + official savers. Keep in sync with install_honesty::PRODUCT_STACK.
+# Product stack + official savers + the studio suite. Keep in sync with
+# install_honesty::PRODUCT_STACK_ON_REMOVE (packages repo) and the
+# UNINSTALL_PKGS list in packages/uninstall.sh.
+#
+# idle-studio and render come from the same signed channel as the daemon,
+# so removing the daemon has to take them with it — otherwise the user is
+# left with packages that the removed channel can no longer remove.
 PKGS="
 idle-cosmic
 idle-tui
@@ -27,6 +33,8 @@ idle-saver-radar
 idle-saver-ripple
 idle-saver-storm
 idle-daemon
+idle-studio
+render
 "
 
 is_desktop_uid() {

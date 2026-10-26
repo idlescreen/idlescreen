@@ -29,6 +29,12 @@ jobs:
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - name: Validate page-score.json
         run: qa/page_score_check.sh
+      - name: Validate the product-removal list
+        # The removal list lives in three repos' worth of scripts and is
+        # kept in sync by comment — which is not a mechanism. This pins the
+        # idlescreen-side list so a package cannot quietly stop being
+        # removable.
+        run: qa/removal_stack_check.sh
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Run Clippy
