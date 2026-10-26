@@ -110,7 +110,6 @@ jobs:
           for want in \
             ./usr/bin/idlescreen \
             ./usr/lib/systemd/user/idlescreen.service \
-            ./usr/share/man/man1/idlescreen.1 \
             ./usr/share/idlescreen/services/idlescreen.openrc \
             ./usr/share/idlescreen/services/idlescreen.runit \
             ./usr/share/idlescreen/services/idlescreen.dinit \
@@ -118,6 +117,12 @@ jobs:
           do
             [ -e "$stage/$want" ] || { echo "::error::deb payload is missing $want"; exit 1; }
           done
+          # cargo-deb compresses the man page, so accept either spelling.
+          if [ ! -e "$stage/usr/share/man/man1/idlescreen.1" ] \
+            && [ ! -e "$stage/usr/share/man/man1/idlescreen.1.gz" ]; then
+            echo "::error::deb payload is missing the idlescreen.1 man page"
+            exit 1
+          fi
           rm -rf "$stage"
           rpm -qlp "${rpms[0]}" | grep -qx '/usr/bin/idlescreen' \
             || { echo "::error::rpm payload is missing /usr/bin/idlescreen"; exit 1; }
