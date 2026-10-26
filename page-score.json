@@ -1,6 +1,6 @@
 {
  "repo": "idlescreen",
- "rev": "7f5097c",
+ "rev": "75ab14b",
  "dirty": false,
  "pages": [
   {
@@ -999,7 +999,7 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/sys_info/mod.rs",
-   "lines": 214,
+   "lines": 217,
    "bin_bytes": 12449,
    "heat_pct": null,
    "reach": 0
@@ -1013,14 +1013,14 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/sys_info/theme_probe.rs",
-   "lines": 255,
-   "bin_bytes": 13359,
+   "lines": 252,
+   "bin_bytes": 12527,
    "heat_pct": null,
    "reach": 2
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/art_tests.rs",
-   "lines": 221,
+   "lines": 222,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
@@ -1062,7 +1062,7 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/transition_tests.rs",
-   "lines": 237,
+   "lines": 245,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
@@ -1079,7 +1079,7 @@
    "lines": 95,
    "bin_bytes": 1880,
    "heat_pct": null,
-   "reach": 29
+   "reach": 30
   },
   {
    "path": "./crates/idlescreen/src/cli/doctor/fix.rs",
@@ -1356,13 +1356,69 @@
   },
   {
    "path": "./crates/idlescreen/src/lib.rs",
-   "lines": 13,
+   "lines": 28,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/main.rs",
+   "lines": 64,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/raster/blit.rs",
+   "lines": 254,
+   "bin_bytes": 10961,
+   "heat_pct": null,
+   "reach": 12
+  },
+  {
+   "path": "./crates/idlescreen/src/raster/damage.rs",
+   "lines": 67,
+   "bin_bytes": 2316,
+   "heat_pct": null,
+   "reach": 3
+  },
+  {
+   "path": "./crates/idlescreen/src/raster/glyph_font.rs",
+   "lines": 207,
+   "bin_bytes": 9894,
+   "heat_pct": null,
+   "reach": 8
+  },
+  {
+   "path": "./crates/idlescreen/src/raster/glyph_style.rs",
+   "lines": 40,
+   "bin_bytes": 832,
+   "heat_pct": null,
+   "reach": 4
+  },
+  {
+   "path": "./crates/idlescreen/src/raster/mod.rs",
+   "lines": 24,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/raster/subcell_overlay/blit.rs",
+   "lines": 69,
+   "bin_bytes": 3839,
+   "heat_pct": null,
+   "reach": 11
+  },
+  {
+   "path": "./crates/idlescreen/src/raster/subcell_overlay/mod.rs",
+   "lines": 213,
+   "bin_bytes": 5025,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/raster/subcell_overlay/tests.rs",
    "lines": 59,
    "bin_bytes": null,
    "heat_pct": null,
@@ -1425,13 +1481,6 @@
    "reach": 3
   },
   {
-   "path": "./crates/idlescreen/src/wayland/blit.rs",
-   "lines": 254,
-   "bin_bytes": 10961,
-   "heat_pct": null,
-   "reach": 11
-  },
-  {
    "path": "./crates/idlescreen/src/wayland/dpms/mod.rs",
    "lines": 214,
    "bin_bytes": 2392,
@@ -1453,15 +1502,8 @@
    "reach": 2
   },
   {
-   "path": "./crates/idlescreen/src/wayland/glyph_font.rs",
-   "lines": 206,
-   "bin_bytes": 9894,
-   "heat_pct": null,
-   "reach": 7
-  },
-  {
    "path": "./crates/idlescreen/src/wayland/mod.rs",
-   "lines": 19,
+   "lines": 20,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
@@ -1524,8 +1566,8 @@
   },
   {
    "path": "./crates/idlescreen/src/wayland/presenter/shm_buf.rs",
-   "lines": 245,
-   "bin_bytes": 6278,
+   "lines": 193,
+   "bin_bytes": 3962,
    "heat_pct": null,
    "reach": 5
   },
@@ -1549,27 +1591,6 @@
    "bin_bytes": 11583,
    "heat_pct": null,
    "reach": 7
-  },
-  {
-   "path": "./crates/idlescreen/src/wayland/subcell_overlay/blit.rs",
-   "lines": 69,
-   "bin_bytes": 3839,
-   "heat_pct": null,
-   "reach": 10
-  },
-  {
-   "path": "./crates/idlescreen/src/wayland/subcell_overlay/mod.rs",
-   "lines": 213,
-   "bin_bytes": 5025,
-   "heat_pct": null,
-   "reach": 0
-  },
-  {
-   "path": "./crates/idlescreen/src/wayland/subcell_overlay/tests.rs",
-   "lines": 59,
-   "bin_bytes": null,
-   "heat_pct": null,
-   "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/wayland/viewport.rs",
