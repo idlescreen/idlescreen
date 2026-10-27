@@ -8,8 +8,7 @@ use crate::raster::blit::{GLYPH_HEIGHT, GLYPH_WIDTH, blit_cells_to_argb};
 use crate::raster::glyph_font::{draw_preview_hud, get_glyph_bitmap};
 use std::time::Duration;
 
-/// The time one display frame stands for, as the presenter drives it.
-const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
+const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60); // one display frame
 
 #[test]
 fn test_place_banner_centered() {

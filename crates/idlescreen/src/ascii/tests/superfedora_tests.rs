@@ -3,19 +3,17 @@
 
 #![allow(unsafe_code)]
 
-use super::super::Ascii;
-use super::super::SceneStep;
 use super::super::effects::EffectKind;
 use super::super::layout::render_banner;
 use super::super::sys_info::clean_os_name;
+use super::super::{Ascii, SceneStep};
 use crate::cell::TerminalCell;
 use std::time::Duration;
 
 const COLS: usize = 80;
 const ROWS: usize = 24;
 
-/// The time one display frame stands for, as the presenter drives it.
-const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
+const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60); // one display frame
 
 #[test]
 fn test_clean_os_name_superfedora() {

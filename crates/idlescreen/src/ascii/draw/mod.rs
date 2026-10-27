@@ -4,15 +4,17 @@
 //! Terminal cell buffer drawing, 16-bit pixel-art quantization, arcade post-FX, and transitions.
 
 mod ansi;
+mod dissolve;
 pub mod lens_flare;
 mod post_fx;
 pub mod starfield;
 
 pub use ansi::paint_frame;
+pub use dissolve::paint_transition;
 pub use lens_flare::{
     apply_anamorphic_lens_flare, blend_rgb, neon_overdrive_rgb, theme_bevel_band,
 };
-pub use post_fx::{apply_arcade_fx, apply_arcade_fx_with_bounds, paint_transition};
+pub use post_fx::{apply_arcade_fx, apply_arcade_fx_with_bounds};
 pub use starfield::{compute_backdrop_seed, paint_starfield_backdrop};
 
 use crate::cell::TerminalCell;

@@ -1,6 +1,6 @@
 {
  "repo": "idlescreen",
- "rev": "75ab14b",
+ "rev": "0f0468c",
  "dirty": false,
  "pages": [
   {
@@ -26,8 +26,8 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/draw/post_fx.rs",
-   "lines": 178,
-   "bin_bytes": 5987,
+   "lines": 282,
+   "bin_bytes": 7691,
    "heat_pct": null,
    "reach": 1
   },
@@ -40,17 +40,31 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/effects.rs",
-   "lines": 215,
-   "bin_bytes": 3707,
+   "lines": 226,
+   "bin_bytes": 3829,
    "heat_pct": null,
-   "reach": 17
+   "reach": 19
   },
   {
-   "path": "./crates/idlescreen/src/ascii/engine.rs",
-   "lines": 78,
-   "bin_bytes": 2464,
+   "path": "./crates/idlescreen/src/ascii/engine/measure.rs",
+   "lines": 45,
+   "bin_bytes": 784,
    "heat_pct": null,
-   "reach": 63
+   "reach": 1
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/engine/mod.rs",
+   "lines": 164,
+   "bin_bytes": 3545,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/engine/pace.rs",
+   "lines": 118,
+   "bin_bytes": 1323,
+   "heat_pct": null,
+   "reach": 1
   },
   {
    "path": "./crates/idlescreen/src/ascii/layout/cache.rs",
@@ -75,15 +89,15 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/mod.rs",
-   "lines": 253,
+   "lines": 250,
    "bin_bytes": 6547,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/ascii/runtime.rs",
-   "lines": 255,
-   "bin_bytes": 12189,
+   "lines": 279,
+   "bin_bytes": 12194,
    "heat_pct": null,
    "reach": 0
   },
@@ -168,7 +182,7 @@
    "path": "./crates/idlescreen/src/ascii/scenes/beams_light/rings/rings_step.rs",
    "lines": 249,
    "bin_bytes": 14692,
-   "heat_pct": null,
+   "heat_pct": 1.72,
    "reach": 0
   },
   {
@@ -218,7 +232,7 @@
    "lines": 29,
    "bin_bytes": 337,
    "heat_pct": null,
-   "reach": 58
+   "reach": 59
   },
   {
    "path": "./crates/idlescreen/src/ascii/scenes/matrix_cyber/binarypath/binarypath_sim.rs",
@@ -483,7 +497,7 @@
    "path": "./crates/idlescreen/src/ascii/scenes/particles_fire/bubbles/bubbles_sim.rs",
    "lines": 250,
    "bin_bytes": 15724,
-   "heat_pct": null,
+   "heat_pct": 3.45,
    "reach": 0
   },
   {
@@ -833,7 +847,7 @@
    "path": "./crates/idlescreen/src/ascii/scenes/weather_nature/arcade_retro/zero/zero_sim.rs",
    "lines": 220,
    "bin_bytes": 8429,
-   "heat_pct": null,
+   "heat_pct": 1.72,
    "reach": 1
   },
   {
@@ -1015,7 +1029,7 @@
    "path": "./crates/idlescreen/src/ascii/sys_info/theme_probe.rs",
    "lines": 252,
    "bin_bytes": 12527,
-   "heat_pct": null,
+   "heat_pct": 3.45,
    "reach": 2
   },
   {
@@ -1027,42 +1041,49 @@
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/ascii_tests.rs",
-   "lines": 241,
+   "lines": 248,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/mod.rs",
-   "lines": 11,
+   "lines": 12,
+   "bin_bytes": null,
+   "heat_pct": null,
+   "reach": 0
+  },
+  {
+   "path": "./crates/idlescreen/src/ascii/tests/pace_tests.rs",
+   "lines": 122,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/paint_tests.rs",
-   "lines": 250,
+   "lines": 253,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/scene_tests.rs",
-   "lines": 254,
+   "lines": 257,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/superfedora_tests.rs",
-   "lines": 250,
+   "lines": 258,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
   },
   {
    "path": "./crates/idlescreen/src/ascii/tests/transition_tests.rs",
-   "lines": 245,
+   "lines": 246,
    "bin_bytes": null,
    "heat_pct": null,
    "reach": 0
@@ -1161,9 +1182,9 @@
   {
    "path": "./crates/idlescreen/src/cli/preview/render.rs",
    "lines": 249,
-   "bin_bytes": 9394,
+   "bin_bytes": 9400,
    "heat_pct": null,
-   "reach": 2
+   "reach": 3
   },
   {
    "path": "./crates/idlescreen/src/cli/preview/term_guard/keymap.rs",
@@ -1434,14 +1455,14 @@
   {
    "path": "./crates/idlescreen/src/tui/mini_preview.rs",
    "lines": 197,
-   "bin_bytes": 7895,
+   "bin_bytes": 7906,
    "heat_pct": null,
    "reach": 3
   },
   {
    "path": "./crates/idlescreen/src/tui/mod.rs",
    "lines": 146,
-   "bin_bytes": 6518,
+   "bin_bytes": 6510,
    "heat_pct": null,
    "reach": 0
   },
@@ -1539,7 +1560,7 @@
   {
    "path": "./crates/idlescreen/src/wayland/presenter/frame_step/mod.rs",
    "lines": 243,
-   "bin_bytes": 7536,
+   "bin_bytes": 7538,
    "heat_pct": null,
    "reach": 0
   },
@@ -1838,5 +1859,5 @@
    "reach": 0
   }
  ],
- "notes": "reach counts referencing files (shared file names qualified by ancestor dir); bin_bytes from newest workspace dev rlib per crate via nm (inlining approx, bins re-link the same code; shims excluded, foreign paths never attributed);"
+ "notes": "reach counts referencing files (shared file names qualified by ancestor dir); bin_bytes from newest workspace dev rlib per crate via nm (inlining approx, bins re-link the same code; shims excluded, foreign paths never attributed); heat from 58 attributed samples over 24/70 binaries at 10Hz incl. one child level; every repo-resolving frame counts;"
 }

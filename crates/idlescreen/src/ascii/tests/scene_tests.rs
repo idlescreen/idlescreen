@@ -6,8 +6,7 @@ use super::super::effects::EffectKind;
 use crate::cell::LcgRng;
 use std::time::Duration;
 
-/// The time one display frame stands for, as the presenter drives it.
-const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
+const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60); // one display frame
 
 #[rustfmt::skip]
 const ALL_37_TTFX_NAMES: &[&str] = &[
