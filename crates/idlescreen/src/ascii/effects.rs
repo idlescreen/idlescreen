@@ -136,6 +136,17 @@ impl EffectKind {
         }
     }
 
+    /// The screen time a scene of this effect fills.
+    ///
+    /// The boss scenes flash past, so their slot is the shorter one.
+    pub fn slot_secs(&self) -> f32 {
+        if matches!(self, Self::Mmx | Self::Zero) {
+            self.dwell().min(0.65)
+        } else {
+            self.dwell()
+        }
+    }
+
     #[rustfmt::skip]
     pub fn arcade_steps_per_frame(&self) -> usize {
         match self {

@@ -5,7 +5,7 @@
 
 use super::layout::{format_portrait_telemetry, is_portrait};
 use super::sys_info::query_telemetry;
-use super::{Ascii, EngineSession, draw, sys_info};
+use super::{Ascii, EngineSession, SceneStep, draw, sys_info};
 use crate::cell::TerminalCell;
 use std::time::Duration;
 
@@ -21,7 +21,6 @@ impl Ascii {
             self.engine = None;
             return;
         }
-        self.anim_left = 120.0;
         self.rebuild_art();
         let is_sf = self.is_stacked_superfedora() || sys_info::is_superfedora_machine();
         if is_portrait(self.last_cols, self.last_rows) && !is_sf {
@@ -36,11 +35,20 @@ impl Ascii {
             return;
         }
         let (cols, rows) = (self.last_cols, self.last_rows);
-        self.engine = EngineSession::new(&self.art_text, self.effect, cols, rows, seed, self.fps);
+        let slot = self.dwell_time();
+        self.engine = EngineSession::new_paced(
+            &self.art_text,
+            self.effect,
+            cols,
+            rows,
+            seed,
+            self.fps,
+            slot,
+        );
         if let Some(ref mut session) = self.engine {
-            if let Some(frame) = session.next_frame() {
-                self.current_frame.clear();
-                self.current_frame.push_str(&frame);
+            if session.next_frame_into(&mut self.current_frame, Duration::ZERO)
+                == SceneStep::Advanced
+            {
                 let (fg, bg) = (self.fg, self.bg);
                 draw::paint_frame(
                     &self.current_frame,
@@ -94,17 +102,25 @@ impl Ascii {
             self.effect,
             super::effects::EffectKind::Mmx | super::effects::EffectKind::Zero
         );
-        if let Some(ref mut session) = self.engine {
-            if self.transition_active && is_boss_scene {
-                return;
+        let Some(mut session) = self.engine.take() else {
+            if !self.transition_active {
+                self.dwell_left -= dt_secs;
+                if self.dwell_left <= 0.0 && (!self.pinned || is_boss_scene) {
+                    self.begin_transition();
+                }
             }
-            self.anim_left -= dt_secs;
-            if let Some(frame) = (self.anim_left > 0.0)
-                .then(|| session.next_frame())
-                .flatten()
-            {
-                self.current_frame.clear();
-                self.current_frame.push_str(&frame);
+            return;
+        };
+
+        if self.transition_active && is_boss_scene {
+            self.engine = Some(session);
+            return;
+        }
+
+        let step = session.next_frame_into(&mut self.current_frame, dt);
+        self.dwell_left = session.slot_left_secs();
+        match step {
+            SceneStep::Advanced => {
                 let (fg, bg) = (self.fg, self.bg);
                 draw::paint_frame(
                     &self.current_frame,
@@ -114,16 +130,16 @@ impl Ascii {
                     fg,
                     bg,
                 );
-            } else {
+                self.engine = Some(session);
+            }
+            SceneStep::Held => {
+                self.engine = Some(session);
+            }
+            SceneStep::Finished => {
                 let stacked = self.is_stacked_superfedora();
                 self.settled_bounds =
                     draw::apply_settled_bevel_for(&mut self.frame_grid, cols, rows, stacked);
-                (self.engine, self.dwell_left) = (None, self.dwell_time());
-            }
-        } else if !self.transition_active {
-            self.dwell_left -= dt_secs;
-            if self.dwell_left <= 0.0 && (!self.pinned || is_boss_scene) {
-                self.begin_transition();
+                self.dwell_left = 0.0;
             }
         }
     }
@@ -176,7 +192,15 @@ impl Ascii {
                 1.0
             };
             let from = &self.transition_from_grid;
-            draw::paint_transition(from, &self.frame_grid, grid, t, cols, rows);
+            draw::paint_transition(
+                from,
+                &self.frame_grid,
+                grid,
+                t,
+                cols,
+                rows,
+                self.backdrop_seed,
+            );
         } else if !self.frame_grid.is_empty() {
             let src_dim = (self.last_cols, self.last_rows);
             copy_frame_grid(&self.frame_grid, src_dim, grid, (cols, rows));

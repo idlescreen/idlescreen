@@ -6,6 +6,9 @@ use super::super::effects::EffectKind;
 use crate::cell::LcgRng;
 use std::time::Duration;
 
+/// The time one display frame stands for, as the presenter drives it.
+const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
+
 #[rustfmt::skip]
 const ALL_37_TTFX_NAMES: &[&str] = &[
     "beams", "binarypath", "blackhole", "bouncyballs", "bubbles", "burn",
@@ -217,7 +220,7 @@ fn zero_snes_combo_destroys_superfedora_on_floor_and_teleports_out() {
         (false, false, false, false);
     let mut prev_blocks = usize::MAX;
     for step_idx in 1..=120 {
-        saver.update(Duration::from_millis(16), cols, rows);
+        saver.update(FRAME, cols, rows);
         let cur_blocks = saver.frame_grid.iter().filter(|c| c.ch == '█').count();
         assert!(cur_blocks <= prev_blocks, "regressed at {step_idx}");
         prev_blocks = cur_blocks;
@@ -247,7 +250,7 @@ fn zero_snes_combo_destroys_superfedora_on_floor_and_teleports_out() {
         saver.init(c, r);
         saver.pin_effect(EffectKind::Zero);
         for _ in 0..120 {
-            saver.update(Duration::from_millis(16), c, r);
+            saver.update(FRAME, c, r);
         }
         assert!(saver.is_settled());
     }

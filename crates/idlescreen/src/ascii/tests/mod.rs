@@ -5,6 +5,7 @@
 
 mod art_tests;
 mod ascii_tests;
+mod pace_tests;
 mod paint_tests;
 mod scene_tests;
 mod superfedora_tests;

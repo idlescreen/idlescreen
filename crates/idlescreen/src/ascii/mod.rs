@@ -19,7 +19,7 @@ mod tests;
 
 use crate::cell::{LcgRng, TerminalCell};
 use effects::{EffectKind, EffectPlaylist};
-pub use engine::EngineSession;
+pub use engine::{EngineSession, SceneStep};
 use state::{TextMode, TriRotationState};
 use std::time::Duration;
 
@@ -38,7 +38,6 @@ pub struct Ascii {
     pub dwell_duration: Option<f32>,
     pub dissolve_duration: f32,
     pub elapsed_in_effect: f32,
-    pub anim_left: f32,
     pub fg: (u8, u8, u8),
     pub bg: (u8, u8, u8),
     pub last_cols: usize,
@@ -105,7 +104,6 @@ impl Ascii {
             dwell_duration: None,
             dissolve_duration: DEFAULT_DISSOLVE_SECS,
             elapsed_in_effect: 0.0,
-            anim_left: 20.0,
             fg: (248, 248, 242),
             bg,
             last_cols: 0,
@@ -159,11 +157,10 @@ impl Ascii {
     }
 
     pub fn dwell_time(&self) -> f32 {
-        let d = self.dwell_duration.unwrap_or_else(|| self.effect.dwell());
-        if matches!(self.effect, EffectKind::Mmx | EffectKind::Zero) {
-            d.min(0.65)
-        } else {
-            d
+        match self.dwell_duration {
+            Some(d) if matches!(self.effect, EffectKind::Mmx | EffectKind::Zero) => d.min(0.65),
+            Some(d) => d,
+            None => self.effect.slot_secs(),
         }
     }
 

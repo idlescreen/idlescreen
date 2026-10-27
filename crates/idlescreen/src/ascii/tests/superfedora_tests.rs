@@ -4,6 +4,7 @@
 #![allow(unsafe_code)]
 
 use super::super::Ascii;
+use super::super::SceneStep;
 use super::super::effects::EffectKind;
 use super::super::layout::render_banner;
 use super::super::sys_info::clean_os_name;
@@ -12,6 +13,9 @@ use std::time::Duration;
 
 const COLS: usize = 80;
 const ROWS: usize = 24;
+
+/// The time one display frame stands for, as the presenter drives it.
+const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
 
 #[test]
 fn test_clean_os_name_superfedora() {
@@ -189,16 +193,17 @@ fn all_53_scenes_render_strictly_pixel_art_blocks_with_superfedora_banner() {
             }
         }
         let mut frames = 8usize;
+        let mut buffer = String::new();
         while let Some(ref mut s) = saver.engine {
-            if s.next_frame().is_some() {
-                frames += 1;
-            } else {
-                break;
+            match s.next_frame_into(&mut buffer, FRAME) {
+                SceneStep::Advanced => frames += 1,
+                SceneStep::Held => {}
+                SceneStep::Finished => break,
             }
         }
         assert!(
-            (35..=170).contains(&frames),
-            "Scene {} took {} rendered frames (expected 35..=170 for snappy 16-bit arcade pacing)",
+            (35..=200).contains(&frames),
+            "Scene {} took {} rendered frames (expected 35..=200: a scene fills its slot)",
             kind.name(),
             frames
         );
@@ -212,13 +217,16 @@ fn settled_bevel_persists_into_transition_without_color_flash() {
     saver.pin_effect(EffectKind::Wipe);
     saver.init(cols, rows);
 
-    for _ in 0..150 {
-        saver.update(Duration::from_millis(16), cols, rows);
+    for _ in 0..220 {
+        saver.update(FRAME, cols, rows);
         if saver.is_settled() {
             break;
         }
     }
-    assert!(saver.is_settled(), "Wipe should settle within 150 frames");
+    assert!(
+        saver.is_settled(),
+        "the scene should settle within its slot"
+    );
 
     let mut settled_grid = vec![TerminalCell::default(); cols * rows];
     saver.draw(&mut settled_grid, cols, rows);

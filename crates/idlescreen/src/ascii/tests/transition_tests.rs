@@ -30,14 +30,14 @@ fn test_paint_transition_bounds() {
     from[0].ch = 'A';
     to[0].ch = 'B';
 
-    paint_transition(&from, &to, &mut out, 0.0, 80, 24);
+    paint_transition(&from, &to, &mut out, 0.0, 80, 24, 7);
     assert_eq!(out[0].ch, 'A');
 
-    paint_transition(&from, &to, &mut out, 1.0, 80, 24);
+    paint_transition(&from, &to, &mut out, 1.0, 80, 24, 7);
     assert_eq!(out[0].ch, 'B');
 
     // Partial transition
-    paint_transition(&from, &to, &mut out, 0.5, 80, 24);
+    paint_transition(&from, &to, &mut out, 0.5, 80, 24, 7);
     assert!(out[0].ch == 'A' || out[0].ch == 'B');
 }
 
@@ -155,6 +155,7 @@ fn test_system_theme_adaptation_and_parsing() {
         0.5,
         2,
         2,
+        7,
     );
     assert!(out_light.iter().all(|c| c.bg == (10, 18, 34)));
 }

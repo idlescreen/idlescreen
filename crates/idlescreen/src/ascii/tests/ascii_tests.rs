@@ -153,20 +153,27 @@ fn multi_target_scene_handoff_and_single_lock() {
 }
 
 #[test]
-fn decoupled_dwell_animates_until_settled_then_holds_dwell() {
+fn decoupled_dwell_fills_the_slot_then_holds_the_last_frame() {
     let mut saver = Ascii::new().with_dwell(2.0);
     saver.init(COLS, ROWS);
     saver.pin_effect(EffectKind::Wipe);
-    assert!((saver.anim_left - 120.0).abs() < 0.001);
-    while saver.engine.is_some() {
+    let mut frames = 0;
+    while saver.engine.is_some() && frames < 1000 {
         saver.update(Duration::from_millis(16), COLS, ROWS);
+        frames += 1;
     }
-    assert!((saver.dwell_left - 2.0).abs() < 0.05);
+    // The scene plays out over its whole slot instead of racing through it.
+    let played = frames as f32 * 0.016;
+    assert!(
+        (played - 2.0).abs() < 0.3,
+        "the scene should fill its 2s slot, it played for {played}s"
+    );
+    assert!(saver.engine.is_none());
+    assert!(saver.dwell_left <= 0.0);
     for _ in 0..60 {
         saver.update(Duration::from_millis(16), COLS, ROWS);
     }
     assert!(!saver.transition_active);
-    assert!((saver.dwell_left - 1.0).abs() < 0.15);
 }
 
 #[test]
@@ -175,7 +182,7 @@ fn effect_dwells_on_settled_frame_before_restarting() {
     saver.init(COLS, ROWS);
     saver.pin_effect(EffectKind::Wipe);
     let mut grid = vec![TerminalCell::default(); COLS * ROWS];
-    for _ in 0..160 {
+    for _ in 0..400 {
         saver.update(Duration::from_millis(16), COLS, ROWS);
         saver.draw(&mut grid, COLS, ROWS);
     }

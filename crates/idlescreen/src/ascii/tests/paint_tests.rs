@@ -6,6 +6,10 @@ use super::super::effects::EffectKind;
 use crate::cell::TerminalCell;
 use crate::raster::blit::{GLYPH_HEIGHT, GLYPH_WIDTH, blit_cells_to_argb};
 use crate::raster::glyph_font::{draw_preview_hud, get_glyph_bitmap};
+use std::time::Duration;
+
+/// The time one display frame stands for, as the presenter drives it.
+const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
 
 #[test]
 fn test_place_banner_centered() {
@@ -187,7 +191,6 @@ fn test_starfield_backdrop_variation_and_randomization() {
 #[test]
 fn mmx_snes_halfblock_sprites_destroy_superfedora_and_teleport_out() {
     use super::super::Ascii;
-    use std::time::Duration;
 
     let (cols, rows) = (120, 36);
     let mut saver = Ascii::new_superfedora().with_dwell(0.5);
@@ -201,7 +204,7 @@ fn mmx_snes_halfblock_sprites_destroy_superfedora_and_teleport_out() {
     let initial_blocks = saver.frame_grid.iter().filter(|c| c.ch == '█').count();
 
     for step_idx in 1..=84 {
-        saver.update(Duration::from_millis(16), cols, rows);
+        saver.update(FRAME, cols, rows);
         if step_idx <= 35 {
             for (idx, cell) in saver.frame_grid.iter().enumerate() {
                 if matches!(cell.ch, '▀' | '▄') {
@@ -243,7 +246,7 @@ fn mmx_snes_halfblock_sprites_destroy_superfedora_and_teleport_out() {
         saver.pin_effect(EffectKind::Mmx);
         let mut small = vec![TerminalCell::default(); c * r];
         for _ in 0..40 {
-            saver.update(Duration::from_millis(16), c, r);
+            saver.update(FRAME, c, r);
             saver.draw(&mut small, c, r);
         }
     }
