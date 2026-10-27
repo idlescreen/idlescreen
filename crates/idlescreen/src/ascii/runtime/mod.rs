@@ -3,6 +3,7 @@
 
 //! Frame update, transition dissolve, and draw pass for Ascii.
 
+mod resize;
 mod session;
 
 use super::layout::is_portrait;
@@ -11,10 +12,27 @@ use crate::cell::TerminalCell;
 use std::time::Duration;
 
 impl Ascii {
-    pub fn update(&mut self, dt: Duration, cols: usize, rows: usize) {
-        if cols != self.last_cols || rows != self.last_rows {
-            self.init(cols, rows);
+    /// Whether the saver is showing a settled frame: no scene running and no
+    /// transition in flight.
+    pub fn is_settled(&self) -> bool {
+        self.engine.is_none() && !self.transition_active
+    }
+
+    /// The time left in the scene's slot, once it has settled.
+    pub fn dwell_remaining(&self) -> Option<Duration> {
+        if self.is_settled() && self.dwell_left > 0.0 {
+            Some(Duration::from_secs_f32(self.dwell_left))
+        } else {
+            None
         }
+    }
+
+    pub fn update(&mut self, dt: Duration, cols: usize, rows: usize) {
+        self.reinit_when_settled(cols, rows);
+        // The scene is painted at the size it was built for. While a resize
+        // is still settling, that is the old size, and the draw pass centres
+        // it in the new one.
+        let (frame_cols, frame_rows) = (self.last_cols, self.last_rows);
         self.frame_tick = self.frame_tick.wrapping_add(1);
         let dt_secs = dt.as_secs_f32().clamp(0.0, 0.1);
         self.elapsed_in_effect += dt_secs;
@@ -58,8 +76,8 @@ impl Ascii {
                 draw::paint_frame(
                     &self.current_frame,
                     &mut self.frame_grid,
-                    cols,
-                    rows,
+                    frame_cols,
+                    frame_rows,
                     fg,
                     bg,
                 );
@@ -70,8 +88,12 @@ impl Ascii {
             }
             SceneStep::Finished => {
                 let stacked = self.is_stacked_superfedora();
-                self.settled_bounds =
-                    draw::apply_settled_bevel_for(&mut self.frame_grid, cols, rows, stacked);
+                self.settled_bounds = draw::apply_settled_bevel_for(
+                    &mut self.frame_grid,
+                    frame_cols,
+                    frame_rows,
+                    stacked,
+                );
                 self.dwell_left = 0.0;
             }
         }

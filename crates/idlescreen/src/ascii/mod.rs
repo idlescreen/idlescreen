@@ -21,7 +21,6 @@ use crate::cell::{LcgRng, TerminalCell};
 use effects::{EffectKind, EffectPlaylist};
 pub use engine::{EngineSession, SceneStep};
 use state::{TextMode, TriRotationState};
-use std::time::Duration;
 
 pub const DEFAULT_DWELL_SECS: f32 = 2.8;
 pub const DEFAULT_DISSOLVE_SECS: f32 = 0.50;
@@ -42,6 +41,11 @@ pub struct Ascii {
     pub bg: (u8, u8, u8),
     pub last_cols: usize,
     pub last_rows: usize,
+    /// The grid size asked for on the previous frame. A resize is applied
+    /// once the same size is asked for twice in a row: a drag reports a new
+    /// size every frame, and rebuilding the scene for each of them measures
+    /// a fresh step budget every time.
+    pub requested_grid: (usize, usize),
     pub art_text: String,
     pub current_frame: String,
     pub frame_grid: Vec<TerminalCell>,
@@ -108,6 +112,7 @@ impl Ascii {
             bg,
             last_cols: 0,
             last_rows: 0,
+            requested_grid: (0, 0),
             art_text: String::new(),
             current_frame: String::new(),
             frame_grid: Vec::new(),
@@ -164,22 +169,10 @@ impl Ascii {
         }
     }
 
-    pub fn is_settled(&self) -> bool {
-        self.engine.is_none() && !self.transition_active
-    }
-
     pub fn is_stacked_superfedora(&self) -> bool {
         let active = self.rotation.active_text();
         let trimmed = active.trim();
         trimmed.eq_ignore_ascii_case("SUPERFEDORA") || trimmed.eq_ignore_ascii_case("SUPER FEDORA")
-    }
-
-    pub fn dwell_remaining(&self) -> Option<Duration> {
-        if self.is_settled() && self.dwell_left > 0.0 {
-            Some(Duration::from_secs_f32(self.dwell_left))
-        } else {
-            None
-        }
     }
 
     pub fn pin_effect(&mut self, effect: EffectKind) {
@@ -204,6 +197,7 @@ impl Ascii {
 
     pub fn init(&mut self, cols: usize, rows: usize) {
         (self.last_cols, self.last_rows) = (cols, rows);
+        self.requested_grid = (cols, rows);
         let total = cols.saturating_mul(rows);
         self.frame_grid.resize(total, TerminalCell::default());
         self.frame_grid.fill(TerminalCell::default());

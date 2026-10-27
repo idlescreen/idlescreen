@@ -58,7 +58,11 @@ fn resize_rebuilds_the_grid_and_art() {
     saver.update(Duration::from_millis(16), COLS, ROWS);
     saver.draw(&mut grid, COLS, ROWS);
 
+    // A size is applied once it has been asked for twice: a drag reports a
+    // new size every frame, and rebuilding for each of them would measure a
+    // fresh step budget every time.
     let (wide, tall) = (120, 40);
+    saver.update(Duration::from_millis(16), wide, tall);
     saver.update(Duration::from_millis(16), wide, tall);
     let mut grid_wide = vec![TerminalCell::default(); wide * tall];
     saver.draw(&mut grid_wide, wide, tall);
@@ -66,6 +70,7 @@ fn resize_rebuilds_the_grid_and_art() {
     assert_eq!(saver.last_rows, tall);
 
     let (small_w, small_h) = (20, 10);
+    saver.update(Duration::from_millis(16), small_w, small_h);
     saver.update(Duration::from_millis(16), small_w, small_h);
     let mut grid_small = vec![TerminalCell::default(); small_w * small_h];
     saver.draw(&mut grid_small, small_w, small_h);

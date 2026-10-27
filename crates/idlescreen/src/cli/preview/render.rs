@@ -180,7 +180,10 @@ fn run_preview_loop(
                 rows = new_r;
                 grid.resize(cols * rows, TerminalCell::default());
                 grid.fill(TerminalCell::default());
-                ascii_saver.init(cols, rows);
+                // The saver is not rebuilt here. Asking for the new size
+                // here and again in the update below would settle it on the
+                // spot, and every size a drag reports would cost a scene
+                // rebuild. The update path settles it instead.
             }
         }
 
@@ -214,7 +217,7 @@ fn run_preview_loop(
                             rows = new_r;
                             grid.resize(cols * rows, TerminalCell::default());
                             grid.fill(TerminalCell::default());
-                            ascii_saver.init(cols, rows);
+                            // The update path settles the new size, as above.
                         }
                     }
                 }
