@@ -101,11 +101,11 @@ fn bh_expl1(w: World, id: Int, fmap: List[Int], info: CanvasInfo) -> World {
     let npid: String = w_auto_id(ch.pids);
     let ipid: String = w_auto_id(list_push(ch.pids, npid));
     let npi: Int = list_len(ch.pids);
-    let d2: DR = rng_int(w2.rng, 3, 4);
+    let d2: DR = rng_int(w2.rng, 6, 9);
     w2 = w_rng(w2, d2.r);
     w2 = w_path(w2, id, int_to_f(d2.v) / 10.0, 1, ez(17), 0 - 1, 0, 0, "");
     w2 = w_wp(w2, id, npi, list_get(circ, d1.v * 2), list_get(circ, d1.v * 2 + 1), list_new());
-    let d3: DR = rng_int(w2.rng, 4, 6);
+    let d3: DR = rng_int(w2.rng, 10, 16);
     w2 = w_rng(w2, d3.r);
     w2 = w_path(w2, id, int_to_f(d3.v) / 100.0, 1, ez(7), 0 - 1, 0, 0, "");
     w2 = w_wp(w2, id, npi + 1, ch.col0, ch.row0, list_new());

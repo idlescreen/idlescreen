@@ -28,7 +28,9 @@ pub fn font7_raw(ch: String) -> String {
 }
 
 pub fn font7_rows(ch: String) -> List[String] {
-    return str_split(font7_raw(ch), "|");
+    let raw: String = font7_raw(ch);
+    let rows: List[String] = str_split(raw, "|");
+    return rows;
 }
 
 pub fn font7_width() -> Int { return 7; }

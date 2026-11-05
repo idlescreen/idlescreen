@@ -2,18 +2,20 @@
 //
 // Logline: Bit-exact port of PrimsSimple (random start inside the text
 // boundary, then random-edge Prim growth until every in-text char is
-// linked) reduced to lists: edge_chars, a linked bitmap, and the FIFO
-// char_link_order the burn driver consumes per frame.
-// Setup: Pure over List[Int]. Char ids are grid positions:
-// id = (rows - row) * cols + (col - 1). Neighbors scan N,E,S,W then
-// apply the text-boundary and unlinked filters, matching upstream.
+// linked) over the terminal's input_grid: edge_chars, a linked bitmap,
+// and the FIFO char_link_order the burn driver consumes per frame.
+// Setup: Pure over List[Int]. Arena ids index w.chars; the grid maps
+// (row-1)*cols + (col-1) -> arena id for every coord with a character,
+// matching Terminal.input_grid. Neighbors scan N,E,S,W then apply the
+// text-boundary and unlinked filters, matching upstream.
 // Beats:
-//   1. bn_at/bn_col/bn_row translate between grid coords and char ids.
+//   1. bn_grid builds the coord -> arena id lookup.
 //   2. bn_nbs gathers unlinked in-text neighbors in upstream order.
 //   3. bn_step replays one PrimsSimple.step (up to two randrange draws).
 //   4. bn_link seeds the start char; the driver runs steps to completion.
 
 import "tests/oo/canvas_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
 
@@ -24,16 +26,24 @@ pub type BnSt = struct {
     rng: Rng
 };
 
-pub fn bn_at(info: CanvasInfo, c: Int, r: Int) -> Int {
-    return (info.rows - r) * info.cols + c - 1;
+pub fn bn_grid(w: World, info: CanvasInfo) -> List[Int] {
+    let n: Int = info.cols * info.rows;
+    let mut g: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < n { g = list_push(g, 0 - 1); i = i + 1; }
+    i = 0;
+    while i < list_len(w.chars) {
+        let ch: Char = list_get(w.chars, i);
+        if ch.col0 >= 1 && ch.col0 <= info.cols && ch.row0 >= 1 && ch.row0 <= info.rows {
+            g = list_set(g, (ch.row0 - 1) * info.cols + ch.col0 - 1, i);
+        }
+        i = i + 1;
+    }
+    return g;
 }
 
-fn bn_col(info: CanvasInfo, i: Int) -> Int {
-    return i % info.cols + 1;
-}
-
-fn bn_row(info: CanvasInfo, i: Int) -> Int {
-    return info.rows - i / info.cols;
+pub fn bn_at(grid: List[Int], info: CanvasInfo, c: Int, r: Int) -> Int {
+    return list_get(grid, (r - 1) * info.cols + c - 1);
 }
 
 fn bn_intext(info: CanvasInfo, c: Int, r: Int) -> Int {
@@ -42,7 +52,7 @@ fn bn_intext(info: CanvasInfo, c: Int, r: Int) -> Int {
     return 1;
 }
 
-fn bn_nbs(info: CanvasInfo, c: Int, r: Int, linked: List[Int]) -> List[Int] {
+fn bn_nbs(info: CanvasInfo, grid: List[Int], linked: List[Int], c: Int, r: Int) -> List[Int] {
     let mut out: List[Int] = list_new();
     let mut d: Int = 0;
     while d < 4 {
@@ -54,8 +64,8 @@ fn bn_nbs(info: CanvasInfo, c: Int, r: Int, linked: List[Int]) -> List[Int] {
         if d == 3 { nc = c - 1; }
         if nc >= 1 && nc <= info.cols && nr >= 1 && nr <= info.rows {
             if bn_intext(info, nc, nr) == 1 {
-                let id: Int = bn_at(info, nc, nr);
-                if list_get(linked, id) == 0 { out = list_push(out, id); }
+                let id: Int = bn_at(grid, info, nc, nr);
+                if id >= 0 && list_get(linked, id) == 0 { out = list_push(out, id); }
             }
         }
         d = d + 1;
@@ -73,14 +83,15 @@ fn bn_rm(xs: List[Int], i: Int) -> List[Int] {
     return out;
 }
 
-pub fn bn_step(info: CanvasInfo, st: BnSt) -> BnSt {
+pub fn bn_step(info: CanvasInfo, w: World, grid: List[Int], st: BnSt) -> BnSt {
     let d1: DR = rng_range(st.rng, 0, list_len(st.edges));
-    let mut edges: List[Int] = bn_rm(st.edges, d1.v);
     let cur: Int = list_get(st.edges, d1.v);
+    let mut edges: List[Int] = bn_rm(st.edges, d1.v);
     let mut linked: List[Int] = st.linked;
     let mut order: List[Int] = st.order;
     let mut r: Rng = d1.r;
-    let nbs: List[Int] = bn_nbs(info, bn_col(info, cur), bn_row(info, cur), linked);
+    let nbs: List[Int] = bn_nbs(info, grid, linked,
+        list_get(w.chars, cur).col0, list_get(w.chars, cur).row0);
     if list_len(nbs) > 0 {
         let d2: DR = rng_range(r, 0, list_len(nbs));
         r = d2.r;
@@ -90,18 +101,18 @@ pub fn bn_step(info: CanvasInfo, st: BnSt) -> BnSt {
         linked = list_set(linked, nxt, 1);
         order = list_push(order, nxt);
         if list_len(nbs2) > 0 { edges = list_push(edges, cur); }
-        let nn: List[Int] = bn_nbs(info, bn_col(info, nxt), bn_row(info, nxt), linked);
+        let nn: List[Int] = bn_nbs(info, grid, linked,
+            list_get(w.chars, nxt).col0, list_get(w.chars, nxt).row0);
         if list_len(nn) > 0 { edges = list_push(edges, nxt); }
     }
     let _r1 = BnSt { edges: edges, linked: linked, order: order, rng: r };
     return _r1;
 }
 
-pub fn bn_link(info: CanvasInfo, start: Int, rng: Rng) -> BnSt {
-    let n: Int = info.cols * info.rows;
+pub fn bn_link(nch: Int, start: Int, rng: Rng) -> BnSt {
     let mut linked: List[Int] = list_new();
     let mut i: Int = 0;
-    while i < n { linked = list_push(linked, 0); i = i + 1; }
+    while i < nch { linked = list_push(linked, 0); i = i + 1; }
     let _r2 = BnSt {
         edges: list_push(list_new(), start),
         linked: linked,

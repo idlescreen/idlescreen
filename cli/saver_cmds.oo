@@ -36,33 +36,69 @@ pub fn cmd_list(args: List[String]) -> Int {
     while i < list_len(args) { if list_get(args, i) == "--json" { json = true; } i = i + 1; }
     if json {
         let mut out: String = "{\"count\":53,\"scenes\":[";
-        i = 0;
-        while i < 53 { if i > 0 { out = out + ","; } out = out + "\"" + effects_name(i) + "\""; i = i + 1; }
-        println(out + "]}");
+        let mut j: Int = 0;
+        while j < 53 {
+            if j > 0 { out = out + ","; }
+            let sn: String = effects_name(j);
+            out = out + "\"";
+            out = out + sn;
+            out = out + "\"";
+            j = j + 1;
+        }
+        out = out + "]}";
+        println(out);
         return 0;
     }
-    i = 0;
-    while i < 53 { println((i + 1).to_string() + " " + effects_name(i)); i = i + 1; }
+    let mut k: Int = 0;
+    while k < 53 {
+        let ns: String = (k + 1).to_string();
+        let sn2: String = effects_name(k);
+        let mut row: String = ns;
+        row = row + " ";
+        row = row + sn2;
+        println(row);
+        k = k + 1;
+    }
     return 0;
 }
 
 pub fn cmd_text(ffi: &FfiCap, args: List[String]) -> Int {
-    let name: String = if list_len(args) > 0 { to_lowercase(list_get(args, 0)) } else { "openooda" };
+    let a0: String = if list_len(args) > 0 { list_get(args, 0) } else { "openooda" };
+    let name: String = to_lowercase(a0);
     let frame: String = engine_wordmark_frame(60, 16, name, 4);
-    let msg: String = frame + "\npreset: " + name + " " + wm_text(name) + "\n";
+    let wmt: String = wm_text(name);
+    let mut msg: String = frame;
+    msg = msg + "\npreset: ";
+    msg = msg + name;
+    msg = msg + " ";
+    msg = msg + wmt;
+    msg = msg + "\n";
     let w: Result[String, String] = oo_tui_write(ffi, msg);
-    if w.is_err() { print(frame); println("preset: " + name + " " + wm_text(name)); }
+    if w.is_err() { print(msg); }
     return 0;
 }
 
 fn preview_batch(ffi: &FfiCap, name: String, frames: Int, cols: Int, rows: Int) -> Int {
-    if wm_known(name) { println("preset " + name + " " + wm_text(name)); }
+    if wm_known(name) {
+        let wmt: String = wm_text(name);
+        let mut pfx: String = "preset ";
+        pfx = pfx + name;
+        pfx = pfx + " ";
+        pfx = pfx + wmt;
+        println(pfx);
+    }
+    let fs_str: String = frames.to_string();
     let mut i: Int = 0;
     while i < frames {
         let frame: String = if wm_known(name) { engine_wordmark_frame(cols, rows, name, i) } else { engine_preview_frame(cols, rows, name, i, false) };
         let w: Result[String, String] = oo_tui_write(ffi, frame);
         if w.is_err() { print(frame); }
-        println("frame " + i.to_string() + "/" + frames.to_string());
+        let is_str: String = i.to_string();
+        let mut lbl: String = "frame ";
+        lbl = lbl + is_str;
+        lbl = lbl + "/";
+        lbl = lbl + fs_str;
+        println(lbl);
         i = i + 1;
     }
     return 0;
@@ -79,52 +115,76 @@ fn preview_poll_key(ffi: &FfiCap, sc: Int) -> Int {
         if s3 == "D" || s3 == "A" { return (sc + 52) % 53; }
         return -1;
     }
-    if b == 110 || b == 78 || b == 93 || b == 9 { return (sc + 1) % 53; }
-    if b == 112 || b == 80 || b == 91 { return (sc + 52) % 53; }
+    if b == 110 || b == 78 || b == 93 || b == 9 || b == 62 || b == 46 { return (sc + 1) % 53; }
+    if b == 112 || b == 80 || b == 91 || b == 60 || b == 44 { return (sc + 52) % 53; }
     return -1;
 }
 
-fn preview_interactive(ffi: &FfiCap, time: &TimeCap, name: String, timeout_s: Int, tour: Bool) -> Int {
-    if oo_tui_enable_raw(ffi, "").is_err() { return 1; }
-    let _ = oo_tui_alt_screen_enter(ffi);
-    let _ = oo_tui_show_cursor(ffi, 0);
+fn preview_observe_dims(ffi: &FfiCap, last_pack: Int) -> Int {
     let dims: String = match oo_tui_get_size(ffi) { Ok(s) => s, Err(_) => "24:80" };
     let colon: Int = str_index_of(dims, ":");
-    let mut rows: Int = 24;
-    let mut cols: Int = 80;
+    let mut pack: Int = 24 * 10000 + 80;
     if colon >= 0 {
         let rstr: String = str_slice(dims, 0, colon);
         let cstr: String = str_slice(dims, colon + 1, chars_len(dims));
         let mut dim_args: List[String] = list_new();
         dim_args = list_push(dim_args, "--r"); dim_args = list_push(dim_args, rstr);
         dim_args = list_push(dim_args, "--c"); dim_args = list_push(dim_args, cstr);
-        rows = arg_num(dim_args, "--r", 24);
-        cols = arg_num(dim_args, "--c", 80);
+        let mut rows: Int = arg_num(dim_args, "--r", 24);
+        let mut cols: Int = arg_num(dim_args, "--c", 80);
+        if rows < 4 { rows = 24; }
+        if cols < 16 { cols = 80; }
+        pack = rows * 10000 + cols;
     }
-    let mut sc: Int = effects_index(name);
-    if sc < 0 { sc = 0; }
+    if pack != last_pack {
+        let mut b: List[Int] = bytes_new();
+        b = bytes_push(b, 27);
+        let mut clr: String = bytes_to_str(b);
+        clr = clr + "[2J";
+        let w_clr: Result[String, String] = oo_tui_write(ffi, clr);
+    }
+    return pack;
+}
+
+fn preview_interactive(ffi: &FfiCap, time: &TimeCap, name: String, timeout_s: Int, tour: Bool) -> Int {
+    if oo_tui_enable_raw(ffi, "").is_err() { return 1; }
+    let w_alt_in: Result[String, String] = oo_tui_alt_screen_enter(ffi);
+    let w_cur_off: Result[String, String] = oo_tui_show_cursor(ffi, 0);
+    let mut sc: Int = if effects_index(name) >= 0 { effects_index(name) } else { 0 };
     let is_wm: Bool = wm_known(name);
-    let start_ms: Int = if timeout_s > 0 { now_ms(time) } else { 0 };
-    let end_ms: Int = if timeout_s > 0 { start_ms + timeout_s * 1000 } else { 0 };
+    let end_ms: Int = if timeout_s > 0 { now_ms(time) + timeout_s * 1000 } else { 0 };
+    let mut last_pack: Int = 0;
     let mut tick: Int = 0;
     let mut running: Bool = true;
     while running && (end_ms == 0 || now_ms(time) < end_ms) {
+        // 1. OBSERVE & 2. ORIENT: terminal dimensions & resize clear
+        last_pack = preview_observe_dims(ffi, last_pack);
         let sc_name: String = if is_wm { name } else { effects_name(sc) };
-        let frame: String = if is_wm { engine_wordmark_frame(cols, rows - 1, name, tick) } else { engine_preview_frame(cols, rows - 1, sc_name, tick, tour) };
-        let tit: String = if is_wm { "Preset: " + name } else { "Scene: " + sc_name + " (" + (sc + 1).to_string() + "/53)" };
-        let out_line: String = "\x1b[H" + frame + "\x1b[1;36m[" + tit + "] [←/→/n/p: Step  q/Esc/Space: Exit]\x1b[0m\x1b[K";
-        let _ = oo_tui_write(ffi, out_line);
+        // 3. DECIDE: synthesize next frame & footer
+        let frame: String = if is_wm { engine_wordmark_frame(last_pack % 10000, last_pack / 10000 - 1, name, tick) } else { engine_preview_frame(last_pack % 10000, last_pack / 10000 - 1, sc_name, tick, tour) };
+        let sc_str: String = (sc + 1).to_string();
+        let mut tit: String = if is_wm { "Preset: " } else { "Scene: " };
+        tit = tit + sc_name;
+        if !is_wm { tit = tit + " ("; tit = tit + sc_str; tit = tit + "/53)"; }
+        let mut eb: List[Int] = bytes_new(); eb = bytes_push(eb, 27);
+        let e0: String = bytes_to_str(eb);
+        let esc: String = ansi_home();
+        let mut out_line: String = esc;
+        out_line = out_line + frame; out_line = out_line + "\r\n"; out_line = out_line + e0;
+        out_line = out_line + "[1;36m["; out_line = out_line + tit; out_line = out_line + "] [←/→/n/p: Step  q/Esc/Space: Exit]";
+        out_line = out_line + e0; out_line = out_line + "[0m"; out_line = out_line + e0; out_line = out_line + "[K";
+        // 4. ACT: emit frame & poll input
+        let w_out: Result[String, String] = oo_tui_write(ffi, out_line);
         let nsc: Int = preview_poll_key(ffi, sc);
         if nsc < 0 { running = false; } else { sc = nsc; }
         if tour && (tick % 300 == 299) { sc = (sc + 1) % 53; }
         tick = tick + 1;
     }
-    let _ = oo_tui_show_cursor(ffi, 1);
-    let _ = oo_tui_alt_screen_leave(ffi);
-    let _ = oo_tui_disable_raw(ffi, "");
+    let w_cur_on: Result[String, String] = oo_tui_show_cursor(ffi, 1);
+    let w_alt_out: Result[String, String] = oo_tui_alt_screen_leave(ffi);
+    let w_raw_off: Result[String, String] = oo_tui_disable_raw(ffi, "");
     return 0;
 }
-
 pub fn cmd_preview(ffi: &FfiCap, time: &TimeCap, args: List[String]) -> Int {
     let mut name: String = "plasma";
     let mut tour: Bool = false;

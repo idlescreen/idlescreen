@@ -19,63 +19,66 @@ import "left/anchor.oo";
 import "core/grid.oo";
 
 fn scene_render_b(n: String, g: CellGrid, tick: Int) -> CellGrid {
-    if n == "plasma" { return scene_plasma(g, tick); }
-    if n == "pour" { return scene_pour(g, tick); }
-    if n == "print" { return scene_print(g, tick); }
-    if n == "radar" { return scene_radar(g, tick); }
-    if n == "rain" { return scene_rain(g, tick); }
-    if n == "randomsequence" { return scene_randomsequence(g, tick); }
-    if n == "rings" { return scene_rings(g, tick); }
-    if n == "ripple" { return scene_ripple(g, tick); }
-    if n == "scattered" { return scene_scattered(g, tick); }
-    if n == "slice" { return scene_slice(g, tick); }
-    if n == "slide" { return scene_slide(g, tick); }
-    if n == "smoke" { return scene_smoke(g, tick); }
-    if n == "spotlights" { return scene_spotlights(g, tick); }
-    if n == "spray" { return scene_spray(g, tick); }
-    if n == "swarm" { return scene_swarm(g, tick); }
-    if n == "sweep" { return scene_sweep(g, tick); }
-    if n == "synthgrid" { return scene_synthgrid(g, tick); }
-    if n == "tetris" { return scene_tetris(g, tick); }
-    if n == "thunderstorm" { return scene_thunderstorm(g, tick); }
-    if n == "tunnel" { return scene_tunnel(g, tick); }
-    if n == "unstable" { return scene_unstable(g, tick); }
-    if n == "vhstape" { return scene_vhstape(g, tick); }
-    if n == "waves" { return scene_waves(g, tick); }
-    if n == "wipe" { return scene_wipe(g, tick); }
-    if n == "zero" { return scene_zero(g, tick); }
-    return g;
+    let mut r: CellGrid = g;
+    if n == "plasma" { r = scene_plasma(g, tick); }
+    else if n == "pour" { r = scene_pour(g, tick); }
+    else if n == "print" { r = scene_print(g, tick); }
+    else if n == "radar" { r = scene_radar(g, tick); }
+    else if n == "rain" { r = scene_rain(g, tick); }
+    else if n == "randomsequence" { r = scene_randomsequence(g, tick); }
+    else if n == "rings" { r = scene_rings(g, tick); }
+    else if n == "ripple" { r = scene_ripple(g, tick); }
+    else if n == "scattered" { r = scene_scattered(g, tick); }
+    else if n == "slice" { r = scene_slice(g, tick); }
+    else if n == "slide" { r = scene_slide(g, tick); }
+    else if n == "smoke" { r = scene_smoke(g, tick); }
+    else if n == "spotlights" { r = scene_spotlights(g, tick); }
+    else if n == "spray" { r = scene_spray(g, tick); }
+    else if n == "swarm" { r = scene_swarm(g, tick); }
+    else if n == "sweep" { r = scene_sweep(g, tick); }
+    else if n == "synthgrid" { r = scene_synthgrid(g, tick); }
+    else if n == "tetris" { r = scene_tetris(g, tick); }
+    else if n == "thunderstorm" { r = scene_thunderstorm(g, tick); }
+    else if n == "tunnel" { r = scene_tunnel(g, tick); }
+    else if n == "unstable" { r = scene_unstable(g, tick); }
+    else if n == "vhstape" { r = scene_vhstape(g, tick); }
+    else if n == "waves" { r = scene_waves(g, tick); }
+    else if n == "wipe" { r = scene_wipe(g, tick); }
+    else if n == "zero" { r = scene_zero(g, tick); }
+    return r;
 }
 
 pub fn scene_render(idx: Int, g: CellGrid, tick: Int) -> CellGrid {
     let n: String = effects_name(idx);
-    if n == "aurora" { return scene_aurora(g, tick); }
-    if n == "beams" { return scene_beams(g, tick); }
-    if n == "binarypath" { return scene_binarypath(g, tick); }
-    if n == "blackhole" { return scene_blackhole(g, tick); }
-    if n == "bouncyballs" { return scene_bouncyballs(g, tick); }
-    if n == "breakout" { return scene_breakout(g, tick); }
-    if n == "bubbles" { return scene_bubbles(g, tick); }
-    if n == "burn" { return scene_burn(g, tick); }
-    if n == "chaos" { return scene_chaos(g, tick); }
-    if n == "colorshift" { return scene_colorshift(g, tick); }
-    if n == "cosmos" { return scene_cosmos(g, tick); }
-    if n == "crumble" { return scene_crumble(g, tick); }
-    if n == "decrypt" { return scene_decrypt(g, tick); }
-    if n == "errorcorrect" { return scene_errorcorrect(g, tick); }
-    if n == "expand" { return scene_expand(g, tick); }
-    if n == "fireworks" { return scene_fireworks(g, tick); }
-    if n == "highlight" { return scene_highlight(g, tick); }
-    if n == "laseretch" { return scene_laseretch(g, tick); }
-    if n == "life" { return scene_life(g, tick); }
-    if n == "matrix" { return scene_matrix(g, tick); }
-    if n == "metaballs" { return scene_metaballs(g, tick); }
-    if n == "middleout" { return scene_middleout(g, tick); }
-    if n == "mmx" { return scene_mmx(g, tick); }
-    if n == "moire" { return scene_moire(g, tick); }
-    if n == "mystify" { return scene_mystify(g, tick); }
-    if n == "orbittingvolley" { return scene_orbittingvolley(g, tick); }
-    if n == "overflow" { return scene_overflow(g, tick); }
-    if n == "pipes" { return scene_pipes(g, tick); }
-    return scene_render_b(n, g, tick);
+    let mut r: CellGrid = g;
+    if n == "aurora" { r = scene_aurora(g, tick); }
+    else if n == "beams" { r = scene_beams(g, tick); }
+    else if n == "binarypath" { r = scene_binarypath(g, tick); }
+    else if n == "blackhole" { r = scene_blackhole(g, tick); }
+    else if n == "bouncyballs" { r = scene_bouncyballs(g, tick); }
+    else if n == "breakout" { r = scene_breakout(g, tick); }
+    else if n == "bubbles" { r = scene_bubbles(g, tick); }
+    else if n == "burn" { r = scene_burn(g, tick); }
+    else if n == "chaos" { r = scene_chaos(g, tick); }
+    else if n == "colorshift" { r = scene_colorshift(g, tick); }
+    else if n == "cosmos" { r = scene_cosmos(g, tick); }
+    else if n == "crumble" { r = scene_crumble(g, tick); }
+    else if n == "decrypt" { r = scene_decrypt(g, tick); }
+    else if n == "errorcorrect" { r = scene_errorcorrect(g, tick); }
+    else if n == "expand" { r = scene_expand(g, tick); }
+    else if n == "fireworks" { r = scene_fireworks(g, tick); }
+    else if n == "highlight" { r = scene_highlight(g, tick); }
+    else if n == "laseretch" { r = scene_laseretch(g, tick); }
+    else if n == "life" { r = scene_life(g, tick); }
+    else if n == "matrix" { r = scene_matrix(g, tick); }
+    else if n == "metaballs" { r = scene_metaballs(g, tick); }
+    else if n == "middleout" { r = scene_middleout(g, tick); }
+    else if n == "mmx" { r = scene_mmx(g, tick); }
+    else if n == "moire" { r = scene_moire(g, tick); }
+    else if n == "mystify" { r = scene_mystify(g, tick); }
+    else if n == "orbittingvolley" { r = scene_orbittingvolley(g, tick); }
+    else if n == "overflow" { r = scene_overflow(g, tick); }
+    else if n == "pipes" { r = scene_pipes(g, tick); }
+    else { r = scene_render_b(n, g, tick); }
+    return r;
 }

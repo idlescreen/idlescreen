@@ -37,8 +37,10 @@ pub fn engine_preview_frame(cols: Int, rows: Int, name: String, tick: Int, tour:
     let mut g: CellGrid = grid_new(cols, rows, rgb(4, 6, 12));
     let wm: String = if wm_known(name) { name } else { "" };
     g = engine_frame(g, i, tick, wm);
-    g = draw_preview_hud(g, effects_name(i), i + 1, 53, tour);
-    return ansi_home() + ansi_render(g);
+    let sn: String = effects_name(i);
+    g = draw_preview_hud(g, sn, i + 1, 53, tour);
+    let res: String = ansi_frame(g);
+    return res;
 }
 
 pub fn engine_wordmark_frame(cols: Int, rows: Int, name: String, tick: Int) -> String {
@@ -46,5 +48,6 @@ pub fn engine_wordmark_frame(cols: Int, rows: Int, name: String, tick: Int) -> S
     g = starfield_seed(g, tick, 14);
     g = wm_render(g, name, tick);
     g = post_apply(g, tick);
-    return ansi_home() + ansi_render(g);
+    let res: String = ansi_frame(g);
+    return res;
 }

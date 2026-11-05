@@ -11,11 +11,13 @@ import "core/cell.oo";
 import "core/grid.oo";
 
 pub fn cv_put(g: CellGrid, x: Int, y: Int, ch: String, fg: Int, bg: Int) -> CellGrid {
-    return grid_set(g, x, y, cell_new(ch, fg, bg, false));
+    let r: CellGrid = grid_put(g, x, y, ch, fg, bg, false);
+    return r;
 }
 
 pub fn cv_put_b(g: CellGrid, x: Int, y: Int, ch: String, fg: Int, bg: Int, bold: Bool) -> CellGrid {
-    return grid_set(g, x, y, cell_new(ch, fg, bg, bold));
+    let r: CellGrid = grid_put(g, x, y, ch, fg, bg, bold);
+    return r;
 }
 
 pub fn cv_text(g: CellGrid, x: Int, y: Int, s: String, fg: Int, bg: Int) -> CellGrid {

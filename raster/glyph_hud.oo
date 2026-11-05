@@ -105,7 +105,16 @@ pub fn draw_preview_hud(g: CellGrid, scene_name: String, idx: Int, total: Int, t
     let rows: Int = g.rows;
     if cols < 16 || rows < 3 { return g; }
     let tag: String = if tour_mode { " TOUR " } else { " SCENE " };
-    let mut line: String = tag + idx.to_string() + "/" + total.to_string() + ": " + to_uppercase(scene_name) + " ";
+    let up: String = to_uppercase(scene_name);
+    let idx_s: String = idx.to_string();
+    let tot_s: String = total.to_string();
+    let mut line: String = tag;
+    line = line + idx_s;
+    line = line + "/";
+    line = line + tot_s;
+    line = line + ": ";
+    line = line + up;
+    line = line + " ";
     if cols >= chars_len(line) + 34 { line = line + " [</>: STEP | Q/ESC: EXIT] "; }
     if chars_len(line) + 2 > cols { return g; }
     let start_x: Int = (cols - chars_len(line) - 2) / 2;
@@ -115,15 +124,18 @@ pub fn draw_preview_hud(g: CellGrid, scene_name: String, idx: Int, total: Int, t
     let mut i: Int = 0;
     while i < chars_len(line) {
         let fg: Int = if i < chars_len(tag) { rgb(110, 210, 255) } else if i < chars_len(tag) + 8 { rgb(255, 225, 85) } else { rgb(175, 195, 225) };
-        out = grid_set(out, cx, rows - 1, cell_new(char_at(line, i), fg, pill, true));
+        let ch: String = char_at(line, i);
+        out = grid_put(out, cx, rows - 1, ch, fg, pill, true);
         cx = cx + 1;
         i = i + 1;
     }
     if start_x >= 0 && start_x < cols {
-        out = grid_set(out, start_x, rows - 1, cell_new("▐", pill, grid_get(out, start_x, rows - 1).bg, false));
+        let bg0: Int = list_get(out.bgs, (rows - 1) * cols + start_x);
+        out = grid_put(out, start_x, rows - 1, "▐", pill, bg0, false);
     }
     if cx < cols {
-        out = grid_set(out, cx, rows - 1, cell_new("▌", pill, grid_get(out, cx, rows - 1).bg, false));
+        let bg1: Int = list_get(out.bgs, (rows - 1) * cols + cx);
+        out = grid_put(out, cx, rows - 1, "▌", pill, bg1, false);
     }
     return out;
 }

@@ -41,7 +41,7 @@ fn bn_ssyms() -> List[Int] {
 fn bn_sscn(w: World, id: Int) -> World {
     let ch: Char = list_get(w.chars, id);
     let mut w2: World = w_scene(w, id, 0, 0, 0, ez(0), "smoke");
-    let spec: List[Int] = gradient_new(list_push(list_push(list_new(), 5262159), 13091271),
+    let spec: List[Int] = gradient_new(list_push(list_push(list_new(), 5263183), 13092807),
         list_push(list_new(), 9), 0);
     w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 10, spec, list_new());
     w2 = w_lay(w2, id, 2);
@@ -81,7 +81,7 @@ fn bn_reset(w: World, id: Int) -> World {
 pub fn bn_emit(w: World, avail: List[Int], ocol: Int, orow: Int, info: CanvasInfo, cnt: Int) -> BnE {
     let d: DRF = rng_random(w.rng);
     let mut w2: World = w_rng(w, d.r);
-    if d.v > 0.5 || list_len(avail) == 0 {
+    if d.v > 0.7 || list_len(avail) == 0 {
         let _r3 = BnE { w: w2, avail: avail, pid: 0 - 1 };
         return _r3;
     }
@@ -90,7 +90,7 @@ pub fn bn_emit(w: World, avail: List[Int], ocol: Int, orow: Int, info: CanvasInf
     w2 = bn_reset(w2, pid);
     w2 = w_pos(w2, pid, ocol, orow);
     w2 = w_sc_reset(w2, pid, 0);
-    w2 = w_path(w2, pid, 0.5, 0, ez(0), 0 - 1, 0, 0, "");
+    w2 = w_path(w2, pid, 0.85, 0, ez(0), 0 - 1, 0, 0, "");
     let dd: DR = rng_int(w2.rng, ocol - 4, ocol + 4);
     w2 = w_rng(w2, dd.r);
     w2 = w_wp(w2, pid, 0, dd.v, info.top + 1, list_new());

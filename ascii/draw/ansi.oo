@@ -10,19 +10,48 @@
 import "core/cell.oo";
 import "core/grid.oo";
 
+fn ansi_esc() -> String {
+    let mut b: List[Int] = bytes_new();
+    b = bytes_push(b, 27);
+    let s: String = bytes_to_str(b);
+    return s;
+}
+
 fn sgr_fg(c: Int, bold: Bool) -> String {
-    let mut s: String = "\x1b[38;2;" + rgb_r(c).to_string() + ";" + rgb_g(c).to_string() + ";" + rgb_b(c).to_string();
-    if bold { s = s + ";1"; }
-    return s + "m";
+    let mut s: String = ansi_esc();
+    s = s + "[38;2;";
+    s = s + rgb_r(c).to_string();
+    s = s + ";";
+    s = s + rgb_g(c).to_string();
+    s = s + ";";
+    s = s + rgb_b(c).to_string();
+    s = s + if bold { ";1m" } else { "m" };
+    return s;
 }
 
 fn sgr_bg(c: Int) -> String {
-    return "\x1b[48;2;" + rgb_r(c).to_string() + ";" + rgb_g(c).to_string() + ";" + rgb_b(c).to_string() + "m";
+    let mut s: String = ansi_esc();
+    s = s + "[48;2;";
+    s = s + rgb_r(c).to_string();
+    s = s + ";";
+    s = s + rgb_g(c).to_string();
+    s = s + ";";
+    s = s + rgb_b(c).to_string();
+    s = s + "m";
+    return s;
 }
 
-pub fn ansi_home() -> String { return "\x1b[H"; }
+pub fn ansi_home() -> String {
+    let mut s: String = ansi_esc();
+    s = s + "[H";
+    return s;
+}
 
-pub fn ansi_reset() -> String { return "\x1b[0m"; }
+pub fn ansi_reset() -> String {
+    let mut s: String = ansi_esc();
+    s = s + "[0m";
+    return s;
+}
 
 pub fn ansi_render_row(g: CellGrid, y: Int) -> String {
     let mut out: String = "";
@@ -31,29 +60,45 @@ pub fn ansi_render_row(g: CellGrid, y: Int) -> String {
     let mut last_bold: Bool = false;
     let mut x: Int = 0;
     while x < g.cols {
-        let c: TerminalCell = grid_get(g, x, y);
-        if c.fg != last_fg || c.bold != last_bold {
-            out = out + sgr_fg(c.fg, c.bold);
-            last_fg = c.fg;
-            last_bold = c.bold;
+        let idx: Int = y * g.cols + x;
+        let fg: Int = list_get(g.fgs, idx);
+        let bg: Int = list_get(g.bgs, idx);
+        let bold: Bool = list_get(g.bolds, idx) != 0;
+        if fg != last_fg || bold != last_bold {
+            let fs: String = sgr_fg(fg, bold);
+            out = out + fs;
+            last_fg = fg;
+            last_bold = bold;
         }
-        if c.bg != last_bg {
-            out = out + sgr_bg(c.bg);
-            last_bg = c.bg;
+        if bg != last_bg {
+            let bs: String = sgr_bg(bg);
+            out = out + bs;
+            last_bg = bg;
         }
-        out = out + c.ch;
+        let ch: String = list_get(g.chs, idx);
+        out = out + ch;
         x = x + 1;
     }
-    return out + ansi_reset();
+    let rst: String = ansi_reset();
+    out = out + rst;
+    return out;
 }
 
 pub fn ansi_render(g: CellGrid) -> String {
     let mut out: String = "";
     let mut y: Int = 0;
     while y < g.rows {
-        out = out + ansi_render_row(g, y);
+        let row: String = ansi_render_row(g, y);
+        out = out + row;
         if y + 1 < g.rows { out = out + "\r\n"; }
         y = y + 1;
     }
+    return out;
+}
+
+pub fn ansi_frame(g: CellGrid) -> String {
+    let body: String = ansi_render(g);
+    let mut out: String = ansi_home();
+    out = out + body;
     return out;
 }

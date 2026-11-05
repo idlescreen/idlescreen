@@ -3,42 +3,72 @@
 // Logline: Persistent frame grid of TerminalCell values indexed y * cols + x.
 // Setup: Pure data and arithmetic. Imports cell.oo for TerminalCell.
 // Beats:
-//   1. grid_new pre-allocates a blank grid of cols * rows cells.
+//   1. grid_new pre-allocates parallel Int and String buffers of cols * rows cells.
 //   2. grid_get returns cell_default for out-of-bounds reads.
-//   3. grid_set returns a new grid with one cell replaced.
+//   3. grid_set mutates the parallel buffers in place when uniquely owned.
 
 import "core/cell.oo";
 
 pub type CellGrid = struct {
     cols: Int,
     rows: Int,
-    cells: List[TerminalCell]
+    chs: List[String],
+    fgs: List[Int],
+    bgs: List[Int],
+    bolds: List[Int]
 };
 
 pub fn grid_new(cols: Int, rows: Int, bg: Int) -> CellGrid {
-    let mut cells: List[TerminalCell] = list_new();
-    let blank: TerminalCell = TerminalCell { ch: " ", fg: 16446712, bg: bg, bold: false };
+    let mut chs: List[String] = list_new();
+    let mut fgs: List[Int] = list_new();
+    let mut bgs: List[Int] = list_new();
+    let mut bolds: List[Int] = list_new();
     let total: Int = if cols * rows > 0 { cols * rows } else { 0 };
     let mut i: Int = 0;
     while i < total {
-        cells = list_push(cells, blank);
+        chs = list_push(chs, " ");
+        fgs = list_push(fgs, 16446712);
+        bgs = list_push(bgs, bg);
+        bolds = list_push(bolds, 0);
         i = i + 1;
     }
-    return CellGrid { cols: cols, rows: rows, cells: cells };
+    let r: CellGrid = CellGrid { cols: cols, rows: rows, chs: chs, fgs: fgs, bgs: bgs, bolds: bolds };
+    return r;
 }
 
-pub fn grid_len(g: CellGrid) -> Int { return list_len(g.cells); }
+pub fn grid_len(g: CellGrid) -> Int { return list_len(g.fgs); }
 
 pub fn grid_get(g: CellGrid, x: Int, y: Int) -> TerminalCell {
     let idx: Int = y * g.cols + x;
-    if x < 0 || y < 0 || x >= g.cols || y >= g.rows || idx >= list_len(g.cells) {
-        return cell_default();
+    if x < 0 || y < 0 || x >= g.cols || y >= g.rows || idx >= list_len(g.fgs) {
+        let d: TerminalCell = cell_default();
+        return d;
     }
-    return list_get(g.cells, idx);
+    let r: TerminalCell = TerminalCell {
+        ch: list_get(g.chs, idx),
+        fg: list_get(g.fgs, idx),
+        bg: list_get(g.bgs, idx),
+        bold: list_get(g.bolds, idx) != 0
+    };
+    return r;
+}
+
+pub fn grid_put(g: CellGrid, x: Int, y: Int, ch: String, fg: Int, bg: Int, bold: Bool) -> CellGrid {
+    let idx: Int = y * g.cols + x;
+    if x < 0 || y < 0 || x >= g.cols || y >= g.rows || idx >= list_len(g.fgs) { return g; }
+    let b: Int = if bold { 1 } else { 0 };
+    let r: CellGrid = CellGrid {
+        cols: g.cols,
+        rows: g.rows,
+        chs: list_set(g.chs, idx, ch),
+        fgs: list_set(g.fgs, idx, fg),
+        bgs: list_set(g.bgs, idx, bg),
+        bolds: list_set(g.bolds, idx, b)
+    };
+    return r;
 }
 
 pub fn grid_set(g: CellGrid, x: Int, y: Int, c: TerminalCell) -> CellGrid {
-    let idx: Int = y * g.cols + x;
-    if x < 0 || y < 0 || x >= g.cols || y >= g.rows || idx >= list_len(g.cells) { return g; }
-    return CellGrid { cols: g.cols, rows: g.rows, cells: list_set(g.cells, idx, c) };
+    let r: CellGrid = grid_put(g, x, y, c.ch, c.fg, c.bg, c.bold);
+    return r;
 }

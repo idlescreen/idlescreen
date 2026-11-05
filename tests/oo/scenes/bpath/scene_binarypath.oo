@@ -53,7 +53,7 @@ fn bp_build(w: World, info: CanvasInfo) -> BRS {
         k = k + 1;
     }
     w2 = bp_scenes(w2, ids, cmap, info);
-    let mut mx: Int = trunc_i(0.08 * int_to_f(list_len(pend)));
+    let mut mx: Int = trunc_i(0.2 * int_to_f(list_len(pend)));
     if mx < 1 { mx = 1; }
     let _r1 = BRS { w: w2, pend: pend, max: mx };
     return _r1;

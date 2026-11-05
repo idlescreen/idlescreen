@@ -56,7 +56,8 @@ pub fn wm_render(g: CellGrid, name: String, tick: Int) -> CellGrid {
     let t: String = wm_text(name);
     let total: Int = chars_len(t) * (font7_width() + 1) - 1;
     if total > g.cols || font7_height() + 2 > g.rows { return g; }
-    return wm_render_at(g, name, (g.rows - font7_height()) / 2, tick);
+    let r: CellGrid = wm_render_at(g, name, (g.rows - font7_height()) / 2, tick);
+    return r;
 }
 
 pub fn wm_render_at(g: CellGrid, name: String, oy: Int, tick: Int) -> CellGrid {
@@ -65,20 +66,21 @@ pub fn wm_render_at(g: CellGrid, name: String, oy: Int, tick: Int) -> CellGrid {
     let total: Int = n * (font7_width() + 1) - 1;
     if total > g.cols { return g; }
     let ox: Int = (g.cols - total) / 2;
-    let mut cells: List[TerminalCell] = list_new();
-    let mut y: Int = 0;
-    while y < g.rows {
-        let mut x: Int = 0;
-        while x < g.cols {
-            let c: TerminalCell = grid_get(g, x, y);
-            if y >= oy && y < oy + 8 && x >= ox && x < ox + total + 2 {
-                cells = list_push(cells, wm_pixel(c, t, n, ox, oy, x, y, tick, name));
-            } else {
-                cells = list_push(cells, c);
+    let mut out: CellGrid = g;
+    let mut y: Int = oy;
+    while y < oy + 8 && y < out.rows {
+        if y >= 0 {
+            let mut x: Int = ox;
+            while x < ox + total + 2 && x < out.cols {
+                if x >= 0 {
+                    let c: TerminalCell = grid_get(out, x, y);
+                    let px: TerminalCell = wm_pixel(c, t, n, ox, oy, x, y, tick, name);
+                    out = grid_set(out, x, y, px);
+                }
+                x = x + 1;
             }
-            x = x + 1;
         }
         y = y + 1;
     }
-    return CellGrid { cols: g.cols, rows: g.rows, cells: cells };
+    return out;
 }

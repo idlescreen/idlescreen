@@ -22,8 +22,34 @@ pub fn digest_run_new() -> DigestRun {
     return _r1;
 }
 
+fn hash_cell(h: Int, c: PaintCell) -> Int {
+    let mut cur: Int = fnv1a64_int(h, c.ord);
+    cur = fnv1a64_update(cur, 44);
+    cur = fnv1a64_int(cur, c.fr);
+    cur = fnv1a64_update(cur, 44);
+    cur = fnv1a64_int(cur, c.fg);
+    cur = fnv1a64_update(cur, 44);
+    cur = fnv1a64_int(cur, c.fb);
+    cur = fnv1a64_update(cur, 44);
+    cur = fnv1a64_int(cur, c.br);
+    cur = fnv1a64_update(cur, 44);
+    cur = fnv1a64_int(cur, c.bg);
+    cur = fnv1a64_update(cur, 44);
+    cur = fnv1a64_int(cur, c.bb);
+    cur = fnv1a64_update(cur, 44);
+    cur = fnv1a64_int(cur, c.bold);
+    return fnv1a64_update(cur, 59);
+}
+
 pub fn digest_paint_cells(pcs: List[PaintCell]) -> Int {
-    return fnv1a64_str(fnv1a64_new(), grid_record_list(pcs));
+    let mut h: Int = fnv1a64_new();
+    let n: Int = list_len(pcs);
+    let mut i: Int = 0;
+    while i < n {
+        h = hash_cell(h, list_get(pcs, i));
+        i = i + 1;
+    }
+    return h;
 }
 
 pub fn run_push(run: DigestRun, d: Int, pcs: List[PaintCell]) -> DigestRun {

@@ -12,15 +12,32 @@ pub fn effects_count() -> Int { return 53; }
 pub fn effects_name(idx: Int) -> String {
     if idx < 0 || idx >= 53 { return ""; }
     let names: String = "aurora|beams|binarypath|blackhole|bouncyballs|breakout|bubbles|burn|chaos|colorshift|cosmos|crumble|decrypt|errorcorrect|expand|fireworks|highlight|laseretch|life|matrix|metaballs|middleout|mmx|moire|mystify|orbittingvolley|overflow|pipes|plasma|pour|print|radar|rain|randomsequence|rings|ripple|scattered|slice|slide|smoke|spotlights|spray|swarm|sweep|synthgrid|tetris|thunderstorm|tunnel|unstable|vhstape|waves|wipe|zero";
-    let parts: List[String] = str_split(names, "|");
-    return list_get(parts, idx);
+    let mut k: Int = 0;
+    let mut s: Int = 0;
+    let mut i: Int = 0;
+    let mut res: String = "";
+    let n: Int = bytes_len(names);
+    while i <= n {
+        if i == n || byte_at(names, i) == 124 {
+            if k == idx {
+                res = str_slice(names, s, i);
+                return res;
+            }
+            k = k + 1;
+            s = i + 1;
+        }
+        i = i + 1;
+    }
+    return res;
 }
 
 pub fn effects_index(name: String) -> Int {
-    let n: String = to_lowercase(str_trim(name));
+    let tr: String = str_trim(name);
+    let n: String = to_lowercase(tr);
     let mut i: Int = 0;
     while i < 53 {
-        if effects_name(i) == n { return i; }
+        let sn: String = effects_name(i);
+        if sn == n { return i; }
         i = i + 1;
     }
     return -1;

@@ -41,7 +41,7 @@ fn bh_form1(w: World, a2: List[Int], f2: Int, nbh: Int) -> BHF {
         w2 = w_aset(w2, id, 0);
         w2 = w_active_add(w2, id);
         ff = 100 / nbh;
-        if ff < 6 { ff = 6; }
+        if ff < 3 { ff = 3; }
     } else {
         ff = ff - 1;
     }

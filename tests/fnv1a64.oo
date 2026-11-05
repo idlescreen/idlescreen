@@ -17,8 +17,7 @@ pub fn fnv1a64_str(h: Int, s: String) -> Int {
     let mut i: Int = 0;
     let mut cur: Int = h;
     while i < n {
-        let ch: String = char_at(s, i);
-        cur = fnv1a64_update(cur, ord(ch));
+        cur = fnv1a64_update(cur, byte_at(s, i));
         i = i + 1;
     }
     return cur;
@@ -26,6 +25,25 @@ pub fn fnv1a64_str(h: Int, s: String) -> Int {
 
 pub fn fnv1a64_new() -> Int {
     return 0 - 3750763034362895579;
+}
+
+pub fn fnv1a64_int(h: Int, v: Int) -> Int {
+    if v == 0 { return fnv1a64_update(h, 48); }
+    let mut cur: Int = h;
+    let mut n: Int = v;
+    if n < 0 {
+        cur = fnv1a64_update(cur, 45);
+        n = 0 - n;
+    }
+    let mut div: Int = 1;
+    while n / div >= 10 {
+        div = div * 10;
+    }
+    while div > 0 {
+        cur = fnv1a64_update(cur, 48 + (n / div) % 10);
+        div = div / 10;
+    }
+    return cur;
 }
 
 pub fn fnv1a64_combine(h: Int, other: Int) -> Int {

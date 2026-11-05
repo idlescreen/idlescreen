@@ -48,8 +48,8 @@ pub fn bh_scols() -> List[Int] {
     s = list_push(s, 16763917);
     s = list_push(s, 16741158);
     s = list_push(s, 16718157);
-    s = list_push(s, 12532841);
-    s = list_push(s, 7355020);
+    s = list_push(s, 12527209);
+    s = list_push(s, 7350924);
     s = list_push(s, 302527);
     return s;
 }
@@ -57,11 +57,11 @@ pub fn bh_scols() -> List[Int] {
 pub fn bh_usyms() -> List[Int] {
     let mut s: List[Int] = list_new();
     s = list_push(s, 9702);
-    s = list_push(s, 9742);
-    s = list_push(s, 9737);
+    s = list_push(s, 9678);
+    s = list_push(s, 9673);
     s = list_push(s, 9679);
-    s = list_push(s, 9737);
-    s = list_push(s, 9742);
+    s = list_push(s, 9673);
+    s = list_push(s, 9678);
     s = list_push(s, 9702);
     return s;
 }

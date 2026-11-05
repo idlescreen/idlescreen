@@ -15,11 +15,13 @@ pub type TerminalCell = struct {
 };
 
 pub fn cell_new(ch: String, fg: Int, bg: Int, bold: Bool) -> TerminalCell {
-    return TerminalCell { ch: ch, fg: fg, bg: bg, bold: bold };
+    let r: TerminalCell = TerminalCell { ch: ch, fg: fg, bg: bg, bold: bold };
+    return r;
 }
 
 pub fn cell_default() -> TerminalCell {
-    return TerminalCell { ch: " ", fg: 16446712, bg: 0, bold: false };
+    let r: TerminalCell = TerminalCell { ch: " ", fg: 16446712, bg: 0, bold: false };
+    return r;
 }
 
 pub fn cell_eq(a: TerminalCell, b: TerminalCell) -> Bool {

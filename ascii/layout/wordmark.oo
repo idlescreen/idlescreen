@@ -20,16 +20,19 @@ pub fn wm_presets() -> List[String] {
 }
 
 pub fn wm_text(name: String) -> String {
-    let n: String = to_lowercase(str_trim(name));
+    let tr: String = str_trim(name);
+    let n: String = to_lowercase(tr);
     if n == "openooda" { return "OPENOODA"; }
     if n == "superfedora" { return "SUPERFEDORA"; }
     if n == "fedora" { return "FEDORA"; }
     if n == "arch" { return "ARCH"; }
-    return to_uppercase(n);
+    let up: String = to_uppercase(n);
+    return up;
 }
 
 pub fn wm_known(name: String) -> Bool {
-    let n: String = to_lowercase(str_trim(name));
+    let tr: String = str_trim(name);
+    let n: String = to_lowercase(tr);
     return n == "openooda" || n == "superfedora" || n == "fedora" || n == "arch";
 }
 
@@ -50,7 +53,8 @@ fn wm_grad(name: String, frac: Int) -> Int {
 }
 
 pub fn wm_column_color(name: String, col: Int, total: Int, tick: Int) -> Int {
-    let n: String = to_lowercase(str_trim(name));
+    let tr: String = str_trim(name);
+    let n: String = to_lowercase(tr);
     let mut frac: Int = if total <= 1 { 50 } else { col * 100 / (total - 1) };
     if n == "openooda" {
         frac = (frac + (tick % 60)) % 100;

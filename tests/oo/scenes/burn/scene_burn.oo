@@ -45,7 +45,7 @@ fn bn_bsyms() -> List[Int] {
     s = list_push(s, 9608);
     s = list_push(s, 9628);
     s = list_push(s, 9600);
-    s = list_push(s, 9621);
+    s = list_push(s, 9629);
     s = list_push(s, 46);
     return s;
 }
@@ -78,7 +78,7 @@ fn bn_setup(w: World, ids: List[Int], fmap: List[Int], fire: List[Int], info: Ca
 }
 
 fn bn_pops(w: World, order: List[Int]) -> BnQ {
-    let dn: DR = rng_int(w.rng, 2, 4);
+    let dn: DR = rng_int(w.rng, 5, 9);
     let mut w2: World = w_rng(w, dn.r);
     let mut o2: List[Int] = order;
     let mut k: Int = 0;
@@ -130,17 +130,18 @@ pub fn burn_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) ->
     let mut w: World = w_input(info, lines, rng_seed(42));
     let dc: DR = rng_int(w.rng, info.tl, info.tr);
     let dr: DR = rng_int(dc.r, info.tb, info.tt);
-    let start: Int = bn_at(info, dc.v, dr.v);
     w = w_rng(w, dr.r);
     let bp: BnP = bn_pool(w, 2000);
     w = bp.w;
     let mut avail: List[Int] = bp.avail;
-    let mut st: BnSt = bn_link(info, start, w.rng);
-    while list_len(st.edges) > 0 { st = bn_step(info, st); }
+    let grid: List[Int] = bn_grid(w, info);
+    let start: Int = bn_at(grid, info, dc.v, dr.v);
+    let mut st: BnSt = bn_link(list_len(w.chars), start, w.rng);
+    while list_len(st.edges) > 0 { st = bn_step(info, w, grid, st); }
     w = w_rng(w, st.rng);
     let mut order: List[Int] = st.order;
     let fire: List[Int] = gradient_new(list_push(list_push(list_push(list_push(
-        list_push(list_new(), 16777215), 16779101), 16672269), 9044028), 5308672),
+        list_push(list_new(), 16777215), 16775005), 16672013), 9044028), 5308672),
         list_push(list_new(), 10), 0);
     let fin: List[Int] = gradient_new(list_push(list_push(list_new(), 50175), 16776988),
         list_push(list_new(), 12), 0);

@@ -20,7 +20,8 @@ pub fn banner_marquee(g: CellGrid, y: Int, text: String, tick: Int, fg: Int, bg:
     while i < chars_len(text) {
         let pos: Int = i + w - off;
         if pos >= 0 && pos < w {
-            out = cv_put(out, pos, y, char_at(text, i), fg, bg);
+            let ch: String = char_at(text, i);
+            out = cv_put(out, pos, y, ch, fg, bg);
         }
         i = i + 1;
     }
@@ -29,7 +30,9 @@ pub fn banner_marquee(g: CellGrid, y: Int, text: String, tick: Int, fg: Int, bg:
 
 pub fn banner_title(g: CellGrid, title: String, fg: Int, bg: Int) -> CellGrid {
     if g.cols < 8 || g.rows < 1 { return g; }
-    let t: String = " " + to_uppercase(title) + " ";
+    let up: String = to_uppercase(title);
+    let mut t: String = " " + up;
+    t = t + " ";
     let mut line: String = "";
     let pad_l: Int = if (g.cols - chars_len(t)) / 2 > 0 { (g.cols - chars_len(t)) / 2 } else { 0 };
     let mut i: Int = 0;
@@ -39,14 +42,17 @@ pub fn banner_title(g: CellGrid, title: String, fg: Int, bg: Int) -> CellGrid {
     let mut out: CellGrid = g;
     i = 0;
     while i < g.cols && i < chars_len(line) {
-        out = cv_put_b(out, i, 0, char_at(line, i), fg, bg, true);
+        let ch: String = char_at(line, i);
+        out = cv_put_b(out, i, 0, ch, fg, bg, true);
         i = i + 1;
     }
     return out;
 }
 
 pub fn banner_frame_tag(frame: Int) -> String {
-    return "frame " + frame.to_string();
+    let s: String = frame.to_string();
+    let res: String = "frame " + s;
+    return res;
 }
 
 pub fn banner_probe() -> Int { return 0; }
