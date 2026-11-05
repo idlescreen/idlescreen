@@ -5,10 +5,7 @@ After=graphical-session.target
 PartOf=graphical-session.target
 
 [Service]
-Type=dbus
-BusName=io.github.idlescreen.Idle
-NotifyAccess=main
-WatchdogSec=30
+Type=simple
 Slice=background-graphical.slice
 SyslogIdentifier=idlescreen
 StandardOutput=journal
@@ -26,7 +23,8 @@ ReadWritePaths=%t -%h/.config -%h/.config/idlescreen -%h/.config/idle -%h/.local
 PrivateTmp=true
 ProtectHome=read-only
 MemoryDenyWriteExecute=true
-RestrictAddressFamilies=AF_UNIX
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressAllow=localhost 127.0.0.1
 IPAddressDeny=any
 MemoryMax=512M
 TasksMax=128
@@ -40,5 +38,4 @@ SystemCallArchitectures=native
 
 [Install]
 WantedBy=graphical-session.target
-Alias=idlescreen-daemon.service
-Alias=idle-daemon.service
+

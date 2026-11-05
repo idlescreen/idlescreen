@@ -24,33 +24,36 @@ pub fn ansi_home() -> String { return "\x1b[H"; }
 
 pub fn ansi_reset() -> String { return "\x1b[0m"; }
 
-pub fn ansi_render(g: CellGrid) -> String {
+pub fn ansi_render_row(g: CellGrid, y: Int) -> String {
     let mut out: String = "";
     let mut last_fg: Int = -1;
     let mut last_bg: Int = -1;
     let mut last_bold: Bool = false;
-    let mut y: Int = 0;
-    while y < g.rows {
-        let mut x: Int = 0;
-        while x < g.cols {
-            let c: TerminalCell = grid_get(g, x, y);
-            if c.fg != last_fg || c.bold != last_bold {
-                out = out + sgr_fg(c.fg, c.bold);
-                last_fg = c.fg;
-                last_bold = c.bold;
-            }
-            if c.bg != last_bg {
-                out = out + sgr_bg(c.bg);
-                last_bg = c.bg;
-            }
-            out = out + c.ch;
-            x = x + 1;
+    let mut x: Int = 0;
+    while x < g.cols {
+        let c: TerminalCell = grid_get(g, x, y);
+        if c.fg != last_fg || c.bold != last_bold {
+            out = out + sgr_fg(c.fg, c.bold);
+            last_fg = c.fg;
+            last_bold = c.bold;
         }
-        if y + 1 < g.rows { out = out + ansi_reset() + "\n"; }
-        last_fg = -1;
-        last_bg = -1;
-        last_bold = false;
-        y = y + 1;
+        if c.bg != last_bg {
+            out = out + sgr_bg(c.bg);
+            last_bg = c.bg;
+        }
+        out = out + c.ch;
+        x = x + 1;
     }
     return out + ansi_reset();
+}
+
+pub fn ansi_render(g: CellGrid) -> String {
+    let mut out: String = "";
+    let mut y: Int = 0;
+    while y < g.rows {
+        out = out + ansi_render_row(g, y);
+        if y + 1 < g.rows { out = out + "\r\n"; }
+        y = y + 1;
+    }
+    return out;
 }

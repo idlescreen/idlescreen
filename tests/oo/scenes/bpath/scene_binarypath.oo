@@ -1,0 +1,120 @@
+// # scene_binarypath — binary-digit travel port
+//
+// Logline: Bit-exact port of BinaryPath::build/next_frame for the parity
+// harness: each input glyph spawns 8 binary chars that walk a random
+// dog-leg path to its coord, then the source char plays collapse/brighten
+// scenes and a diagonal sweep finishes the board.
+// Setup: Travel phase promotes one rep at a time (max_active 1 of 21),
+// popping one pending binary char per rep per frame; when a rep's chars
+// all arrive the source char runs collapse_scn. Wipe phase then reveals
+// two DiagonalTopRightToBottomLeft groups per frame on brighten_scn.
+// Beats:
+//   1. bp_build seeds reps, paths, and the two per-char scenes.
+//   2. bp_travel pops or completes one rep.
+//   3. bp_wipe2 reveals two wipe groups; binarypath_run drives the loop.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/oo/scenes/bpath/bp_parts.oo";
+import "tests/digest_run.oo";
+
+fn bp_build(w: World, info: CanvasInfo) -> BRS {
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let spec: List[Int] = gradient_new(bp_tab(0), list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_r(spec, info.tb, info.tt, info.tl, info.tr);
+    let mut w2: World = w;
+    let mut pend: List[BRep] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let mut bins: List[Int] = list_new();
+        let mut b: Int = 0;
+        while b < 8 {
+            w2 = w_add_char(w2, 48 + ((ch.sym >> (7 - b)) & 1), 0, 0);
+            bins = list_push(bins, list_len(w2.chars) - 1);
+            b = b + 1;
+        }
+        let cp: CPR = bp_coords(w2, ch.col0, ch.row0, info);
+        w2 = cp.w;
+        let rep: BRep = BRep { cid: id, bins: bins, pb: bins, icol: ch.col0, irow: ch.row0, act: 1 };
+        w2 = bp_provision(w2, rep, cp.pts);
+        pend = list_push(pend, rep);
+        k = k + 1;
+    }
+    w2 = bp_scenes(w2, ids, cmap, info);
+    let mut mx: Int = trunc_i(0.08 * int_to_f(list_len(pend)));
+    if mx < 1 { mx = 1; }
+    let _r1 = BRS { w: w2, pend: pend, max: mx };
+    return _r1;
+}
+
+fn bp_wipe2(w: World, g: Groups, q: List[Int]) -> WQ {
+    let mut w2: World = w;
+    let mut q2: List[Int] = q;
+    let mut done: Int = 0;
+    let mut t: Int = 0;
+    while t < 2 {
+        if list_len(q2) > 0 {
+            let win: List[Int] = grp_win(g, list_get(q2, 0));
+            q2 = list_slice(q2, 1, list_len(q2));
+            let mut m: Int = 0;
+            while m < list_len(win) {
+                let id: Int = list_get(win, m);
+                w2 = w_aset(w2, id, 1);
+                w2 = w_set_vis(w2, id, 1);
+                w2 = w_active_add(w2, id);
+                m = m + 1;
+            }
+        } else { done = 1; }
+        t = t + 1;
+    }
+    let _r4 = WQ { w: w2, q: q2, done: done };
+    return _r4;
+}
+
+pub fn binarypath_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let bs: BRS = bp_build(w_input(info, lines, rng_seed(42)), info);
+    let mut w: World = bs.w;
+    let g: Groups = groups_of(w, collect_ids(w, 1), 2, 0, 0, 1);
+    let mut wq: List[Int] = list_new();
+    let mut gi: Int = 0;
+    while gi < list_len(g.keys) { wq = list_push(wq, gi); gi = gi + 1; }
+    let mut pend: List[BRep] = bs.pend;
+    let mut areps: List[BRep] = list_new();
+    let mut phase: Int = 0;
+    let mut done: Int = 0;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while done == 0 || list_len(w.active) > 0 {
+        if phase == 0 {
+            let t: BTA = bp_travel_all(w, pend, areps, bs.max);
+            w = t.w;
+            pend = t.pend;
+            areps = t.areps;
+            if list_len(w.active) == 0 { phase = 1; }
+        }
+        if phase == 1 {
+            let wq2: WQ = bp_wipe2(w, g, wq);
+            w = wq2.w;
+            wq = wq2.q;
+            done = wq2.done;
+        }
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    let pcs2: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    run = run_push(run, digest_paint_cells(pcs2), pcs2);
+    return run;
+}

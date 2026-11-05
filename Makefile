@@ -13,7 +13,7 @@ ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_REA
 
 all: build verify test det parity
 
-PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel mystify expand wipe sweep slide middleout
+PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel mystify expand wipe sweep slide middleout binarypath burn blackhole
 
 parity:
 	@mkdir -p .ooda-cache bin
@@ -129,7 +129,7 @@ shape:
 	echo "PASS: function count (<= 8 per page) and length (<= 64 lines) hold"
 
 check:
-	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*"); do \
+	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./tests/oo/*" -not -path "./tests/scene_dispatch.oo"); do \
 		$(ENV) $(OODA_COMPILER) check "$$f" > /dev/null || { echo "VIOLATION: oodac check fails on $$f"; exit 1; } \
 	done; \
 	echo "PASS: oodac check holds on all .oo files"

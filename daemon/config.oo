@@ -1,13 +1,15 @@
 // # Daemon Config - File and Environment Resolution
 //
 // Logline: Resolves the daemon's scene, timeout, control endpoint, and format from the config file then environment overrides.
-// Setup: Requires FsReadCap for the optional config file and EnvCap for IDLESCREEN_* overrides.
+// Setup: Requires EnvCap for XDG_CONFIG_HOME, HOME, and the IDLESCREEN_* overrides, plus ProcessCap to read config.toml.
 // Beats:
-//   1. Try ~/.config/idlescreen/config.oo then /etc/idlescreen/config.oo.
-//   2. Apply IDLESCREEN_SCENE, IDLESCREEN_TIMEOUT_S, and IDLESCREEN_FORMAT overrides.
+//   1. Read the persistent config.toml from the resolved config dir.
+//   2. Apply IDLESCREEN_SCENE, IDLESCREEN_TIMEOUT_S, and IDLESCREEN_FORMAT overrides on top.
 //   3. Report the resolved values and the loopback control endpoint.
 
+import "std/core/primitives/str.oo";
 import "ascii/effects.oo";
+import "config_file.oo";
 
 pub fn daemon_ctl_port(prog: String) -> Int {
     if prog == "ooidle" { return 49318; }
@@ -18,24 +20,32 @@ pub fn daemon_ctl_endpoint(prog: String) -> String {
     return "127.0.0.1:" + daemon_ctl_port(prog).to_string();
 }
 
-pub fn daemon_timeout_s(env: &EnvCap) -> Int {
+// Idle timeout in seconds: the environment override wins, then config.toml.
+pub fn daemon_timeout_s(proc: &ProcessCap, env: &EnvCap) -> Int {
     let v: String = match env_get(env, "IDLESCREEN_TIMEOUT_S") { Ok(x) => x, Err(_) => "" };
-    let mut acc: Int = 0;
-    let mut i: Int = 0;
-    while i < chars_len(v) {
-        let b: Int = byte_at(v, i);
-        if b >= 48 && b <= 57 { acc = acc * 10 + (b - 48); }
-        i = i + 1;
-    }
-    if acc <= 0 { return 300; }
-    return acc;
+    let acc: Int = parse_int_digits(v);
+    if acc > 0 { return acc; }
+    let cfg: ConfigData = config_read_file(proc, env);
+    return cfg.idle_timeout_secs;
 }
 
-pub fn daemon_scene(env: &EnvCap) -> Int {
+// Active scene index: the environment override wins, then config.toml.
+pub fn daemon_scene(proc: &ProcessCap, env: &EnvCap) -> Int {
     let v: String = match env_get(env, "IDLESCREEN_SCENE") { Ok(x) => x, Err(_) => "" };
     let idx: Int = effects_index(v);
-    if idx < 0 { return 0; }
-    return idx;
+    if idx >= 0 { return idx; }
+    let cfg: ConfigData = config_read_file(proc, env);
+    let cidx: Int = effects_index(cfg.active);
+    if cidx >= 0 { return cidx; }
+    return 0;
+}
+
+// Active saver name as persisted in config.toml.
+pub fn daemon_saver_name(proc: &ProcessCap, env: &EnvCap) -> String {
+    let v: String = match env_get(env, "IDLESCREEN_SCENE") { Ok(x) => str_trim(x), Err(_) => "" };
+    if v != "" { return to_lowercase(v); }
+    let cfg: ConfigData = config_read_file(proc, env);
+    return cfg.active;
 }
 
 pub fn daemon_format(env: &EnvCap) -> String {
@@ -44,6 +54,6 @@ pub fn daemon_format(env: &EnvCap) -> String {
     return "argb8888";
 }
 
-pub fn daemon_config_summary(env: &EnvCap, prog: String) -> String {
-    return prog + " ctl=" + daemon_ctl_endpoint(prog) + " timeout=" + daemon_timeout_s(env).to_string() + "s scene=" + effects_name(daemon_scene(env)) + " format=" + daemon_format(env);
+pub fn daemon_config_summary(proc: &ProcessCap, env: &EnvCap, prog: String) -> String {
+    return prog + " ctl=" + daemon_ctl_endpoint(prog) + " timeout=" + daemon_timeout_s(proc, env).to_string() + "s saver=" + daemon_saver_name(proc, env) + " scene=" + effects_name(daemon_scene(proc, env)) + " format=" + daemon_format(env) + " config=" + config_dir(env);
 }

@@ -1,26 +1,90 @@
-// # Service Commands - start, stop, toggle, enable, disable, restart, service, uninstall
+// # Service Commands - Service Management and Daemon Control
 //
-// Logline: The service-management verbs routed through the daemon control socket or reported when unmanaged.
-// Setup: Requires TcpCap and EnvCap for the loopback control endpoint.
+// Logline: Real service management verbs and daemon socket control commands across the supported init systems.
+// Setup: Requires ProcessCap for systemctl and unit installation, TcpCap and EnvCap for daemon socket control.
 // Beats:
-//   1. Forward start, stop, toggle, sleep, and quit frames to the daemon socket.
-//   2. Report enable, disable, restart, service, and uninstall as systemd-managed hints.
-//   3. Fail closed with a hint when the daemon is absent.
+//   1. Forward interactive control frames to the daemon socket.
+//   2. Install, enable, disable, restart, and toggle the service on systemd, dinit, or XDG autostart.
+//   3. Cleanly remove unit configuration on uninstall with zero residual symlinks.
 
+import "std/core/primitives/str.oo";
+import "core/shell.oo";
 import "daemon/run.oo";
 import "daemon/config.oo";
+import "daemon_cmds.oo";
+import "service_unit.oo";
 
 pub fn cmd_saver_ctl(tcp: &TcpCap, env: &EnvCap, verb: String) -> Int {
     return ooidle_query(tcp, env, "idlescreen", verb);
 }
 
-pub fn cmd_service(env: &EnvCap, verb: String) -> Int {
-    let unit: String = "idlescreen.service";
-    if verb == "enable" { println("enable: run `systemctl --user enable " + unit + "`"); return 0; }
-    if verb == "disable" { println("disable: run `systemctl --user disable " + unit + "`"); return 0; }
-    if verb == "restart" { println("restart: run `systemctl --user restart " + unit + "`"); return 0; }
-    if verb == "service" { println("service unit: " + unit + " (user scope, Type=simple)"); return 0; }
-    if verb == "uninstall" { println("uninstall: remove binary and " + unit + "; no host residue kept"); return 0; }
+// The service counts as active when systemd reports it or the daemon answers.
+pub fn service_is_active(proc: &ProcessCap, tcp: &TcpCap, env: &EnvCap) -> Bool {
+    if shell_out(proc, "systemctl --user is-active --quiet idlescreen.service 2>/dev/null && echo yes") != "" { return true; }
+    if service_has_systemd(proc) { return false; }
+    return ooidle_notify(tcp, env, "idlescreen", "ping");
+}
+
+pub fn service_enable(proc: &ProcessCap, env: &EnvCap) -> Int {
+    let unit: String = service_unit_dir(env) + "/idlescreen.service";
+    if shell_out(proc, "test -f " + shell_quote(unit) + " 2>/dev/null && echo yes") == "" {
+        let inst: Int = service_install(proc, env);
+        if inst != 0 { return inst; }
+    }
+    let _r: String = shell_out(proc, "systemctl --user daemon-reload 2>/dev/null || true");
+    let _e: String = shell_out(proc, "systemctl --user enable --now idlescreen.service 2>/dev/null || true");
+    let _d: String = shell_out(proc, "dinitctl enable idlescreen 2>/dev/null || true");
+    println("IdleScreen service enabled and started.");
+    return 0;
+}
+
+pub fn service_disable(proc: &ProcessCap, env: &EnvCap) -> Int {
+    let _d: String = shell_out(proc, "systemctl --user disable --now idlescreen.service 2>/dev/null || true");
+    let _i: String = shell_out(proc, "dinitctl disable idlescreen 2>/dev/null || true");
+    let desk: String = service_autostart_dir(env) + "/idlescreen.desktop";
+    let _r: String = shell_out(proc, "rm -f " + shell_quote(desk) + " 2>/dev/null || true");
+    println("IdleScreen service disabled and stopped.");
+    return 0;
+}
+
+pub fn service_restart(proc: &ProcessCap, env: &EnvCap) -> Int {
+    let _r: String = shell_out(proc, "systemctl --user daemon-reload 2>/dev/null || true");
+    let _s: String = shell_out(proc, "systemctl --user restart idlescreen.service 2>/dev/null || true");
+    let _d: String = shell_out(proc, "dinitctl restart idlescreen 2>/dev/null || true");
+    println("IdleScreen service restarted.");
+    return 0;
+}
+
+pub fn service_uninstall(proc: &ProcessCap, env: &EnvCap) -> Int {
+    let _d: Int = service_disable(proc, env);
+    let unit: String = service_unit_dir(env) + "/idlescreen.service";
+    let _rm: String = shell_out(proc, "rm -f " + shell_quote(unit) + " 2>/dev/null || true");
+    let _rl: String = shell_out(proc, "systemctl --user daemon-reload 2>/dev/null || true");
+    println("IdleScreen service uninstalled.");
+    return 0;
+}
+
+pub fn cmd_service(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, verb: String) -> Int {
+    if verb == "install" { return service_install(proc, env); }
+    if verb == "enable" || verb == "start" { return service_enable(proc, env); }
+    if verb == "disable" || verb == "stop" { return service_disable(proc, env); }
+    if verb == "restart" || verb == "reload" { return service_restart(proc, env); }
+    if verb == "status" { return cmd_status(tcp, env); }
+    if verb == "toggle" {
+        if service_is_active(proc, tcp, env) {
+            let _d: Int = service_disable(proc, env);
+            println("IdleScreen standby: Service disabled (stay-awake ON)");
+        } else {
+            let _e: Int = service_enable(proc, env);
+            println("IdleScreen standby: Service enabled (idle monitoring ACTIVE)");
+        }
+        return 0;
+    }
+    if verb == "uninstall" { return service_uninstall(proc, env); }
+    if verb == "service" {
+        println("usage: idlescreen service <install|enable|disable|restart|reload|toggle|status|uninstall>");
+        return 0;
+    }
     println("unknown service verb " + verb);
     return 1;
 }

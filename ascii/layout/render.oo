@@ -9,7 +9,6 @@
 
 import "core/cell.oo";
 import "core/grid.oo";
-import "ascii/canvas.oo";
 import "fonts.oo";
 import "wordmark.oo";
 
@@ -29,64 +28,57 @@ fn wm_light(c: Int) -> Int {
     return rgb(r, g, b);
 }
 
-fn wm_letter(g: CellGrid, ch: String, ox: Int, oy: Int, col: Int, total: Int, tick: Int, name: String) -> CellGrid {
-    let rows: List[String] = font7_rows(ch);
-    let mut out: CellGrid = g;
-    let fg: Int = wm_column_color(name, col, total, tick);
-    let sh: Int = wm_shadow_color();
-    let hi: Int = wm_light(fg);
-    let mut y: Int = 0;
-    while y < font7_height() {
-        let mut x: Int = 0;
-        while x < font7_width() {
-            if font7_at(rows, x, y) {
-                out = cv_put(out, ox + x + 2, oy + y + 1, "░", sh, grid_get(out, ox + x + 2, oy + y + 1).bg);
-            }
-            x = x + 1;
+fn wm_pixel(c: TerminalCell, t: String, n: Int, ox: Int, oy: Int, x: Int, y: Int, tick: Int, name: String) -> TerminalCell {
+    let mut res: TerminalCell = c;
+    let mut i: Int = 0;
+    while i < n {
+        let lox: Int = ox + i * 8;
+        let ch: String = char_at(t, i);
+        let sx: Int = x - (lox + 2);
+        let sy: Int = y - (oy + 1);
+        if font7_char_at(ch, sx, sy) {
+            res = cell_new("░", wm_shadow_color(), res.bg, false);
         }
-        y = y + 1;
-    }
-    y = 0;
-    while y < font7_height() {
-        let mut x: Int = 0;
-        while x < font7_width() {
-            if font7_at(rows, x, y) {
-                let edge: Bool = !font7_at(rows, x, y - 1);
-                let c: Int = if edge { hi } else { fg };
-                out = cv_put_b(out, ox + x, oy + y, "█", c, grid_get(out, ox + x, oy + y).bg, edge);
-            }
-            x = x + 1;
+        let bx: Int = x - lox;
+        let by: Int = y - oy;
+        if font7_char_at(ch, bx, by) {
+            let edge: Bool = !font7_char_at(ch, bx, by - 1);
+            let fg: Int = wm_column_color(name, i, n, tick);
+            let col_fg: Int = if edge { wm_light(fg) } else { fg };
+            res = cell_new("█", col_fg, res.bg, edge);
         }
-        y = y + 1;
+        i = i + 1;
     }
-    return out;
+    return res;
 }
 
 pub fn wm_render(g: CellGrid, name: String, tick: Int) -> CellGrid {
     let t: String = wm_text(name);
     let total: Int = chars_len(t) * (font7_width() + 1) - 1;
     if total > g.cols || font7_height() + 2 > g.rows { return g; }
-    let ox: Int = (g.cols - total) / 2;
-    let oy: Int = (g.rows - font7_height()) / 2;
-    let mut out: CellGrid = g;
-    let mut i: Int = 0;
-    while i < chars_len(t) {
-        out = wm_letter(out, char_at(t, i), ox + i * (font7_width() + 1), oy, i, chars_len(t), tick, name);
-        i = i + 1;
-    }
-    return out;
+    return wm_render_at(g, name, (g.rows - font7_height()) / 2, tick);
 }
 
 pub fn wm_render_at(g: CellGrid, name: String, oy: Int, tick: Int) -> CellGrid {
     let t: String = wm_text(name);
-    let total: Int = chars_len(t) * (font7_width() + 1) - 1;
+    let n: Int = chars_len(t);
+    let total: Int = n * (font7_width() + 1) - 1;
     if total > g.cols { return g; }
     let ox: Int = (g.cols - total) / 2;
-    let mut out: CellGrid = g;
-    let mut i: Int = 0;
-    while i < chars_len(t) {
-        out = wm_letter(out, char_at(t, i), ox + i * (font7_width() + 1), oy, i, chars_len(t), tick, name);
-        i = i + 1;
+    let mut cells: List[TerminalCell] = list_new();
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let c: TerminalCell = grid_get(g, x, y);
+            if y >= oy && y < oy + 8 && x >= ox && x < ox + total + 2 {
+                cells = list_push(cells, wm_pixel(c, t, n, ox, oy, x, y, tick, name));
+            } else {
+                cells = list_push(cells, c);
+            }
+            x = x + 1;
+        }
+        y = y + 1;
     }
-    return out;
+    return CellGrid { cols: g.cols, rows: g.rows, cells: cells };
 }

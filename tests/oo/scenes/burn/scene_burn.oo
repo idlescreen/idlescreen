@@ -1,0 +1,165 @@
+// # scene_burn — fire + rising smoke port
+//
+// Logline: Bit-exact port of Burn::build/next_frame for the parity
+// harness: a PrimsSimple tree over the 20 text-boundary chars fixes the
+// link order, each burnable char plays a 41-frame fire scene then a
+// 9-frame final-color scene, and SceneComplete callbacks feed a 2000-char
+// smoke pool that drifts new particles above the canvas.
+// Setup: RNG order mirrors BurnIterator.__init__: two randints for the
+// tree start, 2000 choice draws for the pool, the algo's randrange draws
+// to completion, then per-frame randint(2,4) and smoke emission draws.
+// World.pend triples (char, cbid, carg) drive emit/reclaim after each
+// update — tick code draws no RNG, so the stream order is upstream-exact.
+// Beats:
+//   1. bn_fscn builds one char's burn/final scenes and both event regs.
+//   2. bn_pops replays the per-frame randint(2,4) link-order drain.
+//   3. bn_drain applies deferred emit/reclaim callbacks and clears pend.
+//   4. burn_run wires build then drives frames until order+active empty.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/scenes/burn/bn_parts.oo";
+import "tests/oo/scenes/burn/bn_smoke.oo";
+import "tests/digest_run.oo";
+
+pub type BnQ = struct { w: World, order: List[Int] };
+pub type BnD = struct { w: World, avail: List[Int], cnt: Int };
+
+fn bn_bsyms() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 39);
+    s = list_push(s, 46);
+    s = list_push(s, 9622);
+    s = list_push(s, 9625);
+    s = list_push(s, 9608);
+    s = list_push(s, 9628);
+    s = list_push(s, 9600);
+    s = list_push(s, 9621);
+    s = list_push(s, 46);
+    return s;
+}
+
+fn bn_fscn(w: World, id: Int, fmap: List[Int], fire: List[Int], info: CanvasInfo) -> World {
+    let ch: Char = list_get(w.chars, id);
+    let mut w2: World = w_set_vis(w, id, 1);
+    w2 = w_appear(w2, id, ch.sym, 8614771, 0 - 1, 0);
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "burn");
+    w2 = w_grad(w2, id, 0, bn_bsyms(), 4, fire, list_new());
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    let fl: Int = list_get(fire, list_len(fire) - 1);
+    let fc: Int = list_get(fmap, ch.row0 - info.tb);
+    let cg: List[Int] = gradient_new(list_push(list_push(list_new(), fl), fc),
+        list_push(list_new(), 8), 0);
+    w2 = w_grad(w2, id, 1, list_push(list_new(), ch.sym), 4, cg, list_new());
+    w2 = w_reg(w2, id, 2, 0, "burn", EvAct { kind: 1, sid: "1", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 2, 0, "burn", EvAct { kind: 7, sid: "", num: 0, carg: 0 });
+    return w2;
+}
+
+fn bn_setup(w: World, ids: List[Int], fmap: List[Int], fire: List[Int], info: CanvasInfo) -> World {
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        w2 = bn_fscn(w2, list_get(ids, k), fmap, fire, info);
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn bn_pops(w: World, order: List[Int]) -> BnQ {
+    let dn: DR = rng_int(w.rng, 2, 4);
+    let mut w2: World = w_rng(w, dn.r);
+    let mut o2: List[Int] = order;
+    let mut k: Int = 0;
+    while k < dn.v {
+        if list_len(o2) > 0 {
+            let id: Int = list_get(o2, 0);
+            o2 = list_slice(o2, 1, list_len(o2));
+            let ch: Char = list_get(w2.chars, id);
+            if ch.sym != 32 {
+                w2 = w_aset(w2, id, 0);
+                w2 = w_active_add(w2, id);
+            }
+        }
+        k = k + 1;
+    }
+    let _r1 = BnQ { w: w2, order: o2 };
+    return _r1;
+}
+
+fn bn_drain(w: World, avail: List[Int], cnt: Int, info: CanvasInfo) -> BnD {
+    let mut w2: World = w;
+    let mut av: List[Int] = avail;
+    let mut c: Int = cnt;
+    let mut p: Int = 0;
+    while p < list_len(w2.pend) {
+        let cid: Int = list_get(w2.pend, p);
+        let cb: Int = list_get(w2.pend, p + 1);
+        if cb == 0 {
+            let ch: Char = list_get(w2.chars, cid);
+            let e: BnE = bn_emit(w2, av, ch.col0, ch.row0, info, c + 1);
+            w2 = e.w;
+            av = e.avail;
+            if e.pid != 0 - 1 { c = c + 1; }
+        }
+        if cb == 1 {
+            let r: BnP = bn_reclaim(w2, av, cid);
+            w2 = r.w;
+            av = r.avail;
+        }
+        p = p + 3;
+    }
+    w2 = World { chars: w2.chars, active: w2.active, rng: w2.rng,
+        next_id: w2.next_id, pend: list_new() };
+    let _r2 = BnD { w: w2, avail: av, cnt: c };
+    return _r2;
+}
+
+pub fn burn_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = w_input(info, lines, rng_seed(42));
+    let dc: DR = rng_int(w.rng, info.tl, info.tr);
+    let dr: DR = rng_int(dc.r, info.tb, info.tt);
+    let start: Int = bn_at(info, dc.v, dr.v);
+    w = w_rng(w, dr.r);
+    let bp: BnP = bn_pool(w, 2000);
+    w = bp.w;
+    let mut avail: List[Int] = bp.avail;
+    let mut st: BnSt = bn_link(info, start, w.rng);
+    while list_len(st.edges) > 0 { st = bn_step(info, st); }
+    w = w_rng(w, st.rng);
+    let mut order: List[Int] = st.order;
+    let fire: List[Int] = gradient_new(list_push(list_push(list_push(list_push(
+        list_push(list_new(), 16777215), 16779101), 16672269), 9044028), 5308672),
+        list_push(list_new(), 10), 0);
+    let fin: List[Int] = gradient_new(list_push(list_push(list_new(), 50175), 16776988),
+        list_push(list_new(), 12), 0);
+    let fmap: List[Int] = cmap_v(fin, info.tb, info.tt);
+    w = bn_setup(w, collect_ids(w, 1), fmap, fire, info);
+    let mut cnt: Int = 0;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(order) > 0 || list_len(w.active) > 0 {
+        let q: BnQ = bn_pops(w, order);
+        w = q.w;
+        order = q.order;
+        w = eng_update(w);
+        let d: BnD = bn_drain(w, avail, cnt, info);
+        w = d.w;
+        avail = d.avail;
+        cnt = d.cnt;
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

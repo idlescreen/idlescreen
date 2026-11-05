@@ -1,0 +1,109 @@
+// # bh_parts — blackhole state, tables, and the ring-pick helpers
+//
+// Logline: Shared types, config tables, and pure helpers for the
+// Blackhole port: the Bh phase state record, the star/unstable/star-color
+// symbol and color tables, the canvas-scaled radius formula, and the
+// randrange-driven pick of the 15 ring characters.
+// Setup: Pure. Coords pack as flat col,row pairs; the center is passed
+// in (canvas center = 40,12 for the parity grid). Draw order in bh_pick
+// mirrors upstream: randrange(0, len) per pick until radius*3 picks.
+// Beats:
+//   1. bh_ssyms/bh_scols/bh_usyms hold the three config tables.
+//   2. bh_radius applies the min/max canvas-scaled radius clamp.
+//   3. bh_pick draws the ring membership out of the input chars.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/float_conv.oo";
+
+pub type Bh = struct {
+    w: World,
+    bh: List[Int],
+    awb: List[Int],
+    awc: List[Int],
+    fd: Int,
+    ph: Int
+};
+
+pub type BHP = struct { w: World, bh: List[Int] };
+pub type BHW = struct { w: World, add: Int };
+
+pub fn bh_ssyms() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 42);
+    s = list_push(s, 39);
+    s = list_push(s, 96);
+    s = list_push(s, 164);
+    s = list_push(s, 8226);
+    s = list_push(s, 176);
+    s = list_push(s, 183);
+    return s;
+}
+
+pub fn bh_scols() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 16763917);
+    s = list_push(s, 16741158);
+    s = list_push(s, 16718157);
+    s = list_push(s, 12532841);
+    s = list_push(s, 7355020);
+    s = list_push(s, 302527);
+    return s;
+}
+
+pub fn bh_usyms() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 9702);
+    s = list_push(s, 9742);
+    s = list_push(s, 9737);
+    s = list_push(s, 9679);
+    s = list_push(s, 9737);
+    s = list_push(s, 9742);
+    s = list_push(s, 9702);
+    return s;
+}
+
+pub fn bh_in(xs: List[Int], id: Int) -> Int {
+    let mut k: Int = 0;
+    while k < list_len(xs) {
+        if list_get(xs, k) == id { return 1; }
+        k = k + 1;
+    }
+    return 0;
+}
+
+fn bh_rm(xs: List[Int], i: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(xs) {
+        if k != i { out = list_push(out, list_get(xs, k)); }
+        k = k + 1;
+    }
+    return out;
+}
+
+pub fn bh_radius(info: CanvasInfo) -> Int {
+    let w2: Int = round_he(int_to_f(info.cols) * 0.3);
+    let h2: Int = round_he(int_to_f(info.rows) * 0.2);
+    let mut r: Int = w2;
+    if h2 < r { r = h2; }
+    if r < 3 { r = 3; }
+    return r;
+}
+
+pub fn bh_pick(w: World, n: Int) -> BHP {
+    let mut avail: List[Int] = collect_ids(w, 1);
+    let mut bh: List[Int] = list_new();
+    let mut w2: World = w;
+    while list_len(bh) < n && list_len(avail) > 0 {
+        let d: DR = rng_range(w2.rng, 0, list_len(avail));
+        w2 = w_rng(w2, d.r);
+        bh = list_push(bh, list_get(avail, d.v));
+        avail = bh_rm(avail, d.v);
+    }
+    let _r1 = BHP { w: w2, bh: bh };
+    return _r1;
+}

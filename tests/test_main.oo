@@ -18,11 +18,40 @@ import "wayland/dpms.oo";
 import "daemon/state.oo";
 import "daemon/inhibit.oo";
 import "daemon/control.oo";
+import "daemon/config_file.oo";
+import "core/shell.oo";
 
 fn probe(name: String, ok: Bool) -> Int {
     if ok { println("PASS " + name); return 0; }
     println("FAIL " + name);
     return 1;
+}
+
+fn test_ctl_and_config() -> Int {
+    let mut fails: Int = 0;
+    let st: DaemonState = daemon_state_new(300, 19, "matrix");
+    let rep: CtlReply = ctl_dispatch(st, list_new(), "toggle\n", "idlescreen");
+    fails = fails + probe("ctl toggle", rep.state.saver_on && rep.text == "saver on");
+    let rep2: CtlReply = ctl_dispatch(st, list_new(), "bogus", "idlescreen");
+    fails = fails + probe("ctl unknown fails closed", str_starts_with(rep2.text, "ERR"));
+    fails = fails + probe("ctl scene", ctl_dispatch(st, list_new(), "scene matrix", "idlescreen").state.scene_idx == effects_index("matrix"));
+    fails = fails + probe("ctl set saver name", ctl_dispatch(st, list_new(), "set plasma", "idlescreen").state.saver_name == "plasma");
+    fails = fails + probe("ctl set moves scene", ctl_dispatch(st, list_new(), "set plasma", "idlescreen").state.scene_idx == effects_index("plasma"));
+    fails = fails + probe("ctl set rejects empty name", str_starts_with(ctl_dispatch(st, list_new(), "set", "idlescreen").text, "ERR"));
+    fails = fails + probe("ctl timeout retunes", ctl_dispatch(st, list_new(), "timeout 600", "idlescreen").state.timeout_s == 600);
+    fails = fails + probe("ctl timeout rejects empty", str_starts_with(ctl_dispatch(st, list_new(), "timeout", "idlescreen").text, "ERR"));
+    fails = fails + probe("ctl ping answers PONG", ctl_dispatch(st, list_new(), "ping", "idlescreen").text == "PONG");
+    fails = fails + probe("cv ramp", cv_ramp(0) == " " && cv_ramp(9) == "@");
+    let cfg: ConfigData = config_default();
+    let toml: String = config_to_toml(cfg);
+    let cfg2: ConfigData = config_load_toml(toml);
+    fails = fails + probe("config roundtrip", cfg2.idle_timeout_secs == 120 && cfg2.active == "ascii" && cfg2.use_os_brand);
+    let cfg3: ConfigData = config_with(cfg, "plasma", 300);
+    fails = fails + probe("config with saver", cfg3.active == "plasma" && cfg3.idle_timeout_secs == 300 && cfg3.fps == cfg.fps && cfg3.custom_text == cfg.custom_text);
+    fails = fails + probe("config parses persisted saver", config_load_toml(config_to_toml(cfg3)).active == "plasma");
+    fails = fails + probe("shell quote neutralises quotes", shell_quote("a'b") == "'a'\\''b'");
+    fails = fails + probe("shell quote keeps newlines", shell_quote("a\nb") == "'a\nb'");
+    return fails;
 }
 
 pub fn main(args: List[String]) -> Result[Int, String] {
@@ -51,13 +80,7 @@ pub fn main(args: List[String]) -> Result[Int, String] {
     let inh2: List[String] = inhibit_remove(inhibit_add(inh, "video"), "audio");
     fails = fails + probe("inhibit remove", list_len(inh2) == 1 && list_get(inh2, 0) == "video");
     fails = fails + probe("inhibit json", inhibit_json(inh2) == "[\"video\"]");
-    let st: DaemonState = daemon_state_new(300, 19);
-    let rep: CtlReply = ctl_dispatch(st, list_new(), "toggle\n", "idlescreen");
-    fails = fails + probe("ctl toggle", rep.state.saver_on && rep.text == "saver on");
-    let rep2: CtlReply = ctl_dispatch(st, list_new(), "bogus", "idlescreen");
-    fails = fails + probe("ctl unknown fails closed", str_starts_with(rep2.text, "ERR"));
-    fails = fails + probe("ctl scene", ctl_dispatch(st, list_new(), "scene matrix", "idlescreen").state.scene_idx == effects_index("matrix"));
-    fails = fails + probe("cv ramp", cv_ramp(0) == " " && cv_ramp(9) == "@");
+    fails = fails + test_ctl_and_config();
     if fails == 0 { println("PASS: all assertions"); }
     return Ok(fails);
 }

@@ -1,7 +1,7 @@
 // # idlescreen Multi-Call Entrypoint
 //
 // Logline: Multi-call entrypoint that resolves the invoked persona from argv[0] or --persona and dispatches to it.
-// Setup: Declared capabilities: Process, FsRead, FsWrite, Fs, Bind, Tcp, Env, Time, Rand, Ffi. sys_argv0 under ProcessCap authorises the persona probe; the persona owns the rest.
+// Setup: Declared capabilities: Process, FsRead, FsWrite, Fs, Bind, Tcp, Env, Time, Rand, Ffi, Alloc. sys_argv0 under ProcessCap authorises the persona probe; Alloc lifts the ambient List ceiling by a bounded 8 GiB for the animation hot path; the persona owns the rest.
 // Beats:
 //   1. Read the invoked program basename under ProcessCap and resolve the persona with the dispatch table.
 //   2. Fail closed on an unknown persona selector.
@@ -17,11 +17,10 @@ pub fn idlescreen_persona_resolve(prog: String) -> String {
         base = str_slice(base, str_index_of(base, "/") + 1, chars_len(base));
     }
     if base == "ooidle" { return "ooidle"; }
-    if str_index_of(base, "ooidle") >= 0 { return "ooidle"; }
     return "idlescreen";
 }
 
-fn strip_persona_flag(args: List[String]) -> List[String] {
+fn strip_persona_args(args: List[String]) -> List[String] {
     let mut out: List[String] = list_new();
     let mut i: Int = 2;
     while i < list_len(args) { out = list_push(out, list_get(args, i)); i = i + 1; }
@@ -29,18 +28,19 @@ fn strip_persona_flag(args: List[String]) -> List[String] {
 }
 
 pub fn main(
-    fs_r: &FsReadCap,
-    fs_w: &FsWriteCap,
-    fs: &FsCap,
-    bind: &BindCap,
-    tcp: &TcpCap,
-    env: &EnvCap,
-    proc: &ProcessCap,
-    time: &TimeCap,
-    rand: &RandCap,
-    ffi: &FfiCap,
-    args: List[String]
+    fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap,
+    bind: &BindCap, tcp: &TcpCap, env: &EnvCap,
+    proc: &ProcessCap, time: &TimeCap, rand: &RandCap,
+    ffi: &FfiCap, alloc: &AllocCap, args: List[String]
 ) -> Result[Int, String] {
+    // Raise the ambient List quota by 8 GiB (8 x 1 GiB) for zero-env 60-144 FPS animation on constrained hosts.
+    // The raise is bounded: an unbounded loop here would lift the ceiling past the
+    // "ambient memory quota exceeded" guard and disable the memory bound for the whole process.
+    let mut qi: Int = 0;
+    while qi < 8 {
+        let _q: Int = alloc_bytes(alloc, 1073741824);
+        qi = qi + 1;
+    }
     let prog: String = sys_argv0(proc);
     let mut persona: String = idlescreen_persona_resolve(prog);
     let mut args2: List[String] = args;
@@ -51,10 +51,10 @@ pub fn main(
             return Err("ERR unknown persona: " + sel);
         }
         persona = sel;
-        args2 = strip_persona_flag(args2);
+        args2 = strip_persona_args(args2);
     }
     if persona == "ooidle" {
-        return Ok(ooidle_persona_run(fs_r, fs_w, fs, bind, tcp, env, time, rand, args2));
+        return Ok(ooidle_persona_run(fs_r, fs_w, fs, proc, bind, tcp, env, time, rand, args2));
     }
     return Ok(idlescreen_cli_run(fs_r, fs_w, fs, bind, tcp, env, proc, time, rand, ffi, args2));
 }

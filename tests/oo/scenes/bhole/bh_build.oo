@@ -1,0 +1,123 @@
+// # bh_build — BlackholeIterator.prepare_blackhole + build assembly
+//
+// Logline: Builds the blackhole ring (15 input chars walking to a doubled
+// ellipse at canvas center), then provisions every input char with a
+// starting star scene and — for non-ring chars — a singularity path plus
+// the synced consumed scene, finishing with the awaiting-consumption
+// shuffle. Draw order is upstream-exact: 15 randrange picks, then per
+// sorted input char (2 star draws, +3 for non-ring), then the shuffle.
+// Setup: ring waypoints rotate so each char's orbit starts at its own
+// slot; consumed scenes are Distance-synced so the star fades as it falls.
+// Beats:
+//   1. bh_ring1 wires one ring char's approach path, glyph scene, layer
+//      event, and looped rotation path.
+//   2. bh_star wires one input char's visible star and, if not in the
+//      ring, the singularity dive with its two PathActivated actions.
+//   3. bh_build runs the full build and returns the phase-0 state.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/geometry_fns.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/oo/scenes/bhole/bh_parts.oo";
+
+fn bh_ring1(w: World, id: Int, i: Int, ring: List[Int]) -> World {
+    let mut w2: World = w_path(w, id, 0.7, 1, ez(3), 0 - 1, 0, 0, "blackhole");
+    w2 = w_wp(w2, id, 0, list_get(ring, i * 2), list_get(ring, i * 2 + 1), list_new());
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "blackhole");
+    w2 = w_frame(w2, id, 0, 42, 1, 16777215, 0 - 1, 0);
+    w2 = w_reg(w2, id, 0, 1, "blackhole", EvAct { kind: 5, sid: "", num: 1, carg: 0 });
+    w2 = w_path(w2, id, 0.45, 0, ez(0), 0 - 1, 0, 1, "blackhole_rotation");
+    let n: Int = list_len(ring) / 2;
+    let mut j: Int = i;
+    while j < n {
+        w2 = w_wp(w2, id, 1, list_get(ring, j * 2), list_get(ring, j * 2 + 1), list_new());
+        j = j + 1;
+    }
+    j = 0;
+    while j < i {
+        w2 = w_wp(w2, id, 1, list_get(ring, j * 2), list_get(ring, j * 2 + 1), list_new());
+        j = j + 1;
+    }
+    return w2;
+}
+
+fn bh_dive(w: World, id: Int, sym: Int, ci: Int, sf: List[Int], info: CanvasInfo, cc: Int, cr: Int) -> World {
+    let mut w2: World = w;
+    let dc: DR = rng_int(w2.rng, info.left, info.right);
+    let dr: DR = rng_int(dc.r, info.bottom, info.top);
+    let sp: DRF = rng_unif(dr.r, 0.17, 0.30);
+    w2 = w_rng(w2, sp.r);
+    w2 = w_pos(w2, id, dc.v, dr.v);
+    w2 = w_path(w2, id, sp.v, 1, ez(16), 0 - 1, 0, 0, "singularity");
+    w2 = w_wp(w2, id, 0, cc, cr, list_new());
+    let ch: Char = list_get(w2.chars, id);
+    let csid: String = w_auto_id(ch.sids);
+    let si: Int = list_len(ch.sids);
+    let gm: List[Int] = gradient_new(list_push(list_push(list_new(), list_get(sf, ci)), 0),
+        list_push(list_new(), 10), 0);
+    w2 = w_scene(w2, id, 0, 1, 0, ez(0), "");
+    w2 = w_grad(w2, id, si, list_push(list_new(), sym), 1, gm, list_new());
+    w2 = w_frame(w2, id, si, 32, 1, 0 - 1, 0 - 1, 0);
+    w2 = w_reg(w2, id, 0, 1, "singularity", EvAct { kind: 5, sid: "", num: 2, carg: 0 });
+    w2 = w_reg(w2, id, 0, 1, "singularity", EvAct { kind: 1, sid: csid, num: 0, carg: 0 });
+    return w2;
+}
+
+fn bh_star(w: World, id: Int, sf: List[Int], inset: List[Int], info: CanvasInfo, cc: Int, cr: Int) -> BHW {
+    let mut w2: World = w_set_vis(w, id, 1);
+    let d1: DR = rng_pick(w2.rng, 7);
+    w2 = w_rng(w2, d1.r);
+    let sym: Int = list_get(bh_ssyms(), d1.v);
+    let d2: DR = rng_pick(w2.rng, 6);
+    w2 = w_rng(w2, d2.r);
+    let ch: Char = list_get(w2.chars, id);
+    let si: Int = list_len(ch.sids);
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    w2 = w_frame(w2, id, si, sym, 1, list_get(sf, d2.v), 0 - 1, 0);
+    w2 = w_aset(w2, id, si);
+    let mut add: Int = 0 - 1;
+    if bh_in(inset, id) == 0 {
+        w2 = bh_dive(w2, id, sym, d2.v, sf, info, cc, cr);
+        add = id;
+    }
+    let _r1 = BHW { w: w2, add: add };
+    return _r1;
+}
+
+pub fn bh_build(w: World, info: CanvasInfo, cc: Int, cr: Int) -> Bh {
+    let radius: Int = bh_radius(info);
+    let sf: List[Int] = gradient_new(list_push(list_push(list_new(), 4868685), 16777215),
+        list_push(list_new(), 6), 0);
+    let pk: BHP = bh_pick(w, radius * 3);
+    let mut w2: World = pk.w;
+    let ring: List[Int] = coords_on_circle(cc, cr, radius, list_len(pk.bh), 1);
+    let mut i: Int = 0;
+    while i < list_len(pk.bh) {
+        w2 = bh_ring1(w2, list_get(pk.bh, i), i, ring);
+        i = i + 1;
+    }
+    let ids: List[Int] = sort_ids(w2, collect_ids(w2, 1), info.cols, info.rows, 0);
+    let mut awc: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let bs: BHW = bh_star(w2, list_get(ids, k), sf, pk.bh, info, cc, cr);
+        w2 = bs.w;
+        if bs.add >= 0 { awc = list_push(awc, bs.add); }
+        k = k + 1;
+    }
+    let sh: DRL = rng_shuf(w2.rng, awc);
+    w2 = w_rng(w2, sh.r);
+    let mut fd: Int = 100 / list_len(pk.bh);
+    if fd < 6 { fd = 6; }
+    let _r2 = Bh { w: w2, bh: pk.bh, awb: pk.bh, awc: sh.v, fd: fd, ph: 0 };
+    return _r2;
+}

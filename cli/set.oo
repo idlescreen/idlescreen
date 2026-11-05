@@ -1,0 +1,40 @@
+// # Set Command - Active Screensaver Selection
+//
+// Logline: Selects the active screensaver, persists it to config.toml, and notifies the running daemon.
+// Setup: Requires EnvCap and ProcessCap for the config file, and TcpCap for the daemon control socket.
+// Beats:
+//   1. Canonicalise the requested saver name against the known roster.
+//   2. Persist the selection without clobbering a config we could not parse.
+//   3. Notify the live daemon over the control socket and report which path answered.
+
+import "std/core/primitives/str.oo";
+import "daemon/run.oo";
+import "daemon/config_file.oo";
+import "ascii/effects.oo";
+
+// Canonical saver name, or "" when the name is not known.
+fn saver_canonical(name: String) -> String {
+    if name == "ascii" || name == "superfedora" { return name; }
+    if name == "tour" || name == "new" { return "tour"; }
+    if effects_index(name) >= 0 { return name; }
+    return "";
+}
+
+pub fn cmd_set(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, args: List[String]) -> Int {
+    let raw: String = if list_len(args) > 0 { str_trim(list_get(args, 0)) } else { "" };
+    if raw == "" { println("usage: idlescreen set <saver_name>"); return 1; }
+    let canonical: String = saver_canonical(to_lowercase(raw));
+    if canonical == "" { println("unknown screensaver: " + raw); return 1; }
+    let cfg: ConfigData = config_read_file(proc, env);
+    let next: ConfigData = config_with(cfg, canonical, cfg.idle_timeout_secs);
+    if !config_write_file(proc, env, next) {
+        println("error: refusing to overwrite an unreadable config.toml — fix or remove it to continue");
+        return 1;
+    }
+    if ooidle_notify(tcp, env, "idlescreen", "set " + canonical) {
+        println("Active screensaver set to '" + canonical + "' (via control socket)");
+        return 0;
+    }
+    println("Active screensaver set to '" + canonical + "' (saved to config)");
+    return 0;
+}

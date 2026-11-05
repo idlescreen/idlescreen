@@ -20,7 +20,7 @@ fn is_glyph_ord(ch: Int) -> Bool {
     return ch == 9627 || ch == 9628 || ch == 9631;
 }
 
-fn glyph_pick(cls: Int, h: Int) -> Int {
+fn glyph_pick_low(cls: Int, h: Int) -> Int {
     if cls == 0 {
         let t: Int = h % 5;
         if t == 0 { return 9619; }
@@ -37,17 +37,19 @@ fn glyph_pick(cls: Int, h: Int) -> Int {
         if t2 == 3 { return 9624; }
         return 9629;
     }
-    if cls == 2 {
-        let t3: Int = h % 8;
-        if t3 == 0 { return 9600; }
-        if t3 == 1 { return 9604; }
-        if t3 == 2 { return 9612; }
-        if t3 == 3 { return 9616; }
-        if t3 == 4 { return 9630; }
-        if t3 == 5 { return 9626; }
-        if t3 == 6 { return 9624; }
-        return 9629;
-    }
+    let t3: Int = h % 8;
+    if t3 == 0 { return 9600; }
+    if t3 == 1 { return 9604; }
+    if t3 == 2 { return 9612; }
+    if t3 == 3 { return 9616; }
+    if t3 == 4 { return 9630; }
+    if t3 == 5 { return 9626; }
+    if t3 == 6 { return 9624; }
+    return 9629;
+}
+
+fn glyph_pick(cls: Int, h: Int) -> Int {
+    if cls <= 2 { return glyph_pick_low(cls, h); }
     let mm: Int = h % 12;
     if mm == 0 { return 9619; }
     if mm == 1 { return 9618; }

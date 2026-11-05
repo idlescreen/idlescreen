@@ -1,62 +1,167 @@
-// # TUI Run - Interactive Picker Event Loop
+// # TUI Run - Settings Director Event Loop
 //
-// Logline: Runs the interactive picker: raw mode on, alt screen up, render-and-read loop, clean restore on exit.
-// Setup: Requires FfiCap for terminal intrinsics and TimeCap for frame pacing.
+// Logline: Event loop managing terminal raw mode, config persistence, and user navigation for the Settings Director.
+// Setup: Requires ProcessCap for OS detection and config write, EnvCap for config dir, FfiCap for terminal control, and TimeCap for frame timing.
 // Beats:
-//   1. Enter raw mode and the alternate screen, hiding the cursor.
-//   2. Loop: write the picker frame, block on a bounded read, apply the decoded action.
-//   3. Restore cooked mode, cursor, and main screen on every exit path.
+//   1. Enter terminal raw mode and alternate screen buffer.
+//   2. Load persistent config and detect system environment.
+//   3. Render animated frame loop and dispatch keystroke actions until exit.
 
 import "model.oo";
 import "view.oo";
 import "input.oo";
-import "ascii/effects.oo";
+import "daemon/config_file.oo";
+import "daemon/config.oo";
+import "daemon/run.oo";
+import "cli/saver_cmds.oo";
+import "std/fs/process/process.oo";
 
-// The oo_tui_* intrinsics ship in liboodar-net.a; the toolchain links that
-// extension tier only when the emitted IR references an oo_ffi/oo_hot_reload
-// family symbol. This probe materialises the tier so the terminal intrinsics
-// resolve. It is never invoked.
-fn tui_link_tier_probe() -> Int {
+fn tui_link_probe() -> Int {
     return hot_reload("idlescreen-tui-tier");
 }
 
-pub fn tui_run(ffi: &FfiCap, time: &TimeCap) -> Int {
-    let sz: Result[String, String] = oo_tui_get_size(ffi);
-    let dims: String = match sz { Ok(s) => s, Err(_) => "24:80" };
+fn tui_probe_daemon(tcp: &TcpCap) -> Bool {
+    let c: Result[String, String] = tcp_connect(tcp, "127.0.0.1", daemon_ctl_port("idlescreen"));
+    if c.is_err() { return false; }
+    let s: String = match c { Ok(v) => v, Err(_) => "" };
+    if str_starts_with(s, "fd:") {
+        let fd: Int = parse_int_digits(str_slice(s, 3, chars_len(s)));
+        if fd >= 0 { let _ = tcp_close(tcp, fd); }
+    }
+    return true;
+}
+
+fn tui_query_inhibitors(tcp: &TcpCap) -> String {
+    let c: Result[String, String] = tcp_connect(tcp, "127.0.0.1", daemon_ctl_port("idlescreen"));
+    if c.is_err() { return "None (Daemon Inactive)"; }
+    let s: String = match c { Ok(v) => v, Err(_) => "" };
+    if !str_starts_with(s, "fd:") { return "Uninhibited"; }
+    let fd: Int = parse_int_digits(str_slice(s, 3, chars_len(s)));
+    if fd < 0 { return "Uninhibited"; }
+    let qcmd: String = "inhibitors\n";
+    let _ = tcp_write(tcp, fd, qcmd);
+    let rd: Result[String, String] = tcp_read(tcp, fd, 1024);
+    let _ = tcp_close(tcp, fd);
+    let rep: String = match rd { Ok(v) => str_trim(v), Err(_) => "" };
+    if rep == "" || rep == "[]" { return "Uninhibited"; }
+    return rep;
+}
+
+fn tui_detect_os(proc: &ProcessCap) -> String {
+    let res: Result[String, String] = process_exec(proc, "grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'");
+    let s: String = match res { Ok(v) => str_trim(v), Err(_) => "" };
+    if s != "" { return s; }
+    let u: Result[String, String] = process_exec(proc, "uname -s 2>/dev/null");
+    let un: String = match u { Ok(v) => str_trim(v), Err(_) => "Linux" };
+    return un;
+}
+
+fn tui_save_model(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, m: TuiModel) -> String {
+    let c: ConfigData = ConfigData {
+        idle_enabled: true,
+        idle_timeout_secs: m.idle_timeout_s,
+        dpms_timeout_secs: m.dpms_timeout_s,
+        dwell_secs: m.dwell_s,
+        fps: m.fps_val,
+        active: tui_saver_name(m.selected_saver),
+        custom_text: m.custom_text,
+        use_os_brand: m.use_os_brand
+    };
+    if !config_write_file(proc, env, c) { return ""; }
+    let live: Bool = ooidle_notify(tcp, env, "idlescreen", "set " + c.active);
+    let _t: Bool = ooidle_notify(tcp, env, "idlescreen", "timeout " + c.idle_timeout_secs.to_string());
+    if live { return "Settings saved to config.toml (daemon updated)"; }
+    return "Settings saved to config.toml";
+}
+
+fn tui_preview_run(ffi: &FfiCap, time: &TimeCap, m: TuiModel) -> TuiModel {
+    let mut cur: TuiModel = m;
+    let _ = oo_tui_show_cursor(ffi, 1);
+    let _ = oo_tui_alt_screen_leave(ffi);
+    let _ = oo_tui_disable_raw(ffi, "");
+    let mut pargs: List[String] = list_new();
+    pargs = list_push(pargs, tui_saver_name(cur.selected_saver));
+    pargs = list_push(pargs, "--timeout");
+    pargs = list_push(pargs, "10");
+    let _ = cmd_preview(ffi, time, pargs);
+    let _ = oo_tui_enable_raw(ffi, "");
+    let _ = oo_tui_alt_screen_enter(ffi);
+    let _ = oo_tui_show_cursor(ffi, 0);
+    cur.status_msg = "Preview completed (" + tui_saver_name(cur.selected_saver) + ")";
+    return cur;
+}
+
+fn tui_apply_action(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, tcp: &TcpCap, m: TuiModel, b: Int, act: String) -> TuiModel {
+    let mut cur: TuiModel = m;
+    if m.editing_text {
+        return tui_apply_text(m, b, act);
+    }
+    if act == "quit" { cur.running = false; }
+    else if act == "down" { cur = tui_nav_field(cur, 1); }
+    else if act == "up" { cur = tui_nav_field(cur, -1); }
+    else if act == "left" { cur = tui_adjust_field(cur, -1, false); }
+    else if act == "right" { cur = tui_adjust_field(cur, 1, false); }
+    else if act == "fast_left" { cur = tui_adjust_field(cur, -1, true); }
+    else if act == "fast_right" { cur = tui_adjust_field(cur, 1, true); }
+    else if act == "select_mode_1" { cur.use_os_brand = true; cur.dirty = true; }
+    else if act == "select_mode_2" { cur.use_os_brand = false; cur.dirty = true; }
+    else if act == "save" || (act == "enter" && cur.focused == 8) {
+        let msg: String = tui_save_model(proc, env, tcp, cur);
+        if msg != "" { cur.dirty = false; cur.status_msg = msg; }
+        else { cur.status_msg = "Error: Failed to save config.toml"; }
+    } else if act == "preview" || act == "fullscreen" || (act == "enter" && (cur.focused == 9 || cur.focused == 10)) {
+        cur = tui_preview_run(ffi, time, cur);
+    } else if act == "toggle_daemon" {
+        let _ = ooidle_query(tcp, env, "idlescreen", "toggle");
+        let active_now: Bool = tui_probe_daemon(tcp);
+        cur.daemon_active = active_now;
+        cur.inhibitor_desc = if active_now { tui_query_inhibitors(tcp) } else { "None (Daemon Inactive)" };
+        cur.status_msg = if active_now { "Daemon active (monitoring)" } else { "Daemon standby (stay-awake ON)" };
+    } else if act == "space" || act == "enter" {
+        if cur.focused == 1 { cur.use_os_brand = true; cur.dirty = true; }
+        else if cur.focused == 2 { cur.use_os_brand = false; cur.dirty = true; }
+        else if cur.focused == 3 { cur.editing_text = true; }
+        else if cur.focused == 11 { cur.running = false; }
+    }
+    return cur;
+}
+
+pub fn tui_run(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, tcp: &TcpCap) -> Int {
+    let dims: String = match oo_tui_get_size(ffi) { Ok(s) => s, Err(_) => "24:80" };
     let colon: Int = str_index_of(dims, ":");
     let mut rows: Int = 24;
     let mut cols: Int = 80;
     if colon >= 0 {
-        let rstr: String = str_slice(dims, 0, colon);
-        let cstr: String = str_slice(dims, colon + 1, chars_len(dims));
-        let mut ra: Int = 0;
-        let mut ca: Int = 0;
-        let mut i: Int = 0;
-        while i < chars_len(rstr) { let b: Int = byte_at(rstr, i); if b >= 48 && b <= 57 { ra = ra * 10 + b - 48; } i = i + 1; }
-        i = 0;
-        while i < chars_len(cstr) { let b: Int = byte_at(cstr, i); if b >= 48 && b <= 57 { ca = ca * 10 + b - 48; } i = i + 1; }
+        let ra: Int = parse_int_digits(str_slice(dims, 0, colon));
+        let ca: Int = parse_int_digits(str_slice(dims, colon + 1, chars_len(dims)));
         if ra > 0 { rows = ra; }
         if ca > 0 { cols = ca; }
     }
-    let er: Result[String, String] = oo_tui_enable_raw(ffi, "");
-    if er.is_err() { println("tui: raw mode unavailable"); return 1; }
+    if oo_tui_enable_raw(ffi, "").is_err() { println("tui: raw mode unavailable"); return 1; }
     let _ = oo_tui_alt_screen_enter(ffi);
     let _ = oo_tui_show_cursor(ffi, 0);
-    let mut m: TuiModel = tui_new(cols, rows);
+    let cfg: ConfigData = config_read_file(proc, env);
+    let os_name: String = tui_detect_os(proc);
+    let mut m: TuiModel = tui_model_init(cfg, os_name, cols, rows);
+    let is_up: Bool = tui_probe_daemon(tcp);
+    m.daemon_active = is_up;
+    m.inhibitor_desc = if is_up { tui_query_inhibitors(tcp) } else { "None (Daemon Inactive)" };
     let mut tick: Int = 0;
     while m.running {
         let _ = oo_tui_write(ffi, tui_frame(m, tick));
-        let rb: Result[String, String] = oo_tui_read_byte_timeout(ffi, "", 90);
-        let s: String = match rb { Ok(v) => v, Err(_) => "" };
-        let act: String = input_action(input_byte_of(s));
-        if act == "quit" { m = tui_set(m, m.cursor, m.scroll, false, m.preview); }
-        if act == "down" { m = tui_move(m, 1); }
-        if act == "up" { m = tui_move(m, -1); }
+        let s: String = match oo_tui_read_byte_timeout(ffi, "", 50) { Ok(v) => v, Err(_) => "" };
+        let mut b: Int = input_byte_of(s);
+        let mut act: String = input_action(b);
+        if b == 27 {
+            let s2: String = match oo_tui_read_byte_timeout(ffi, "", 10) { Ok(v) => v, Err(_) => "" };
+            let s3: String = if s2 == "[" { match oo_tui_read_byte_timeout(ffi, "", 10) { Ok(v) => v, Err(_) => "" } } else { "" };
+            if s3 != "" { act = input_arrow_action(input_byte_of(s3)); b = -1; }
+        }
+        m = tui_apply_action(proc, env, ffi, time, tcp, m, b, act);
         tick = tick + 1;
     }
     let _ = oo_tui_show_cursor(ffi, 1);
     let _ = oo_tui_alt_screen_leave(ffi);
     let _ = oo_tui_disable_raw(ffi, "");
-    println("selected " + effects_name(tui_selected(m)));
     return 0;
 }

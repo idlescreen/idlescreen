@@ -12,24 +12,24 @@ import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn starfield_seed(g: CellGrid, tick: Int, density_x1000: Int) -> CellGrid {
-    let mut out: CellGrid = g;
+    let mut cells: List[TerminalCell] = list_new();
     let mut y: Int = 0;
     while y < g.rows {
         let mut x: Int = 0;
         while x < g.cols {
+            let cell: TerminalCell = grid_get(g, x, y);
             let h: Int = cv_hash(x + tick / 6, y, 31);
-            if h % 1000 < density_x1000 {
+            if h % 1000 < density_x1000 && cell.ch == " " {
                 let tw: Int = (h / 1000 + tick / 3) % 3;
                 let ch: String = if tw == 0 { "·" } else if tw == 1 { "+" } else { "★" };
                 let bright: Int = 120 + (h % 120);
-                let cell: TerminalCell = grid_get(out, x, y);
-                if cell.ch == " " {
-                    out = grid_set(out, x, y, cell_new(ch, rgb(bright, bright, bright + 30), cell.bg, false));
-                }
+                cells = list_push(cells, cell_new(ch, rgb(bright, bright, bright + 30), cell.bg, false));
+            } else {
+                cells = list_push(cells, cell);
             }
             x = x + 1;
         }
         y = y + 1;
     }
-    return out;
+    return CellGrid { cols: g.cols, rows: g.rows, cells: cells };
 }

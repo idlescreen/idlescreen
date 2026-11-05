@@ -1,0 +1,155 @@
+// # Config File Handler - TOML Reader and Writer
+//
+// Logline: TOML configuration loader and serializer for persistent user preferences.
+// Setup: Requires EnvCap to resolve the config dir and ProcessCap for the read and the atomic write. File content reaches the shell only through a quoted argument.
+// Beats:
+//   1. Parse general and saver keys from config.toml lines.
+//   2. Serialize ConfigData to canonical TOML string representation.
+//   3. Resolve the config dir (XDG_CONFIG_HOME, then HOME, then /etc) and read or atomically write config.toml.
+
+import "std/core/primitives/str.oo";
+import "core/shell.oo";
+
+pub type ConfigData = struct {
+    idle_enabled: Bool,
+    idle_timeout_secs: Int,
+    dpms_timeout_secs: Int,
+    dwell_secs: Int,
+    fps: Int,
+    active: String,
+    custom_text: String,
+    use_os_brand: Bool
+};
+
+pub fn config_default() -> ConfigData {
+    return ConfigData {
+        idle_enabled: true,
+        idle_timeout_secs: 120,
+        dpms_timeout_secs: 0,
+        dwell_secs: 5,
+        fps: 60,
+        active: "ascii",
+        custom_text: "",
+        use_os_brand: true
+    };
+}
+
+// Value of a "key = value" line, with surrounding double quotes removed.
+fn config_parse_str(s: String) -> String {
+    let eq: Int = str_index_of(s, "=");
+    if eq < 0 { return ""; }
+    let val: String = str_trim(str_slice(s, eq + 1, chars_len(s)));
+    if val == "" { return ""; }
+    if char_at(val, 0) != "\"" { return val; }
+    let rest: String = str_slice(val, 1, chars_len(val));
+    let q2: Int = str_index_of(rest, "\"");
+    if q2 < 0 { return rest; }
+    return str_slice(rest, 0, q2);
+}
+
+pub fn config_load_toml(content: String) -> ConfigData {
+    let mut c: ConfigData = config_default();
+    let lines: List[String] = str_split(content, "\n");
+    let mut i: Int = 0;
+    while i < list_len(lines) {
+        let l: String = str_trim(list_get(lines, i));
+        if str_starts_with(l, "idle_enabled") { c.idle_enabled = str_index_of(l, "true") >= 0; }
+        if str_starts_with(l, "idle_timeout_secs") { let v: Int = parse_int_digits(config_parse_str(l)); if v > 0 { c.idle_timeout_secs = v; } }
+        if str_starts_with(l, "dpms_timeout_secs") { c.dpms_timeout_secs = parse_int_digits(config_parse_str(l)); }
+        if str_starts_with(l, "dwell_secs") { let v: Int = parse_int_digits(config_parse_str(l)); if v > 0 { c.dwell_secs = v; } }
+        if str_starts_with(l, "fps") { c.fps = parse_int_digits(config_parse_str(l)); }
+        if str_starts_with(l, "active") { let s: String = config_parse_str(l); if s != "" { c.active = s; } }
+        if str_starts_with(l, "custom_text") { c.custom_text = config_parse_str(l); }
+        if str_starts_with(l, "use_os_brand") { c.use_os_brand = str_index_of(l, "true") >= 0; }
+        if str_starts_with(l, "mode") {
+            let m: String = config_parse_str(l);
+            if m == "custom" || m == "text" { c.use_os_brand = false; }
+            else if m == "os" || m == "host" { c.use_os_brand = true; }
+        }
+        if str_starts_with(l, "text") {
+            let t: String = config_parse_str(l);
+            if t != "" { c.custom_text = t; }
+        }
+        i = i + 1;
+    }
+    return c;
+}
+
+pub fn config_to_toml(c: ConfigData) -> String {
+    let en: String = if c.idle_enabled { "true" } else { "false" };
+    let ob: String = if c.use_os_brand { "true" } else { "false" };
+    let mode: String = if c.use_os_brand { "os" } else { "custom" };
+    let mut safe_text: String = "";
+    let mut ti: Int = 0;
+    while ti < chars_len(c.custom_text) {
+        let tb: Int = byte_at(c.custom_text, ti);
+        if tb == 34 { safe_text = safe_text + "\\\""; }
+        else if tb == 92 { safe_text = safe_text + "\\\\"; }
+        else { safe_text = safe_text + char_at(c.custom_text, ti); }
+        ti = ti + 1;
+    }
+    let mut o: String = "[general]\n";
+    o = o + "idle_enabled = " + en + "\n";
+    o = o + "idle_timeout_secs = " + c.idle_timeout_secs.to_string() + "\n";
+    o = o + "dpms_timeout_secs = " + c.dpms_timeout_secs.to_string() + "\n";
+    o = o + "primary_output = \"\"\n\n";
+    o = o + "[saver]\n";
+    o = o + "active = \"" + c.active + "\"\n";
+    o = o + "custom_text = \"" + safe_text + "\"\n";
+    o = o + "use_os_brand = " + ob + "\n\n";
+    o = o + "[saver.ascii]\n";
+    o = o + "mode = \"" + mode + "\"\n";
+    o = o + "targets = [\"" + mode + "\"]\n";
+    o = o + "text = \"" + safe_text + "\"\n";
+    o = o + "fps = " + c.fps.to_string() + "\n";
+    o = o + "dwell_secs = " + c.dwell_secs.to_string() + "\n";
+    o = o + "dissolve_duration_secs = 0.7\n";
+    return o;
+}
+
+// Config dir resolution: XDG_CONFIG_HOME, then $HOME/.config, then /etc.
+pub fn config_dir(env: &EnvCap) -> String {
+    let xdg: String = match env_get(env, "XDG_CONFIG_HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+    if xdg != "" { return xdg + "/idlescreen"; }
+    let home: String = match env_get(env, "HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+    if home != "" { return home + "/.config/idlescreen"; }
+    return "/etc/idlescreen";
+}
+
+// Copy of the loaded config carrying a new active saver and idle timeout.
+pub fn config_with(c: ConfigData, active: String, timeout_s: Int) -> ConfigData {
+    return ConfigData {
+        idle_enabled: c.idle_enabled,
+        idle_timeout_secs: timeout_s,
+        dpms_timeout_secs: c.dpms_timeout_secs,
+        dwell_secs: c.dwell_secs,
+        fps: c.fps,
+        active: active,
+        custom_text: c.custom_text,
+        use_os_brand: c.use_os_brand
+    };
+}
+
+pub fn config_read_file(proc: &ProcessCap, env: &EnvCap) -> ConfigData {
+    let dir: String = config_dir(env);
+    if dir == "" { return config_default(); }
+    let path: String = dir + "/config.toml";
+    let content: String = shell_out(proc, "cat " + shell_quote(path) + " 2>/dev/null");
+    if content == "" { return config_default(); }
+    return config_load_toml(content);
+}
+
+pub fn config_write_file(proc: &ProcessCap, env: &EnvCap, c: ConfigData) -> Bool {
+    let dir: String = config_dir(env);
+    if dir == "" { return false; }
+    // Refuse to persist over a config we could not parse: writing defaults
+    // would silently discard the user's settings.
+    let path: String = dir + "/config.toml";
+    let body: String = shell_out(proc, "cat " + shell_quote(path) + " 2>/dev/null");
+    if body != "" && str_index_of(body, "[general]") < 0 && str_index_of(body, "[saver]") < 0 { return false; }
+    let toml: String = config_to_toml(c);
+    let target: String = dir + "/config.toml";
+    let tmpl: String = dir + "/config.tmp.XXXXXX";
+    let cmd: String = "mkdir -p " + shell_quote(dir) + " && t=$(mktemp " + shell_quote(tmpl) + ") && printf '%s' " + shell_quote(toml) + " > \"$t\" && mv -f \"$t\" " + shell_quote(target);
+    return shell_out(proc, cmd + " 2>/dev/null && echo ok") == "ok";
+}

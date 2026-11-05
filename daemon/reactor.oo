@@ -35,20 +35,20 @@ pub fn daemon_serve_conn(tcp: &TcpCap, d: DaemonState, inh: List[String], listen
     return reply;
 }
 
-pub fn daemon_reactor(bind: &BindCap, tcp: &TcpCap, fs: &FsCap, fw: &FsWriteCap, env: &EnvCap, prog: String) -> Int {
+pub fn daemon_reactor(proc: &ProcessCap, bind: &BindCap, tcp: &TcpCap, fs: &FsCap, fw: &FsWriteCap, env: &EnvCap, prog: String) -> Int {
     let port: Int = daemon_ctl_port(prog);
     let lis: Result[String, String] = tcp_bind(bind, port);
     if lis.is_err() {
-        println("ooidle: bind failed on " + daemon_ctl_endpoint(prog));
+        println(prog + ": bind failed on " + daemon_ctl_endpoint(prog));
         return 1;
     }
     let listener: Int = ctl_slot_of(match lis { Ok(s) => s, Err(_) => "" });
     if listener < 0 {
-        println("ooidle: listen slot invalid on " + daemon_ctl_endpoint(prog));
+        println(prog + ": listen slot invalid on " + daemon_ctl_endpoint(prog));
         return 1;
     }
-    println("ooidle: reactor up on " + daemon_ctl_endpoint(prog));
-    let mut d: DaemonState = daemon_state_new(daemon_timeout_s(env), daemon_scene(env));
+    println(prog + ": reactor up on " + daemon_ctl_endpoint(prog));
+    let mut d: DaemonState = daemon_state_new(daemon_timeout_s(proc, env), daemon_scene(proc, env), daemon_saver_name(proc, env));
     let mut inh: List[String] = list_new();
     let mut quit: Bool = false;
     let mut guard: Int = 0;

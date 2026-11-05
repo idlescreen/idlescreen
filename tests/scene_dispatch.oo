@@ -24,6 +24,9 @@ import "tests/oo/scenes/wipe/scene_wipe.oo";
 import "tests/oo/scenes/wipe/scene_sweep.oo";
 import "tests/oo/scenes/wipe/scene_slide.oo";
 import "tests/oo/scenes/wipe/scene_middleout.oo";
+import "tests/oo/scenes/bpath/scene_binarypath.oo";
+import "tests/oo/scenes/burn/scene_burn.oo";
+import "tests/oo/scenes/bhole/scene_blackhole.oo";
 
 pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> Result[DigestRun, String] {
     if name == "plasma" { return Ok(plasma_run(cells, info)); }
@@ -41,5 +44,8 @@ pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "sweep" { return Ok(sweep_run(cells, info, lines)); }
     if name == "slide" { return Ok(slide_run(cells, info, lines)); }
     if name == "middleout" { return Ok(middleout_run(cells, info, lines)); }
+    if name == "binarypath" { return Ok(binarypath_run(cells, info, lines)); }
+    if name == "burn" { return Ok(burn_run(cells, info, lines)); }
+    if name == "blackhole" { return Ok(blackhole_run(cells, info, lines)); }
     return Err("ERR\tscene\tno parity port: " + name);
 }

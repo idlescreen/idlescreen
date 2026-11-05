@@ -4,9 +4,10 @@
 // Setup: Pure dispatch over the inhibitor table and daemon state. Socket I/O lives in the reactor.
 // Beats:
 //   1. Trim the frame and split verb from optional argument.
-//   2. Fold start/stop/toggle/inhibit/uninhibit/status into state and reply.
+//   2. Fold start/stop/toggle/set/timeout/inhibit/uninhibit/status into state and reply.
 //   3. Fail closed on unknown verbs with an ERR reply.
 
+import "std/core/primitives/str.oo";
 import "state.oo";
 import "inhibit.oo";
 import "ascii/effects.oo";
@@ -24,17 +25,41 @@ fn ctl_arg(frame: String) -> String {
     return str_trim(str_slice(frame, sp + 1, chars_len(frame)));
 }
 
+fn ctl_toggle(d: DaemonState, inh: List[String], verb: String) -> CtlReply {
+    let on: Bool = if verb == "stop" { false } else if verb == "toggle" { !d.saver_on } else { true };
+    let nd: DaemonState = daemon_state_set(d, d.idle, on, d.sleep_req, d.scene_idx, d.timeout_s, d.inhibitors, d.uptime_ticks + 1);
+    return CtlReply { text: if on { "saver on" } else { "saver off" }, state: nd, inhibitors: inh, quit: false };
+}
+
+// "set <saver>" — a roster scene also moves the scene cursor.
+fn ctl_set(d: DaemonState, inh: List[String], arg: String) -> CtlReply {
+    if arg == "" { return CtlReply { text: "ERR set requires a saver name", state: d, inhibitors: inh, quit: false }; }
+    let low: String = to_lowercase(arg);
+    let idx: Int = effects_index(low);
+    let mut nd: DaemonState = d;
+    if idx >= 0 {
+        nd = daemon_state_set(d, d.idle, d.saver_on, d.sleep_req, idx, d.timeout_s, d.inhibitors, d.uptime_ticks + 1);
+    }
+    nd = daemon_state_with_saver(nd, low);
+    return CtlReply { text: "saver set to " + low, state: nd, inhibitors: inh, quit: false };
+}
+
+// "timeout <secs>" — retune the idle threshold on the live daemon.
+fn ctl_timeout(d: DaemonState, inh: List[String], arg: String) -> CtlReply {
+    let secs: Int = parse_int_digits(arg);
+    if secs <= 0 { return CtlReply { text: "ERR timeout requires seconds", state: d, inhibitors: inh, quit: false }; }
+    let nd: DaemonState = daemon_state_set(d, d.idle, d.saver_on, d.sleep_req, d.scene_idx, secs, d.inhibitors, d.uptime_ticks + 1);
+    return CtlReply { text: "timeout " + secs.to_string() + "s", state: nd, inhibitors: inh, quit: false };
+}
+
 pub fn ctl_dispatch(d: DaemonState, inh: List[String], frame: String, prog: String) -> CtlReply {
     let f: String = str_trim(frame);
     let sp: Int = str_index_of(f, " ");
     let verb: String = if sp < 0 { f } else { str_slice(f, 0, sp) };
     let arg: String = ctl_arg(f);
-    if verb == "status" {
-        return CtlReply { text: daemon_status_line(d, prog), state: d, inhibitors: inh, quit: false };
-    }
-    if verb == "inhibitors" {
-        return CtlReply { text: inhibit_json(inh), state: d, inhibitors: inh, quit: false };
-    }
+    if verb == "status" { return CtlReply { text: daemon_status_line(d, prog), state: d, inhibitors: inh, quit: false }; }
+    if verb == "ping" { return CtlReply { text: "PONG", state: d, inhibitors: inh, quit: false }; }
+    if verb == "inhibitors" { return CtlReply { text: inhibit_json(inh), state: d, inhibitors: inh, quit: false }; }
     if verb == "inhibit" && arg != "" {
         let ni: List[String] = inhibit_add(inh, arg);
         let nd: DaemonState = daemon_state_set(d, d.idle, false, d.sleep_req, d.scene_idx, d.timeout_s, list_len(ni), d.uptime_ticks + 1);
@@ -45,11 +70,9 @@ pub fn ctl_dispatch(d: DaemonState, inh: List[String], frame: String, prog: Stri
         let nd: DaemonState = daemon_state_set(d, d.idle, d.saver_on, d.sleep_req, d.scene_idx, d.timeout_s, list_len(ni), d.uptime_ticks + 1);
         return CtlReply { text: "uninhibited " + arg, state: nd, inhibitors: ni, quit: false };
     }
-    if verb == "start" || verb == "toggle" || verb == "stop" {
-        let on: Bool = if verb == "stop" { false } else if verb == "toggle" { !d.saver_on } else { true };
-        let nd: DaemonState = daemon_state_set(d, d.idle, on, d.sleep_req, d.scene_idx, d.timeout_s, d.inhibitors, d.uptime_ticks + 1);
-        return CtlReply { text: if on { "saver on" } else { "saver off" }, state: nd, inhibitors: inh, quit: false };
-    }
+    if verb == "start" || verb == "toggle" || verb == "stop" { return ctl_toggle(d, inh, verb); }
+    if verb == "set" { return ctl_set(d, inh, arg); }
+    if verb == "timeout" { return ctl_timeout(d, inh, arg); }
     if verb == "scene" && arg != "" {
         let idx: Int = effects_index(arg);
         if idx >= 0 {
@@ -58,9 +81,7 @@ pub fn ctl_dispatch(d: DaemonState, inh: List[String], frame: String, prog: Stri
         }
         return CtlReply { text: "ERR unknown scene " + arg, state: d, inhibitors: inh, quit: false };
     }
-    if verb == "quit" || verb == "shutdown" {
-        return CtlReply { text: "bye", state: daemon_state_stop(d), inhibitors: inh, quit: true };
-    }
+    if verb == "quit" || verb == "shutdown" { return CtlReply { text: "bye", state: daemon_state_stop(d), inhibitors: inh, quit: true }; }
     if verb == "sleep" {
         let nd: DaemonState = daemon_state_set(d, d.idle, d.saver_on, true, d.scene_idx, d.timeout_s, d.inhibitors, d.uptime_ticks + 1);
         return CtlReply { text: "sleep requested", state: nd, inhibitors: inh, quit: false };

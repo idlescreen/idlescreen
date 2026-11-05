@@ -18,6 +18,35 @@ import "deep/anchor.oo";
 import "left/anchor.oo";
 import "core/grid.oo";
 
+fn scene_render_b(n: String, g: CellGrid, tick: Int) -> CellGrid {
+    if n == "plasma" { return scene_plasma(g, tick); }
+    if n == "pour" { return scene_pour(g, tick); }
+    if n == "print" { return scene_print(g, tick); }
+    if n == "radar" { return scene_radar(g, tick); }
+    if n == "rain" { return scene_rain(g, tick); }
+    if n == "randomsequence" { return scene_randomsequence(g, tick); }
+    if n == "rings" { return scene_rings(g, tick); }
+    if n == "ripple" { return scene_ripple(g, tick); }
+    if n == "scattered" { return scene_scattered(g, tick); }
+    if n == "slice" { return scene_slice(g, tick); }
+    if n == "slide" { return scene_slide(g, tick); }
+    if n == "smoke" { return scene_smoke(g, tick); }
+    if n == "spotlights" { return scene_spotlights(g, tick); }
+    if n == "spray" { return scene_spray(g, tick); }
+    if n == "swarm" { return scene_swarm(g, tick); }
+    if n == "sweep" { return scene_sweep(g, tick); }
+    if n == "synthgrid" { return scene_synthgrid(g, tick); }
+    if n == "tetris" { return scene_tetris(g, tick); }
+    if n == "thunderstorm" { return scene_thunderstorm(g, tick); }
+    if n == "tunnel" { return scene_tunnel(g, tick); }
+    if n == "unstable" { return scene_unstable(g, tick); }
+    if n == "vhstape" { return scene_vhstape(g, tick); }
+    if n == "waves" { return scene_waves(g, tick); }
+    if n == "wipe" { return scene_wipe(g, tick); }
+    if n == "zero" { return scene_zero(g, tick); }
+    return g;
+}
+
 pub fn scene_render(idx: Int, g: CellGrid, tick: Int) -> CellGrid {
     let n: String = effects_name(idx);
     if n == "aurora" { return scene_aurora(g, tick); }
@@ -48,30 +77,5 @@ pub fn scene_render(idx: Int, g: CellGrid, tick: Int) -> CellGrid {
     if n == "orbittingvolley" { return scene_orbittingvolley(g, tick); }
     if n == "overflow" { return scene_overflow(g, tick); }
     if n == "pipes" { return scene_pipes(g, tick); }
-    if n == "plasma" { return scene_plasma(g, tick); }
-    if n == "pour" { return scene_pour(g, tick); }
-    if n == "print" { return scene_print(g, tick); }
-    if n == "radar" { return scene_radar(g, tick); }
-    if n == "rain" { return scene_rain(g, tick); }
-    if n == "randomsequence" { return scene_randomsequence(g, tick); }
-    if n == "rings" { return scene_rings(g, tick); }
-    if n == "ripple" { return scene_ripple(g, tick); }
-    if n == "scattered" { return scene_scattered(g, tick); }
-    if n == "slice" { return scene_slice(g, tick); }
-    if n == "slide" { return scene_slide(g, tick); }
-    if n == "smoke" { return scene_smoke(g, tick); }
-    if n == "spotlights" { return scene_spotlights(g, tick); }
-    if n == "spray" { return scene_spray(g, tick); }
-    if n == "swarm" { return scene_swarm(g, tick); }
-    if n == "sweep" { return scene_sweep(g, tick); }
-    if n == "synthgrid" { return scene_synthgrid(g, tick); }
-    if n == "tetris" { return scene_tetris(g, tick); }
-    if n == "thunderstorm" { return scene_thunderstorm(g, tick); }
-    if n == "tunnel" { return scene_tunnel(g, tick); }
-    if n == "unstable" { return scene_unstable(g, tick); }
-    if n == "vhstape" { return scene_vhstape(g, tick); }
-    if n == "waves" { return scene_waves(g, tick); }
-    if n == "wipe" { return scene_wipe(g, tick); }
-    if n == "zero" { return scene_zero(g, tick); }
-    return g;
+    return scene_render_b(n, g, tick);
 }

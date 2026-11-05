@@ -1,0 +1,161 @@
+// # bh_phase — blackhole rotate, collapse, and explode phase helpers
+//
+// Logline: Ports BlackholeIterator's rotate_blackhole, collapse_blackhole,
+// and explode_singularity: the ring's looped orbit activation, the
+// expand-then-collapse path pair with the first char's 21-frame unstable
+// point scene, and the per-char explosion that scatters every input char
+// to a nearby coord before recalling it home through the cooling scene.
+// Setup: draw order mirrors upstream: randrange(0,5) for the nearby coord,
+// randint(3,4) for its speed, randint(4,6) for the recall speed, and
+// choice(star_colors) for the explode color, per sorted input char.
+// Beats:
+//   1. bh_rotate activates every ring char's looped rotation path.
+//   2. bh_coll1 wires one char's expand/collapse path pair + events.
+//   3. bh_point adds the first char's 21-draw unstable point scene.
+//   4. bh_expl1 wires one char's explode/cool scenes and path pair.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/geometry_fns.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/oo/scenes/bhole/bh_parts.oo";
+
+pub fn bh_rotate(w: World, bh: List[Int]) -> World {
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(bh) {
+        let id: Int = list_get(bh, k);
+        w2 = eng_act_path(w2, id, 1);
+        w2 = w_active_add(w2, id);
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn bh_point(w: World, id: Int, cp: String) -> World {
+    let ch: Char = list_get(w.chars, id);
+    let psid: String = w_auto_id(ch.sids);
+    let psi: Int = list_len(ch.sids);
+    let mut w2: World = w_scene(w, id, 0, 0, 0, ez(0), "");
+    let us: List[Int] = bh_usyms();
+    let sc: List[Int] = bh_scols();
+    let mut rep: Int = 0;
+    while rep < 3 {
+        let mut u: Int = 0;
+        while u < 7 {
+            let dc: DR = rng_pick(w2.rng, 6);
+            w2 = w_rng(w2, dc.r);
+            w2 = w_frame(w2, id, psi, list_get(us, u), 3, list_get(sc, dc.v), 0 - 1, 0);
+            u = u + 1;
+        }
+        rep = rep + 1;
+    }
+    w2 = w_reg(w2, id, 1, 1, cp, EvAct { kind: 1, sid: psid, num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 1, 1, cp, EvAct { kind: 5, sid: "", num: 3, carg: 0 });
+    return w2;
+}
+
+fn bh_coll1(w: World, id: Int, nc: Int, nr: Int, cc: Int, cr: Int, first: Int) -> World {
+    let ch: Char = list_get(w.chars, id);
+    let ep: String = w_auto_id(ch.pids);
+    let cp: String = w_auto_id(list_push(ch.pids, ep));
+    let epi: Int = list_len(ch.pids);
+    let mut w2: World = w_path(w, id, 0.2, 1, ez(16), 0 - 1, 0, 0, "");
+    w2 = w_wp(w2, id, epi, nc, nr, list_new());
+    w2 = w_path(w2, id, 0.3, 1, ez(16), 0 - 1, 0, 0, "");
+    w2 = w_wp(w2, id, epi + 1, cc, cr, list_new());
+    w2 = w_reg(w2, id, 1, 1, ep, EvAct { kind: 0, sid: cp, num: 0, carg: 0 });
+    if first == 1 { w2 = bh_point(w2, id, cp); }
+    w2 = eng_act_path(w2, id, epi);
+    w2 = w_active_add(w2, id);
+    return w2;
+}
+
+pub fn bh_collapse(w: World, bh: List[Int], info: CanvasInfo, cc: Int, cr: Int) -> World {
+    let ring: List[Int] = coords_on_circle(cc, cr, bh_radius(info) + 3, list_len(bh), 1);
+    let mut w2: World = w;
+    let mut i: Int = 0;
+    while i < list_len(bh) {
+        let mut f: Int = 0;
+        if i == 0 { f = 1; }
+        w2 = bh_coll1(w2, list_get(bh, i), list_get(ring, i * 2), list_get(ring, i * 2 + 1),
+            cc, cr, f);
+        i = i + 1;
+    }
+    return w2;
+}
+
+fn bh_expl1(w: World, id: Int, fmap: List[Int], info: CanvasInfo) -> World {
+    let ch: Char = list_get(w.chars, id);
+    let circ: List[Int] = coords_on_circle(ch.col0, ch.row0, 3, 5, 1);
+    let d1: DR = rng_range(w.rng, 0, 5);
+    let mut w2: World = w_rng(w, d1.r);
+    let npid: String = w_auto_id(ch.pids);
+    let ipid: String = w_auto_id(list_push(ch.pids, npid));
+    let npi: Int = list_len(ch.pids);
+    let d2: DR = rng_int(w2.rng, 3, 4);
+    w2 = w_rng(w2, d2.r);
+    w2 = w_path(w2, id, int_to_f(d2.v) / 10.0, 1, ez(17), 0 - 1, 0, 0, "");
+    w2 = w_wp(w2, id, npi, list_get(circ, d1.v * 2), list_get(circ, d1.v * 2 + 1), list_new());
+    let d3: DR = rng_int(w2.rng, 4, 6);
+    w2 = w_rng(w2, d3.r);
+    w2 = w_path(w2, id, int_to_f(d3.v) / 100.0, 1, ez(7), 0 - 1, 0, 0, "");
+    w2 = w_wp(w2, id, npi + 1, ch.col0, ch.row0, list_new());
+    let d4: DR = rng_pick(w2.rng, 6);
+    w2 = w_rng(w2, d4.r);
+    let ec: Int = list_get(bh_scols(), d4.v);
+    let esi: Int = list_len(ch.sids);
+    let esid: String = w_auto_id(ch.sids);
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    w2 = w_frame(w2, id, esi, ch.sym, 1, ec, 0 - 1, 0);
+    let csid: String = w_auto_id(list_push(ch.sids, esid));
+    let fc: Int = list_get(fmap, (ch.row0 - info.tb) * (info.tr - info.tl + 1) + (ch.col0 - info.tl));
+    let cg: List[Int] = gradient_new(list_push(list_push(list_new(), ec), fc),
+        list_push(list_new(), 10), 0);
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    w2 = w_grad(w2, id, esi + 1, list_push(list_new(), ch.sym), 20, cg, list_new());
+    w2 = w_reg(w2, id, 1, 1, npid, EvAct { kind: 0, sid: ipid, num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 1, 1, npid, EvAct { kind: 1, sid: csid, num: 0, carg: 0 });
+    w2 = w_aset(w2, id, esi);
+    w2 = eng_act_path(w2, id, npi);
+    w2 = w_active_add(w2, id);
+    return w2;
+}
+
+pub fn bh_explode(w: World, fmap: List[Int], info: CanvasInfo) -> World {
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        w2 = bh_expl1(w2, list_get(ids, k), fmap, info);
+        k = k + 1;
+    }
+    return w2;
+}
+
+pub fn bh_alset(w: World, inset: List[Int]) -> Int {
+    let mut k: Int = 0;
+    while k < list_len(w.active) {
+        if bh_in(inset, list_get(w.active, k)) == 0 { return 0; }
+        k = k + 1;
+    }
+    return 1;
+}
+
+pub fn bh_idle(w: World, bh: List[Int]) -> Int {
+    let mut k: Int = 0;
+    while k < list_len(bh) {
+        let ch: Char = list_get(w.chars, list_get(bh, k));
+        if ch.a_path != 0 - 1 || ch.a_scene != 0 - 1 { return 0; }
+        k = k + 1;
+    }
+    return 1;
+}

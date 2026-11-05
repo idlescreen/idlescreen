@@ -1,0 +1,93 @@
+// # Service Unit - Systemd Unit and XDG Autostart Artefacts
+//
+// Logline: Builds and installs the hardened systemd user unit, with the XDG autostart fallback for hosts without systemd.
+// Setup: Requires EnvCap for XDG_CONFIG_HOME and HOME, and ProcessCap to write the artefacts and reload the user manager.
+// Beats:
+//   1. Resolve the installed binary path, the systemd unit dir, and the autostart dir.
+//   2. Emit the hardened systemd user unit matching assets/idlescreen.service.
+//   3. Install the unit, or the autostart fallback, and reload the user manager.
+
+import "std/core/primitives/str.oo";
+import "core/shell.oo";
+
+// Path of the installed binary, preferring the system locations over the user one.
+pub fn service_bin_path(proc: &ProcessCap) -> String {
+    if shell_out(proc, "test -x /usr/local/bin/idlescreen 2>/dev/null && echo yes") != "" { return "/usr/local/bin/idlescreen"; }
+    if shell_out(proc, "test -x /usr/bin/idlescreen 2>/dev/null && echo yes") != "" { return "/usr/bin/idlescreen"; }
+    return "%h/.local/bin/idlescreen";
+}
+
+// Directory holding the systemd user unit.
+pub fn service_unit_dir(env: &EnvCap) -> String {
+    let xdg: String = match env_get(env, "XDG_CONFIG_HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+    if xdg != "" { return xdg + "/systemd/user"; }
+    let home: String = match env_get(env, "HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+    if home != "" { return home + "/.config/systemd/user"; }
+    return "/etc/systemd/user";
+}
+
+// Directory holding the XDG autostart entry.
+pub fn service_autostart_dir(env: &EnvCap) -> String {
+    let xdg: String = match env_get(env, "XDG_CONFIG_HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+    if xdg != "" { return xdg + "/autostart"; }
+    let home: String = match env_get(env, "HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+    if home != "" { return home + "/.config/autostart"; }
+    return "/etc/xdg/autostart";
+}
+
+// True when the host runs a systemd user manager.
+pub fn service_has_systemd(proc: &ProcessCap) -> Bool {
+    return shell_out(proc, "test -d /run/systemd/system 2>/dev/null && echo yes") != "";
+}
+
+// The hardened systemd user unit. Mirrors assets/idlescreen.service.
+pub fn service_unit_content(bin: String) -> String {
+    let mut s: String = "[Unit]\nDescription=IdleScreen screensaver daemon\nDocumentation=https://github.com/idlescreen/idlescreen\nAfter=graphical-session.target\nPartOf=graphical-session.target\n\n";
+    s = s + "[Service]\nType=simple\nSlice=background-graphical.slice\nSyslogIdentifier=idlescreen\nStandardOutput=journal\nStandardError=journal\n";
+    s = s + "ExecStartPre=-/usr/bin/mkdir -p %h/.config/idlescreen\nExecStart=" + bin + " daemon\n";
+    s = s + "Restart=on-failure\nRestartSec=5\nTimeoutStopSec=10\nKillMode=mixed\n\n";
+    s = s + "NoNewPrivileges=true\nProtectSystem=strict\nPrivateTmp=true\nProtectHome=read-only\nMemoryDenyWriteExecute=true\n";
+    s = s + "ReadWritePaths=%t -%h/.config -%h/.config/idlescreen -%h/.config/idle -%h/.local/state -%h/.local/state/idlescreen -%h/.cache -%h/.cache/idlescreen\n";
+    s = s + "RestrictAddressFamilies=AF_UNIX AF_INET\nIPAddressAllow=localhost 127.0.0.1\nIPAddressDeny=any\nMemoryMax=512M\nTasksMax=128\n";
+    s = s + "ProtectControlGroups=strict\nSystemCallFilter=@system-service\nRestrictNamespaces=true\nLockPersonality=true\nRestrictRealtime=true\nRestrictSUIDSGID=true\nSystemCallArchitectures=native\n\n";
+    s = s + "[Install]\nWantedBy=graphical-session.target\n";
+    return s;
+}
+
+// The XDG autostart entry used on hosts without systemd.
+pub fn service_autostart_content(bin: String) -> String {
+    let mut s: String = "[Desktop Entry]\nType=Application\nName=IdleScreen\nComment=IdleScreen screensaver daemon\n";
+    s = s + "Exec=" + bin + " daemon\nTerminal=false\nX-GNOME-Autostart-enabled=true\n";
+    return s;
+}
+
+// Write one artefact with the content passed as a quoted argument, never as shell syntax.
+pub fn service_write_artefact(proc: &ProcessCap, dir: String, name: String, content: String) -> Bool {
+    let path: String = dir + "/" + name;
+    let cmd: String = "mkdir -p " + shell_quote(dir) + " && printf '%s' " + shell_quote(content) + " > " + shell_quote(path);
+    return shell_out(proc, cmd + " 2>/dev/null && echo ok") != "";
+}
+
+// Install the service artefact for this host and reload the user manager.
+pub fn service_install(proc: &ProcessCap, env: &EnvCap) -> Int {
+    let bin: String = service_bin_path(proc);
+    if service_has_systemd(proc) {
+        let dir: String = service_unit_dir(env);
+        if !service_write_artefact(proc, dir, "idlescreen.service", service_unit_content(bin)) {
+            println("Error: Failed to write the systemd user unit.");
+            return 1;
+        }
+        let _r: String = shell_out(proc, "systemctl --user daemon-reload 2>/dev/null || true");
+        let _e: String = shell_out(proc, "systemctl --user enable --now idlescreen.service 2>/dev/null || true");
+        println("Installed and enabled systemd user unit: " + dir + "/idlescreen.service");
+        return 0;
+    }
+    let dir: String = service_autostart_dir(env);
+    if !service_write_artefact(proc, dir, "idlescreen.desktop", service_autostart_content(bin)) {
+        println("Error: Failed to write the XDG autostart entry.");
+        return 1;
+    }
+    let _e: String = shell_out(proc, "dinitctl enable idlescreen 2>/dev/null || true");
+    println("Installed XDG autostart entry: " + dir + "/idlescreen.desktop");
+    return 0;
+}

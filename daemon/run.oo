@@ -42,7 +42,24 @@ pub fn ooidle_query(tcp: &TcpCap, env: &EnvCap, prog: String, verb: String) -> I
     return 0;
 }
 
-pub fn ooidle_persona_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, bind: &BindCap, tcp: &TcpCap, env: &EnvCap, time: &TimeCap, rand: &RandCap, args: List[String]) -> Int {
+// Send one control frame to the daemon without printing the reply.
+pub fn ooidle_notify(tcp: &TcpCap, env: &EnvCap, prog: String, frame: String) -> Bool {
+    let c: Result[String, String] = tcp_connect(tcp, "127.0.0.1", daemon_ctl_port(prog));
+    if c.is_err() { return false; }
+    let raw: String = match c { Ok(v) => v, Err(_) => "" };
+    if !str_starts_with(raw, "fd:") { return false; }
+    let conn: Int = ctl_slot_of(raw);
+    if conn < 0 { return false; }
+    let wframe: String = frame + "\n";
+    let _ = tcp_write(tcp, conn, wframe);
+    let rd: Result[String, String] = tcp_read(tcp, conn, 4096);
+    let _ = tcp_close(tcp, conn);
+    let reply: String = match rd { Ok(v) => str_trim(v), Err(_) => "" };
+    if reply == "" { return false; }
+    return !str_starts_with(reply, "ERR");
+}
+
+pub fn ooidle_persona_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, proc: &ProcessCap, bind: &BindCap, tcp: &TcpCap, env: &EnvCap, time: &TimeCap, rand: &RandCap, args: List[String]) -> Int {
     let mut verb: String = "run";
     if list_len(args) > 0 {
         verb = to_lowercase(str_trim(list_get(args, 0)));
@@ -57,7 +74,7 @@ pub fn ooidle_persona_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, bind:
         return 0;
     }
     if verb == "daemon" || verb == "run" || verb == "serve" || verb == "start-daemon" {
-        return daemon_reactor(bind, tcp, fs, fs_w, env, "ooidle");
+        return daemon_reactor(proc, bind, tcp, fs, fs_w, env, "ooidle");
     }
     let arg2: String = if list_len(args) > 1 { list_get(args, 1) } else { "" };
     let frame: String = if arg2 != "" { verb + " " + arg2 } else { verb };

@@ -41,3 +41,11 @@ pub fn font7_at(rows: List[String], col: Int, row: Int) -> Bool {
     if col < 0 || col >= chars_len(line) { return false; }
     return char_at(line, col) == "#";
 }
+
+pub fn font7_char_at(ch: String, col: Int, row: Int) -> Bool {
+    if col < 0 || col >= 7 || row < 0 || row >= 7 { return false; }
+    let raw: String = font7_raw(ch);
+    let idx: Int = row * 8 + col;
+    if idx < 0 || idx >= chars_len(raw) { return false; }
+    return char_at(raw, idx) == "#";
+}

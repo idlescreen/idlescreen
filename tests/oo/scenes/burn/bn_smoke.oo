@@ -1,0 +1,132 @@
+// # bn_smoke — ParticlePool port: preallocated smoke chars, emit, reclaim
+//
+// Logline: Bit-exact port of ParticlePool as used by Burn: 2000 chars
+// preallocated with random smoke symbols and a reusable 10-frame fade
+// scene on layer 2, a deque popped from the right on emit and pushed on
+// reclaim, and the on_emit hook that aims each particle above the canvas.
+// Setup: avail is the upstream VecDeque (pop_back = list tail). Every RNG
+// draw mirrors upstream order: choice per preallocated particle, then
+// random() for the smoke chance and randint for the rise column on emit.
+// Beats:
+//   1. bn_sscn builds the reusable "smoke" scene and layer on one char.
+//   2. bn_pool preallocates the whole pool (2000 choice draws).
+//   3. bn_emit acquires, positions, provisions, and activates a particle.
+//   4. bn_reclaim hides, deactivates, removes, and requeues a particle.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_deact.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/canvas_cells.oo";
+
+pub type BnP = struct { w: World, avail: List[Int] };
+pub type BnE = struct { w: World, avail: List[Int], pid: Int };
+
+fn bn_ssyms() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 46);
+    s = list_push(s, 44);
+    s = list_push(s, 39);
+    s = list_push(s, 96);
+    s = list_push(s, 35);
+    s = list_push(s, 42);
+    return s;
+}
+
+fn bn_sscn(w: World, id: Int) -> World {
+    let ch: Char = list_get(w.chars, id);
+    let mut w2: World = w_scene(w, id, 0, 0, 0, ez(0), "smoke");
+    let spec: List[Int] = gradient_new(list_push(list_push(list_new(), 5262159), 13091271),
+        list_push(list_new(), 9), 0);
+    w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 10, spec, list_new());
+    w2 = w_lay(w2, id, 2);
+    return w2;
+}
+
+pub fn bn_pool(w: World, n: Int) -> BnP {
+    let mut w2: World = w;
+    let mut avail: List[Int] = list_new();
+    let syms: List[Int] = bn_ssyms();
+    let mut i: Int = 0;
+    while i < n {
+        let d: DR = rng_pick(w2.rng, list_len(syms));
+        w2 = w_rng(w2, d.r);
+        w2 = w_add_char(w2, list_get(syms, d.v), 0, 0);
+        let id: Int = list_len(w2.chars) - 1;
+        w2 = bn_sscn(w2, id);
+        avail = list_push(avail, id);
+        i = i + 1;
+    }
+    let _r1 = BnP { w: w2, avail: avail };
+    return _r1;
+}
+
+fn bn_reset(w: World, id: Int) -> World {
+    let mut w2: World = w_deact_p(w, id, 0 - 1);
+    w2 = w_deact_s(w2, id, 0 - 1);
+    let ch: Char = list_get(w2.chars, id);
+    let _r2 = w_put(w2, id, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
+        pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
+        done_path: ch.done_path, pids: list_new(), paths: list_new(), evs: ch.evs });
+    return _r2;
+}
+
+pub fn bn_emit(w: World, avail: List[Int], ocol: Int, orow: Int, info: CanvasInfo, cnt: Int) -> BnE {
+    let d: DRF = rng_random(w.rng);
+    let mut w2: World = w_rng(w, d.r);
+    if d.v > 0.5 || list_len(avail) == 0 {
+        let _r3 = BnE { w: w2, avail: avail, pid: 0 - 1 };
+        return _r3;
+    }
+    let pid: Int = list_get(avail, list_len(avail) - 1);
+    let av2: List[Int] = list_slice(avail, 0, list_len(avail) - 1);
+    w2 = bn_reset(w2, pid);
+    w2 = w_pos(w2, pid, ocol, orow);
+    w2 = w_sc_reset(w2, pid, 0);
+    w2 = w_path(w2, pid, 0.5, 0, ez(0), 0 - 1, 0, 0, "");
+    let dd: DR = rng_int(w2.rng, ocol - 4, ocol + 4);
+    w2 = w_rng(w2, dd.r);
+    w2 = w_wp(w2, pid, 0, dd.v, info.top + 1, list_new());
+    w2 = eng_act_path(w2, pid, 0);
+    w2 = w_aset(w2, pid, 0);
+    w2 = w_reg(w2, pid, 2, 0, "smoke", EvAct { kind: 7, sid: "", num: 1, carg: cnt });
+    w2 = w_set_vis(w2, pid, 1);
+    w2 = w_active_add(w2, pid);
+    let _r4 = BnE { w: w2, avail: av2, pid: pid };
+    return _r4;
+}
+
+fn bn_arm(xs: List[Int], id: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(xs) {
+        if list_get(xs, k) != id { out = list_push(out, list_get(xs, k)); }
+        k = k + 1;
+    }
+    return out;
+}
+
+pub fn bn_reclaim(w: World, avail: List[Int], id: Int) -> BnP {
+    let mut w2: World = w_set_vis(w, id, 0);
+    w2 = w_deact_p(w2, id, 0 - 1);
+    w2 = w_deact_s(w2, id, 0 - 1);
+    w2 = World { chars: w2.chars, active: bn_arm(w2.active, id), rng: w2.rng,
+        next_id: w2.next_id, pend: w2.pend };
+    let mut av2: List[Int] = avail;
+    let mut has: Int = 0;
+    let mut k: Int = 0;
+    while k < list_len(av2) {
+        if list_get(av2, k) == id { has = 1; }
+        k = k + 1;
+    }
+    if has == 0 { av2 = list_push(av2, id); }
+    let _r5 = BnP { w: w2, avail: av2 };
+    return _r5;
+}

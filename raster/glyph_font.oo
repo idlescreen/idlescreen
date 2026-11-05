@@ -11,6 +11,22 @@ import "glyph_hud.oo";
 import "glyph_rows.oo";
 import "glyph_style.oo";
 
+fn block_rows_box(ch: String) -> List[Int] {
+    if ch == "│" { return rows_rep(24); }
+    if ch == "─" { return rows_pack(0, 0, 0, 0, 0, 0, 0, 255); }
+    if ch == "┌" { return rows_pack(0, 0, 0, 0, 0, 0, 0, 31); }
+    if ch == "┐" { return rows_pack(0, 0, 0, 0, 0, 0, 0, 248); }
+    if ch == "└" { return rows_pack(24, 24, 24, 24, 24, 24, 24, 248); }
+    if ch == "┘" { return rows_pack(24, 24, 24, 24, 24, 24, 24, 31); }
+    if ch == "╱" { return rows_repeat8(rows_pack(1, 2, 4, 8, 16, 32, 64, 128)); }
+    if ch == "╲" { return rows_repeat8(rows_pack(128, 64, 32, 16, 8, 4, 2, 1)); }
+    if ch == "▲" { return rows_mirror8(rows_pack(24, 60, 126, 255, 0, 0, 0, 0)); }
+    if ch == "▼" { return rows_pack(255, 126, 60, 24, 0, 0, 0, 0); }
+    if ch == "◆" { return rows_mirror8(rows_pack(24, 60, 126, 255, 255, 126, 60, 24)); }
+    if ch == "●" { return rows_mirror8(rows_pack(60, 126, 255, 255, 255, 255, 126, 60)); }
+    return list_new();
+}
+
 fn block_rows(ch: String, style: String) -> List[Int] {
     if ch == "█" {
         if glyph_style_is_sharp(style) {
@@ -25,9 +41,8 @@ fn block_rows(ch: String, style: String) -> List[Int] {
     }
     if ch == "▀" { return rows_pack(255, 255, 255, 255, 255, 255, 255, 255); }
     if ch == "▄" {
-        let z: List[Int] = rows_pack(0, 0, 0, 0, 0, 0, 0, 0);
+        let mut out: List[Int] = rows_pack(0, 0, 0, 0, 0, 0, 0, 0);
         let m: List[Int] = rows_pack(255, 255, 255, 255, 255, 255, 255, 255);
-        let mut out: List[Int] = z;
         let mut i: Int = 0;
         while i < 8 { out = list_push(out, list_get(m, i)); i = i + 1; }
         return out;
@@ -41,19 +56,7 @@ fn block_rows(ch: String, style: String) -> List[Int] {
     if ch == "░" { return rows_repeat8(rows_pack(85, 0, 170, 0, 85, 0, 170, 0)); }
     if ch == "▒" { return rows_repeat8(rows_pack(85, 34, 170, 68, 85, 34, 170, 68)); }
     if ch == "▓" { return rows_repeat8(rows_pack(221, 119, 187, 238, 221, 119, 187, 238)); }
-    if ch == "│" { return rows_rep(24); }
-    if ch == "─" { return rows_pack(0, 0, 0, 0, 0, 0, 0, 255); }
-    if ch == "┌" { return rows_pack(0, 0, 0, 0, 0, 0, 0, 31); }
-    if ch == "┐" { return rows_pack(0, 0, 0, 0, 0, 0, 0, 248); }
-    if ch == "└" { return rows_pack(24, 24, 24, 24, 24, 24, 24, 248); }
-    if ch == "┘" { return rows_pack(24, 24, 24, 24, 24, 24, 24, 31); }
-    if ch == "╱" { return rows_repeat8(rows_pack(1, 2, 4, 8, 16, 32, 64, 128)); }
-    if ch == "╲" { return rows_repeat8(rows_pack(128, 64, 32, 16, 8, 4, 2, 1)); }
-    if ch == "▲" { return rows_mirror8(rows_pack(24, 60, 126, 255, 0, 0, 0, 0)); }
-    if ch == "▼" { return rows_pack(255, 126, 60, 24, 0, 0, 0, 0); }
-    if ch == "◆" { return rows_mirror8(rows_pack(24, 60, 126, 255, 255, 126, 60, 24)); }
-    if ch == "●" { return rows_mirror8(rows_pack(60, 126, 255, 255, 255, 255, 126, 60)); }
-    return list_new();
+    return block_rows_box(ch);
 }
 
 pub fn get_glyph_bitmap(ch: String) -> List[Int] {

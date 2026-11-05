@@ -1,27 +1,52 @@
-// # TUI Input - Key Byte to Action Decode
+// # TUI Input - Terminal Key Event Decoder
 //
-// Logline: Decodes raw terminal key bytes into picker actions with fail-closed defaults.
+// Logline: Decodes terminal byte sequences into high-level settings director navigation and editing commands.
 // Setup: Pure byte inspection. Operates with zero ambient authority.
 // Beats:
-//   1. Map byte 27 (esc) and q to the quit action.
-//   2. Map j/k, down/up sequences, and enter to move and select.
-//   3. Treat every other byte as a no-op so unknown input never mutates state.
-
-pub fn input_action(b: Int) -> String {
-    if b < 0 { return "none"; }
-    if b == 27 || b == 113 { return "quit"; }
-    if b == 106 || b == 66 { return "down"; }
-    if b == 107 || b == 65 { return "up"; }
-    if b == 13 || b == 10 { return "enter"; }
-    if b == 32 { return "enter"; }
-    if b == 104 { return "up"; }
-    if b == 108 { return "down"; }
-    return "none";
-}
+//   1. Map navigation keys (arrows, hjkl, tab) to up/down/left/right actions.
+//   2. Map direct action hotkeys (s, p, f, t, q) to corresponding settings actions.
+//   3. Handle text editing bytes and backspace when typing custom banner.
 
 pub fn input_byte_of(s: String) -> Int {
     if s == "" { return -1; }
     return byte_at(s, 0);
 }
 
-pub fn input_probe() -> Int { return 0; }
+pub fn input_is_char(b: Int) -> Bool {
+    return b >= 32 && b <= 126;
+}
+
+pub fn input_char_of(b: Int) -> String {
+    if b < 32 || b > 126 { return ""; }
+    let ascii: String = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+    return char_at(ascii, b - 32);
+}
+
+pub fn input_arrow_action(b: Int) -> String {
+    if b == 65 { return "up"; }
+    if b == 66 { return "down"; }
+    if b == 67 { return "right"; }
+    if b == 68 { return "left"; }
+    return "none";
+}
+
+pub fn input_action(b: Int) -> String {
+    if b < 0 { return "none"; }
+    if b == 27 || b == 113 || b == 81 { return "quit"; }
+    if b == 106 || b == 66 || b == 9 { return "down"; }
+    if b == 107 || b == 65 { return "up"; }
+    if b == 104 || b == 68 { return "left"; }
+    if b == 108 || b == 67 { return "right"; }
+    if b == 91 { return "fast_left"; }
+    if b == 93 { return "fast_right"; }
+    if b == 13 || b == 10 { return "enter"; }
+    if b == 32 { return "space"; }
+    if b == 115 || b == 83 { return "save"; }
+    if b == 112 || b == 80 { return "preview"; }
+    if b == 102 || b == 70 { return "fullscreen"; }
+    if b == 116 || b == 84 { return "toggle_daemon"; }
+    if b == 49 { return "select_mode_1"; }
+    if b == 50 { return "select_mode_2"; }
+    if b == 127 || b == 8 { return "backspace"; }
+    return "none";
+}

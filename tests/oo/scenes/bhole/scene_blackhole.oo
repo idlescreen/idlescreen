@@ -1,0 +1,117 @@
+// # scene_blackhole — forming/consuming/collapsing/exploding driver
+//
+// Logline: Bit-exact port of Blackhole::build/next_frame for the parity
+// harness: the ring forms one char per formation_delay frames, then all
+// stars dive into the singularity, the ring collapses to the center point,
+// and the singularity explodes every input char home through its cooling
+// scene. Phase transitions land one frame later, matching upstream's
+// match-on-phase dispatch.
+// Setup: the diagonal final gradient feeds the per-char cooling color.
+// No callbacks exist in this effect — every event action is engine-side
+// (ActivatePath, ActivateScene, SetLayer), so no pend drain is needed.
+// Beats:
+//   1. bh_frame replays one next_frame phase dispatch.
+//   2. blackhole_run wires build then loops frames until Complete.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/scenes/bhole/bh_parts.oo";
+import "tests/oo/scenes/bhole/bh_build.oo";
+import "tests/oo/scenes/bhole/bh_phase.oo";
+import "tests/digest_run.oo";
+
+pub type BHF = struct { w: World, a: List[Int], f: Int };
+
+fn bh_form1(w: World, a2: List[Int], f2: Int, nbh: Int) -> BHF {
+    let mut w2: World = w;
+    let mut aa: List[Int] = a2;
+    let mut ff: Int = f2;
+    if ff == 0 {
+        let id: Int = list_get(aa, 0);
+        aa = list_slice(aa, 1, list_len(aa));
+        w2 = eng_act_path(w2, id, 0);
+        w2 = w_aset(w2, id, 0);
+        w2 = w_active_add(w2, id);
+        ff = 100 / nbh;
+        if ff < 6 { ff = 6; }
+    } else {
+        ff = ff - 1;
+    }
+    let _r0 = BHF { w: w2, a: aa, f: ff };
+    return _r0;
+}
+
+fn bh_consume_all(w: World, c2: List[Int]) -> World {
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(c2) {
+        let id: Int = list_get(c2, k);
+        w2 = eng_act_path(w2, id, 0);
+        w2 = w_active_add(w2, id);
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn bh_frame(w: World, st: Bh, info: CanvasInfo, cc: Int, cr: Int, fmap: List[Int]) -> Bh {
+    let mut w2: World = w;
+    let mut a2: List[Int] = st.awb;
+    let mut c2: List[Int] = st.awc;
+    let mut f2: Int = st.fd;
+    let mut p2: Int = st.ph;
+    if st.ph == 0 {
+        if list_len(a2) > 0 {
+            let r: BHF = bh_form1(w2, a2, f2, list_len(st.bh));
+            w2 = r.w;
+            a2 = r.a;
+            f2 = r.f;
+        } else {
+            if list_len(w2.active) == 0 {
+                w2 = bh_rotate(w2, st.bh);
+                p2 = 1;
+            }
+        }
+    }
+    if st.ph == 1 {
+        if list_len(c2) > 0 {
+            w2 = bh_consume_all(w2, c2);
+            c2 = list_new();
+        } else {
+            if bh_alset(w2, st.bh) == 1 { p2 = 2; }
+        }
+    }
+    if st.ph == 2 { w2 = bh_collapse(w2, st.bh, info, cc, cr); p2 = 3; }
+    if st.ph == 3 {
+        if bh_idle(w2, st.bh) == 1 { w2 = bh_explode(w2, fmap, info); p2 = 4; }
+    }
+    let _r1 = Bh { w: w2, bh: st.bh, awb: a2, awc: c2, fd: f2, ph: p2 };
+    return _r1;
+}
+
+pub fn blackhole_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let cc: Int = info.cols / 2;
+    let cr: Int = info.rows / 2;
+    let st0: Bh = bh_build(w_input(info, lines, rng_seed(42)), info, cc, cr);
+    let fmap: List[Int] = cmap_d(gradient_new(list_push(list_push(list_push(list_new(),
+        9044106), 53759), 16777215), list_push(list_new(), 9), 0),
+        info.tb, info.tt, info.tl, info.tr);
+    let mut st: Bh = st0;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(st.w.active) > 0 || st.ph != 4 {
+        let s2: Bh = bh_frame(st.w, st, info, cc, cr, fmap);
+        st = s2;
+        st = Bh { w: eng_update(st.w), bh: st.bh, awb: st.awb, awc: st.awc, fd: st.fd, ph: st.ph };
+        let pcs: List[PaintCell] = eng_render(st.w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

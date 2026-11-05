@@ -1,0 +1,24 @@
+// # Shell Argument Quoting - POSIX-safe Command Building
+//
+// Logline: Escapes strings so they survive a POSIX shell as exactly one literal argument each.
+// Setup: Pure string transformation plus a thin ProcessCap exec wrapper. Zero ambient authority.
+// Beats:
+//   1. Wrap the argument in single quotes so the shell performs no expansion on it.
+//   2. Close and reopen the quote around each embedded single quote so it stays literal.
+//   3. Keep hostile content inside one argument instead of letting it reach the command line.
+//   4. Run a command and return its trimmed stdout, or an empty string when it fails.
+
+import "std/core/primitives/str.oo";
+import "std/fs/process/process.oo";
+
+// Quote one argument so the shell treats it as a single literal word.
+pub fn shell_quote(s: String) -> String {
+    return "'" + str_replace(s, "'", "'\\''") + "'";
+}
+
+// Run a command and return its trimmed stdout, or an empty string on failure.
+pub fn shell_out(proc: &ProcessCap, cmd: String) -> String {
+    let res: Result[String, String] = process_exec(proc, cmd);
+    if res.is_err() { return ""; }
+    return str_trim(match res { Ok(v) => v, Err(_) => "" });
+}

@@ -12,22 +12,26 @@ import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn post_scanline(g: CellGrid, k: Int) -> CellGrid {
-    let mut out: CellGrid = g;
-    let mut y: Int = 1;
+    let mut cells: List[TerminalCell] = list_new();
+    let mut y: Int = 0;
     while y < g.rows {
         let mut x: Int = 0;
         while x < g.cols {
-            let c: TerminalCell = grid_get(out, x, y);
-            out = grid_set(out, x, y, cell_new(c.ch, cv_mix(c.fg, 0, k), c.bg, c.bold));
+            let c: TerminalCell = grid_get(g, x, y);
+            if y % 2 == 1 {
+                cells = list_push(cells, cell_new(c.ch, cv_mix(c.fg, 0, k), c.bg, c.bold));
+            } else {
+                cells = list_push(cells, c);
+            }
             x = x + 1;
         }
-        y = y + 2;
+        y = y + 1;
     }
-    return out;
+    return CellGrid { cols: g.cols, rows: g.rows, cells: cells };
 }
 
 pub fn post_vignette(g: CellGrid, k: Int) -> CellGrid {
-    let mut out: CellGrid = g;
+    let mut cells: List[TerminalCell] = list_new();
     let cx: Int = g.cols / 2;
     let cy: Int = g.rows / 2;
     let mut y: Int = 0;
@@ -37,18 +41,20 @@ pub fn post_vignette(g: CellGrid, k: Int) -> CellGrid {
             let dx: Int = if x - cx < 0 { cx - x } else { x - cx };
             let dy: Int = if y - cy < 0 { cy - y } else { y - cy };
             let edge: Int = (dx * 100 / if cx > 0 { cx } else { 1 }) + (dy * 100 / if cy > 0 { cy } else { 1 });
+            let c: TerminalCell = grid_get(g, x, y);
             if edge > 110 {
-                let c: TerminalCell = grid_get(out, x, y);
                 let f: Int = (edge - 110) * k / 60;
                 let mut kk: Int = f;
                 if kk > 200 { kk = 200; }
-                out = grid_set(out, x, y, cell_new(c.ch, cv_mix(c.fg, 0, kk), cv_mix(c.bg, 0, kk / 2), c.bold));
+                cells = list_push(cells, cell_new(c.ch, cv_mix(c.fg, 0, kk), cv_mix(c.bg, 0, kk / 2), c.bold));
+            } else {
+                cells = list_push(cells, c);
             }
             x = x + 1;
         }
         y = y + 1;
     }
-    return out;
+    return CellGrid { cols: g.cols, rows: g.rows, cells: cells };
 }
 
 pub fn post_apply(g: CellGrid, tick: Int) -> CellGrid {

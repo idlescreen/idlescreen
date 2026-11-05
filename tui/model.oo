@@ -1,45 +1,159 @@
-// # TUI Model - Interactive Scene Picker State
+// # TUI Model - Settings Director State Model
 //
-// Logline: The interactive picker model: cursor index, scroll offset, terminal size, and the running flag.
-// Setup: Pure record over the 53-scene roster. Operates with zero ambient authority.
+// Logline: State model and adjustment logic for the 7-field Settings Director.
+// Setup: Pure record over the 56-saver roster and configuration fields with zero ambient authority.
 // Beats:
-//   1. Hold the cursor and scroll window over the scene roster.
-//   2. Clamp cursor movement to the roster bounds.
-//   3. Report the selected scene index for the preview pane.
+//   1. Hold focus, saver index, mode choice, custom text, and timing sliders.
+//   2. Navigate fields with wraparound.
+//   3. Adjust slider and selector values with bounds clamping.
 
+import "ascii/effects.oo";
+import "daemon/config_file.oo";
 
 pub type TuiModel = struct {
-    cursor: Int,
-    scroll: Int,
+    focused: Int,
+    selected_saver: Int,
+    use_os_brand: Bool,
+    custom_text: String,
+    cursor_pos: Int,
+    editing_text: Bool,
+    idle_timeout_s: Int,
+    dwell_s: Int,
+    fps_val: Int,
+    dpms_timeout_s: Int,
+    daemon_active: Bool,
+    inhibitor_desc: String,
+    detected_os: String,
     cols: Int,
     rows: Int,
     running: Bool,
-    preview: Bool
+    dirty: Bool,
+    status_msg: String
 };
 
-pub fn tui_new(cols: Int, rows: Int) -> TuiModel {
-    return TuiModel { cursor: 0, scroll: 0, cols: cols, rows: rows, running: true, preview: true };
+pub fn tui_saver_name(idx: Int) -> String {
+    if idx == 0 { return "ascii"; }
+    if idx == 1 { return "tour"; }
+    if idx == 2 { return "superfedora"; }
+    if idx >= 3 && idx < 56 { return effects_name(idx - 3); }
+    return "ascii";
 }
 
-pub fn tui_set(c: TuiModel, cursor: Int, scroll: Int, running: Bool, preview: Bool) -> TuiModel {
-    return TuiModel { cursor: cursor, scroll: scroll, cols: c.cols, rows: c.rows, running: running, preview: preview };
+pub fn tui_saver_display(idx: Int) -> String {
+    let n: String = tui_saver_name(idx);
+    if n == "ascii" { return "ascii (All 53 Arcade Scenes Shuffled)"; }
+    if n == "tour" { return "tour (All 53 Arcade Scenes in Order 1-53)"; }
+    if n == "superfedora" { return "superfedora (16-Bit SuperFedora Arcade)"; }
+    if n == "mmx" { return "mmx (16-Bit SNES Mega Man X Scene)"; }
+    if n == "zero" { return "zero (16-Bit SNES Mega Man X Zero Scene)"; }
+    return n + " (Pinned Arcade Scene)";
 }
 
-pub fn tui_move(c: TuiModel, delta: Int) -> TuiModel {
-    let mut cur: Int = c.cursor + delta;
-    if cur < 0 { cur = 0; }
-    if cur >= 53 { cur = 52; }
-    let vis: Int = if c.rows - 8 > 0 { c.rows - 8 } else { 1 };
-    let mut sc: Int = c.scroll;
-    if cur < sc { sc = cur; }
-    if cur >= sc + vis { sc = cur - vis + 1; }
-    return tui_set(c, cur, sc, c.running, c.preview);
+pub fn tui_model_init(c: ConfigData, os_name: String, cols: Int, rows: Int) -> TuiModel {
+    let mut s_idx: Int = 0;
+    if c.active == "tour" { s_idx = 1; }
+    else if c.active == "superfedora" { s_idx = 2; }
+    else if c.active != "ascii" && effects_index(c.active) >= 0 { s_idx = 3 + effects_index(c.active); }
+    return TuiModel {
+        focused: 0,
+        selected_saver: s_idx,
+        use_os_brand: c.use_os_brand,
+        custom_text: c.custom_text,
+        cursor_pos: chars_len(c.custom_text),
+        editing_text: false,
+        idle_timeout_s: c.idle_timeout_secs,
+        dwell_s: c.dwell_secs,
+        fps_val: c.fps,
+        dpms_timeout_s: c.dpms_timeout_secs,
+        daemon_active: true,
+        inhibitor_desc: "Uninhibited",
+        detected_os: os_name,
+        cols: cols,
+        rows: rows,
+        running: true,
+        dirty: false,
+        status_msg: "Ready"
+    };
 }
 
-pub fn tui_selected(c: TuiModel) -> Int { return c.cursor; }
+pub fn tui_nav_field(m: TuiModel, delta: Int) -> TuiModel {
+    let mut mut_m: TuiModel = m;
+    mut_m.editing_text = false;
+    let next: Int = (m.focused + delta + 12) % 12;
+    mut_m.focused = next;
+    return mut_m;
+}
 
-pub fn tui_visible_rows(c: TuiModel) -> Int {
-    let v: Int = c.rows - 8;
-    if v <= 0 { return 1; }
-    return v;
+fn tui_step_fps(cur: Int, dir: Int) -> Int {
+    if dir > 0 {
+        if cur < 30 { return 30; }
+        if cur < 60 { return 60; }
+        if cur < 120 { return 120; }
+        if cur < 144 { return 144; }
+        return 0;
+    }
+    if cur > 120 { return 120; }
+    if cur > 60 { return 60; }
+    if cur > 30 { return 30; }
+    if cur > 0 { return 0; }
+    return 144;
+}
+
+pub fn tui_adjust_field(m: TuiModel, dir: Int, fast: Bool) -> TuiModel {
+    let mut mut_m: TuiModel = m;
+    mut_m.dirty = true;
+    if m.focused == 0 {
+        let step: Int = if fast { dir * 5 } else { dir };
+        mut_m.selected_saver = (m.selected_saver + step + 5600) % 56;
+    } else if m.focused == 1 {
+        mut_m.use_os_brand = true;
+    } else if m.focused == 2 {
+        mut_m.use_os_brand = false;
+    } else if m.focused == 4 {
+        let step: Int = if fast { 300 } else { 30 };
+        let mut v: Int = m.idle_timeout_s + dir * step;
+        if v < 30 { v = 30; }
+        if v > 7200 { v = 7200; }
+        mut_m.idle_timeout_s = v;
+    } else if m.focused == 5 {
+        let step: Int = if fast { 5 } else { 1 };
+        let mut v: Int = m.dwell_s + dir * step;
+        if v < 1 { v = 1; }
+        if v > 30 { v = 30; }
+        mut_m.dwell_s = v;
+    } else if m.focused == 6 {
+        mut_m.fps_val = tui_step_fps(m.fps_val, dir);
+    } else if m.focused == 7 {
+        let step: Int = if fast { 300 } else { 60 };
+        let mut v: Int = m.dpms_timeout_s + dir * step;
+        if v < 60 { v = 0; }
+        if v > 7200 { v = 7200; }
+        mut_m.dpms_timeout_s = v;
+    }
+    return mut_m;
+}
+
+pub fn tui_summary(m: TuiModel) -> String {
+    let s_name: String = tui_saver_name(m.selected_saver);
+    let mode_str: String = if m.use_os_brand {
+        "OS Banner (" + m.detected_os + ")"
+    } else {
+        "Custom Banner (" + (if m.custom_text == "" { "CUSTOM" } else { m.custom_text }) + ")"
+    };
+    return "Saver: " + s_name + " | " + mode_str;
+}
+
+pub fn tui_apply_text(m: TuiModel, b: Int, act: String) -> TuiModel {
+    let mut cur: TuiModel = m;
+    if act == "enter" || (b == 27 && act == "quit") {
+        cur.editing_text = false;
+    } else if act == "backspace" {
+        let l: Int = chars_len(cur.custom_text);
+        if l > 0 { cur.custom_text = str_slice(cur.custom_text, 0, l - 1); cur.dirty = true; }
+    } else if b >= 32 && b <= 126 {
+        let ascii: String = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+        cur.custom_text = cur.custom_text + char_at(ascii, b - 32);
+        cur.dirty = true;
+    }
+    return cur;
 }
