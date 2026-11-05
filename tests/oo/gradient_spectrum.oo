@@ -11,14 +11,14 @@
 
 import "tests/shade_float.oo";
 
-fn floor_div_i(a: Int, b: Int) -> Int {
+pub fn floor_div_i(a: Int, b: Int) -> Int {
     let q: Int = a / b;
     let r: Int = a % b;
     if r != 0 && a < 0 { return q - 1; }
     return q;
 }
 
-fn clamp_color_channel(v: Int) -> Int {
+pub fn clamp_color_channel(v: Int) -> Int {
     if v < 0 { return 0; }
     if v > 255 { return 255; }
     return v;

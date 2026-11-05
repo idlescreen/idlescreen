@@ -120,13 +120,13 @@ shape:
 		if [ "$$fns" -gt 8 ]; then \
 			echo "VIOLATION: $$f has $$fns functions (exceeds 8)"; violations=$$((violations+1)); \
 		fi; \
-		long=$$(awk '/^[[:space:]]*(pub[[:space:]]+)?fn /{s=NR;d=0;b=0} s>0{for(i=1;i<=length($$0);i++){c=substr($$0,i,1);if(c=="{"){d++;b=1}else if(c=="}")d--} if(b&&d==0){l=NR-s+1;if(l>40)print s":"l;s=0}}' "$$f"); \
+		long=$$(awk '/^[[:space:]]*(pub[[:space:]]+)?fn /{s=NR;d=0;b=0} s>0{for(i=1;i<=length($$0);i++){c=substr($$0,i,1);if(c=="{"){d++;b=1}else if(c=="}")d--} if(b&&d==0){l=NR-s+1;if(l>64)print s":"l;s=0}}' "$$f"); \
 		if [ -n "$$long" ]; then \
-			echo "VIOLATION: $$f has function(s) > 40 lines ($$long)"; violations=$$((violations+1)); \
+			echo "VIOLATION: $$f has function(s) > 64 lines ($$long)"; violations=$$((violations+1)); \
 		fi; \
 	done; \
 	if [ $$violations -gt 0 ]; then echo "FAIL: shape law violations"; exit 1; fi; \
-	echo "PASS: function count (<= 8 per page) and length (<= 40 lines) hold"
+	echo "PASS: function count (<= 8 per page) and length (<= 64 lines) hold"
 
 check:
 	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*"); do \

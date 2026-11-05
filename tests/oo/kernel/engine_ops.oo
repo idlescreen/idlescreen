@@ -32,7 +32,7 @@ fn ch_sc(ch: Char, sids: List[String], scenes: List[Scene]) -> Char {
     return _r2;
 }
 
-fn ch_pa(ch: Char, pids: List[String], paths: List[Path]) -> Char {
+pub fn ch_pa(ch: Char, pids: List[String], paths: List[Path]) -> Char {
     let _r3 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
         pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
