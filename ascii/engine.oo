@@ -10,7 +10,7 @@
 import "core/cell.oo";
 import "core/grid.oo";
 import "ascii/effects.oo";
-import "ascii/scenes/anchor.oo";
+import "ascii/scenes/dispatch.oo";
 import "ascii/draw/anchor.oo";
 import "ascii/layout/anchor.oo";
 import "raster/glyph_hud.oo";

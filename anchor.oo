@@ -1,11 +1,10 @@
 // # idlescreen Root Project Anchor
 //
 // Logline: idlescreen root module anchor re-exporting every subsystem domain page.
-// Setup: Root module anchor providing component metadata accessors.
+// Setup: Root module anchor. Pure shim.
 // Beats:
 //   1. Re-export the core, raster, ascii, wayland, daemon, tui, and cli anchors.
-//   2. Provide component version and name accessors.
-//   3. Keep the public entry surface minimal and deterministic.
+//   2. Keep the public entry surface minimal and deterministic.
 
 import "core/anchor.oo";
 import "raster/anchor.oo";
@@ -14,11 +13,3 @@ import "wayland/anchor.oo";
 import "daemon/anchor.oo";
 import "tui/anchor.oo";
 import "cli/anchor.oo";
-
-pub fn idlescreen_version() -> String {
-    return "5.0.0";
-}
-
-pub fn idlescreen_component_name() -> String {
-    return "idlescreen";
-}
