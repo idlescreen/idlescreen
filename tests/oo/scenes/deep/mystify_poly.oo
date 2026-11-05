@@ -1,0 +1,77 @@
+// # mystify_poly — vertex bounce, history ring, edge-glow field
+//
+// Logline: Integrates 4 polygon vertices with bounce, history, and edge glow.
+//
+// Setup: Pure. verts is flat 16-float list; hist is 4 snaps of 8 floats.
+//
+// Beats:
+//   1. poly_step advances verts, clamps on bounce, drops oldest snap.
+//   2. seg_d2 is the clamped point-segment squared distance.
+//   3. cell_glow takes the max over snaps x 4 edges.
+
+import "tests/shade_float.oo";
+import "tests/oo/grid_cells.oo";
+
+pub type PolyStep = struct { v: List[Float], h: List[Float] };
+
+fn drop_snap(l: List[Float]) -> List[Float] {
+    let mut out: List[Float] = list_new();
+    let mut i: Int = 8;
+    while i < list_len(l) { out = list_push(out, list_get(l, i)); i = i + 1; }
+    return out;
+}
+
+pub fn poly_step(verts: List[Float], hist: List[Float]) -> PolyStep {
+    let mut v: List[Float] = verts;
+    let mut i: Int = 0;
+    while i < 4 {
+        let mut x: Float = list_get(v, i * 4) + list_get(v, i * 4 + 2);
+        let mut y: Float = list_get(v, i * 4 + 1) + list_get(v, i * 4 + 3);
+        let mut vx: Float = list_get(v, i * 4 + 2);
+        let mut vy: Float = list_get(v, i * 4 + 3);
+        if x <= 0.0 - 1.25 || x >= 1.25 { vx = 0.0 - vx; x = clamp_f(x, 0.0 - 1.25, 1.25); }
+        if y <= 0.0 - 0.92 || y >= 0.92 { vy = 0.0 - vy; y = clamp_f(y, 0.0 - 0.92, 0.92); }
+        v = list_set(list_set(list_set(list_set(v, i * 4, x), i * 4 + 1, y), i * 4 + 2, vx), i * 4 + 3, vy);
+        i = i + 1;
+    }
+    let mut h: List[Float] = hist;
+    if list_len(h) >= 32 { h = drop_snap(h); }
+    let mut k: Int = 0;
+    while k < 8 { h = list_push(h, list_get(v, k / 2 * 4 + k % 2)); k = k + 1; }
+    return PolyStep { v: v, h: h };
+}
+
+fn seg_d2(px: Float, py: Float, ax: Float, ay: Float, bx: Float, by: Float) -> Float {
+    let vx: Float = bx - ax;
+    let vy: Float = by - ay;
+    let ls: Float = vx * vx + vy * vy;
+    let mut t: Float = 0.0;
+    if ls > 0.000001 { t = clamp_f(((px - ax) * vx + (py - ay) * vy) / ls, 0.0, 1.0); }
+    let cx: Float = ax + t * vx;
+    let cy: Float = ay + t * vy;
+    return (px - cx) * (px - cx) + (py - cy) * (py - cy);
+}
+
+pub fn cell_glow(hist: List[Float], c: CellGeom) -> Float {
+    let mut best: Float = 0.0;
+    let nh: Int = list_len(hist) / 8;
+    let mut idx: Int = 0;
+    while idx < nh {
+        let base: Int = idx * 8;
+        let age: Float = int_to_f(idx + 1) / int_to_f(nh);
+        let mut e: Int = 0;
+        while e < 4 {
+            let e2: Int = (e + 1) % 4;
+            let d2: Float = seg_d2(c.dx, c.dy,
+                list_get(hist, base + e * 2), list_get(hist, base + e * 2 + 1),
+                list_get(hist, base + e2 * 2), list_get(hist, base + e2 * 2 + 1));
+            if d2 < 0.045 {
+                let g: Float = exp(0.0 - d2 * 65.0) * age;
+                if g > best { best = g; }
+            }
+            e = e + 1;
+        }
+        idx = idx + 1;
+    }
+    return best;
+}

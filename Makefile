@@ -13,7 +13,7 @@ ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_REA
 
 all: build verify test det parity
 
-PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel
+PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel mystify expand
 
 parity:
 	@mkdir -p .ooda-cache bin
@@ -152,9 +152,8 @@ test: $(BIN)
 	@./$(BIN) config | grep -qi "idlescreen" && echo "PASS: config"
 	@./$(BIN) doctor | grep -qi "PASS\|OK" && echo "PASS: doctor"
 	@./$(BIN) timeout | grep -qi "timeout" && echo "PASS: timeout query"
-	@ln -sf idlescreen bin/ooidle
-	@./bin/ooidle --version | grep -q "ooidle $(VER)" && echo "PASS: argv0 ooidle --version"
-	@./bin/ooidle status | grep -qi "ooidle" && echo "PASS: argv0 ooidle status"
+	@./$(BIN) --persona ooidle --version | grep -q "ooidle $(VER)" && echo "PASS: --persona ooidle --version"
+	@./$(BIN) --persona ooidle status | grep -qi "ooidle" && echo "PASS: --persona ooidle status"
 	@./$(BIN) --self-test | grep -q "PASS" && echo "PASS: --self-test"
 	@./$(BIN) --json | grep -q '"status":"pass"' && echo "PASS: --json"
 	@./$(BIN) --json > .ooda-cache/r1.txt && ./$(BIN) --json > .ooda-cache/r2.txt && cmp -s .ooda-cache/r1.txt .ooda-cache/r2.txt && echo "PASS: double-run output determinism"

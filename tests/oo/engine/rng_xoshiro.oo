@@ -1,0 +1,65 @@
+// # rng_xoshiro — ttfx Rng port: xoshiro256++ with SplitMix64 seeding
+//
+// Logline: Bit-exact port of ttfx::utils::rng::Rng seeded(42): the scalar
+// stream equals the batched one, and every draw emits the identical u64 the
+// Rust probe consumed.
+// Setup: Pure. u64 words ride in signed Int; lshr/rotl keep logical-shift
+// semantics under either >> flavour. Draws return {value, state} structs.
+// Beats:
+//   1. rng_seed expands the seed through SplitMix64 into 4 state words.
+//   2. rng_next emits rotl(s0+s3,23)+s0 and steps the state.
+//   3. rng_below mirrors upstream rejection sampling draw for draw.
+
+import "tests/oo/engine/float_conv.oo";
+
+pub type Rng = struct { s0: Int, s1: Int, s2: Int, s3: Int };
+pub type DR = struct { v: Int, r: Rng };
+pub type DRF = struct { v: Float, r: Rng };
+pub type DRL = struct { v: List[Int], r: Rng };
+
+fn sm64(sm: Int) -> DR {
+    let ns: Int = sm + 0 - 7046029254386353131;
+    let mut z: Int = ns;
+    z = (z ^ lshr(z, 30)) * (0 - 4658895280553007687);
+    z = (z ^ lshr(z, 27)) * (0 - 7723592293110705685);
+    return DR { v: z ^ lshr(z, 31), r: Rng { s0: ns, s1: 0, s2: 0, s3: 0 } };
+}
+
+pub fn rng_seed(seed: Int) -> Rng {
+    let a: DR = sm64(seed);
+    let b: DR = sm64(a.r.s0);
+    let c: DR = sm64(b.r.s0);
+    let d: DR = sm64(c.r.s0);
+    return Rng { s0: a.v, s1: b.v, s2: c.v, s3: d.v };
+}
+
+pub fn rng_next(r: Rng) -> DR {
+    let out: Int = rotl(r.s0 + r.s3, 23) + r.s0;
+    let t: Int = r.s1 << 17;
+    return DR { v: out, r: Rng {
+        s0: r.s0 ^ r.s3 ^ r.s1,
+        s1: r.s1 ^ r.s2 ^ r.s0,
+        s2: r.s2 ^ r.s0 ^ t,
+        s3: rotl(r.s3 ^ r.s1, 45) } };
+}
+
+pub fn rng_below(r: Rng, n: Int) -> DR {
+    let mut bits: Int = 0;
+    let mut m: Int = n - 1;
+    while m > 0 { m = lshr(m, 1); bits = bits + 1; }
+    if bits < 1 { bits = 1; }
+    let sh: Int = 64 - bits;
+    let mut st: Rng = r;
+    while true {
+        let d: DR = rng_next(st);
+        st = d.r;
+        let v: Int = lshr(d.v, sh);
+        if v < n { return DR { v: v, r: st }; }
+    }
+    return DR { v: 0, r: st };
+}
+
+pub fn rng_random(r: Rng) -> DRF {
+    let d: DR = rng_next(r);
+    return DRF { v: u53_to_f(lshr(d.v, 11)) * (1.0 / 9007199254740992.0), r: d.r };
+}

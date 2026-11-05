@@ -1,0 +1,98 @@
+// # anim_grad — Scene.apply_gradient_to_symbols port
+//
+// Logline: Bit-exact cyclic_distribution + apply_gradient_to_symbols: the
+// repeat-factor / overflow-remainder pairing of symbol lists to fg/bg
+// gradient color pairs, exactly as upstream generates scene frames.
+// Setup: Pure. Symbols are Int ords; gradients are packed-color spectra
+// (empty list = that side absent). Pairs pack as (fg, bg) with -1 = none.
+// Beats:
+//   1. cyc_pairs walks larger vs smaller with the upstream overflow rule.
+//   2. sc_apply_grad builds color_pairs then frames in upstream order.
+
+import "tests/oo/kernel/anim_ops.oo";
+
+fn pair_get(pairs: List[Int], i: Int, which: Int) -> Int {
+    return list_get(pairs, i * 2 + which);
+}
+
+fn cyc_emit(larger_n: Int, smaller_n: Int, at: Int) -> Int {
+    let rep: Int = larger_n / smaller_n;
+    let mut over: Int = larger_n % smaller_n;
+    let mut used: Int = 0;
+    let mut si: Int = 0;
+    let mut cur: Int = 0;
+    let mut out: Int = -1;
+    let mut i: Int = 0;
+    while i <= at {
+        if cur >= rep {
+            if over > 0 {
+                if used == 1 { si = si + 1; cur = 0; used = 0; }
+                else { used = 1; over = over - 1; }
+            } else { si = si + 1; cur = 0; }
+        }
+        cur = cur + 1;
+        out = si;
+        i = i + 1;
+    }
+    return out;
+}
+
+fn grad_frames(s: Scene, syms: List[Int], pairs: List[Int], dur: Int, swap: Int) -> Scene {
+    let ns: Int = list_len(syms);
+    let np: Int = list_len(pairs) / 2;
+    let mut sc: Scene = s;
+    if ns >= np {
+        let mut i: Int = 0;
+        while i < ns {
+            let p: Int = cyc_emit(ns, np, i);
+            let fg: Int = if swap == 0 { pair_get(pairs, p, 0) } else { pair_get(pairs, p, 1) };
+            let bg: Int = if swap == 0 { pair_get(pairs, p, 1) } else { pair_get(pairs, p, 0) };
+            sc = sc_add(sc, list_get(syms, i), dur, fg, bg, 0);
+            i = i + 1;
+        }
+        return sc;
+    }
+    let mut j: Int = 0;
+    while j < np {
+        let q: Int = cyc_emit(np, ns, j);
+        let fg: Int = if swap == 0 { pair_get(pairs, j, 0) } else { pair_get(pairs, j, 1) };
+        let bg: Int = if swap == 0 { pair_get(pairs, j, 1) } else { pair_get(pairs, j, 0) };
+        sc = sc_add(sc, list_get(syms, q), dur, fg, bg, 0);
+        j = j + 1;
+    }
+    return sc;
+}
+
+pub fn sc_apply_grad(s: Scene, syms: List[Int], dur: Int, fgs: List[Int], bgs: List[Int]) -> Scene {
+    let nf: Int = list_len(fgs);
+    let nb: Int = list_len(bgs);
+    if nf > 0 && nb > 0 {
+        let mut pairs: List[Int] = list_new();
+        if nf >= nb {
+            let mut i: Int = 0;
+            while i < nf {
+                let b: Int = cyc_emit(nf, nb, i);
+                pairs = list_push(list_push(pairs, list_get(fgs, i)), list_get(bgs, b));
+                i = i + 1;
+            }
+        } else {
+            let mut j: Int = 0;
+            while j < nb {
+                let f: Int = cyc_emit(nb, nf, j);
+                pairs = list_push(list_push(pairs, list_get(fgs, f)), list_get(bgs, j));
+                j = j + 1;
+            }
+        }
+        return grad_frames(s, syms, pairs, dur, 0);
+    }
+    if nf > 0 {
+        let mut pairs2: List[Int] = list_new();
+        let mut k: Int = 0;
+        while k < nf { pairs2 = list_push(list_push(pairs2, list_get(fgs, k)), 0 - 1); k = k + 1; }
+        return grad_frames(s, syms, pairs2, dur, 0);
+    }
+    let mut pairs3: List[Int] = list_new();
+    let mut m: Int = 0;
+    while m < nb { pairs3 = list_push(list_push(pairs3, 0 - 1), list_get(bgs, m)); m = m + 1; }
+    return grad_frames(s, syms, pairs3, dur, 0);
+}

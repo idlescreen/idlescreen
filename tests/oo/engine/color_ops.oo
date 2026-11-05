@@ -1,0 +1,89 @@
+// # color_ops — ttfx graphics color transforms for the parity engine
+//
+// Logline: Bit-exact ports of random_color, shift_color_towards (int()
+// truncating lerp) and Animation.adjust_color_brightness (round() HSL).
+// Setup: Pure. Colors packed 0xRRGGBB. round_he reproduces Python round();
+// trunc_i reproduces int().
+// Beats:
+//   1. random_color draws randint(0, 0xFFFFFF) like upstream.
+//   2. shift_towards lerps channels toward a target with truncation.
+//   3. adjust_brightness runs the RGB->HSL->RGB round-trip.
+
+import "tests/oo/engine/float_conv.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/shade_float.oo";
+
+pub fn random_color(r: Rng) -> DR {
+    return rng_int(r, 0, 16777215);
+}
+
+fn shift_chan(a: Float, b: Float, f: Float) -> Int {
+    return trunc_i((a + (b - a) * f) * 255.0);
+}
+
+pub fn shift_towards(color: Int, target: Int, factor: Float) -> Int {
+    let cr: Float = int_to_f((color / 65536) % 256) / 255.0;
+    let cg: Float = int_to_f((color / 256) % 256) / 255.0;
+    let cb: Float = int_to_f(color % 256) / 255.0;
+    let tr: Float = int_to_f((target / 65536) % 256) / 255.0;
+    let tg: Float = int_to_f((target / 256) % 256) / 255.0;
+    let tb: Float = int_to_f(target % 256) / 255.0;
+    let r: Int = shift_chan(cr, tr, factor);
+    let g: Int = shift_chan(cg, tg, factor);
+    let b: Int = shift_chan(cb, tb, factor);
+    if r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255 { return 0 - 1; }
+    return r * 65536 + g * 256 + b;
+}
+
+fn min_f(a: Float, b: Float) -> Float {
+    if a < b { return a; }
+    return b;
+}
+
+fn hue_to_rgb(ls: Float, ci: Float, h0: Float) -> Float {
+    let mut h: Float = h0;
+    if h < 0.0 { h = h + 1.0; }
+    if h > 1.0 { h = h - 1.0; }
+    if h < 1.0 / 6.0 { return ls + (ci - ls) * 6.0 * h; }
+    if h < 0.5 { return ci; }
+    if h < 2.0 / 3.0 { return ls + (ci - ls) * (2.0 / 3.0 - h) * 6.0; }
+    return ls;
+}
+
+pub fn adjust_brightness(color: Int, brightness: Float) -> Int {
+    let nr: Float = int_to_f((color / 65536) % 256) / 255.0;
+    let ng: Float = int_to_f((color / 256) % 256) / 255.0;
+    let nb: Float = int_to_f(color % 256) / 255.0;
+    let mx: Float = max_f(nr, max_f(ng, nb));
+    let mn: Float = min_f(nr, min_f(ng, nb));
+    let mut lightness: Float = (mx + mn) / 2.0;
+    let mut hue: Float = 0.0;
+    let mut sat: Float = 0.0;
+    if mx != mn {
+        let diff: Float = mx - mn;
+        if lightness > 0.5 { sat = diff / (2.0 - mx - mn); }
+        else { sat = diff / (mx + mn); }
+        let mut hv: Float = 0.0;
+        if mx == nr { hv = (ng - nb) / diff; if ng < nb { hv = hv + 6.0; } }
+        else if mx == ng { hv = (nb - nr) / diff + 2.0; }
+        else { hv = (nr - ng) / diff + 4.0; }
+        hue = hv / 6.0;
+    }
+    lightness = lightness * brightness;
+    if lightness > 1.0 { lightness = 1.0; }
+    if lightness < 0.0 { lightness = 0.0; }
+    let mut rr: Float = lightness;
+    let mut gg: Float = lightness;
+    let mut bb: Float = lightness;
+    if sat > 0.0 {
+        let mut ci: Float = 0.0;
+        if lightness < 0.5 { ci = lightness * (1.0 + sat); }
+        else { ci = lightness + sat - lightness * sat; }
+        let ls: Float = 2.0 * lightness - ci;
+        rr = hue_to_rgb(ls, ci, hue + 1.0 / 3.0);
+        gg = hue_to_rgb(ls, ci, hue);
+        bb = hue_to_rgb(ls, ci, hue - 1.0 / 3.0);
+    }
+    return round_he(rr * 255.0) * 65536 + round_he(gg * 255.0) * 256 + round_he(bb * 255.0);
+}

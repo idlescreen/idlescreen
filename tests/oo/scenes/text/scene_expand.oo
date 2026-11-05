@@ -1,0 +1,79 @@
+// # scene_expand — center-out text expand port
+//
+// Logline: Bit-exact port of Expand::build/next_frame for the parity
+// harness: every input char paths from canvas center home, a Distance-
+// synced gradient scene plays, and PathActivated/PathComplete swap layer.
+// Setup: Built over input_arena + engapi path/scene ops. speed 0.35,
+// InOutQuart, ExistingColorHandling::Ignore (no dynamic branch).
+// Beats:
+//   1. expand_build sets center coord, home path, synced gradient scene.
+//   2. The run loop updates the world and renders while chars are active.
+//   3. expand_run drives the digest loop like the Rust probe.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/digest_run.oo";
+
+fn exp_stops() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 138 * 65536 + 0 * 256 + 138);
+    s = list_push(s, 0 * 65536 + 209 * 256 + 255);
+    s = list_push(s, 255 * 65536 + 255 * 256 + 255);
+    return s;
+}
+
+fn canvas_mid(n: Int) -> Int {
+    if n % 2 == 1 && n > 1 { return n / 2 + 1; }
+    return n / 2;
+}
+
+fn expand_build(w: World, info: CanvasInfo) -> World {
+    let spec: List[Int] = gradient_new(exp_stops(), list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let final_fg: Int = list_get(cmap, ch.row0 - info.tb);
+        w2 = w_pos(w2, id, canvas_mid(info.cols), canvas_mid(info.rows));
+        let pid: String = w_auto_id(list_get(w2.chars, id).pids);
+        w2 = w_path(w2, id, 0.35, 1, ez(12), 0 - 1, 0, 0, "");
+        w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
+        w2 = w_set_vis(w2, id, 1);
+        w2 = w_active_add(w2, id);
+        w2 = w_reg(w2, id, 0, 1, pid, EvAct { kind: 5, sid: "", num: 1, carg: 0 });
+        w2 = w_reg(w2, id, 1, 1, pid, EvAct { kind: 5, sid: "", num: 0, carg: 0 });
+        w2 = eng_act_path(w2, id, 0);
+        w2 = w_scene(w2, id, 0, 2, 0, ez(0), "");
+        let g: List[Int] = gradient_new(list_push(list_push(list_new(), list_get(spec, 0)), final_fg), list_push(list_new(), 10), 0);
+        w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 5, g, list_new());
+        w2 = w_aset(w2, id, 0);
+        k = k + 1;
+    }
+    return w2;
+}
+
+pub fn expand_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = expand_build(w_input(info, lines, rng_seed(42)), info);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(w.active) > 0 {
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

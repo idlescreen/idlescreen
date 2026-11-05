@@ -1,0 +1,49 @@
+// # rng_helpers — Python-random-shaped draws over the xoshiro stream
+//
+// Logline: The helper layer ttfx::utils::rng adds on top of next_u64:
+// randint/randrange via randbelow rejection, choice indices, uniform
+// floats, and Fisher-Yates shuffles. Pure: every draw returns {value,
+// state}.
+// Setup: Rng words are signed Ints; rejection draws loop rng_below.
+// Beats:
+//   1. rng_int is random.randint(a, b) inclusive.
+//   2. rng_range is random.randrange(a, b) half-open.
+//   3. rng_unif is random.uniform(a, b).
+//   4. rng_shuf is random.shuffle from the top.
+
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/float_conv.oo";
+
+pub fn rng_int(r: Rng, a: Int, b: Int) -> DR {
+    let d: DR = rng_below(r, b - a + 1);
+    return DR { v: a + d.v, r: d.r };
+}
+
+pub fn rng_range(r: Rng, a: Int, b: Int) -> DR {
+    let d: DR = rng_below(r, b - a);
+    return DR { v: a + d.v, r: d.r };
+}
+
+pub fn rng_unif(r: Rng, a: Float, b: Float) -> DRF {
+    let d: DRF = rng_random(r);
+    return DRF { v: a + (b - a) * d.v, r: d.r };
+}
+
+pub fn rng_pick(r: Rng, len: Int) -> DR {
+    return rng_below(r, len);
+}
+
+pub fn rng_shuf(r: Rng, xs: List[Int]) -> DRL {
+    let mut st: Rng = r;
+    let mut out: List[Int] = xs;
+    let mut i: Int = list_len(out) - 1;
+    while i >= 1 {
+        let d: DR = rng_below(st, i + 1);
+        st = d.r;
+        let tmp: Int = list_get(out, i);
+        out = list_set(out, i, list_get(out, d.v));
+        out = list_set(out, d.v, tmp);
+        i = i - 1;
+    }
+    return DRL { v: out, r: st };
+}

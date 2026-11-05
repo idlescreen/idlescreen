@@ -1,0 +1,33 @@
+// # char_deact — direct deactivate_scene / deactivate_path API
+//
+// Logline: The two deactivate paths scene code calls outside the event
+// system: Animation.deactivate_scene (None clears, Some clears only when
+// active) and Motion.deactivate_path with the same contract.
+// Setup: Pure. si/pi of -1 means "clear unconditionally" (upstream None).
+// Beats:
+//   1. w_deact_s mirrors Animation.deactivate_scene.
+//   2. w_deact_p mirrors Motion.deactivate_path.
+
+import "tests/oo/kernel/world_ops.oo";
+
+pub fn w_deact_s(w: World, i: Int, si: Int) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let mut a: Int = ch.a_scene;
+    if si == 0 - 1 || si == ch.a_scene { a = 0 - 1; }
+    return w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
+        pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: a, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
+        done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs });
+}
+
+pub fn w_deact_p(w: World, i: Int, pi: Int) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let mut a: Int = ch.a_path;
+    if pi == 0 - 1 || pi == ch.a_path { a = 0 - 1; }
+    return w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
+        pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: a,
+        done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs });
+}

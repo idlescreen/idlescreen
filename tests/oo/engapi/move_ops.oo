@@ -1,0 +1,114 @@
+// # move_ops — Path.step and Motion.move for the parity engine
+//
+// Logline: Bit-exact movement: eased distance factors, the segment walk
+// with overshoot re-add, unclamped eased t (clamped otherwise), and the
+// hold/loop/complete branches of Motion.move.
+// Setup: Pure. MStep.fired: 0 none, 1 PathActivated (loop re-activation),
+// 2 PathComplete; pid carries the caller id for event dispatch.
+// Beats:
+//   1. path_step mirrors Path.step including eased overshoot.
+//   2. motion_move mirrors Motion.move hold/loop/complete order.
+
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/engine/geometry_fns.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/shade_float.oo";
+
+pub type PStep = struct { ch: Char, col: Int, row: Int };
+pub type MStep = struct { ch: Char, fired: Int, pid: String };
+
+fn ch_paths(ch: Char, paths: List[Path]) -> Char {
+    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
+        v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
+        done_path: ch.done_path, pids: ch.pids, paths: paths, evs: ch.evs };
+}
+
+fn step_coord(p: Path, i: Int, dt: Float) -> List[Int] {
+    let seg: Seg = list_get(p.segs, i);
+    let mut t: Float = 0.0;
+    if seg.d != 0.0 {
+        t = dt / seg.d;
+        if p.ease_on == 0 && t > 1.0 { t = 1.0; }
+    }
+    let we: Wp = list_get(p.wps, seg.e);
+    let sc: Int = if seg.s == 0 - 1 { p.oc } else { let ws: Wp = list_get(p.wps, seg.s); ws.c };
+    let sr: Int = if seg.s == 0 - 1 { p.orow } else { let ws: Wp = list_get(p.wps, seg.s); ws.r };
+    if list_len(we.bez) > 0 { return coord_on_bez(sc, sr, we.bez, we.c, we.r, t); }
+    return coord_on_line(sc, sr, we.c, we.r, t);
+}
+
+pub fn path_step(ch: Char, pi: Int) -> PStep {
+    let p: Path = list_get(ch.paths, pi);
+    if p.msteps == 0 || p.cur >= p.msteps || p.total == 0.0 {
+        let seg: Seg = list_get(p.segs, list_len(p.segs) - 1);
+        let we: Wp = list_get(p.wps, seg.e);
+        return PStep { ch: ch, col: we.c, row: we.r };
+    }
+    let cur: Int = p.cur + 1;
+    let ratio: Float = int_to_f(cur) / int_to_f(p.msteps);
+    let factor: Float = if p.ease_on == 1 { ease_val(p.ease, ratio) } else { ratio };
+    let dist: Float = factor * p.total;
+    let p2: Path = path_put(p, p.segs, p.total, cur, p.msteps, p.hrem, dist, p.oc, p.orow, p.has_org);
+    let mut dt: Float = dist;
+    let mut i: Int = 0;
+    while i < list_len(p2.segs) {
+        let seg: Seg = list_get(p2.segs, i);
+        if dt <= seg.d { break; }
+        dt = dt - seg.d;
+        i = i + 1;
+    }
+    if i >= list_len(p2.segs) {
+        i = list_len(p2.segs) - 1;
+        dt = dt + list_get(p2.segs, i).d;
+    }
+    let pt: List[Int] = step_coord(p2, i, dt);
+    return PStep { ch: ch_paths(ch, list_set(ch.paths, pi, p2)), col: list_get(pt, 0), row: list_get(pt, 1) };
+}
+
+fn ch_move(ch: Char, col: Int, row: Int) -> Char {
+    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: col, cr: row,
+        pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
+        done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+}
+
+fn ch_apath(ch: Char, a_path: Int, done: Int) -> Char {
+    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
+        v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: a_path,
+        done_path: done, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+}
+
+pub fn motion_move(ch: Char) -> MStep {
+    let mut c: Char = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
+        pc: ch.cc, pr: ch.cr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
+        done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+    if c.a_path == 0 - 1 { return MStep { ch: c, fired: 0, pid: "" }; }
+    if list_len(list_get(c.paths, c.a_path).segs) == 0 { return MStep { ch: c, fired: 0, pid: "" }; }
+    let pi: Int = c.a_path;
+    let r: PStep = path_step(c, pi);
+    c = ch_move(r.ch, r.col, r.row);
+    let p: Path = list_get(c.paths, pi);
+    if p.cur == p.msteps {
+        if p.hold != 0 && p.hrem == p.hold {
+            let p2: Path = path_put(p, p.segs, p.total, p.cur, p.msteps, p.hrem - 1, p.ldist, p.oc, p.orow, p.has_org);
+            return MStep { ch: ch_paths(c, list_set(c.paths, pi, p2)), fired: 0, pid: "" };
+        }
+        if p.hrem != 0 {
+            let p3: Path = path_put(p, p.segs, p.total, p.cur, p.msteps, p.hrem - 1, p.ldist, p.oc, p.orow, p.has_org);
+            return MStep { ch: ch_paths(c, list_set(c.paths, pi, p3)), fired: 0, pid: "" };
+        }
+        if p.loop_ == 1 && list_len(p.segs) > 1 {
+            return MStep { ch: path_activate(ch_apath(c, 0 - 1, c.done_path), pi), fired: 1, pid: list_get(c.pids, pi) };
+        }
+        return MStep { ch: ch_apath(c, 0 - 1, pi), fired: 2, pid: list_get(c.pids, pi) };
+    }
+    return MStep { ch: c, fired: 0, pid: "" };
+}

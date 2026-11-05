@@ -1,0 +1,136 @@
+// # easing_fns — ttfx Easing port for the parity engine
+//
+// Logline: Bit-exact easing functions: all 31 named variants plus the
+// CSS cubic-bezier (Newton-Raphson on x, upstream constants). Tags follow
+// the Rust enum order 0..30; tag 31 = CubicBezier with x1,y1,x2,y2.
+// Setup: Pure. pow maps to libm pow like Rust powf.
+// Beats:
+//   1. ease_val dispatches on tag like Easing::ease.
+//   2. out_bounce + bezier_ease are the shared bodies.
+
+import "tests/shade_float.oo";
+
+pub type Ease = struct { tag: Int, x1: Float, y1: Float, x2: Float, y2: Float };
+
+pub fn ez(tag: Int) -> Ease {
+    return Ease { tag: tag, x1: 0.0, y1: 0.0, x2: 0.0, y2: 0.0 };
+}
+
+pub fn ez_bezier(x1: Float, y1: Float, x2: Float, y2: Float) -> Ease {
+    return Ease { tag: 31, x1: x1, y1: y1, x2: x2, y2: y2 };
+}
+
+fn out_bounce(p: Float) -> Float {
+    let n1: Float = 7.5625;
+    let d1: Float = 2.75;
+    if p < 1.0 / d1 { return n1 * p * p; }
+    if p < 2.0 / d1 { return n1 * (p - 1.5 / d1) * (p - 1.5 / d1) + 0.75; }
+    if p < 2.5 / d1 { return n1 * (p - 2.25 / d1) * (p - 2.25 / d1) + 0.9375; }
+    return n1 * (p - 2.625 / d1) * (p - 2.625 / d1) + 0.984375;
+}
+
+fn ease_lo(t: Int, p: Float) -> Float {
+    let pi: Float = 3.141592653589793;
+    if t == 0 { return p; }
+    if t == 1 { return 1.0 - cos(p * pi / 2.0); }
+    if t == 2 { return sin(p * pi / 2.0); }
+    if t == 3 { return 0.0 - (cos(pi * p) - 1.0) / 2.0; }
+    if t == 4 { return p * p; }
+    if t == 5 { return 1.0 - (1.0 - p) * (1.0 - p); }
+    if t == 6 {
+        if p < 0.5 { return 2.0 * p * p; }
+        return 1.0 - pow(0.0 - 2.0 * p + 2.0, 2.0) / 2.0;
+    }
+    if t == 7 { return pow(p, 3.0); }
+    if t == 8 { return 1.0 - pow(1.0 - p, 3.0); }
+    if t == 9 {
+        if p < 0.5 { return 4.0 * pow(p, 3.0); }
+        return 1.0 - pow(0.0 - 2.0 * p + 2.0, 3.0) / 2.0;
+    }
+    return pow(p, 4.0);
+}
+
+fn ease_mid(t: Int, p: Float) -> Float {
+    if t == 11 { return 1.0 - pow(1.0 - p, 4.0); }
+    if t == 12 {
+        if p < 0.5 { return 8.0 * pow(p, 4.0); }
+        return 1.0 - pow(0.0 - 2.0 * p + 2.0, 4.0) / 2.0;
+    }
+    if t == 13 { return pow(p, 5.0); }
+    if t == 14 { return 1.0 - pow(1.0 - p, 5.0); }
+    if t == 15 {
+        if p < 0.5 { return 16.0 * pow(p, 5.0); }
+        return 1.0 - pow(0.0 - 2.0 * p + 2.0, 5.0) / 2.0;
+    }
+    if t == 16 { if p == 0.0 { return 0.0; } return pow(2.0, 10.0 * p - 10.0); }
+    if t == 17 { if p == 1.0 { return 1.0; } return 1.0 - pow(2.0, 0.0 - 10.0 * p); }
+    if t == 18 {
+        if p == 0.0 { return 0.0; }
+        if p == 1.0 { return 1.0; }
+        if p < 0.5 { return pow(2.0, 20.0 * p - 10.0) / 2.0; }
+        return (2.0 - pow(2.0, 0.0 - 20.0 * p + 10.0)) / 2.0;
+    }
+    if t == 19 { return 1.0 - sqrt(1.0 - p * p); }
+    if t == 20 { return sqrt(1.0 - pow(p - 1.0, 2.0)); }
+    if p < 0.5 { return (1.0 - sqrt(1.0 - pow(2.0 * p, 2.0))) / 2.0; }
+    return (sqrt(1.0 - pow(0.0 - 2.0 * p + 2.0, 2.0)) + 1.0) / 2.0;
+}
+
+fn ease_hi(t: Int, p: Float) -> Float {
+    let c1: Float = 1.70158;
+    if t == 22 { return (c1 + 1.0) * pow(p, 3.0) - c1 * p * p; }
+    if t == 23 { return 1.0 + (c1 + 1.0) * pow(p - 1.0, 3.0) + c1 * pow(p - 1.0, 2.0); }
+    if t == 24 {
+        let c2: Float = c1 * 1.525;
+        if p < 0.5 { return pow(2.0 * p, 2.0) * ((c2 + 1.0) * 2.0 * p - c2) / 2.0; }
+        return (pow(2.0 * p - 2.0, 2.0) * ((c2 + 1.0) * (p * 2.0 - 2.0) + c2) + 2.0) / 2.0;
+    }
+    if t == 28 { return 1.0 - out_bounce(1.0 - p); }
+    if t == 29 { return out_bounce(p); }
+    if t == 30 {
+        if p < 0.5 { return (1.0 - out_bounce(1.0 - 2.0 * p)) / 2.0; }
+        return (1.0 + out_bounce(2.0 * p - 1.0)) / 2.0;
+    }
+    let c4: Float = 2.0 * 3.141592653589793 / 3.0;
+    if t == 25 {
+        if p == 0.0 { return 0.0; }
+        if p == 1.0 { return 1.0; }
+        return 0.0 - pow(2.0, 10.0 * p - 10.0) * sin((p * 10.0 - 10.75) * c4);
+    }
+    if t == 26 {
+        if p == 0.0 { return 0.0; }
+        if p == 1.0 { return 1.0; }
+        return pow(2.0, 0.0 - 10.0 * p) * sin((p * 10.0 - 0.75) * c4) + 1.0;
+    }
+    let c5: Float = 2.0 * 3.141592653589793 / 4.5;
+    if p == 0.0 { return 0.0; }
+    if p == 1.0 { return 1.0; }
+    if p < 0.5 { return 0.0 - pow(2.0, 20.0 * p - 10.0) * sin((20.0 * p - 11.125) * c5) / 2.0; }
+    return pow(2.0, 0.0 - 20.0 * p + 10.0) * sin((20.0 * p - 11.125) * c5) / 2.0 + 1.0;
+}
+
+fn bezier_ease(x1: Float, y1: Float, x2: Float, y2: Float, progress: Float) -> Float {
+    if progress <= 0.0 { return 0.0; }
+    if progress >= 1.0 { return 1.0; }
+    let mut t: Float = progress;
+    let mut i: Int = 0;
+    while i < 20 {
+        let x_est: Float = 3.0 * x1 * pow(1.0 - t, 2.0) * t + 3.0 * x2 * (1.0 - t) * t * t + pow(t, 3.0);
+        let dx: Float = x_est - progress;
+        if abs_f(dx) < 0.00001 { i = 20; }
+        else {
+            let d: Float = 3.0 * pow(1.0 - t, 2.0) * x1 + 6.0 * (1.0 - t) * t * (x2 - x1) + 3.0 * t * t * (1.0 - x2);
+            if abs_f(d) < 0.000001 { i = 20; }
+            else { t = t - dx / d; }
+        }
+        i = i + 1;
+    }
+    return 3.0 * y1 * pow(1.0 - t, 2.0) * t + 3.0 * y2 * (1.0 - t) * t * t + pow(t, 3.0);
+}
+
+pub fn ease_val(e: Ease, p: Float) -> Float {
+    if e.tag == 31 { return bezier_ease(e.x1, e.y1, e.x2, e.y2, p); }
+    if e.tag <= 10 { return ease_lo(e.tag, p); }
+    if e.tag <= 21 { return ease_mid(e.tag, p); }
+    return ease_hi(e.tag, p);
+}

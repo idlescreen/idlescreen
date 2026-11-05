@@ -1,0 +1,120 @@
+// # scene_mystify — bouncing Qix / Mystify polygon ribbons port
+//
+// Logline: Bit-exact port of Mystify next_frame for the parity harness.
+//
+// Setup: Built over mystify_poly + math_paint. Frames 1..=64.
+//
+// Beats:
+//   1. mystify_new seeds palette and 4 pre-build polygon steps.
+//   2. mystify_next paints cell glow and radial reveal lock.
+//   3. mystify_run drives the digest loop like Rust.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/math_paint.oo";
+import "tests/oo/scenes/deep/mystify_poly.oo";
+import "tests/shade_float.oo";
+import "tests/digest_run.oo";
+
+pub type Mystify = struct {
+    cells: List[CellGeom], palette: List[Int], final_spec: List[Int],
+    verts: List[Float], hist: List[Float], frame: Int, info: CanvasInfo
+};
+
+fn mystify_stops() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 25 * 65536 + 0 * 256 + 51);
+    s = list_push(s, 114 * 65536 + 9 * 256 + 183);
+    s = list_push(s, 247 * 65536 + 37 * 256 + 133);
+    s = list_push(s, 76 * 65536 + 201 * 256 + 240);
+    s = list_push(s, 255 * 65536 + 248 * 256 + 231);
+    return s;
+}
+
+fn mystify_final() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 247 * 65536 + 37 * 256 + 133);
+    s = list_push(s, 76 * 65536 + 201 * 256 + 240);
+    s = list_push(s, 255 * 65536 + 248 * 256 + 231);
+    return s;
+}
+
+fn mstep(m: Mystify, s: PolyStep, frame: Int) -> Mystify {
+    return Mystify { cells: m.cells, palette: m.palette, final_spec: m.final_spec,
+        verts: s.v, hist: s.h, frame: frame, info: m.info };
+}
+
+fn mystify_verts() -> List[Float] {
+    let mut v: List[Float] = list_new();
+    v = list_push(v, 0.0 - 0.85); v = list_push(v, 0.0 - 0.55);
+    v = list_push(v, 0.062); v = list_push(v, 0.048);
+    v = list_push(v, 0.75); v = list_push(v, 0.0 - 0.65);
+    v = list_push(v, 0.0 - 0.054); v = list_push(v, 0.058);
+    v = list_push(v, 0.82); v = list_push(v, 0.62);
+    v = list_push(v, 0.0 - 0.060); v = list_push(v, 0.0 - 0.045);
+    v = list_push(v, 0.0 - 0.72); v = list_push(v, 0.68);
+    v = list_push(v, 0.051); v = list_push(v, 0.0 - 0.056);
+    return v;
+}
+
+pub fn mystify_new(cells: List[CellGeom], info: CanvasInfo) -> Mystify {
+    let mut m: Mystify = Mystify {
+        cells: cells,
+        palette: spectrum_build(mystify_stops(), 12),
+        final_spec: spectrum_build(mystify_final(), 12),
+        verts: mystify_verts(), hist: list_new(), frame: 0, info: info
+    };
+    let mut i: Int = 0;
+    while i < 4 { m = mstep(m, poly_step(m.verts, m.hist), 0); i = i + 1; }
+    return m;
+}
+
+pub fn mystify_next(m: Mystify) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if m.frame >= 64 { return out; }
+    let frame: Int = m.frame + 1;
+    let n: Int = list_len(m.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, settle_paint_cell(list_get(m.cells, i), m.info));
+            i = i + 1;
+        }
+        return out;
+    }
+    let prog: Float = int_to_f(frame) / 64.0;
+    let mut fade: Float = 1.0;
+    if prog > 0.72 { fade = clamp_f((1.0 - prog) / 0.28, 0.0, 1.0); }
+    let rr: Float = prog * 1.85;
+    let mut j: Int = 0;
+    while j < n {
+        let c: CellGeom = list_get(m.cells, j);
+        let mut locked: Int = 0;
+        if c.fill == 0 && c.dist <= rr { locked = 1; }
+        out = list_push(out, math_paint_cell(c, m.info, m.palette, m.final_spec,
+            cell_glow(m.hist, c), locked, fade));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn mystify_advance(m: Mystify) -> Mystify {
+    if m.frame < 63 {
+        return mstep(m, poly_step(m.verts, m.hist), m.frame + 1);
+    }
+    return Mystify { cells: m.cells, palette: m.palette, final_spec: m.final_spec,
+        verts: m.verts, hist: m.hist, frame: m.frame + 1, info: m.info };
+}
+
+pub fn mystify_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {
+    let mut m: Mystify = mystify_new(cells, info);
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        let out: List[PaintCell] = mystify_next(m);
+        if list_len(out) == 0 { break; }
+        run = run_push(run, digest_paint_cells(out), out);
+        m = mystify_advance(m);
+    }
+    return run;
+}

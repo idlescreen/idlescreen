@@ -1,0 +1,75 @@
+// # engine_render — World -> painted cell list
+//
+// Logline: Layer-priority render: per canvas cell the winning char is the
+// visible one with the highest (layer, character_id) pair, emitted in the
+// digest's flipped grid order (grid row 0 = canvas bottom row).
+// Setup: Pure. Colors packed; -1 means the visual left that side unset so
+// the cell keeps its ANSI default (fg 248,248,242 / bg 0,0,0).
+// Beats:
+//   1. wins[] elects (layer, id) max per cell over all visible chars.
+//   2. eng_render emits each grid cell like paint_frame: glyph quantize,
+//      neon boost when no bg, bold for v_bold or full-block glyphs.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/pixel_glyph.oo";
+import "tests/oo/shade_math.oo";
+
+fn wins_for(w: World, cols: Int, rows: Int) -> List[Int] {
+    let mut wins: List[Int] = list_new();
+    let total: Int = cols * rows;
+    let mut k: Int = 0;
+    while k < total { wins = list_push(wins, 0 - 1); k = k + 1; }
+    let mut i: Int = 0;
+    while i < list_len(w.chars) {
+        let ch: Char = list_get(w.chars, i);
+        if ch.vis == 1 && ch.cc >= 1 && ch.cc <= cols && ch.cr >= 1 && ch.cr <= rows {
+            let idx: Int = (ch.cr - 1) * cols + (ch.cc - 1);
+            let prev: Int = list_get(wins, idx);
+            if prev < 0 { wins = list_set(wins, idx, i); }
+            else {
+                let p2: Char = list_get(w.chars, prev);
+                if ch.layer > p2.layer || (ch.layer == p2.layer && i > prev) {
+                    wins = list_set(wins, idx, i);
+                }
+            }
+        }
+        i = i + 1;
+    }
+    return wins;
+}
+
+fn cell_of(ch: Char, gx: Int, gy: Int) -> PaintCell {
+    let g: Int = glyph_ord(ch.v_ord, gx, gy);
+    if g == 32 { return paint_cell_default(); }
+    let mut fg: Int = ch.v_fg;
+    if fg < 0 { fg = 16313586; }
+    let mut bg: Int = ch.v_bg;
+    if bg < 0 { bg = 0; }
+    if bg == 0 { fg = neon_rgb(fg); }
+    let mut bold: Int = 0;
+    if ch.v_bold == 1 || g == 9608 { bold = 1; }
+    return PaintCell { ord: g,
+        fr: (fg / 65536) % 256, fg: (fg / 256) % 256, fb: fg % 256,
+        br: (bg / 65536) % 256, bg: (bg / 256) % 256, bb: bg % 256,
+        bold: bold };
+}
+
+pub fn eng_render(w: World, cols: Int, rows: Int) -> List[PaintCell] {
+    let wins: List[Int] = wins_for(w, cols, rows);
+    let mut cells: List[PaintCell] = list_new();
+    let mut gy: Int = 0;
+    while gy < rows {
+        let mut gx: Int = 0;
+        while gx < cols {
+            let cr: Int = rows - gy;
+            let idx: Int = (cr - 1) * cols + gx;
+            let wi: Int = list_get(wins, idx);
+            if wi < 0 { cells = list_push(cells, paint_cell_default()); }
+            else { cells = list_push(cells, cell_of(list_get(w.chars, wi), gx, gy)); }
+            gx = gx + 1;
+        }
+        gy = gy + 1;
+    }
+    return cells;
+}

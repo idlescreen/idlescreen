@@ -1,0 +1,121 @@
+// # engine_tick — character tick, world update, and cell render
+//
+// Logline: EffectCharacter.tick (motion then animation), the
+// BaseEffectIterator.update snapshot loop with is_active pruning, and the
+// layer-priority cell render that produces the painted grid.
+// Setup: Pure. SceneComplete/PathComplete/PathActivated emissions are gated
+// on registration and routed through eng_fire; PathHolding/Segment events
+// are never subscribed in these scenes and skipped.
+// Beats:
+//   1. eng_tick mirrors tick(): motion_move fires path events, then the
+//      active scene steps (sync > ease > queue) and completes.
+//   2. eng_update ticks the active snapshot then prunes.
+//   3. eng_render picks (layer, id) winners per cell and emits PaintCells.
+
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/move_ops.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/kernel/anim_ops.oo";
+import "tests/oo/kernel/world_ops.oo";
+
+fn ch_scenes(ch: Char, scenes: List[Scene]) -> Char {
+    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
+        pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene, sids: ch.sids, scenes: scenes, a_path: ch.a_path,
+        done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+}
+
+fn ch_av(ch: Char, a_scene: Int, ord: Int, fg: Int, bg: Int, bold: Int) -> Char {
+    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
+        pc: ch.pc, pr: ch.pr, v_ord: ord, v_fg: fg, v_bg: bg, v_bold: bold,
+        a_scene: a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
+        done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+}
+
+fn step_scene(ch: Char) -> Char {
+    if ch.a_scene == 0 - 1 { return ch; }
+    let s0: Scene = list_get(ch.scenes, ch.a_scene);
+    if list_len(s0.fr) == 0 { return ch; }
+    let mut c: Char = ch;
+    if s0.sync != 0 {
+        let mut cs: Int = 0;
+        let mut ms: Int = 1;
+        let mut td: Float = 1.0;
+        let mut ld: Float = 0.0;
+        let mut hp: Int = 0;
+        if c.a_path != 0 - 1 {
+            let p: Path = list_get(c.paths, c.a_path);
+            cs = p.cur; ms = p.msteps; td = p.total; ld = p.ldist; hp = 1;
+        }
+        let r: SCV = sc_synced(s0, cs, ms, td, ld, hp);
+        let f: SFrame = list_get(r.s.af, r.vi);
+        c = ch_av(ch_scenes(c, list_set(c.scenes, c.a_scene, r.s)), c.a_scene, f.ord, f.fg, f.bg, f.bold);
+    } else {
+        if s0.ease_on == 1 {
+            let r2: SCV = sc_eased(s0);
+            let f2: SFrame = list_get(r2.s.af, r2.vi);
+            c = ch_av(ch_scenes(c, list_set(c.scenes, c.a_scene, r2.s)), c.a_scene, f2.ord, f2.fg, f2.bg, f2.bold);
+        } else {
+            let r3: SCV = sc_next(s0);
+            let f3: SFrame = list_get(r3.s.af, r3.vi);
+            c = ch_av(ch_scenes(c, list_set(c.scenes, c.a_scene, r3.s)), c.a_scene, f3.ord, f3.fg, f3.bg, f3.bold);
+        }
+    }
+    return c;
+}
+
+fn complete_scene(w: World, i: Int) -> World {
+    let ch: Char = list_get(w.chars, i);
+    if ch.a_scene == 0 - 1 { return w; }
+    let s: Scene = list_get(ch.scenes, ch.a_scene);
+    if list_len(s.fr) > 0 && s.loop_ == 0 { return w; }
+    let mut c: Char = ch;
+    if s.loop_ == 0 {
+        c = ch_av(ch_scenes(ch, list_set(ch.scenes, ch.a_scene, sc_reset(s))), 0 - 1, ch.v_ord, ch.v_fg, ch.v_bg, ch.v_bold);
+    }
+    let w2: World = w_put(w, i, c);
+    if sub_sc(w2, i) == 1 {
+        let sid: String = list_get(list_get(w2.chars, i).sids, ch.a_scene);
+        return eng_fire(w2, i, 2, 0, sid);
+    }
+    return w2;
+}
+
+fn sub_sc(w: World, i: Int) -> Int {
+    let ch: Char = list_get(w.chars, i);
+    let mut k: Int = 0;
+    while k < list_len(ch.evs) {
+        if list_get(ch.evs, k).ev == 2 { return 1; }
+        k = k + 1;
+    }
+    return 0;
+}
+
+pub fn eng_tick(w: World, i: Int) -> World {
+    let m: MStep = motion_move(list_get(w.chars, i));
+    let mut w2: World = w_put(w, i, m.ch);
+    if m.fired == 1 { w2 = eng_fire(w2, i, 0, 1, m.pid); }
+    if m.fired == 2 { w2 = eng_fire(w2, i, 1, 1, m.pid); }
+    w2 = w_put(w2, i, step_scene(list_get(w2.chars, i)));
+    return complete_scene(w2, i);
+}
+
+pub fn eng_update(w: World) -> World {
+    let snap: List[Int] = w.active;
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(snap) {
+        w2 = eng_tick(w2, list_get(snap, k));
+        k = k + 1;
+    }
+    let mut act: List[Int] = list_new();
+    let mut j: Int = 0;
+    while j < list_len(w2.active) {
+        let i2: Int = list_get(w2.active, j);
+        if w_is_active(list_get(w2.chars, i2)) == 1 { act = list_push(act, i2); }
+        j = j + 1;
+    }
+    return World { chars: w2.chars, active: act, rng: w2.rng, next_id: w2.next_id, pend: w2.pend };
+}

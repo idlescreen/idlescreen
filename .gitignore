@@ -3,3 +3,4 @@ target/
 bin/
 .ooda-cache/
 **/.ooda-cache/
+.blackbox/

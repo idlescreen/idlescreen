@@ -1,0 +1,48 @@
+// # input_arena — upstream terminal arena construction for parity scenes
+//
+// Logline: Terminal::new arena order: input characters first in parse
+// order (top-down over the art lines), then fill characters row-major
+// from (1,1) over the unoccupied cells, tagged inner/outer by the text
+// bounds. Char.fill encodes the population: 0 input, 1 inner fill,
+// 2 outer fill, 3 added via add_character.
+// Setup: Pure. cells order from canvas_cells is top-down row-major; the
+// input filter keeps fill == 0 cells, the fill pass walks row 1..rows,
+// col 1..cols skipping input-occupied coords.
+// Beats:
+//   1. w_input pushes input chars in cell order, then fill chars.
+//   2. fill_at tags inner vs outer against the art block bounds.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+
+fn fill_at(col: Int, row: Int, info: CanvasInfo) -> Int {
+    if col >= info.tl && col <= info.tr && row >= info.tb && row <= info.tt { return 1; }
+    return 2;
+}
+
+pub fn w_input(info: CanvasInfo, lines: List[String], rng: Rng) -> World {
+    let cells: List[CellGeom] = canvas_cells(info, lines);
+    let mut chars: List[Char] = list_new();
+    let mut i: Int = 0;
+    let n: Int = list_len(cells);
+    while i < n {
+        let g: CellGeom = list_get(cells, i);
+        if g.fill == 0 { chars = list_push(chars, ch_in(g.sym, g.col, g.row, 0, 1)); }
+        i = i + 1;
+    }
+    let mut row: Int = 1;
+    while row <= info.rows {
+        let mut col: Int = 1;
+        while col <= info.cols {
+            let g: CellGeom = list_get(cells, (info.rows - row) * info.cols + col - 1);
+            if g.fill != 0 {
+                chars = list_push(chars, ch_in(32, col, row, fill_at(col, row, info), 1));
+            }
+            col = col + 1;
+        }
+        row = row + 1;
+    }
+    return World { chars: chars, active: list_new(), rng: rng, next_id: list_len(chars), pend: list_new() };
+}

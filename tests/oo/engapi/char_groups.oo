@@ -1,0 +1,148 @@
+// # char_groups — upstream character collection, sorting, and grouping
+//
+// Logline: Bit-exact ports of Terminal.collect_characters (flag order
+// input, inner_fill, outer_fill, added), get_characters (stable
+// (-row, column) base sort then the CharacterSort variants), and
+// get_characters_grouped (stable (row, column) pre-sort into ordered
+// buckets, group list optionally reversed).
+// Setup: Pure. Char.fill tags population: 0 input, 1 inner, 2 outer,
+// 3 added. Groups is flat: keys, per-group counts in bounds, and the
+// concatenated member ids (avoids List[List] codegen limits).
+// Beats:
+//   1. collect_ids gathers arena indices per population in flag order.
+//   2. sort_ids applies the upstream ordering variants stably.
+//   3. groups_of buckets by key with in-group (row, col) order kept.
+
+import "tests/oo/kernel/world_ops.oo";
+
+pub type Groups = struct { keys: List[Int], bounds: List[Int], members: List[Int] };
+
+pub fn collect_ids(w: World, mask: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut tag: Int = 0;
+    while tag <= 3 {
+        if (mask >> tag) & 1 == 1 {
+            let mut i: Int = 0;
+            while i < list_len(w.chars) {
+                if list_get(w.chars, i).fill == tag { out = list_push(out, i); }
+                i = i + 1;
+            }
+        }
+        tag = tag + 1;
+    }
+    return out;
+}
+
+fn rev_ids(ids: List[Int]) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = list_len(ids) - 1;
+    while i >= 0 { out = list_push(out, list_get(ids, i)); i = i - 1; }
+    return out;
+}
+
+fn ins_sort(w: World, ids: List[Int], asc_row: Int) -> List[Int] {
+    let mut out: List[Int] = ids;
+    let mut i: Int = 1;
+    while i < list_len(out) {
+        let v: Int = list_get(out, i);
+        let vc: Char = list_get(w.chars, v);
+        let mut j: Int = i - 1;
+        while j >= 0 {
+            let u: Char = list_get(w.chars, list_get(out, j));
+            let mut swap: Int = 0;
+            if asc_row == 1 {
+                if u.row0 > vc.row0 || (u.row0 == vc.row0 && u.col0 > vc.col0) { swap = 1; }
+            } else {
+                if u.row0 < vc.row0 || (u.row0 == vc.row0 && u.col0 > vc.col0) { swap = 1; }
+            }
+            if swap == 0 { break; }
+            out = list_set(out, j + 1, list_get(out, j));
+            j = j - 1;
+        }
+        out = list_set(out, j + 1, v);
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn sort_ids(w: World, ids: List[Int], cols: Int, rows: Int, skind: Int) -> List[Int] {
+    if skind == 2 { return ins_sort(w, ids, 1); }
+    let mut out: List[Int] = ins_sort(w, ids, 0);
+    if skind == 3 { return rev_ids(ins_sort(w, ids, 1)); }
+    if skind == 4 || skind == 5 {
+        let mut mid: List[Int] = list_new();
+        let mut f: Int = 0;
+        let mut b: Int = list_len(out) - 1;
+        let mut front: Int = 1;
+        while f <= b {
+            if front == 1 { mid = list_push(mid, list_get(out, f)); f = f + 1; }
+            else { mid = list_push(mid, list_get(out, b)); b = b - 1; }
+            front = 1 - front;
+        }
+        out = mid;
+        if skind == 5 { out = rev_ids(out); }
+        return out;
+    }
+    if skind == 1 { return rev_ids(out); }
+    return out;
+}
+
+fn gkey(ch: Char, gkind: Int, tcx: Int, tcy: Int) -> Int {
+    if gkind == 0 { return ch.col0; }
+    if gkind == 1 { return ch.row0; }
+    if gkind == 2 { return ch.row0 + ch.col0; }
+    if gkind == 3 { return ch.col0 - ch.row0; }
+    let mut dx: Int = ch.col0 - tcx;
+    let mut dy: Int = ch.row0 - tcy;
+    if dx < 0 { dx = 0 - dx; }
+    if dy < 0 { dy = 0 - dy; }
+    return dx + dy;
+}
+
+fn uniq_keys(w: World, sids: List[Int], gkind: Int, tcx: Int, tcy: Int) -> List[Int] {
+    let mut keys: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(sids) {
+        let k: Int = gkey(list_get(w.chars, list_get(sids, i)), gkind, tcx, tcy);
+        let mut j: Int = 0;
+        while j < list_len(keys) && list_get(keys, j) < k { j = j + 1; }
+        if j == list_len(keys) { keys = list_push(keys, k); }
+        else {
+            if list_get(keys, j) != k {
+                let mut nk: List[Int] = list_new();
+                let mut t: Int = 0;
+                while t < j { nk = list_push(nk, list_get(keys, t)); t = t + 1; }
+                nk = list_push(nk, k);
+                while t < list_len(keys) { nk = list_push(nk, list_get(keys, t)); t = t + 1; }
+                keys = nk;
+            }
+        }
+        i = i + 1;
+    }
+    return keys;
+}
+
+pub fn groups_of(w: World, ids: List[Int], gkind: Int, tcx: Int, tcy: Int, rev: Int) -> Groups {
+    let sids: List[Int] = ins_sort(w, ids, 1);
+    let mut keys: List[Int] = uniq_keys(w, sids, gkind, tcx, tcy);
+    if rev == 1 { keys = rev_ids(keys); }
+    let mut bounds: List[Int] = list_new();
+    let mut members: List[Int] = list_new();
+    let mut gi: Int = 0;
+    while gi < list_len(keys) {
+        let k2: Int = list_get(keys, gi);
+        let mut cnt: Int = 0;
+        let mut m: Int = 0;
+        while m < list_len(sids) {
+            let id: Int = list_get(sids, m);
+            if gkey(list_get(w.chars, id), gkind, tcx, tcy) == k2 {
+                members = list_push(members, id);
+                cnt = cnt + 1;
+            }
+            m = m + 1;
+        }
+        bounds = list_push(bounds, cnt);
+        gi = gi + 1;
+    }
+    return Groups { keys: keys, bounds: bounds, members: members };
+}

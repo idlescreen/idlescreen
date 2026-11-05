@@ -1,0 +1,131 @@
+// # anim_ops — ttfx animation Scene mechanics for the parity engine
+//
+// Logline: Bit-exact Scene ops: frame queues with per-frame durations,
+// looping/reset, synced and eased stepping, each returning the all_frames
+// index of the visual the tick selected.
+// Setup: Pure. Frames carry ord + packed colors (-1 = none) + bold; scenes
+// carry sync tag (0 none, 1 step, 2 distance) and optional Ease.
+// Beats:
+//   1. sc_add pushes a frame and its duration into the maps.
+//   2. sc_next reproduces get_next_visual retire/loop semantics.
+//   3. sc_eased/sc_synced compute the frame upstream would select.
+//   4. sc_reset restores played + remaining frames in original order.
+
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/shade_float.oo";
+
+pub type SFrame = struct { ord: Int, dur: Int, ticks: Int, fg: Int, bg: Int, bold: Int };
+
+pub type Scene = struct {
+    loop_: Int,
+    sync: Int,
+    ease_on: Int,
+    ease: Ease,
+    af: List[SFrame],
+    fr: List[Int],
+    pf: List[Int],
+    fim: List[Int],
+    ecs: Int
+};
+
+pub type SCV = struct { s: Scene, vi: Int };
+
+pub fn sc_new(is_loop: Int, sync: Int, ease_on: Int, e: Ease) -> Scene {
+    return Scene { loop_: is_loop, sync: sync, ease_on: ease_on, ease: e,
+        af: list_new(), fr: list_new(), pf: list_new(), fim: list_new(), ecs: 0 };
+}
+
+pub fn sc_add(s: Scene, ord: Int, dur: Int, fg: Int, bg: Int, bold: Int) -> Scene {
+    let idx: Int = list_len(s.af);
+    let mut fim: List[Int] = s.fim;
+    let mut i: Int = 0;
+    while i < dur { fim = list_push(fim, idx); i = i + 1; }
+    return Scene { loop_: s.loop_, sync: s.sync, ease_on: s.ease_on, ease: s.ease,
+        af: list_push(s.af, SFrame { ord: ord, dur: dur, ticks: 0, fg: fg, bg: bg, bold: bold }),
+        fr: list_push(s.fr, idx), pf: s.pf, fim: fim, ecs: s.ecs };
+}
+
+fn sc_put(s: Scene, af: List[SFrame], fr: List[Int], pf: List[Int], ecs: Int) -> Scene {
+    return Scene { loop_: s.loop_, sync: s.sync, ease_on: s.ease_on, ease: s.ease,
+        af: af, fr: fr, pf: pf, fim: s.fim, ecs: ecs };
+}
+
+pub fn sc_next(s: Scene) -> SCV {
+    let head: Int = list_get(s.fr, 0);
+    let f: SFrame = list_get(s.af, head);
+    if f.ticks + 1 == f.dur {
+        let af2: List[SFrame] = list_set(s.af, head, SFrame { ord: f.ord, dur: f.dur, ticks: 0, fg: f.fg, bg: f.bg, bold: f.bold });
+        let mut fr2: List[Int] = list_slice(s.fr, 1, list_len(s.fr));
+        let mut pf2: List[Int] = list_push(s.pf, head);
+        if s.loop_ == 1 && list_len(fr2) == 0 { fr2 = pf2; pf2 = list_new(); }
+        return SCV { s: sc_put(s, af2, fr2, pf2, s.ecs), vi: head };
+    }
+    let af3: List[SFrame] = list_set(s.af, head, SFrame { ord: f.ord, dur: f.dur, ticks: f.ticks + 1, fg: f.fg, bg: f.bg, bold: f.bold });
+    return SCV { s: sc_put(s, af3, s.fr, s.pf, s.ecs), vi: head };
+}
+
+pub fn sc_reset(s: Scene) -> Scene {
+    let mut af: List[SFrame] = s.af;
+    let mut pf: List[Int] = s.pf;
+    let mut i: Int = 0;
+    while i < list_len(s.fr) {
+        let idx: Int = list_get(s.fr, i);
+        let f: SFrame = list_get(af, idx);
+        af = list_set(af, idx, SFrame { ord: f.ord, dur: f.dur, ticks: 0, fg: f.fg, bg: f.bg, bold: f.bold });
+        pf = list_push(pf, idx);
+        i = i + 1;
+    }
+    return sc_put(s, af, pf, list_new(), 0);
+}
+
+pub fn sc_eased(s: Scene) -> SCV {
+    let total: Int = list_len(s.fim);
+    let ratio: Float = int_to_f(s.ecs) / int_to_f(total);
+    let factor: Float = ease_val(s.ease, ratio);
+    let last: Int = total - 1;
+    let mut idx: Int = round_he(factor * int_to_f(last));
+    if idx > last { idx = last; }
+    if idx < 0 { idx = 0; }
+    let vi: Int = list_get(s.fim, idx);
+    let ecs: Int = s.ecs + 1;
+    if ecs == total {
+        if s.loop_ == 1 { return SCV { s: sc_put(s, s.af, s.fr, s.pf, 0), vi: vi }; }
+        let mut pf: List[Int] = s.pf;
+        let mut i: Int = 0;
+        while i < list_len(s.fr) { pf = list_push(pf, list_get(s.fr, i)); i = i + 1; }
+        return SCV { s: sc_put(s, s.af, list_new(), pf, s.ecs), vi: vi };
+    }
+    return SCV { s: sc_put(s, s.af, s.fr, s.pf, ecs), vi: vi };
+}
+
+pub fn sc_synced(s: Scene, cs: Int, ms: Int, td: Float, ld: Float, hp: Int) -> SCV {
+    if hp == 0 {
+        let last: Int = list_get(s.fr, list_len(s.fr) - 1);
+        let mut pf: List[Int] = s.pf;
+        let mut i: Int = 0;
+        while i < list_len(s.fr) { pf = list_push(pf, list_get(s.fr, i)); i = i + 1; }
+        return SCV { s: sc_put(s, s.af, list_new(), pf, s.ecs), vi: last };
+    }
+    let fin: Int = list_len(s.fr) - 1;
+    let mut prog: Float = 0.0;
+    if s.sync == 1 {
+        let mut c: Int = cs;
+        let mut m: Int = ms;
+        if c < 1 { c = 1; }
+        if m < 1 { m = 1; }
+        prog = int_to_f(c) / int_to_f(m);
+    } else {
+        let mut tot: Float = td;
+        let mut rem: Float = td - ld;
+        if tot < 1.0 { tot = 1.0; }
+        if rem < 1.0 { rem = 1.0; }
+        let mut rec: Float = tot - rem;
+        if rec < 1.0 { rec = 1.0; }
+        prog = rec / tot;
+    }
+    let mut fi: Int = round_he(int_to_f(fin) * prog);
+    if fi > fin { fi = fin; }
+    if fi < 0 { fi = 0; }
+    return SCV { s: s, vi: list_get(s.fr, fi) };
+}

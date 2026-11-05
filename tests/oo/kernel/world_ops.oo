@@ -1,0 +1,100 @@
+// # world_ops — per-character engine state: structs and small pure ops
+//
+// Logline: The World model for the parity engine: chars with visual,
+// animation scenes, motion paths and event tables, plus the small setters
+// every scene op is built from.
+// Setup: Pure. Char ids == arena indices; colors packed, -1 = none.
+// Beats:
+//   1. ch_in/ch_add build input and spawned characters.
+//   2. find_sid/find_pid resolve ordered-map ids to list slots.
+//   3. w_set_vis/w_active manage visibility and the canonical active set.
+//   4. w_is_active mirrors EffectCharacter.is_active.
+
+import "tests/oo/kernel/anim_ops.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/easing_fns.oo";
+
+pub type EvAct = struct { kind: Int, sid: String, num: Int, carg: Int };
+pub type Ev = struct { ev: Int, ck: Int, cid: String, acts: List[EvAct] };
+pub type Wp = struct { c: Int, r: Int, bez: List[Int] };
+pub type Seg = struct { s: Int, e: Int, d: Float };
+
+pub type Path = struct {
+    speed: Float, ease_on: Int, ease: Ease, layer: Int, hold: Int, loop_: Int,
+    segs: List[Seg], wps: List[Wp], total: Float, cur: Int, msteps: Int,
+    hrem: Int, ldist: Float, oc: Int, orow: Int, has_org: Int
+};
+
+pub type Char = struct {
+    sym: Int, col0: Int, row0: Int, fill: Int, uses_pre: Int, vis: Int, layer: Int,
+    cc: Int, cr: Int, pc: Int, pr: Int,
+    v_ord: Int, v_fg: Int, v_bg: Int, v_bold: Int,
+    a_scene: Int, sids: List[String], scenes: List[Scene],
+    a_path: Int, done_path: Int, pids: List[String], paths: List[Path],
+    evs: List[Ev]
+};
+
+pub type World = struct {
+    chars: List[Char], active: List[Int], rng: Rng, next_id: Int, pend: List[Int]
+};
+
+pub fn ch_in(sym: Int, col: Int, row: Int, fill: Int, uses_pre: Int) -> Char {
+    return Char { sym: sym, col0: col, row0: row, fill: fill, uses_pre: uses_pre,
+        vis: 0, layer: 0, cc: col, cr: row, pc: 0 - 1, pr: 0 - 1,
+        v_ord: sym, v_fg: 0 - 1, v_bg: 0 - 1, v_bold: 0,
+        a_scene: 0 - 1, sids: list_new(), scenes: list_new(),
+        a_path: 0 - 1, done_path: 0 - 1, pids: list_new(), paths: list_new(),
+        evs: list_new() };
+}
+
+pub fn find_id(ids: List[String], key: String) -> Int {
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        if list_get(ids, i) == key { return i; }
+        i = i + 1;
+    }
+    return 0 - 1;
+}
+
+pub fn w_put(w: World, i: Int, ch: Char) -> World {
+    return World { chars: list_set(w.chars, i, ch), active: w.active, rng: w.rng,
+        next_id: w.next_id, pend: w.pend };
+}
+
+pub fn w_active_add(w: World, i: Int) -> World {
+    let mut k: Int = 0;
+    while k < list_len(w.active) {
+        if list_get(w.active, k) == i { return w; }
+        if list_get(w.active, k) > i {
+            let mut out: List[Int] = list_new();
+            let mut j: Int = 0;
+            while j < list_len(w.active) {
+                if j == k { out = list_push(out, i); }
+                out = list_push(out, list_get(w.active, j));
+                j = j + 1;
+            }
+            return World { chars: w.chars, active: out, rng: w.rng, next_id: w.next_id, pend: w.pend };
+        }
+        k = k + 1;
+    }
+    return World { chars: w.chars, active: list_push(w.active, i), rng: w.rng, next_id: w.next_id, pend: w.pend };
+}
+
+pub fn w_set_vis(w: World, i: Int, v: Int) -> World {
+    let ch: Char = list_get(w.chars, i);
+    if ch.vis == v { return w; }
+    return w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: v, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
+        v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
+        done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs });
+}
+
+pub fn w_is_active(ch: Char) -> Int {
+    if ch.a_path != 0 - 1 { return 1; }
+    if ch.a_scene != 0 - 1 {
+        let s: Scene = list_get(ch.scenes, ch.a_scene);
+        if list_len(s.fr) > 0 && s.loop_ == 0 { return 1; }
+    }
+    return 0;
+}

@@ -1,0 +1,112 @@
+// # gradient_map — ttfx Gradient + coordinate color mapping port
+//
+// Logline: Bit-exact Gradient::new spectrum generation (multi-step arrays,
+// loop wrap) and the four build_coordinate_color_mapping directions:
+// Vertical, Horizontal, Radial, Diagonal.
+// Setup: Pure. Colors packed 0xRRGGBB. Maps return row- or column-indexed
+// color lists; callers index by coord minus the map origin.
+// Beats:
+//   1. gradient_new reproduces Gradient::new incl. do_loop wrap.
+//   2. cmap_v/cmap_h emit per-row / per-column color lists.
+//   3. cmap_d/cmap_r emit flat (row-major over the mapped box) lists.
+
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/engine/geometry_fns.oo";
+import "tests/shade_float.oo";
+
+pub fn gradient_new(stops: List[Int], steps: List[Int], do_loop: Int) -> List[Int] {
+    let n: Int = list_len(stops);
+    if n == 1 {
+        let mut spec: List[Int] = list_new();
+        let mut k: Int = 0;
+        while k < list_get(steps, 0) { spec = list_push(spec, list_get(stops, 0)); k = k + 1; }
+        return spec;
+    }
+    let mut st: List[Int] = stops;
+    if do_loop == 1 { st = list_push(st, list_get(st, 0)); }
+    let pairs: Int = list_len(st) - 1;
+    let mut sp: List[Int] = steps;
+    while list_len(sp) < pairs { sp = list_push(sp, list_get(sp, list_len(sp) - 1)); }
+    let mut spec: List[Int] = list_new();
+    let mut p: Int = 0;
+    while p < pairs {
+        let cnt: Int = list_get(sp, p);
+        let start: Int = list_get(st, p);
+        let end: Int = list_get(st, p + 1);
+        let sr: Int = (start / 65536) % 256;
+        let sg: Int = (start / 256) % 256;
+        let sb: Int = start % 256;
+        let dr: Int = floor_div_i(((end / 65536) % 256) - sr, cnt);
+        let dg: Int = floor_div_i(((end / 256) % 256) - sg, cnt);
+        let db: Int = floor_div_i((end % 256) - sb, cnt);
+        let mut i: Int = 0;
+        if list_len(spec) > 0 { i = 1; }
+        while i < cnt {
+            let r: Int = clamp_color_channel(sr + dr * i);
+            let g: Int = clamp_color_channel(sg + dg * i);
+            let b: Int = clamp_color_channel(sb + db * i);
+            spec = list_push(spec, r * 65536 + g * 256 + b);
+            i = i + 1;
+        }
+        spec = list_push(spec, end);
+        p = p + 1;
+    }
+    return spec;
+}
+
+pub fn cmap_v(spec: List[Int], min_row: Int, max_row: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let off: Int = min_row - 1;
+    let mut row: Int = min_row;
+    while row <= max_row {
+        let frac: Float = int_to_f(row - off) / int_to_f(max_row - off);
+        out = list_push(out, color_at_fraction(spec, frac));
+        row = row + 1;
+    }
+    return out;
+}
+
+pub fn cmap_h(spec: List[Int], min_col: Int, max_col: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let off: Int = min_col - 1;
+    let mut col: Int = min_col;
+    while col <= max_col {
+        let frac: Float = int_to_f(col - off) / int_to_f(max_col - off);
+        out = list_push(out, color_at_fraction(spec, frac));
+        col = col + 1;
+    }
+    return out;
+}
+
+pub fn cmap_d(spec: List[Int], min_r: Int, max_r: Int, min_c: Int, max_c: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let ro: Int = min_r - 1;
+    let co: Int = min_c - 1;
+    let mut row: Int = min_r;
+    while row <= max_r {
+        let mut col: Int = min_c;
+        while col <= max_c {
+            let num: Int = ((row - ro) * 2) + (col - co);
+            let den: Int = ((max_r - ro) * 2) + (max_c - co);
+            out = list_push(out, color_at_fraction(spec, int_to_f(num) / int_to_f(den)));
+            col = col + 1;
+        }
+        row = row + 1;
+    }
+    return out;
+}
+
+pub fn cmap_r(spec: List[Int], min_r: Int, max_r: Int, min_c: Int, max_c: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut row: Int = min_r;
+    while row <= max_r {
+        let mut col: Int = min_c;
+        while col <= max_c {
+            let d: Float = norm_dist_center(min_r, max_r, min_c, max_c, col, row);
+            out = list_push(out, color_at_fraction(spec, d));
+            col = col + 1;
+        }
+        row = row + 1;
+    }
+    return out;
+}

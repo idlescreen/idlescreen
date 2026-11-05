@@ -47,7 +47,7 @@ pub fn main(args: List[String]) -> Result[Int, String] {
     let lines: List[String] = art_lines();
     let info: CanvasInfo = art_block(lines, info0);
     let cells: List[CellGeom] = canvas_cells(info, lines);
-    let dr: Result[DigestRun, String] = dispatch_scene(name, cells, info);
+    let dr: Result[DigestRun, String] = dispatch_scene(name, cells, info, lines);
     let run: DigestRun = match dr { Ok(r) => r, Err(e) => return Err(e) };
     let nf: Int = list_len(run.frames);
     let mut idx: Int = 0;

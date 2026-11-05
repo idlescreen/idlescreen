@@ -21,6 +21,13 @@ pub fn idlescreen_persona_resolve(prog: String) -> String {
     return "idlescreen";
 }
 
+fn strip_persona_flag(args: List[String]) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut i: Int = 2;
+    while i < list_len(args) { out = list_push(out, list_get(args, i)); i = i + 1; }
+    return out;
+}
+
 pub fn main(
     fs_r: &FsReadCap,
     fs_w: &FsWriteCap,
@@ -35,9 +42,19 @@ pub fn main(
     args: List[String]
 ) -> Result[Int, String] {
     let prog: String = sys_argv0(proc);
-    let persona: String = idlescreen_persona_resolve(prog);
-    if persona == "ooidle" {
-        return Ok(ooidle_persona_run(fs_r, fs_w, fs, bind, tcp, env, time, rand, args));
+    let mut persona: String = idlescreen_persona_resolve(prog);
+    let mut args2: List[String] = args;
+    if list_len(args2) > 0 && list_get(args2, 0) == "--persona" {
+        if list_len(args2) < 2 { return Err("ERR --persona requires a persona name"); }
+        let sel: String = list_get(args2, 1);
+        if sel != "ooidle" && sel != "idlescreen" {
+            return Err("ERR unknown persona: " + sel);
+        }
+        persona = sel;
+        args2 = strip_persona_flag(args2);
     }
-    return Ok(idlescreen_cli_run(fs_r, fs_w, fs, bind, tcp, env, proc, time, rand, ffi, args));
+    if persona == "ooidle" {
+        return Ok(ooidle_persona_run(fs_r, fs_w, fs, bind, tcp, env, time, rand, args2));
+    }
+    return Ok(idlescreen_cli_run(fs_r, fs_w, fs, bind, tcp, env, proc, time, rand, ffi, args2));
 }

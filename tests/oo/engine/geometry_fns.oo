@@ -1,0 +1,122 @@
+// # geometry_fns — ttfx utils/geometry port for path and waypoint math
+//
+// Logline: Bit-exact coordinate helpers: line/bezier lengths and points,
+// circle/rect coord generators, ray extrapolation, and the normalized
+// distance-from-center used by radial gradient maps.
+// Setup: Pure. Coords are (column,row) ints; bezier controls ride as flat
+// List[Int] col,row pairs; all rounds go through Python round() half-even.
+// Beats:
+//   1. len_line/len_bezier reproduce find_length_of_* (10-sample, t<1).
+//   2. coord_on_line/bezier reproduce find_coord_on_* (round at the end).
+//   3. coords_on_circle/in_circle/in_rect/on_rect mirror the generators.
+//   4. norm_dist_center reproduces find_normalized_distance_from_center.
+
+import "tests/oo/engine/float_conv.oo";
+import "tests/shade_float.oo";
+import "tests/shade_trig.oo";
+
+pub fn len_line(c1: Int, r1: Int, c2: Int, r2: Int, dbl: Int) -> Float {
+    let dx: Float = int_to_f(c2 - c1);
+    let dy: Float = int_to_f(r2 - r1);
+    if dbl == 1 { return hypot_f(dx, 2.0 * dy); }
+    return hypot_f(dx, dy);
+}
+
+pub fn coord_on_line(sc: Int, sr: Int, ec: Int, er: Int, t: Float) -> List[Int] {
+    let x: Float = (1.0 - t) * int_to_f(sc) + t * int_to_f(ec);
+    let y: Float = (1.0 - t) * int_to_f(sr) + t * int_to_f(er);
+    return list_push(list_push(list_new(), round_he(x)), round_he(y));
+}
+
+fn bez_point(sc: Float, sr: Float, ctl: List[Float], ec: Float, er: Float, t: Float) -> List[Float] {
+    let mut xs: List[Float] = list_push(list_new(), sc);
+    let mut ys: List[Float] = list_push(list_new(), sr);
+    let n: Int = list_len(ctl) / 2;
+    let mut i: Int = 0;
+    while i < n {
+        xs = list_push(xs, list_get(ctl, i * 2));
+        ys = list_push(ys, list_get(ctl, i * 2 + 1));
+        i = i + 1;
+    }
+    xs = list_push(xs, ec);
+    ys = list_push(ys, er);
+    let mut rem: Int = list_len(xs);
+    while rem > 1 {
+        let mut j: Int = 0;
+        while j < rem - 1 {
+            let nx: Float = (1.0 - t) * list_get(xs, j) + t * list_get(xs, j + 1);
+            let ny: Float = (1.0 - t) * list_get(ys, j) + t * list_get(ys, j + 1);
+            xs = list_set(xs, j, nx);
+            ys = list_set(ys, j, ny);
+            j = j + 1;
+        }
+        rem = rem - 1;
+    }
+    return list_push(list_push(list_new(), list_get(xs, 0)), list_get(ys, 0));
+}
+
+pub fn coord_on_bez(sc: Int, sr: Int, ctl: List[Int], ec: Int, er: Int, t: Float) -> List[Int] {
+    if list_len(ctl) == 0 { return coord_on_line(sc, sr, ec, er, t); }
+    let mut cf: List[Float] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(ctl) { cf = list_push(cf, int_to_f(list_get(ctl, i))); i = i + 1; }
+    let p: List[Float] = bez_point(int_to_f(sc), int_to_f(sr), cf, int_to_f(ec), int_to_f(er), t);
+    return list_push(list_push(list_new(), round_he(list_get(p, 0))), round_he(list_get(p, 1)));
+}
+
+pub fn len_bez(sc: Int, sr: Int, ctl: List[Int], ec: Int, er: Int) -> Float {
+    let mut length: Float = 0.0;
+    let mut pc: Int = sc;
+    let mut pr: Int = sr;
+    let mut k: Int = 1;
+    while k < 10 {
+        let q: List[Int] = coord_on_bez(sc, sr, ctl, ec, er, int_to_f(k) / 10.0);
+        length = length + len_line(pc, pr, list_get(q, 0), list_get(q, 1), 1);
+        pc = list_get(q, 0);
+        pr = list_get(q, 1);
+        k = k + 1;
+    }
+    return length;
+}
+
+pub fn norm_dist_center(bot: Int, top: Int, left: Int, right: Int, col: Int, row: Int) -> Float {
+    let yo: Int = bot - 1;
+    let xo: Int = left - 1;
+    let r2: Int = right - xo;
+    let t2: Int = top - yo;
+    let cx: Float = int_to_f(r2) / 2.0;
+    let cy: Float = int_to_f(t2) / 2.0;
+    let c2: Int = col - xo;
+    let r3: Int = row - yo;
+    let maxd: Float = pow(pow(int_to_f(r2), 2.0) + pow(int_to_f(t2 * 2), 2.0), 0.5);
+    let d: Float = pow(pow(int_to_f(c2) - cx, 2.0) + pow((int_to_f(r3) - cy) * 2.0, 2.0), 0.5);
+    return d / (maxd / 2.0);
+}
+
+pub fn coords_on_circle(oc: Int, orow: Int, radius: Int, limit: Int, unique: Int) -> List[Int] {
+    let mut pts: List[Int] = list_new();
+    if radius == 0 { return pts; }
+    let mut lim: Int = limit;
+    if lim == 0 { lim = round_he(2.0 * 3.141592653589793 * int_to_f(radius)); }
+    let step: Float = 2.0 * 3.141592653589793 / int_to_f(lim);
+    let mut i: Int = 0;
+    while i < lim {
+        let ang: Float = step * int_to_f(i);
+        let mut x: Float = int_to_f(oc) + int_to_f(radius) * cos(ang);
+        x = x + (x - int_to_f(oc));
+        let y: Float = int_to_f(orow) + int_to_f(radius) * sin(ang);
+        let px: Int = round_he(x);
+        let py: Int = round_he(y);
+        let mut dup: Int = 0;
+        if unique == 1 {
+            let mut k: Int = 0;
+            while k < list_len(pts) {
+                if list_get(pts, k) == px && list_get(pts, k + 1) == py { dup = 1; }
+                k = k + 2;
+            }
+        }
+        if dup == 0 { pts = list_push(list_push(pts, px), py); }
+        i = i + 1;
+    }
+    return pts;
+}
