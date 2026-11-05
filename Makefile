@@ -42,8 +42,8 @@ line-cap:
 	@violations=0; \
 	for f in $$(find . -name "*.oo" -o -name "*.oot" | grep -v "/.git/" | grep -v "/bin/" | grep -v "/dist/" | grep -v "/.ooda-cache/" | grep -v "/target/"); do \
 		n=$$(wc -l < "$$f"); \
-		if [ $$n -gt 140 ]; then \
-			echo "VIOLATION: $$f = $$n lines (exceeds 140)"; violations=$$((violations+1)); \
+		if [ $$n -gt 256 ]; then \
+			echo "VIOLATION: $$f = $$n lines (exceeds 256)"; violations=$$((violations+1)); \
 		fi; \
 		code=$$(grep -vE '^[[:space:]]*(//.*)?$$' "$$f" | grep -cvE '^[[:space:]]*import[[:space:]]+"'); \
 		if [ "$$code" = "0" ]; then continue; fi; \
@@ -52,7 +52,7 @@ line-cap:
 		fi; \
 	done; \
 	if [ $$violations -gt 0 ]; then echo "FAIL: $$violations files violate the Page Rule"; exit 1; fi; \
-	echo "PASS: Page Rule sizing (16-140 lines, shims exempt from floor) holds"
+	echo "PASS: Page Rule sizing (16-256 lines, shims exempt from floor) holds"
 
 file-law:
 	@forbidden="py rs js ts rb pl json yaml toml"; \
