@@ -38,19 +38,22 @@ pub type CellGeom = struct {
 };
 
 pub fn paint_cell_default() -> PaintCell {
-    return PaintCell { ord: 32, fr: 248, fg: 248, fb: 242, br: 0, bg: 0, bb: 0, bold: 0 };
+    let _r1 = PaintCell { ord: 32, fr: 248, fg: 248, fb: 242, br: 0, bg: 0, bb: 0, bold: 0 };
+    return _r1;
 }
 
 pub fn emit_paint_cell(visible: Int, sym_ord: Int, color: Int, gx: Int, gy: Int) -> PaintCell {
-    if visible == 0 { return paint_cell_default(); }
+    if visible == 0 { let _r2 = paint_cell_default();
+    return _r2; }
     let ch: Int = glyph_ord(sym_ord, gx, gy);
     if ch == 32 {
-        return PaintCell { ord: 32, fr: 248, fg: 248, fb: 242, br: 0, bg: 0, bb: 0, bold: 0 };
+        let _r3 = PaintCell { ord: 32, fr: 248, fg: 248, fb: 242, br: 0, bg: 0, bb: 0, bold: 0 };
+        return _r3;
     }
     let pack: Int = neon_rgb(color);
     let mut bold: Int = 0;
     if ch == 9608 { bold = 1; }
-    return PaintCell {
+    let _r4 = PaintCell {
         ord: ch,
         fr: (pack / 65536) % 256,
         fg: (pack / 256) % 256,
@@ -60,12 +63,14 @@ pub fn emit_paint_cell(visible: Int, sym_ord: Int, color: Int, gx: Int, gy: Int)
         bb: 0,
         bold: bold
     };
+    return _r4;
 }
 
 pub fn paint_cell_record(c: PaintCell) -> String {
-    return c.ord.to_string() + "," + c.fr.to_string() + "," + c.fg.to_string() + ","
+    let _r5 = c.ord.to_string() + "," + c.fr.to_string() + "," + c.fg.to_string() + ","
         + c.fb.to_string() + "," + c.br.to_string() + "," + c.bg.to_string() + ","
         + c.bb.to_string() + "," + c.bold.to_string() + ";";
+    return _r5;
 }
 
 pub fn grid_record_list(cells: List[PaintCell]) -> String {

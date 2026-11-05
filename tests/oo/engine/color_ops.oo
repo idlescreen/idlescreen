@@ -15,7 +15,8 @@ import "tests/oo/engine/rng_helpers.oo";
 import "tests/shade_float.oo";
 
 pub fn random_color(r: Rng) -> DR {
-    return rng_int(r, 0, 16777215);
+    let _r1 = rng_int(r, 0, 16777215);
+    return _r1;
 }
 
 fn shift_chan(a: Float, b: Float, f: Float) -> Int {

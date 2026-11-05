@@ -41,7 +41,8 @@ fn wins_for(w: World, cols: Int, rows: Int) -> List[Int] {
 
 fn cell_of(ch: Char, gx: Int, gy: Int) -> PaintCell {
     let g: Int = glyph_ord(ch.v_ord, gx, gy);
-    if g == 32 { return paint_cell_default(); }
+    if g == 32 { let _r1 = paint_cell_default();
+    return _r1; }
     let mut fg: Int = ch.v_fg;
     if fg < 0 { fg = 16313586; }
     let mut bg: Int = ch.v_bg;
@@ -49,10 +50,11 @@ fn cell_of(ch: Char, gx: Int, gy: Int) -> PaintCell {
     if bg == 0 { fg = neon_rgb(fg); }
     let mut bold: Int = 0;
     if ch.v_bold == 1 || g == 9608 { bold = 1; }
-    return PaintCell { ord: g,
+    let _r2 = PaintCell { ord: g,
         fr: (fg / 65536) % 256, fg: (fg / 256) % 256, fb: fg % 256,
         br: (bg / 65536) % 256, bg: (bg / 256) % 256, bb: bg % 256,
         bold: bold };
+    return _r2;
 }
 
 pub fn eng_render(w: World, cols: Int, rows: Int) -> List[PaintCell] {

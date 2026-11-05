@@ -1,0 +1,100 @@
+// # scene_middleout — center-out two-phase path port
+//
+// Logline: Bit-exact port of Middleout::build/next_frame for the parity
+// harness: every input char teleports to canvas center, paths to its
+// column on the center row (phase Center), then paths home while a
+// white-to-final gradient "full" scene plays (phase Full).
+// Setup: Vertical expand direction, both paths OutExpo at speed 1.1,
+// starting_color ffffff, non-Dynamic color handling.
+// Beats:
+//   1. mo_build provisions center + full paths, the full scene, and
+//      activates the center path with appearance+visibility.
+//   2. mo_run phases the loop exactly like upstream: transition fires
+//      the frame the active set first empties, then updates/emits.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/digest_run.oo";
+
+fn mo_stops() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 138 * 65536 + 0 * 256 + 138);
+    s = list_push(s, 0 * 65536 + 209 * 256 + 255);
+    s = list_push(s, 255 * 65536 + 255 * 256 + 255);
+    return s;
+}
+
+fn mo_mid(n: Int) -> Int {
+    if n % 2 == 1 && n > 1 { return n / 2 + 1; }
+    return n / 2;
+}
+
+fn mo_build(w: World, info: CanvasInfo) -> World {
+    let spec: List[Int] = gradient_new(mo_stops(), list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let crow: Int = mo_mid(info.rows);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ffg: Int = list_get(cmap, ch.row0 - info.tb);
+        w2 = w_pos(w2, id, mo_mid(info.cols), crow);
+        w2 = w_path(w2, id, 1.1, 1, ez(17), 0 - 1, 0, 0, "");
+        w2 = w_wp(w2, id, 0, ch.col0, crow, list_new());
+        w2 = w_path(w2, id, 1.1, 1, ez(17), 0 - 1, 0, 0, "full");
+        w2 = w_wp(w2, id, 1, ch.col0, ch.row0, list_new());
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "full");
+        let g: List[Int] = gradient_new(list_push(list_push(list_new(), 16777215), ffg), list_push(list_new(), 10), 0);
+        w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 6, g, list_new());
+        w2 = eng_act_path(w2, id, 0);
+        w2 = w_appear(w2, id, 0 - 1, 16777215, 0 - 1, 0);
+        w2 = w_set_vis(w2, id, 1);
+        w2 = w_active_add(w2, id);
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn mo_act_all(w: World, ids: List[Int]) -> World {
+    let _r1 = World { chars: w.chars, active: ids, rng: w.rng, next_id: w.next_id, pend: w.pend };
+    return _r1;
+}
+
+pub fn middleout_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = mo_build(w_input(info, lines, rng_seed(42)), info);
+    let ids: List[Int] = collect_ids(w, 1);
+    let mut run: DigestRun = digest_run_new();
+    let mut phase: Int = 0;
+    let _ = cells;
+    while true {
+        if phase == 0 && list_len(w.active) == 0 {
+            phase = 1;
+            w = mo_act_all(w, ids);
+            let mut k: Int = 0;
+            while k < list_len(ids) {
+                let id: Int = list_get(ids, k);
+                w = eng_act_path(w, id, 1);
+                w = w_aset(w, id, 0);
+                k = k + 1;
+            }
+        }
+        if list_len(w.active) == 0 { break; }
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

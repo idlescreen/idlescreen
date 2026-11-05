@@ -20,6 +20,10 @@ import "tests/oo/scenes/deep/scene_radar.oo";
 import "tests/oo/scenes/deep/scene_cosmos.oo";
 import "tests/oo/scenes/deep/scene_mystify.oo";
 import "tests/oo/scenes/text/scene_expand.oo";
+import "tests/oo/scenes/wipe/scene_wipe.oo";
+import "tests/oo/scenes/wipe/scene_sweep.oo";
+import "tests/oo/scenes/wipe/scene_slide.oo";
+import "tests/oo/scenes/wipe/scene_middleout.oo";
 
 pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> Result[DigestRun, String] {
     if name == "plasma" { return Ok(plasma_run(cells, info)); }
@@ -33,5 +37,9 @@ pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "tunnel" { return Ok(tunnel_run(cells, info)); }
     if name == "mystify" { return Ok(mystify_run(cells, info)); }
     if name == "expand" { return Ok(expand_run(cells, info, lines)); }
+    if name == "wipe" { return Ok(wipe_run(cells, info, lines)); }
+    if name == "sweep" { return Ok(sweep_run(cells, info, lines)); }
+    if name == "slide" { return Ok(slide_run(cells, info, lines)); }
+    if name == "middleout" { return Ok(middleout_run(cells, info, lines)); }
     return Err("ERR\tscene\tno parity port: " + name);
 }

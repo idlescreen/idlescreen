@@ -44,7 +44,7 @@ fn moire_stops3() -> List[Int] {
 }
 
 pub fn moire_new(cells: List[CellGeom], info: CanvasInfo) -> Moire {
-    return Moire {
+    let _r1 = Moire {
         cells: cells,
         palette: spectrum_build(moire_stops5(), 12),
         final_spec: spectrum_build(moire_stops3(), 12),
@@ -52,6 +52,7 @@ pub fn moire_new(cells: List[CellGeom], info: CanvasInfo) -> Moire {
         frame_f: 0.0,
         info: info
     };
+    return _r1;
 }
 
 fn moire_cell(m: Moire, c: CellGeom, sin_a: Float, cos_a: Float, sin_b: Float, cos_b: Float, fill_fade: Float) -> PaintCell {
@@ -60,7 +61,8 @@ fn moire_cell(m: Moire, c: CellGeom, sin_a: Float, cos_a: Float, sin_b: Float, c
     let beat: Float = cos(ua * 21.0) * cos(ub * 17.0);
     let falloff: Float = clamp_f(1.0 - c.dist * 0.45, 0.0, 1.0);
     let intensity: Float = clamp_f((0.5 + 0.5 * beat) * falloff, 0.0, 1.0);
-    return math_paint_cell(c, m.info, m.palette, m.final_spec, intensity, 0, fill_fade);
+    let _r2 = math_paint_cell(c, m.info, m.palette, m.final_spec, intensity, 0, fill_fade);
+    return _r2;
 }
 
 pub fn moire_next(m: Moire) -> List[PaintCell] {
@@ -95,7 +97,7 @@ pub fn moire_next(m: Moire) -> List[PaintCell] {
 }
 
 pub fn moire_advance(m: Moire) -> Moire {
-    return Moire {
+    let _r3 = Moire {
         cells: m.cells,
         palette: m.palette,
         final_spec: m.final_spec,
@@ -103,6 +105,7 @@ pub fn moire_advance(m: Moire) -> Moire {
         frame_f: m.frame_f + 1.0,
         info: m.info
     };
+    return _r3;
 }
 
 pub fn moire_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {

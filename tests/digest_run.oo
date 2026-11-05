@@ -18,7 +18,8 @@ pub type DigestRun = struct {
 };
 
 pub fn digest_run_new() -> DigestRun {
-    return DigestRun { frames: list_new(), composite: fnv1a64_new(), last: list_new() };
+    let _r1 = DigestRun { frames: list_new(), composite: fnv1a64_new(), last: list_new() };
+    return _r1;
 }
 
 pub fn digest_paint_cells(pcs: List[PaintCell]) -> Int {
@@ -26,9 +27,10 @@ pub fn digest_paint_cells(pcs: List[PaintCell]) -> Int {
 }
 
 pub fn run_push(run: DigestRun, d: Int, pcs: List[PaintCell]) -> DigestRun {
-    return DigestRun {
+    let _r3 = DigestRun {
         frames: list_push(run.frames, d),
         composite: fnv1a64_combine(run.composite, d),
         last: pcs
     };
+    return _r3;
 }

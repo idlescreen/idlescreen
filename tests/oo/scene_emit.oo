@@ -35,13 +35,14 @@ fn art_lines() -> List[String] {
 }
 
 fn scene_name(args: List[String]) -> String {
-    if list_len(args) > 0 { return list_get(args, 0); }
+    if list_len(args) > 0 { let _r1 = list_get(args, 0);
+    return _r1; }
     return "plasma";
 }
 
 
 
-pub fn main(args: List[String]) -> Result[Int, String] {
+pub fn main(alloc: &AllocCap, args: List[String]) -> Result[Int, String] {
     let name: String = scene_name(args);
     let info0: CanvasInfo = canvas_info(80, 24);
     let lines: List[String] = art_lines();

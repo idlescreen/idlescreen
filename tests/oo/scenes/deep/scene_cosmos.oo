@@ -44,7 +44,7 @@ fn cosmos_stops3() -> List[Int] {
 }
 
 pub fn cosmos_new(cells: List[CellGeom], info: CanvasInfo) -> Cosmos {
-    return Cosmos {
+    let _r1 = Cosmos {
         cells: cells,
         palette: spectrum_build(cosmos_stops5(), 12),
         final_spec: spectrum_build(cosmos_stops3(), 12),
@@ -52,6 +52,7 @@ pub fn cosmos_new(cells: List[CellGeom], info: CanvasInfo) -> Cosmos {
         frame_f: 0.0,
         info: info
     };
+    return _r1;
 }
 
 fn fmaxf(a: Float, b: Float) -> Float {
@@ -72,7 +73,8 @@ fn cosmos_cell(m: Cosmos, c: CellGeom, t: Float, fill_fade: Float, reveal_r: Flo
     let mut star: Float = 0.0;
     if star_hash == 0 { star = 0.55 + 0.45 * sin(t * 4.0 + int_to_f(c.col)); }
     let intensity: Float = clamp_f(fmaxf(arm * 0.85 + core * 0.95, star), 0.0, 1.0);
-    return math_paint_cell(c, m.info, m.palette, m.final_spec, intensity, locked, fill_fade);
+    let _r2 = math_paint_cell(c, m.info, m.palette, m.final_spec, intensity, locked, fill_fade);
+    return _r2;
 }
 
 pub fn cosmos_next(m: Cosmos) -> List[PaintCell] {
@@ -103,7 +105,7 @@ pub fn cosmos_next(m: Cosmos) -> List[PaintCell] {
 }
 
 pub fn cosmos_advance(m: Cosmos) -> Cosmos {
-    return Cosmos {
+    let _r3 = Cosmos {
         cells: m.cells,
         palette: m.palette,
         final_spec: m.final_spec,
@@ -111,6 +113,7 @@ pub fn cosmos_advance(m: Cosmos) -> Cosmos {
         frame_f: m.frame_f + 1.0,
         info: m.info
     };
+    return _r3;
 }
 
 pub fn cosmos_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {

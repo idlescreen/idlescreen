@@ -1,0 +1,109 @@
+// # scene_wipe — diagonal group-reveal wipe port
+//
+// Logline: Bit-exact port of Wipe::build/next_frame for the parity
+// harness: each input char gets a 13-frame gradient "wipe" scene, then a
+// 100-step OutExpo SequenceEaser reveals diagonal (col-row) groups.
+// Setup: Built over input_arena + engapi ops. ExistingColorHandling is
+// non-Dynamic, wipe_delay 0, direction DiagonalTopLeftToBottomRight.
+// Beats:
+//   1. wipe_build provisions the per-char wipe scenes.
+//   2. wipe_run steps the easer: added group members activate, removed
+//      ones deactivate+reset+hide, then the world ticks and digests.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_deact.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/seq_easer.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/digest_run.oo";
+
+fn wipe_stops() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 131 * 65536 + 58 * 256 + 180);
+    s = list_push(s, 253 * 65536 + 29 * 256 + 29);
+    s = list_push(s, 252 * 65536 + 176 * 256 + 69);
+    return s;
+}
+
+fn wipe_build(w: World, info: CanvasInfo) -> World {
+    let spec: List[Int] = gradient_new(wipe_stops(), list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ffg: Int = list_get(cmap, ch.row0 - info.tb);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "wipe");
+        let g: List[Int] = gradient_new(list_push(list_push(list_new(), list_get(spec, 0)), ffg), list_push(list_new(), 12), 0);
+        w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 1, g, list_new());
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn gidx_of(n: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < n { out = list_push(out, i); i = i + 1; }
+    return out;
+}
+
+fn wipe_rem(w: World, g: Groups, rem: List[Int]) -> World {
+    let mut w2: World = w;
+    let mut r: Int = 0;
+    while r < list_len(rem) {
+        let win2: List[Int] = grp_win(g, list_get(rem, r));
+        let mut m2: Int = 0;
+        while m2 < list_len(win2) {
+            let id2: Int = list_get(win2, m2);
+            w2 = w_deact_s(w2, id2, 0 - 1);
+            w2 = w_sc_reset(w2, id2, 0);
+            w2 = w_set_vis(w2, id2, 0);
+            m2 = m2 + 1;
+        }
+        r = r + 1;
+    }
+    return w2;
+}
+
+pub fn wipe_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = wipe_build(w_input(info, lines, rng_seed(42)), info);
+    let g: Groups = groups_of(w, collect_ids(w, 1), 3, 0, 0, 0);
+    let gseq: List[Int] = gidx_of(list_len(g.keys));
+    let mut trk: Trk = trk_new(ez(17), 100);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(w.active) > 0 || trk_complete(trk) == 0 {
+        let st: SeqStep = seq_step(gseq, trk);
+        trk = st.trk;
+        let mut a: Int = 0;
+        while a < list_len(st.add) {
+            let win: List[Int] = grp_win(g, list_get(st.add, a));
+            let mut m: Int = 0;
+            while m < list_len(win) {
+                let id: Int = list_get(win, m);
+                w = w_aset(w, id, 0);
+                w = w_set_vis(w, id, 1);
+                w = w_active_add(w, id);
+                m = m + 1;
+            }
+            a = a + 1;
+        }
+        w = wipe_rem(w, g, st.rem);
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

@@ -13,7 +13,6 @@
 //   2. fill_at tags inner vs outer against the art block bounds.
 
 import "tests/oo/kernel/world_ops.oo";
-import "tests/oo/kernel/engine_ops.oo";
 import "tests/oo/canvas_cells.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 
@@ -44,5 +43,6 @@ pub fn w_input(info: CanvasInfo, lines: List[String], rng: Rng) -> World {
         }
         row = row + 1;
     }
-    return World { chars: chars, active: list_new(), rng: rng, next_id: list_len(chars), pend: list_new() };
+    let _r1 = World { chars: chars, active: list_new(), rng: rng, next_id: list_len(chars), pend: list_new() };
+    return _r1;
 }

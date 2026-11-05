@@ -12,25 +12,28 @@
 //   4. rng_shuf is random.shuffle from the top.
 
 import "tests/oo/engine/rng_xoshiro.oo";
-import "tests/oo/engine/float_conv.oo";
 
 pub fn rng_int(r: Rng, a: Int, b: Int) -> DR {
     let d: DR = rng_below(r, b - a + 1);
-    return DR { v: a + d.v, r: d.r };
+    let _r1 = DR { v: a + d.v, r: d.r };
+    return _r1;
 }
 
 pub fn rng_range(r: Rng, a: Int, b: Int) -> DR {
     let d: DR = rng_below(r, b - a);
-    return DR { v: a + d.v, r: d.r };
+    let _r2 = DR { v: a + d.v, r: d.r };
+    return _r2;
 }
 
 pub fn rng_unif(r: Rng, a: Float, b: Float) -> DRF {
     let d: DRF = rng_random(r);
-    return DRF { v: a + (b - a) * d.v, r: d.r };
+    let _r3 = DRF { v: a + (b - a) * d.v, r: d.r };
+    return _r3;
 }
 
 pub fn rng_pick(r: Rng, len: Int) -> DR {
-    return rng_below(r, len);
+    let _r4 = rng_below(r, len);
+    return _r4;
 }
 
 pub fn rng_shuf(r: Rng, xs: List[Int]) -> DRL {
@@ -45,5 +48,6 @@ pub fn rng_shuf(r: Rng, xs: List[Int]) -> DRL {
         out = list_set(out, d.v, tmp);
         i = i - 1;
     }
-    return DRL { v: out, r: st };
+    let _r5 = DRL { v: out, r: st };
+    return _r5;
 }

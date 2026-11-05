@@ -66,9 +66,11 @@ fn ins_sort(w: World, ids: List[Int], asc_row: Int) -> List[Int] {
 }
 
 pub fn sort_ids(w: World, ids: List[Int], cols: Int, rows: Int, skind: Int) -> List[Int] {
-    if skind == 2 { return ins_sort(w, ids, 1); }
+    if skind == 2 { let _r1 = ins_sort(w, ids, 1);
+    return _r1; }
     let mut out: List[Int] = ins_sort(w, ids, 0);
-    if skind == 3 { return rev_ids(ins_sort(w, ids, 1)); }
+    if skind == 3 { let _r2 = rev_ids(ins_sort(w, ids, 1));
+    return _r2; }
     if skind == 4 || skind == 5 {
         let mut mid: List[Int] = list_new();
         let mut f: Int = 0;
@@ -83,7 +85,8 @@ pub fn sort_ids(w: World, ids: List[Int], cols: Int, rows: Int, skind: Int) -> L
         if skind == 5 { out = rev_ids(out); }
         return out;
     }
-    if skind == 1 { return rev_ids(out); }
+    if skind == 1 { let _r3 = rev_ids(out);
+    return _r3; }
     return out;
 }
 
@@ -144,5 +147,14 @@ pub fn groups_of(w: World, ids: List[Int], gkind: Int, tcx: Int, tcy: Int, rev: 
         bounds = list_push(bounds, cnt);
         gi = gi + 1;
     }
-    return Groups { keys: keys, bounds: bounds, members: members };
+    let _r8 = Groups { keys: keys, bounds: bounds, members: members };
+    return _r8;
+}
+
+pub fn grp_win(g: Groups, gi: Int) -> List[Int] {
+    let mut off: Int = 0;
+    let mut j: Int = 0;
+    while j < gi { off = off + list_get(g.bounds, j); j = j + 1; }
+    let _r9 = list_slice(g.members, off, off + list_get(g.bounds, gi));
+    return _r9;
 }

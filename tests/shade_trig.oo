@@ -30,7 +30,8 @@ fn atan_small(t: Float) -> Float {
 }
 
 pub fn atan2_f(y: Float, x: Float) -> Float {
-    if x == 0.0 && y == 0.0 { return 0.0; }
+    if x == 0.0 && y == 0.0 { let _r4 = 0.0;
+    return _r4; }
     let ax: Float = if x < 0.0 { 0.0 - x } else { x };
     let ay: Float = if y < 0.0 { 0.0 - y } else { y };
     let mut a: Float = 0.0;

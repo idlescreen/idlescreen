@@ -57,7 +57,8 @@ pub fn round_f(x: Float) -> Float {
 }
 
 pub fn floor_f(x: Float) -> Float {
-    if x >= 0.0 { return int_to_f(float_idx(x)); }
+    if x >= 0.0 { let _r3 = int_to_f(float_idx(x));
+    return _r3; }
     let nx: Float = 0.0 - x;
     let t: Float = int_to_f(float_idx(nx));
     if nx - t > 0.0 { return 0.0 - t - 1.0; }
@@ -65,7 +66,8 @@ pub fn floor_f(x: Float) -> Float {
 }
 
 pub fn rem_euclid_f(x: Float, m: Float) -> Float {
-    return x - m * floor_f(x / m);
+    let _r6 = x - m * floor_f(x / m);
+    return _r6;
 }
 
 pub fn abs_f(x: Float) -> Float {

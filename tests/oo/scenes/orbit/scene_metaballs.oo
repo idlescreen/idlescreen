@@ -44,7 +44,7 @@ fn metaballs_stops3() -> List[Int] {
 }
 
 pub fn metaballs_new(cells: List[CellGeom], info: CanvasInfo) -> Metaballs {
-    return Metaballs {
+    let _r1 = Metaballs {
         cells: cells,
         palette: spectrum_build(metaballs_stops5(), 12),
         final_spec: spectrum_build(metaballs_stops3(), 12),
@@ -52,6 +52,7 @@ pub fn metaballs_new(cells: List[CellGeom], info: CanvasInfo) -> Metaballs {
         frame_f: 0.0,
         info: info
     };
+    return _r1;
 }
 
 fn metaballs_cell(m: Metaballs, c: CellGeom, b0x: Float, b0y: Float, b1x: Float, b1y: Float, b2x: Float, b2y: Float, b3x: Float, b3y: Float, fill_fade: Float, reveal_r: Float) -> PaintCell {
@@ -63,7 +64,8 @@ fn metaballs_cell(m: Metaballs, c: CellGeom, b0x: Float, b0y: Float, b1x: Float,
     let d32: Float = (c.dx - b3x) * (c.dx - b3x) + (c.dy - b3y) * (c.dy - b3y) + 0.035;
     let sum: Float = 0.22 / d02 + 0.24 / d12 + 0.20 / d22 + 0.21 / d32;
     let intensity: Float = clamp_f((sum - 0.85) / 2.4, 0.0, 1.0);
-    return math_paint_cell(c, m.info, m.palette, m.final_spec, intensity, locked, fill_fade);
+    let _r2 = math_paint_cell(c, m.info, m.palette, m.final_spec, intensity, locked, fill_fade);
+    return _r2;
 }
 
 pub fn metaballs_next(m: Metaballs) -> List[PaintCell] {
@@ -103,7 +105,7 @@ pub fn metaballs_next(m: Metaballs) -> List[PaintCell] {
 }
 
 pub fn metaballs_advance(m: Metaballs) -> Metaballs {
-    return Metaballs {
+    let _r3 = Metaballs {
         cells: m.cells,
         palette: m.palette,
         final_spec: m.final_spec,
@@ -111,6 +113,7 @@ pub fn metaballs_advance(m: Metaballs) -> Metaballs {
         frame_f: m.frame_f + 1.0,
         info: m.info
     };
+    return _r3;
 }
 
 pub fn metaballs_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {

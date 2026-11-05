@@ -38,7 +38,8 @@ pub fn poly_step(verts: List[Float], hist: List[Float]) -> PolyStep {
     if list_len(h) >= 32 { h = drop_snap(h); }
     let mut k: Int = 0;
     while k < 8 { h = list_push(h, list_get(v, k / 2 * 4 + k % 2)); k = k + 1; }
-    return PolyStep { v: v, h: h };
+    let _r1 = PolyStep { v: v, h: h };
+    return _r1;
 }
 
 fn seg_d2(px: Float, py: Float, ax: Float, ay: Float, bx: Float, by: Float) -> Float {

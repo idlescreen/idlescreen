@@ -18,24 +18,27 @@ import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/engine/easing_fns.oo";
 
 fn ch_evs(ch: Char, evs: List[Ev]) -> Char {
-    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r1 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
         pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: evs };
+    return _r1;
 }
 
 pub fn w_path(w: World, i: Int, speed: Float, ease_on: Int, e: Ease, layer: Int, hold: Int, loop_: Int, pid: String) -> World {
     let ch: Char = list_get(w.chars, i);
     let mut id: String = pid;
     if id == "" { id = w_auto_id(ch.pids); }
-    return w_put(w, i, ch_pa(ch, list_push(ch.pids, id), list_push(ch.paths, path_new(speed, ease_on, e, layer, hold, loop_))));
+    let _r2 = w_put(w, i, ch_pa(ch, list_push(ch.pids, id), list_push(ch.paths, path_new(speed, ease_on, e, layer, hold, loop_))));
+    return _r2;
 }
 
 pub fn w_wp(w: World, i: Int, pi: Int, col: Int, row: Int, bez: List[Int]) -> World {
     let ch: Char = list_get(w.chars, i);
     let p: Path = wp_add(list_get(ch.paths, pi), col, row, bez);
-    return w_put(w, i, ch_pa(ch, ch.pids, list_set(ch.paths, pi, p)));
+    let _r3 = w_put(w, i, ch_pa(ch, ch.pids, list_set(ch.paths, pi, p)));
+    return _r3;
 }
 
 pub fn w_reg(w: World, i: Int, ev: Int, ck: Int, cid: String, act: EvAct) -> World {
@@ -52,45 +55,50 @@ pub fn w_reg(w: World, i: Int, ev: Int, ck: Int, cid: String, act: EvAct) -> Wor
         k = k + 1;
     }
     if found == 0 { evs = list_push(evs, Ev { ev: ev, ck: ck, cid: cid, acts: list_push(list_new(), act) }); }
-    return w_put(w, i, ch_evs(ch, evs));
+    let _r4 = w_put(w, i, ch_evs(ch, evs));
+    return _r4;
 }
 
 pub fn w_appear(w: World, i: Int, ord: Int, fg: Int, bg: Int, bold: Int) -> World {
     let ch: Char = list_get(w.chars, i);
     let mut o: Int = ord;
     if o < 0 { o = ch.sym; }
-    return w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r5 = w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
         pc: ch.pc, pr: ch.pr, v_ord: o, v_fg: fg, v_bg: bg, v_bold: bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs });
+    return _r5;
 }
 
 pub fn w_aset(w: World, i: Int, si: Int) -> World {
     let ch: Char = list_get(w.chars, i);
     let sc: Scene = list_get(ch.scenes, si);
     let f: SFrame = list_get(sc.af, list_get(sc.fr, 0));
-    return w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r6 = w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
         pc: ch.pc, pr: ch.pr, v_ord: f.ord, v_fg: f.fg, v_bg: f.bg, v_bold: f.bold,
         a_scene: si, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs });
+    return _r6;
 }
 
 pub fn w_pos(w: World, i: Int, col: Int, row: Int) -> World {
     let ch: Char = list_get(w.chars, i);
-    return w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r7 = w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: col, cr: row,
         pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs });
+    return _r7;
 }
 
 pub fn w_lay(w: World, i: Int, layer: Int) -> World {
     let ch: Char = list_get(w.chars, i);
-    return w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r8 = w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: layer, cc: ch.cc, cr: ch.cr,
         pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs });
+    return _r8;
 }

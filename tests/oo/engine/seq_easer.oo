@@ -19,7 +19,8 @@ pub type Trk = struct { e: Ease, total: Int, cur: Int, eased: Float, last: Float
 pub type SeqStep = struct { add: List[Int], rem: List[Int], trk: Trk };
 
 pub fn trk_new(e: Ease, total: Int) -> Trk {
-    return Trk { e: e, total: total, cur: 0, eased: 0.0, last: 0.0 };
+    let _r1 = Trk { e: e, total: total, cur: 0, eased: 0.0, last: 0.0 };
+    return _r1;
 }
 
 pub fn trk_complete(t: Trk) -> Int {
@@ -34,7 +35,8 @@ pub fn trk_step(t: Trk) -> Trk {
     let mut eased: Float = ease_val(t.e, ratio);
     if eased > 1.0 { eased = 1.0; }
     if eased < 0.0 { eased = 0.0; }
-    return Trk { e: t.e, total: t.total, cur: cur, eased: eased, last: t.eased };
+    let _r2 = Trk { e: t.e, total: t.total, cur: cur, eased: eased, last: t.eased };
+    return _r2;
 }
 
 pub fn seq_step(seq: List[Int], t: Trk) -> SeqStep {
@@ -53,5 +55,6 @@ pub fn seq_step(seq: List[Int], t: Trk) -> SeqStep {
         let mut j: Int = len;
         while j < plen { rem = list_push(rem, list_get(seq, j)); j = j + 1; }
     }
-    return SeqStep { add: add, rem: rem, trk: t2 };
+    let _r3 = SeqStep { add: add, rem: rem, trk: t2 };
+    return _r3;
 }

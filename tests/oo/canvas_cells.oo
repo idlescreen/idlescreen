@@ -27,7 +27,7 @@ pub type CanvasInfo = struct {
 };
 
 pub fn canvas_info(cols: Int, rows: Int) -> CanvasInfo {
-    return CanvasInfo {
+    let _r1 = CanvasInfo {
         cols: cols,
         rows: rows,
         left: 1,
@@ -39,6 +39,7 @@ pub fn canvas_info(cols: Int, rows: Int) -> CanvasInfo {
         tt: 0,
         tb: 0
     };
+    return _r1;
 }
 
 pub fn art_block(lines: List[String], info: CanvasInfo) -> CanvasInfo {
@@ -56,7 +57,7 @@ pub fn art_block(lines: List[String], info: CanvasInfo) -> CanvasInfo {
     let tr: Int = tl + w - 1;
     let tb: Int = (info.rows + 1) / 2 - h / 2 + 1;
     let tt: Int = tb + h - 1;
-    return CanvasInfo {
+    let _r2 = CanvasInfo {
         cols: info.cols,
         rows: info.rows,
         left: info.left,
@@ -68,6 +69,7 @@ pub fn art_block(lines: List[String], info: CanvasInfo) -> CanvasInfo {
         tt: tt,
         tb: tb
     };
+    return _r2;
 }
 
 fn art_char_ord(lines: List[String], col: Int, row: Int, info: CanvasInfo) -> Int {
@@ -92,7 +94,7 @@ fn geom_cell(info: CanvasInfo, col_f: Float, row_f: Float, col: Int, row: Int, s
     let ny: Float = clamp_f(1.0 - (row_f - bottom_f) / height_f, 0.0, 1.0);
     let dx: Float = (nx - 0.5) * 2.0 * aspect;
     let dy: Float = (ny - 0.5) * 2.0;
-    return CellGeom {
+    let _r4 = CellGeom {
         fill: fill,
         sym: sym,
         col: col,
@@ -104,6 +106,7 @@ fn geom_cell(info: CanvasInfo, col_f: Float, row_f: Float, col: Int, row: Int, s
         dist: hypot_f(dx, dy),
         angle: atan2_f(dy, dx)
     };
+    return _r4;
 }
 
 pub fn canvas_cells(info0: CanvasInfo, lines: List[String]) -> List[CellGeom] {

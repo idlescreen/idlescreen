@@ -45,7 +45,7 @@ fn tunnel_stops3() -> List[Int] {
 }
 
 pub fn tunnel_new(cells: List[CellGeom], info: CanvasInfo) -> Tunnel {
-    return Tunnel {
+    let _r1 = Tunnel {
         cells: cells,
         palette: spectrum_build(tunnel_stops5(), 12),
         final_spec: spectrum_build(tunnel_stops3(), 12),
@@ -53,6 +53,7 @@ pub fn tunnel_new(cells: List[CellGeom], info: CanvasInfo) -> Tunnel {
         frame_f: 0.0,
         info: info
     };
+    return _r1;
 }
 
 fn tunnel_cell(tu: Tunnel, c: CellGeom, t: Float, bx: Float, by: Float, ff: Float, rev_r: Float) -> PaintCell {
@@ -70,7 +71,8 @@ fn tunnel_cell(tu: Tunnel, c: CellGeom, t: Float, bx: Float, by: Float, ff: Floa
     let intensity: Float = clamp_f(base * ring_glow * depth_fog, 0.0, 1.0);
     let mut locked: Int = 0;
     if c.fill == 0 && c.dist <= rev_r { locked = 1; }
-    return math_paint_cell(c, tu.info, tu.palette, tu.final_spec, intensity, locked, ff);
+    let _r2 = math_paint_cell(c, tu.info, tu.palette, tu.final_spec, intensity, locked, ff);
+    return _r2;
 }
 
 pub fn tunnel_next(tu: Tunnel) -> List[PaintCell] {
@@ -103,7 +105,7 @@ pub fn tunnel_next(tu: Tunnel) -> List[PaintCell] {
 }
 
 pub fn tunnel_advance(tu: Tunnel) -> Tunnel {
-    return Tunnel {
+    let _r3 = Tunnel {
         cells: tu.cells,
         palette: tu.palette,
         final_spec: tu.final_spec,
@@ -111,6 +113,7 @@ pub fn tunnel_advance(tu: Tunnel) -> Tunnel {
         frame_f: tu.frame_f + 1.0,
         info: tu.info
     };
+    return _r3;
 }
 
 pub fn tunnel_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {

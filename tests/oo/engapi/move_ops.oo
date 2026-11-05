@@ -19,11 +19,12 @@ pub type PStep = struct { ch: Char, col: Int, row: Int };
 pub type MStep = struct { ch: Char, fired: Int, pid: String };
 
 fn ch_paths(ch: Char, paths: List[Path]) -> Char {
-    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r1 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
         v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: paths, evs: ch.evs };
+    return _r1;
 }
 
 fn step_coord(p: Path, i: Int, dt: Float) -> List[Int] {
@@ -36,8 +37,10 @@ fn step_coord(p: Path, i: Int, dt: Float) -> List[Int] {
     let we: Wp = list_get(p.wps, seg.e);
     let sc: Int = if seg.s == 0 - 1 { p.oc } else { let ws: Wp = list_get(p.wps, seg.s); ws.c };
     let sr: Int = if seg.s == 0 - 1 { p.orow } else { let ws: Wp = list_get(p.wps, seg.s); ws.r };
-    if list_len(we.bez) > 0 { return coord_on_bez(sc, sr, we.bez, we.c, we.r, t); }
-    return coord_on_line(sc, sr, we.c, we.r, t);
+    if list_len(we.bez) > 0 { let _r2 = coord_on_bez(sc, sr, we.bez, we.c, we.r, t);
+    return _r2; }
+    let _r3 = coord_on_line(sc, sr, we.c, we.r, t);
+    return _r3;
 }
 
 pub fn path_step(ch: Char, pi: Int) -> PStep {
@@ -45,7 +48,8 @@ pub fn path_step(ch: Char, pi: Int) -> PStep {
     if p.msteps == 0 || p.cur >= p.msteps || p.total == 0.0 {
         let seg: Seg = list_get(p.segs, list_len(p.segs) - 1);
         let we: Wp = list_get(p.wps, seg.e);
-        return PStep { ch: ch, col: we.c, row: we.r };
+        let _r4 = PStep { ch: ch, col: we.c, row: we.r };
+        return _r4;
     }
     let cur: Int = p.cur + 1;
     let ratio: Float = int_to_f(cur) / int_to_f(p.msteps);
@@ -65,23 +69,26 @@ pub fn path_step(ch: Char, pi: Int) -> PStep {
         dt = dt + list_get(p2.segs, i).d;
     }
     let pt: List[Int] = step_coord(p2, i, dt);
-    return PStep { ch: ch_paths(ch, list_set(ch.paths, pi, p2)), col: list_get(pt, 0), row: list_get(pt, 1) };
+    let _r5 = PStep { ch: ch_paths(ch, list_set(ch.paths, pi, p2)), col: list_get(pt, 0), row: list_get(pt, 1) };
+    return _r5;
 }
 
 fn ch_move(ch: Char, col: Int, row: Int) -> Char {
-    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r6 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: col, cr: row,
         pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+    return _r6;
 }
 
 fn ch_apath(ch: Char, a_path: Int, done: Int) -> Char {
-    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r7 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
         v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: a_path,
         done_path: done, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+    return _r7;
 }
 
 pub fn motion_move(ch: Char) -> MStep {
@@ -90,8 +97,10 @@ pub fn motion_move(ch: Char) -> MStep {
         pc: ch.cc, pr: ch.cr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
-    if c.a_path == 0 - 1 { return MStep { ch: c, fired: 0, pid: "" }; }
-    if list_len(list_get(c.paths, c.a_path).segs) == 0 { return MStep { ch: c, fired: 0, pid: "" }; }
+    if c.a_path == 0 - 1 { let _r8 = MStep { ch: c, fired: 0, pid: "" };
+    return _r8; }
+    if list_len(list_get(c.paths, c.a_path).segs) == 0 { let _r9 = MStep { ch: c, fired: 0, pid: "" };
+    return _r9; }
     let pi: Int = c.a_path;
     let r: PStep = path_step(c, pi);
     c = ch_move(r.ch, r.col, r.row);
@@ -99,16 +108,21 @@ pub fn motion_move(ch: Char) -> MStep {
     if p.cur == p.msteps {
         if p.hold != 0 && p.hrem == p.hold {
             let p2: Path = path_put(p, p.segs, p.total, p.cur, p.msteps, p.hrem - 1, p.ldist, p.oc, p.orow, p.has_org);
-            return MStep { ch: ch_paths(c, list_set(c.paths, pi, p2)), fired: 0, pid: "" };
+            let _r10 = MStep { ch: ch_paths(c, list_set(c.paths, pi, p2)), fired: 0, pid: "" };
+            return _r10;
         }
         if p.hrem != 0 {
             let p3: Path = path_put(p, p.segs, p.total, p.cur, p.msteps, p.hrem - 1, p.ldist, p.oc, p.orow, p.has_org);
-            return MStep { ch: ch_paths(c, list_set(c.paths, pi, p3)), fired: 0, pid: "" };
+            let _r11 = MStep { ch: ch_paths(c, list_set(c.paths, pi, p3)), fired: 0, pid: "" };
+            return _r11;
         }
         if p.loop_ == 1 && list_len(p.segs) > 1 {
-            return MStep { ch: path_activate(ch_apath(c, 0 - 1, c.done_path), pi), fired: 1, pid: list_get(c.pids, pi) };
+            let _r12 = MStep { ch: path_activate(ch_apath(c, 0 - 1, c.done_path), pi), fired: 1, pid: list_get(c.pids, pi) };
+            return _r12;
         }
-        return MStep { ch: ch_apath(c, 0 - 1, pi), fired: 2, pid: list_get(c.pids, pi) };
+        let _r13 = MStep { ch: ch_apath(c, 0 - 1, pi), fired: 2, pid: list_get(c.pids, pi) };
+        return _r13;
     }
-    return MStep { ch: c, fired: 0, pid: "" };
+    let _r14 = MStep { ch: c, fired: 0, pid: "" };
+    return _r14;
 }

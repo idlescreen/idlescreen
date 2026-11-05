@@ -1,0 +1,164 @@
+// # scene_sweep — two-phase column sweep port
+//
+// Logline: Bit-exact port of Sweep::build/next_frame for the parity
+// harness: every input+fill char scripts an initial_sweep scene (4 rng
+// gray-block frames + gray settle) and a second_sweep scene (4 rng
+// gradient-block frames + final color), then two InOutCirc easer passes
+// reveal columns right-to-left then left-to-right.
+// Setup: Filter input|inner|outer, non-Dynamic colors. RNG draws inter-
+// leave per char exactly as upstream (4 gray picks then 4 spectrum picks
+// in (-row, col) char order).
+// Beats:
+//   1. sw_build provisions both scenes and drains the rng in upstream
+//      order.
+//   2. sweep_run steps the easer, activates added group members, swaps
+//      to the second group set on phase end, updates and digests.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/anim_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/seq_easer.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/digest_run.oo";
+
+fn sw_stops() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 138 * 65536 + 0 * 256 + 138);
+    s = list_push(s, 0 * 65536 + 209 * 256 + 255);
+    s = list_push(s, 255 * 65536 + 255 * 256 + 255);
+    return s;
+}
+
+fn sw_grays() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 10526880);
+    s = list_push(s, 8421504);
+    s = list_push(s, 4210752);
+    s = list_push(s, 2105376);
+    s = list_push(s, 1052688);
+    return s;
+}
+
+fn sw_syms() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 9608);
+    s = list_push(s, 9619);
+    s = list_push(s, 9618);
+    s = list_push(s, 9617);
+    return s;
+}
+
+fn sw_gidx(n: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < n { out = list_push(out, i); i = i + 1; }
+    return out;
+}
+
+fn sw_char(w: World, id: Int, syms: List[Int], grays: List[Int], spec: List[Int], cmap: List[Int], tb: Int) -> World {
+    let ch: Char = list_get(w.chars, id);
+    let mut w2: World = w;
+    let mut s0: Scene = sc_new(0, 0, 0, ez(0));
+    let mut j: Int = 0;
+    while j < 4 {
+        let d: DR = rng_below(w2.rng, 5);
+        w2 = w_rng(w2, d.r);
+        s0 = sc_add(s0, list_get(syms, j), 5, list_get(grays, d.v), 0 - 1, 0);
+        j = j + 1;
+    }
+    s0 = sc_add(s0, ch.sym, 1, 8421504, 0 - 1, 0);
+    let mut s1: Scene = sc_new(0, 0, 0, ez(0));
+    let mut j2: Int = 0;
+    while j2 < 4 {
+        let d2: DR = rng_below(w2.rng, 17);
+        w2 = w_rng(w2, d2.r);
+        s1 = sc_add(s1, list_get(syms, j2), 5, list_get(spec, d2.v), 0 - 1, 0);
+        j2 = j2 + 1;
+    }
+    let mut fc: Int = 0;
+    if ch.fill == 0 { fc = list_get(cmap, ch.row0 - tb); }
+    s1 = sc_add(s1, ch.sym, 1, fc, 0 - 1, 0);
+    let _r1 = w_put(w2, id, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
+        pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene,
+        sids: list_push(list_push(list_new(), "initial_sweep"), "second_sweep"),
+        scenes: list_push(list_push(list_new(), s0), s1),
+        a_path: ch.a_path, done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs });
+    return _r1;
+}
+
+fn sw_add(w: World, g: Groups, gi: Int, phase: Int) -> World {
+    let win: List[Int] = grp_win(g, gi);
+    let mut w2: World = w;
+    let mut m: Int = 0;
+    while m < list_len(win) {
+        let id: Int = list_get(win, m);
+        if phase == 0 { w2 = w_set_vis(w2, id, 1); }
+        w2 = w_aset(w2, id, phase);
+        m = m + 1;
+    }
+    let mut m2: Int = 0;
+    while m2 < list_len(win) { w2 = w_active_add(w2, list_get(win, m2)); m2 = m2 + 1; }
+    return w2;
+}
+
+fn sw_build(w: World, info: CanvasInfo) -> World {
+    let spec: List[Int] = gradient_new(sw_stops(), list_push(list_new(), 8), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let grays: List[Int] = sw_grays();
+    let syms: List[Int] = sw_syms();
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 7), info.cols, info.rows, 0);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        w2 = sw_char(w2, list_get(ids, k), syms, grays, spec, cmap, info.tb);
+        k = k + 1;
+    }
+    return w2;
+}
+
+pub fn sweep_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = w_input(info, lines, rng_seed(42));
+    w = sw_build(w, info);
+    let ids7: List[Int] = collect_ids(w, 7);
+    let mut g: Groups = groups_of(w, ids7, 0, 0, 0, 1);
+    let g2: Groups = groups_of(w, ids7, 0, 0, 0, 0);
+    let mut gseq: List[Int] = sw_gidx(list_len(g.keys));
+    let mut trk: Trk = trk_new(ez(21), 100);
+    let mut phase: Int = 0;
+    let mut done: Int = 0;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(w.active) > 0 || done == 0 {
+        let st: SeqStep = seq_step(gseq, trk);
+        trk = st.trk;
+        let mut a: Int = 0;
+        while a < list_len(st.add) {
+            w = sw_add(w, g, list_get(st.add, a), phase);
+            a = a + 1;
+        }
+        if trk_complete(trk) == 1 {
+            if phase == 0 {
+                phase = 1;
+                g = g2;
+                gseq = sw_gidx(list_len(g2.keys));
+                trk = trk_new(ez(21), 100);
+            } else {
+                done = 1;
+            }
+        }
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

@@ -1,0 +1,138 @@
+// # scene_slide — row-group slide-in port
+//
+// Logline: Bit-exact port of Slide::build/next_frame for the parity
+// harness: input chars teleport to the canvas left edge, each row group
+// is gap-staggered two frames apart, and members pop one per frame into
+// an InOutQuad path home while a gradient scene runs.
+// Setup: Row grouping (merge off, reverse_direction off), movement_speed
+// 0.8, gap 2, scene = 11-frame gradient at dur 6. Non-Dynamic colors.
+// Beats:
+//   1. sl_build provisions paths, teleports starts, and activates scenes.
+//   2. grp_rev puts each group's members in upstream pop order.
+//   3. sl_run drains pending groups on the gap timer, popping one char
+//      per active group per frame, then updates and digests.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/digest_run.oo";
+
+fn sl_stops() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 131 * 65536 + 58 * 256 + 180);
+    s = list_push(s, 253 * 65536 + 29 * 256 + 29);
+    s = list_push(s, 252 * 65536 + 176 * 256 + 69);
+    return s;
+}
+
+fn sl_goff(g: Groups, gi: Int) -> Int {
+    let mut off: Int = 0;
+    let mut j: Int = 0;
+    while j < gi { off = off + list_get(g.bounds, j); j = j + 1; }
+    return off;
+}
+
+fn grp_rev(g: Groups) -> Groups {
+    let mut m: List[Int] = list_new();
+    let mut gi: Int = 0;
+    while gi < list_len(g.keys) {
+        let win: List[Int] = grp_win(g, gi);
+        let mut j: Int = list_len(win) - 1;
+        while j >= 0 { m = list_push(m, list_get(win, j)); j = j - 1; }
+        gi = gi + 1;
+    }
+    let _r1 = Groups { keys: g.keys, bounds: g.bounds, members: m };
+    return _r1;
+}
+
+fn sl_build(w: World, info: CanvasInfo) -> World {
+    let spec: List[Int] = gradient_new(sl_stops(), list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ffg: Int = list_get(cmap, ch.row0 - info.tb);
+        w2 = w_path(w2, id, 0.8, 1, ez(6), 0 - 1, 0, 0, "input_path");
+        w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
+        w2 = w_pos(w2, id, info.left - 1, ch.row0);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+        let g: List[Int] = gradient_new(list_push(list_push(list_new(), list_get(spec, 0)), ffg), list_push(list_new(), 10), 0);
+        w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 6, g, list_new());
+        w2 = w_aset(w2, id, 0);
+        k = k + 1;
+    }
+    return w2;
+}
+
+type SlPop = struct {
+    w: World,
+    ag: List[Int],
+    ap: List[Int],
+};
+
+fn sl_pops(pw: SlPop, g: Groups) -> SlPop {
+    let mut w: World = pw.w;
+    let mut ag2: List[Int] = list_new();
+    let mut ap2: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(pw.ag) {
+        let gi: Int = list_get(pw.ag, k);
+        let mut pops: Int = list_get(pw.ap, k);
+        if pops < list_get(g.bounds, gi) {
+            let id: Int = list_get(g.members, sl_goff(g, gi) + pops);
+            w = w_set_vis(w, id, 1);
+            w = eng_act_path(w, id, 0);
+            w = w_active_add(w, id);
+            pops = pops + 1;
+        }
+        if pops < list_get(g.bounds, gi) {
+            ag2 = list_push(ag2, gi);
+            ap2 = list_push(ap2, pops);
+        }
+        k = k + 1;
+    }
+    let _r2 = SlPop { w: w, ag: ag2, ap: ap2 };
+    return _r2;
+}
+
+pub fn slide_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = sl_build(w_input(info, lines, rng_seed(42)), info);
+    let g: Groups = grp_rev(groups_of(w, collect_ids(w, 1), 1, 0, 0, 1));
+    let mut run: DigestRun = digest_run_new();
+    let mut gn: Int = 0;
+    let mut ag: List[Int] = list_new();
+    let mut ap: List[Int] = list_new();
+    let mut gap: Int = 0;
+    let _ = cells;
+    while gn < list_len(g.keys) || list_len(ag) > 0 || list_len(w.active) > 0 {
+        if gap == 2 && gn < list_len(g.keys) {
+            ag = list_push(ag, gn);
+            ap = list_push(ap, 0);
+            gn = gn + 1;
+            gap = 0;
+        } else {
+            if gn < list_len(g.keys) { gap = gap + 1; }
+        }
+        let sp: SlPop = sl_pops(SlPop { w: w, ag: ag, ap: ap }, g);
+        w = sp.w;
+        ag = sp.ag;
+        ap = sp.ap;
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

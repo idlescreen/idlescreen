@@ -14,24 +14,25 @@
 
 import "tests/oo/kernel/engine_core.oo";
 import "tests/oo/engapi/move_ops.oo";
-import "tests/oo/kernel/path_ops.oo";
 import "tests/oo/kernel/anim_ops.oo";
 import "tests/oo/kernel/world_ops.oo";
 
 fn ch_scenes(ch: Char, scenes: List[Scene]) -> Char {
-    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r1 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
         pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+    return _r1;
 }
 
 fn ch_av(ch: Char, a_scene: Int, ord: Int, fg: Int, bg: Int, bold: Int) -> Char {
-    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r2 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
         pc: ch.pc, pr: ch.pr, v_ord: ord, v_fg: fg, v_bg: bg, v_bold: bold,
         a_scene: a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+    return _r2;
 }
 
 fn step_scene(ch: Char) -> Char {
@@ -78,7 +79,8 @@ fn complete_scene(w: World, i: Int) -> World {
     let w2: World = w_put(w, i, c);
     if sub_sc(w2, i) == 1 {
         let sid: String = list_get(list_get(w2.chars, i).sids, ch.a_scene);
-        return eng_fire(w2, i, 2, 0, sid);
+        let _r3 = eng_fire(w2, i, 2, 0, sid);
+        return _r3;
     }
     return w2;
 }
@@ -95,11 +97,17 @@ fn sub_sc(w: World, i: Int) -> Int {
 
 pub fn eng_tick(w: World, i: Int) -> World {
     let m: MStep = motion_move(list_get(w.chars, i));
+    if m.fired == 0 {
+        let w2: World = w_put(w, i, step_scene(m.ch));
+        let _r4 = complete_scene(w2, i);
+        return _r4;
+    }
     let mut w2: World = w_put(w, i, m.ch);
     if m.fired == 1 { w2 = eng_fire(w2, i, 0, 1, m.pid); }
     if m.fired == 2 { w2 = eng_fire(w2, i, 1, 1, m.pid); }
     w2 = w_put(w2, i, step_scene(list_get(w2.chars, i)));
-    return complete_scene(w2, i);
+    let _r5 = complete_scene(w2, i);
+    return _r5;
 }
 
 pub fn eng_update(w: World) -> World {
@@ -117,5 +125,6 @@ pub fn eng_update(w: World) -> World {
         if w_is_active(list_get(w2.chars, i2)) == 1 { act = list_push(act, i2); }
         j = j + 1;
     }
-    return World { chars: w2.chars, active: act, rng: w2.rng, next_id: w2.next_id, pend: w2.pend };
+    let _r6 = World { chars: w2.chars, active: act, rng: w2.rng, next_id: w2.next_id, pend: w2.pend };
+    return _r6;
 }

@@ -83,16 +83,19 @@ pub fn sc_apply_grad(s: Scene, syms: List[Int], dur: Int, fgs: List[Int], bgs: L
                 j = j + 1;
             }
         }
-        return grad_frames(s, syms, pairs, dur, 0);
+        let _r2 = grad_frames(s, syms, pairs, dur, 0);
+        return _r2;
     }
     if nf > 0 {
         let mut pairs2: List[Int] = list_new();
         let mut k: Int = 0;
         while k < nf { pairs2 = list_push(list_push(pairs2, list_get(fgs, k)), 0 - 1); k = k + 1; }
-        return grad_frames(s, syms, pairs2, dur, 0);
+        let _r3 = grad_frames(s, syms, pairs2, dur, 0);
+        return _r3;
     }
     let mut pairs3: List[Int] = list_new();
     let mut m: Int = 0;
     while m < nb { pairs3 = list_push(list_push(pairs3, 0 - 1), list_get(bgs, m)); m = m + 1; }
-    return grad_frames(s, syms, pairs3, dur, 0);
+    let _r4 = grad_frames(s, syms, pairs3, dur, 0);
+    return _r4;
 }

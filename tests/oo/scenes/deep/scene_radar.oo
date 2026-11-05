@@ -44,7 +44,7 @@ fn radar_stops3() -> List[Int] {
 }
 
 pub fn radar_new(cells: List[CellGeom], info: CanvasInfo) -> Radar {
-    return Radar {
+    let _r1 = Radar {
         cells: cells,
         palette: spectrum_build(radar_stops5(), 12),
         final_spec: spectrum_build(radar_stops3(), 12),
@@ -52,6 +52,7 @@ pub fn radar_new(cells: List[CellGeom], info: CanvasInfo) -> Radar {
         frame_f: 0.0,
         info: info
     };
+    return _r1;
 }
 
 fn radar_cell(r: Radar, c: CellGeom, beam: Float, progress: Float, fill_fade: Float) -> PaintCell {
@@ -59,7 +60,8 @@ fn radar_cell(r: Radar, c: CellGeom, beam: Float, progress: Float, fill_fade: Fl
     if rad > 1.38 {
         let mut lk: Int = 0;
         if c.fill == 0 && progress > 0.65 { lk = 1; }
-        return math_paint_cell(c, r.info, r.palette, r.final_spec, 0.0, lk, fill_fade);
+        let _r2 = math_paint_cell(c, r.info, r.palette, r.final_spec, 0.0, lk, fill_fade);
+        return _r2;
     }
     let delta: Float = rem_euclid_f(beam - c.angle, 6.283185307179586);
     let sweep: Float = exp(0.0 - delta * 1.9);
@@ -74,7 +76,8 @@ fn radar_cell(r: Radar, c: CellGeom, beam: Float, progress: Float, fill_fade: Fl
     let cell_norm: Float = (c.angle + 3.141592653589793) / 6.283185307179586;
     let mut locked: Int = 0;
     if c.fill == 0 && progress * 1.35 >= cell_norm { locked = 1; }
-    return math_paint_cell(c, r.info, r.palette, r.final_spec, intensity, locked, fill_fade);
+    let _r3 = math_paint_cell(c, r.info, r.palette, r.final_spec, intensity, locked, fill_fade);
+    return _r3;
 }
 
 pub fn radar_next(r: Radar) -> List[PaintCell] {
@@ -104,7 +107,7 @@ pub fn radar_next(r: Radar) -> List[PaintCell] {
 }
 
 pub fn radar_advance(r: Radar) -> Radar {
-    return Radar {
+    let _r4 = Radar {
         cells: r.cells,
         palette: r.palette,
         final_spec: r.final_spec,
@@ -112,6 +115,7 @@ pub fn radar_advance(r: Radar) -> Radar {
         frame_f: r.frame_f + 1.0,
         info: r.info
     };
+    return _r4;
 }
 
 pub fn radar_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {

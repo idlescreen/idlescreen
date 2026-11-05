@@ -25,7 +25,8 @@ pub fn len_line(c1: Int, r1: Int, c2: Int, r2: Int, dbl: Int) -> Float {
 pub fn coord_on_line(sc: Int, sr: Int, ec: Int, er: Int, t: Float) -> List[Int] {
     let x: Float = (1.0 - t) * int_to_f(sc) + t * int_to_f(ec);
     let y: Float = (1.0 - t) * int_to_f(sr) + t * int_to_f(er);
-    return list_push(list_push(list_new(), round_he(x)), round_he(y));
+    let _r3 = list_push(list_push(list_new(), round_he(x)), round_he(y));
+    return _r3;
 }
 
 fn bez_point(sc: Float, sr: Float, ctl: List[Float], ec: Float, er: Float, t: Float) -> List[Float] {
@@ -52,16 +53,19 @@ fn bez_point(sc: Float, sr: Float, ctl: List[Float], ec: Float, er: Float, t: Fl
         }
         rem = rem - 1;
     }
-    return list_push(list_push(list_new(), list_get(xs, 0)), list_get(ys, 0));
+    let _r4 = list_push(list_push(list_new(), list_get(xs, 0)), list_get(ys, 0));
+    return _r4;
 }
 
 pub fn coord_on_bez(sc: Int, sr: Int, ctl: List[Int], ec: Int, er: Int, t: Float) -> List[Int] {
-    if list_len(ctl) == 0 { return coord_on_line(sc, sr, ec, er, t); }
+    if list_len(ctl) == 0 { let _r5 = coord_on_line(sc, sr, ec, er, t);
+    return _r5; }
     let mut cf: List[Float] = list_new();
     let mut i: Int = 0;
     while i < list_len(ctl) { cf = list_push(cf, int_to_f(list_get(ctl, i))); i = i + 1; }
     let p: List[Float] = bez_point(int_to_f(sc), int_to_f(sr), cf, int_to_f(ec), int_to_f(er), t);
-    return list_push(list_push(list_new(), round_he(list_get(p, 0))), round_he(list_get(p, 1)));
+    let _r6 = list_push(list_push(list_new(), round_he(list_get(p, 0))), round_he(list_get(p, 1)));
+    return _r6;
 }
 
 pub fn len_bez(sc: Int, sr: Int, ctl: List[Int], ec: Int, er: Int) -> Float {

@@ -22,7 +22,8 @@ fn sm64(sm: Int) -> DR {
     let mut z: Int = ns;
     z = (z ^ lshr(z, 30)) * (0 - 4658895280553007687);
     z = (z ^ lshr(z, 27)) * (0 - 7723592293110705685);
-    return DR { v: z ^ lshr(z, 31), r: Rng { s0: ns, s1: 0, s2: 0, s3: 0 } };
+    let _r1 = DR { v: z ^ lshr(z, 31), r: Rng { s0: ns, s1: 0, s2: 0, s3: 0 } };
+    return _r1;
 }
 
 pub fn rng_seed(seed: Int) -> Rng {
@@ -30,17 +31,19 @@ pub fn rng_seed(seed: Int) -> Rng {
     let b: DR = sm64(a.r.s0);
     let c: DR = sm64(b.r.s0);
     let d: DR = sm64(c.r.s0);
-    return Rng { s0: a.v, s1: b.v, s2: c.v, s3: d.v };
+    let _r2 = Rng { s0: a.v, s1: b.v, s2: c.v, s3: d.v };
+    return _r2;
 }
 
 pub fn rng_next(r: Rng) -> DR {
     let out: Int = rotl(r.s0 + r.s3, 23) + r.s0;
     let t: Int = r.s1 << 17;
-    return DR { v: out, r: Rng {
+    let _r3 = DR { v: out, r: Rng {
         s0: r.s0 ^ r.s3 ^ r.s1,
         s1: r.s1 ^ r.s2 ^ r.s0,
         s2: r.s2 ^ r.s0 ^ t,
         s3: rotl(r.s3 ^ r.s1, 45) } };
+    return _r3;
 }
 
 pub fn rng_below(r: Rng, n: Int) -> DR {
@@ -54,12 +57,15 @@ pub fn rng_below(r: Rng, n: Int) -> DR {
         let d: DR = rng_next(st);
         st = d.r;
         let v: Int = lshr(d.v, sh);
-        if v < n { return DR { v: v, r: st }; }
+        if v < n { let _r4 = DR { v: v, r: st };
+        return _r4; }
     }
-    return DR { v: 0, r: st };
+    let _r5 = DR { v: 0, r: st };
+    return _r5;
 }
 
 pub fn rng_random(r: Rng) -> DRF {
     let d: DR = rng_next(r);
-    return DRF { v: u53_to_f(lshr(d.v, 11)) * (1.0 / 9007199254740992.0), r: d.r };
+    let _r6 = DRF { v: u53_to_f(lshr(d.v, 11)) * (1.0 / 9007199254740992.0), r: d.r };
+    return _r6;
 }

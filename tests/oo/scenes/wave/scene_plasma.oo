@@ -45,7 +45,7 @@ fn plasma_stops3() -> List[Int] {
 }
 
 pub fn plasma_new(cells: List[CellGeom], info: CanvasInfo) -> Plasma {
-    return Plasma {
+    let _r1 = Plasma {
         cells: cells,
         palette: spectrum_build(plasma_stops6(), 10),
         final_spec: spectrum_build(plasma_stops3(), 12),
@@ -53,6 +53,7 @@ pub fn plasma_new(cells: List[CellGeom], info: CanvasInfo) -> Plasma {
         frame_f: 0.0,
         info: info
     };
+    return _r1;
 }
 
 fn plasma_cell(p: Plasma, c: CellGeom, t: Float, fill_fade: Float, reveal_x: Float) -> PaintCell {
@@ -65,7 +66,8 @@ fn plasma_cell(p: Plasma, c: CellGeom, t: Float, fill_fade: Float, reveal_x: Flo
     let copper: Float = sin(c.ny * 14.0 + t * 2.2) * 0.2;
     let raw: Float = (v1 + v2 + v3 + v4) * 0.125 + 0.5 + copper;
     let intensity: Float = clamp_f(raw, 0.15, 1.0);
-    return math_paint_cell(c, p.info, p.palette, p.final_spec, intensity, locked, fill_fade);
+    let _r2 = math_paint_cell(c, p.info, p.palette, p.final_spec, intensity, locked, fill_fade);
+    return _r2;
 }
 
 pub fn plasma_next(p: Plasma) -> List[PaintCell] {
@@ -96,7 +98,7 @@ pub fn plasma_next(p: Plasma) -> List[PaintCell] {
 }
 
 pub fn plasma_advance(p: Plasma) -> Plasma {
-    return Plasma {
+    let _r3 = Plasma {
         cells: p.cells,
         palette: p.palette,
         final_spec: p.final_spec,
@@ -104,6 +106,7 @@ pub fn plasma_advance(p: Plasma) -> Plasma {
         frame_f: p.frame_f + 1.0,
         info: p.info
     };
+    return _r3;
 }
 
 pub fn plasma_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {

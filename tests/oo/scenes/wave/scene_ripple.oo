@@ -45,7 +45,7 @@ fn ripple_stops3() -> List[Int] {
 }
 
 pub fn ripple_new(cells: List[CellGeom], info: CanvasInfo) -> Ripple {
-    return Ripple {
+    let _r1 = Ripple {
         cells: cells,
         palette: spectrum_build(ripple_stops5(), 12),
         final_spec: spectrum_build(ripple_stops3(), 12),
@@ -53,6 +53,7 @@ pub fn ripple_new(cells: List[CellGeom], info: CanvasInfo) -> Ripple {
         frame_f: 0.0,
         info: info
     };
+    return _r1;
 }
 
 fn ripple_cell(r: Ripple, c: CellGeom, t: Float, fill_fade: Float, reveal_r: Float) -> PaintCell {
@@ -71,7 +72,8 @@ fn ripple_cell(r: Ripple, c: CellGeom, t: Float, fill_fade: Float, reveal_r: Flo
     let atten: Float = exp(0.0 - 0.55 * dm);
     let raw: Float = (0.5 + 0.25 * (w1 + w2)) * atten;
     let intensity: Float = clamp_f(raw, 0.0, 1.0);
-    return math_paint_cell(c, r.info, r.palette, r.final_spec, intensity, locked, fill_fade);
+    let _r2 = math_paint_cell(c, r.info, r.palette, r.final_spec, intensity, locked, fill_fade);
+    return _r2;
 }
 
 pub fn ripple_next(r: Ripple) -> List[PaintCell] {
@@ -102,7 +104,7 @@ pub fn ripple_next(r: Ripple) -> List[PaintCell] {
 }
 
 pub fn ripple_advance(r: Ripple) -> Ripple {
-    return Ripple {
+    let _r3 = Ripple {
         cells: r.cells,
         palette: r.palette,
         final_spec: r.final_spec,
@@ -110,6 +112,7 @@ pub fn ripple_advance(r: Ripple) -> Ripple {
         frame_f: r.frame_f + 1.0,
         info: r.info
     };
+    return _r3;
 }
 
 pub fn ripple_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {

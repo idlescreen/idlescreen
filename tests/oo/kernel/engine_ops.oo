@@ -18,45 +18,52 @@ import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/engine/easing_fns.oo";
 
 pub fn w_add_char(w: World, ord: Int, col: Int, row: Int) -> World {
-    return World { chars: list_push(w.chars, ch_in(ord, col, row, 3, 0)),
+    let _r1 = World { chars: list_push(w.chars, ch_in(ord, col, row, 3, 0)),
         active: w.active, rng: w.rng, next_id: w.next_id + 1, pend: w.pend };
+    return _r1;
 }
 
 fn ch_sc(ch: Char, sids: List[String], scenes: List[Scene]) -> Char {
-    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r2 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
         pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
         a_scene: ch.a_scene, sids: sids, scenes: scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+    return _r2;
 }
 
 fn ch_pa(ch: Char, pids: List[String], paths: List[Path]) -> Char {
-    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r3 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
         pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: pids, paths: paths, evs: ch.evs };
+    return _r3;
 }
 
 pub fn w_auto_id(ids: List[String]) -> String {
     let mut cur: Int = list_len(ids);
     while find_id(ids, cur.to_string()) >= 0 { cur = cur + 1; }
-    return cur.to_string();
+    let _r4 = cur.to_string();
+    return _r4;
 }
 
 pub fn w_scene(w: World, i: Int, is_loop: Int, sync: Int, ease_on: Int, e: Ease, sid: String) -> World {
     let ch: Char = list_get(w.chars, i);
     let mut id: String = sid;
     if id == "" { id = w_auto_id(ch.sids); }
-    return w_put(w, i, ch_sc(ch, list_push(ch.sids, id), list_push(ch.scenes, sc_new(is_loop, sync, ease_on, e))));
+    let _r5 = w_put(w, i, ch_sc(ch, list_push(ch.sids, id), list_push(ch.scenes, sc_new(is_loop, sync, ease_on, e))));
+    return _r5;
 }
 
 pub fn w_frame(w: World, i: Int, si: Int, ord: Int, dur: Int, fg: Int, bg: Int, bold: Int) -> World {
     let ch: Char = list_get(w.chars, i);
-    return w_put(w, i, ch_sc(ch, ch.sids, list_set(ch.scenes, si, sc_add(list_get(ch.scenes, si), ord, dur, fg, bg, bold))));
+    let _r6 = w_put(w, i, ch_sc(ch, ch.sids, list_set(ch.scenes, si, sc_add(list_get(ch.scenes, si), ord, dur, fg, bg, bold))));
+    return _r6;
 }
 
 pub fn w_grad(w: World, i: Int, si: Int, syms: List[Int], dur: Int, fgs: List[Int], bgs: List[Int]) -> World {
     let ch: Char = list_get(w.chars, i);
-    return w_put(w, i, ch_sc(ch, ch.sids, list_set(ch.scenes, si, sc_apply_grad(list_get(ch.scenes, si), syms, dur, fgs, bgs))));
+    let _r7 = w_put(w, i, ch_sc(ch, ch.sids, list_set(ch.scenes, si, sc_apply_grad(list_get(ch.scenes, si), syms, dur, fgs, bgs))));
+    return _r7;
 }

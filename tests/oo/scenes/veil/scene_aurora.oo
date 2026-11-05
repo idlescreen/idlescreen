@@ -44,7 +44,7 @@ fn aurora_stops3() -> List[Int] {
 }
 
 pub fn aurora_new(cells: List[CellGeom], info: CanvasInfo) -> Aurora {
-    return Aurora {
+    let _r1 = Aurora {
         cells: cells,
         palette: spectrum_build(aurora_stops5(), 12),
         final_spec: spectrum_build(aurora_stops3(), 12),
@@ -52,6 +52,7 @@ pub fn aurora_new(cells: List[CellGeom], info: CanvasInfo) -> Aurora {
         frame_f: 0.0,
         info: info
     };
+    return _r1;
 }
 
 fn aurora_cell(a: Aurora, c: CellGeom, t: Float, fill_fade: Float, reveal_y: Float) -> PaintCell {
@@ -64,7 +65,8 @@ fn aurora_cell(a: Aurora, c: CellGeom, t: Float, fill_fade: Float, reveal_y: Flo
     let curtain: Float = max_f(exp(0.0 - d1 * 6.0), exp(0.0 - d2 * 6.5) * 0.88);
     let shimmer: Float = 0.55 + 0.45 * sin(c.nx * 18.0 + t * 3.4);
     let intensity: Float = clamp_f(curtain * shimmer, 0.0, 1.0);
-    return math_paint_cell(c, a.info, a.palette, a.final_spec, intensity, locked, fill_fade);
+    let _r2 = math_paint_cell(c, a.info, a.palette, a.final_spec, intensity, locked, fill_fade);
+    return _r2;
 }
 
 pub fn aurora_next(a: Aurora) -> List[PaintCell] {
@@ -95,7 +97,7 @@ pub fn aurora_next(a: Aurora) -> List[PaintCell] {
 }
 
 pub fn aurora_advance(a: Aurora) -> Aurora {
-    return Aurora {
+    let _r3 = Aurora {
         cells: a.cells,
         palette: a.palette,
         final_spec: a.final_spec,
@@ -103,6 +105,7 @@ pub fn aurora_advance(a: Aurora) -> Aurora {
         frame_f: a.frame_f + 1.0,
         info: a.info
     };
+    return _r3;
 }
 
 pub fn aurora_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {

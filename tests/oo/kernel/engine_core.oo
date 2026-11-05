@@ -28,31 +28,35 @@ fn sub_ev(ch: Char, ev: Int) -> Int {
 }
 
 fn vis_set(ch: Char, ord: Int, fg: Int, bg: Int, bold: Int) -> Char {
-    return Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let _r1 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
         pc: ch.pc, pr: ch.pr, v_ord: ord, v_fg: fg, v_bg: bg, v_bold: bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
         done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+    return _r1;
 }
 
 fn fire_path_act(w: World, i: Int, pid: String) -> World {
     let ch: Char = list_get(w.chars, i);
     if sub_ev(ch, 0) == 0 { return w; }
-    return eng_fire(w, i, 0, 1, pid);
+    let _r2 = eng_fire(w, i, 0, 1, pid);
+    return _r2;
 }
 
 pub fn eng_act_path(w: World, i: Int, pi: Int) -> World {
     let ch: Char = list_get(w.chars, i);
     let pid: String = list_get(ch.pids, pi);
     let w2: World = w_put(w, i, path_activate(ch, pi));
-    return fire_path_act(w2, i, pid);
+    let _r3 = fire_path_act(w2, i, pid);
+    return _r3;
 }
 
 fn fire_act(w: World, i: Int, act: EvAct) -> World {
     let c2: Char = list_get(w.chars, i);
     if act.kind == 0 {
         let pi: Int = find_id(c2.pids, act.sid);
-        if pi >= 0 { return eng_act_path(w, i, pi); }
+        if pi >= 0 { let _r4 = eng_act_path(w, i, pi);
+        return _r4; }
         return w;
     }
     if act.kind == 1 {
@@ -60,13 +64,15 @@ fn fire_act(w: World, i: Int, act: EvAct) -> World {
         if si < 0 || list_len(list_get(c2.scenes, si).fr) == 0 { return w; }
         let sc: Scene = list_get(c2.scenes, si);
         let f: SFrame = list_get(sc.af, list_get(sc.fr, 0));
-        return w_put(w, i, Char { sym: c2.sym, col0: c2.col0, row0: c2.row0, fill: c2.fill,
+        let _r5 = w_put(w, i, Char { sym: c2.sym, col0: c2.col0, row0: c2.row0, fill: c2.fill,
             uses_pre: c2.uses_pre, vis: c2.vis, layer: c2.layer, cc: c2.cc, cr: c2.cr, pc: c2.pc, pr: c2.pr,
             v_ord: f.ord, v_fg: f.fg, v_bg: f.bg, v_bold: f.bold,
             a_scene: si, sids: c2.sids, scenes: c2.scenes, a_path: c2.a_path,
             done_path: c2.done_path, pids: c2.pids, paths: c2.paths, evs: c2.evs });
+        return _r5;
     }
-    return act_hi(w, i, act, c2);
+    let _r6 = act_hi(w, i, act, c2);
+    return _r6;
 }
 
 fn act_hi(w: World, i: Int, act: EvAct, c2: Char) -> World {
@@ -74,28 +80,32 @@ fn act_hi(w: World, i: Int, act: EvAct, c2: Char) -> World {
         let cc: Int = if act.kind == 2 { act.num } else { c2.cc };
         let cr: Int = if act.kind == 2 { act.carg } else { c2.cr };
         let lay: Int = if act.kind == 5 { act.num } else { c2.layer };
-        return w_put(w, i, Char { sym: c2.sym, col0: c2.col0, row0: c2.row0, fill: c2.fill,
+        let _r7 = w_put(w, i, Char { sym: c2.sym, col0: c2.col0, row0: c2.row0, fill: c2.fill,
             uses_pre: c2.uses_pre, vis: c2.vis, layer: lay, cc: cc, cr: cr, pc: c2.pc, pr: c2.pr,
             v_ord: c2.v_ord, v_fg: c2.v_fg, v_bg: c2.v_bg, v_bold: c2.v_bold,
             a_scene: c2.a_scene, sids: c2.sids, scenes: c2.scenes, a_path: c2.a_path,
             done_path: c2.done_path, pids: c2.pids, paths: c2.paths, evs: c2.evs });
+        return _r7;
     }
     if act.kind == 3 || act.kind == 6 {
         let is_sc: Int = if act.kind == 3 { 1 } else { 0 };
         let idx: Int = if is_sc == 1 { find_id(c2.sids, act.sid) } else { find_id(c2.pids, act.sid) };
         let cur: Int = if is_sc == 1 { c2.a_scene } else { c2.a_path };
         let nxt: Int = if act.sid == "" { 0 - 1 } else { if idx == cur { 0 - 1 } else { cur } };
-        return w_put(w, i, Char { sym: c2.sym, col0: c2.col0, row0: c2.row0, fill: c2.fill,
+        let _r8 = w_put(w, i, Char { sym: c2.sym, col0: c2.col0, row0: c2.row0, fill: c2.fill,
             uses_pre: c2.uses_pre, vis: c2.vis, layer: c2.layer, cc: c2.cc, cr: c2.cr, pc: c2.pc, pr: c2.pr,
             v_ord: c2.v_ord, v_fg: c2.v_fg, v_bg: c2.v_bg, v_bold: c2.v_bold,
             a_scene: if is_sc == 1 { nxt } else { c2.a_scene },
             sids: c2.sids, scenes: c2.scenes, a_path: if is_sc == 1 { c2.a_path } else { nxt },
             done_path: c2.done_path, pids: c2.pids, paths: c2.paths, evs: c2.evs });
+        return _r8;
     }
-    if act.kind == 4 { return w_put(w, i, vis_set(list_get(w.chars, i), list_get(w.chars, i).sym, 0 - 1, 0 - 1, 0)); }
+    if act.kind == 4 { let _r9 = w_put(w, i, vis_set(list_get(w.chars, i), list_get(w.chars, i).sym, 0 - 1, 0 - 1, 0));
+    return _r9; }
     if act.kind == 7 {
-        return World { chars: w.chars, active: w.active, rng: w.rng, next_id: w.next_id,
+        let _r10 = World { chars: w.chars, active: w.active, rng: w.rng, next_id: w.next_id,
             pend: list_push(list_push(list_push(w.pend, i), act.num), act.carg) };
+        return _r10;
     }
     return w;
 }

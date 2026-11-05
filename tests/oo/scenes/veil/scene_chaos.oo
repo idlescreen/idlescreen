@@ -24,7 +24,8 @@ fn chaos_stops() -> List[Int] {
     let mut s: List[Int] = list_new();
     s = list_push(s, 2361404); s = list_push(s, 8069026);
     s = list_push(s, 15022389); s = list_push(s, 16757504);
-    return list_push(s, 16775393);
+    let _r1 = list_push(s, 16775393);
+    return _r1;
 }
 
 fn step_lorenz(c: Chaos) -> Chaos {
@@ -50,11 +51,12 @@ fn step_lorenz(c: Chaos) -> Chaos {
         tx = list_push(ntx, px); ty = list_push(nty, py);
         step = step + 1;
     }
-    return Chaos {
+    let _r2 = Chaos {
         cells: c.cells, palette: c.palette, final_spec: c.final_spec,
         frame: c.frame, frame_f: c.frame_f,
         sx: sx, sy: sy, sz: sz, tx: tx, ty: ty, info: c.info
     };
+    return _r2;
 }
 
 pub fn chaos_new(cells: List[CellGeom], info: CanvasInfo) -> Chaos {
@@ -92,7 +94,8 @@ fn chaos_cell(c: Chaos, g: CellGeom, n_trail: Float, fill_fade: Float, reveal_ra
     let min_lobe: Float = if lobe_l < lobe_r { lobe_l } else { lobe_r };
     let swirl: Float = 0.32 * exp(0.0 - min_lobe * 3.2);
     let intensity: Float = clamp_f(best + swirl, 0.0, 1.0);
-    return math_paint_cell(g, c.info, c.palette, c.final_spec, intensity, locked, fill_fade);
+    let _r3 = math_paint_cell(g, c.info, c.palette, c.final_spec, intensity, locked, fill_fade);
+    return _r3;
 }
 
 pub fn chaos_next(c: Chaos) -> List[PaintCell] {
@@ -119,11 +122,12 @@ pub fn chaos_next(c: Chaos) -> List[PaintCell] {
 pub fn chaos_advance(c: Chaos) -> Chaos {
     let mut s: Chaos = c;
     if c.frame + 1 < 63 { s = step_lorenz(c); }
-    return Chaos {
+    let _r4 = Chaos {
         cells: s.cells, palette: s.palette, final_spec: s.final_spec,
         frame: c.frame + 1, frame_f: c.frame_f + 1.0,
         sx: s.sx, sy: s.sy, sz: s.sz, tx: s.tx, ty: s.ty, info: s.info
     };
+    return _r4;
 }
 
 pub fn chaos_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {

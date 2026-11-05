@@ -1,4 +1,4 @@
-OODA_COMPILER ?= /Projects/openOODA-core/oodac/bin/oodac
+OODA_COMPILER ?= $(shell command -v oodac 2>/dev/null || echo /Projects/openOODA-core/oodac/bin/oodac)
 OODA_READDIR ?= /Projects
 OODA_WRITEDIR ?= $(CURDIR):/tmp
 OO_LIST_AMBIENT_QUOTA ?= 8589934592
@@ -13,14 +13,14 @@ ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_REA
 
 all: build verify test det parity
 
-PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel mystify expand
+PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel mystify expand wipe sweep slide middleout
 
 parity:
 	@mkdir -p .ooda-cache bin
 	$(ENV) $(OODA_COMPILER) build tests/oo/scene_emit.oo -o bin/scene_emit > /dev/null
 	@fail=0; \
 	for s in $(PARITY_SCENES); do \
-		./bin/scene_emit $$s > .ooda-cache/parity_$$s.txt; \
+		$(ENV) ./bin/scene_emit $$s > .ooda-cache/parity_$$s.txt; \
 		if cmp -s qa/golden/$$s.txt .ooda-cache/parity_$$s.txt; then \
 			echo "PASS: $$s bit-exact parity"; \
 		else \
@@ -83,7 +83,7 @@ file-law:
 academy:
 	@failures=0; \
 	for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*"); do \
-		header=$$(head -7 "$$f"); \
+		header=$$(head -16 "$$f"); \
 		missing=""; \
 		echo "$$header" | grep -q "^// # "        || missing="$$missing title"; \
 		echo "$$header" | grep -q "^// Logline:"  || missing="$$missing logline"; \
@@ -120,9 +120,13 @@ shape:
 		if [ "$$fns" -gt 8 ]; then \
 			echo "VIOLATION: $$f has $$fns functions (exceeds 8)"; violations=$$((violations+1)); \
 		fi; \
+		long=$$(awk '/^[[:space:]]*(pub[[:space:]]+)?fn /{s=NR;d=0;b=0} s>0{for(i=1;i<=length($$0);i++){c=substr($$0,i,1);if(c=="{"){d++;b=1}else if(c=="}")d--} if(b&&d==0){l=NR-s+1;if(l>40)print s":"l;s=0}}' "$$f"); \
+		if [ -n "$$long" ]; then \
+			echo "VIOLATION: $$f has function(s) > 40 lines ($$long)"; violations=$$((violations+1)); \
+		fi; \
 	done; \
 	if [ $$violations -gt 0 ]; then echo "FAIL: shape law violations"; exit 1; fi; \
-	echo "PASS: function count (<= 8 per page) holds"
+	echo "PASS: function count (<= 8 per page) and length (<= 40 lines) hold"
 
 check:
 	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*"); do \
@@ -146,12 +150,17 @@ test: $(BIN)
 	@./$(BIN) text openooda | grep -qi "openooda" && echo "PASS: text openooda"
 	@./$(BIN) text superfedora | grep -qi "superfedora" && echo "PASS: text superfedora"
 	@./$(BIN) preview matrix --frames 2 --cols 40 --rows 12 | grep -q "frame" && echo "PASS: preview matrix"
+	@./$(BIN) preview plasma --frames 2 | grep -q "frame" && echo "PASS: preview plasma flag parsing"
 	@./$(BIN) preview openooda --frames 1 | grep -q "OPENOODA" && echo "PASS: preview openooda wordmark"
 	@./$(BIN) status | grep -qi "inactive\|active\|daemon" && echo "PASS: status"
 	@./$(BIN) inhibitors | grep -q "\[" && echo "PASS: inhibitors"
 	@./$(BIN) config | grep -qi "idlescreen" && echo "PASS: config"
 	@./$(BIN) doctor | grep -qi "PASS\|OK" && echo "PASS: doctor"
 	@./$(BIN) timeout | grep -qi "timeout" && echo "PASS: timeout query"
+	@./$(BIN) service | grep -qi "idlescreen service" && echo "PASS: service query"
+	@./$(BIN) service status | grep -qi "inactive\|active\|daemon" && echo "PASS: service status"
+	@./$(BIN) set bogus-saver 2>&1 | grep -qi "unknown" && echo "PASS: set rejects unknown saver"
+	@./$(BIN) config | grep -qi "config.toml" && echo "PASS: config path"
 	@./$(BIN) --persona ooidle --version | grep -q "ooidle $(VER)" && echo "PASS: --persona ooidle --version"
 	@./$(BIN) --persona ooidle status | grep -qi "ooidle" && echo "PASS: --persona ooidle status"
 	@./$(BIN) --self-test | grep -q "PASS" && echo "PASS: --self-test"

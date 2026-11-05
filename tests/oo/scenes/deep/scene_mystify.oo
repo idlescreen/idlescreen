@@ -41,8 +41,9 @@ fn mystify_final() -> List[Int] {
 }
 
 fn mstep(m: Mystify, s: PolyStep, frame: Int) -> Mystify {
-    return Mystify { cells: m.cells, palette: m.palette, final_spec: m.final_spec,
+    let _r1 = Mystify { cells: m.cells, palette: m.palette, final_spec: m.final_spec,
         verts: s.v, hist: s.h, frame: frame, info: m.info };
+    return _r1;
 }
 
 fn mystify_verts() -> List[Float] {
@@ -101,10 +102,12 @@ pub fn mystify_next(m: Mystify) -> List[PaintCell] {
 
 pub fn mystify_advance(m: Mystify) -> Mystify {
     if m.frame < 63 {
-        return mstep(m, poly_step(m.verts, m.hist), m.frame + 1);
+        let _r2 = mstep(m, poly_step(m.verts, m.hist), m.frame + 1);
+        return _r2;
     }
-    return Mystify { cells: m.cells, palette: m.palette, final_spec: m.final_spec,
+    let _r3 = Mystify { cells: m.cells, palette: m.palette, final_spec: m.final_spec,
         verts: m.verts, hist: m.hist, frame: m.frame + 1, info: m.info };
+    return _r3;
 }
 
 pub fn mystify_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {

@@ -13,11 +13,13 @@ import "tests/shade_float.oo";
 pub type Ease = struct { tag: Int, x1: Float, y1: Float, x2: Float, y2: Float };
 
 pub fn ez(tag: Int) -> Ease {
-    return Ease { tag: tag, x1: 0.0, y1: 0.0, x2: 0.0, y2: 0.0 };
+    let _r1 = Ease { tag: tag, x1: 0.0, y1: 0.0, x2: 0.0, y2: 0.0 };
+    return _r1;
 }
 
 pub fn ez_bezier(x1: Float, y1: Float, x2: Float, y2: Float) -> Ease {
-    return Ease { tag: 31, x1: x1, y1: y1, x2: x2, y2: y2 };
+    let _r2 = Ease { tag: 31, x1: x1, y1: y1, x2: x2, y2: y2 };
+    return _r2;
 }
 
 fn out_bounce(p: Float) -> Float {
@@ -53,13 +55,18 @@ fn ease_lo(t: Int, p: Float) -> Float {
 fn ease_mid(t: Int, p: Float) -> Float {
     if t == 11 { return 1.0 - pow(1.0 - p, 4.0); }
     if t == 12 {
-        if p < 0.5 { return 8.0 * pow(p, 4.0); }
-        return 1.0 - pow(0.0 - 2.0 * p + 2.0, 4.0) / 2.0;
+        if p < 0.5 { let _r18 = 8.0 * pow(p, 4.0);
+        return _r18; }
+        let _r19 = 1.0 - pow(0.0 - 2.0 * p + 2.0, 4.0) / 2.0;
+        return _r19;
     }
-    if t == 13 { return pow(p, 5.0); }
-    if t == 14 { return 1.0 - pow(1.0 - p, 5.0); }
+    if t == 13 { let _r20 = pow(p, 5.0);
+    return _r20; }
+    if t == 14 { let _r21 = 1.0 - pow(1.0 - p, 5.0);
+    return _r21; }
     if t == 15 {
-        if p < 0.5 { return 16.0 * pow(p, 5.0); }
+        if p < 0.5 { let _r22 = 16.0 * pow(p, 5.0);
+        return _r22; }
         return 1.0 - pow(0.0 - 2.0 * p + 2.0, 5.0) / 2.0;
     }
     if t == 16 { if p == 0.0 { return 0.0; } return pow(2.0, 10.0 * p - 10.0); }
@@ -86,16 +93,22 @@ fn ease_hi(t: Int, p: Float) -> Float {
         return (pow(2.0 * p - 2.0, 2.0) * ((c2 + 1.0) * (p * 2.0 - 2.0) + c2) + 2.0) / 2.0;
     }
     if t == 28 { return 1.0 - out_bounce(1.0 - p); }
-    if t == 29 { return out_bounce(p); }
+    if t == 29 { let _r41 = out_bounce(p);
+    return _r41; }
     if t == 30 {
-        if p < 0.5 { return (1.0 - out_bounce(1.0 - 2.0 * p)) / 2.0; }
-        return (1.0 + out_bounce(2.0 * p - 1.0)) / 2.0;
+        if p < 0.5 { let _r42 = (1.0 - out_bounce(1.0 - 2.0 * p)) / 2.0;
+        return _r42; }
+        let _r43 = (1.0 + out_bounce(2.0 * p - 1.0)) / 2.0;
+        return _r43;
     }
     let c4: Float = 2.0 * 3.141592653589793 / 3.0;
     if t == 25 {
-        if p == 0.0 { return 0.0; }
-        if p == 1.0 { return 1.0; }
-        return 0.0 - pow(2.0, 10.0 * p - 10.0) * sin((p * 10.0 - 10.75) * c4);
+        if p == 0.0 { let _r44 = 0.0;
+        return _r44; }
+        if p == 1.0 { let _r45 = 1.0;
+        return _r45; }
+        let _r46 = 0.0 - pow(2.0, 10.0 * p - 10.0) * sin((p * 10.0 - 10.75) * c4);
+        return _r46;
     }
     if t == 26 {
         if p == 0.0 { return 0.0; }
