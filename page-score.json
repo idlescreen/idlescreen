@@ -1,7 +1,7 @@
 {
  "repo": "idlescreen",
- "rev": "8fa2614",
- "dirty": true,
+ "rev": "e532fd3",
+ "dirty": false,
  "pages": [
   {
    "path": "./crates/idlescreen/examples/scene_digest.rs",
