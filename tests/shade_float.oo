@@ -1,11 +1,13 @@
 // # shade_float — exact f64 helpers for parity probes
 //
 // Logline: Bit-exact f64 helpers the math scenes need; oodac has no `as` numeric casts so conversions use exact bounded loops.
+//
 // Setup: Pure functions over Float and Int. No caps. int_to_f/float_idx are exact for |n| < 4096 (all probe uses qualify).
+//
 // Beats:
 //   1. int_to_f converts small Ints to Float by exact +1.0 accumulation.
 //   2. float_idx truncates a non-negative Float via repeated -1.0.
-//   3. round_f/clamp_f/hypot_f mirror Rust f64 semantics.
+//   3. round_f/clamp_f/abs_f/max_f mirror Rust f64 scalar semantics.
 
 pub fn int_to_f(n: Int) -> Float {
     let mut acc: Float = 0.0;
@@ -54,6 +56,24 @@ pub fn round_f(x: Float) -> Float {
     return out;
 }
 
-pub fn hypot_f(x: Float, y: Float) -> Float {
-    return sqrt(x * x + y * y);
+pub fn floor_f(x: Float) -> Float {
+    if x >= 0.0 { return int_to_f(float_idx(x)); }
+    let nx: Float = 0.0 - x;
+    let t: Float = int_to_f(float_idx(nx));
+    if nx - t > 0.0 { return 0.0 - t - 1.0; }
+    return 0.0 - t;
+}
+
+pub fn rem_euclid_f(x: Float, m: Float) -> Float {
+    return x - m * floor_f(x / m);
+}
+
+pub fn abs_f(x: Float) -> Float {
+    if x < 0.0 { return 0.0 - x; }
+    return x;
+}
+
+pub fn max_f(a: Float, b: Float) -> Float {
+    if a > b { return a; }
+    return b;
 }

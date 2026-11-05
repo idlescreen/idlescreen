@@ -1,0 +1,118 @@
+// # scene_moire — counter-rotating grating interference port
+//
+// Logline: Bit-exact port of Moire::next_frame for the parity harness.
+//
+// Setup: Built over canvas_cells geometry + math_paint shared helpers. frame counts 1..=64; frame 64 settles text cells to bevel colors.
+//
+// Beats:
+//   1. moire_new builds the 49-step palette and 3-stop final spectrum.
+//   2. moire_next steps two counter-rotating gratings and projects cell normals.
+//   3. moire_run drives the loop and returns the digest stream.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/math_paint.oo";
+import "tests/shade_float.oo";
+import "tests/digest_run.oo";
+
+pub type Moire = struct {
+    cells: List[CellGeom],
+    palette: List[Int],
+    final_spec: List[Int],
+    frame: Int,
+    frame_f: Float,
+    info: CanvasInfo
+};
+
+fn moire_stops5() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 11 * 65536 + 11 * 256 + 46);
+    s = list_push(s, 59 * 65536 + 30 * 256 + 110);
+    s = list_push(s, 181 * 65536 + 51 * 256 + 140);
+    s = list_push(s, 242 * 65536 + 107 * 256 + 91);
+    s = list_push(s, 255 * 65536 + 233 * 256 + 163);
+    return s;
+}
+
+fn moire_stops3() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 181 * 65536 + 51 * 256 + 140);
+    s = list_push(s, 242 * 65536 + 107 * 256 + 91);
+    s = list_push(s, 255 * 65536 + 233 * 256 + 163);
+    return s;
+}
+
+pub fn moire_new(cells: List[CellGeom], info: CanvasInfo) -> Moire {
+    return Moire {
+        cells: cells,
+        palette: spectrum_build(moire_stops5(), 12),
+        final_spec: spectrum_build(moire_stops3(), 12),
+        frame: 0,
+        frame_f: 0.0,
+        info: info
+    };
+}
+
+fn moire_cell(m: Moire, c: CellGeom, sin_a: Float, cos_a: Float, sin_b: Float, cos_b: Float, fill_fade: Float) -> PaintCell {
+    let ua: Float = c.dx * cos_a + c.dy * sin_a;
+    let ub: Float = c.dx * cos_b + c.dy * sin_b;
+    let beat: Float = cos(ua * 21.0) * cos(ub * 17.0);
+    let falloff: Float = clamp_f(1.0 - c.dist * 0.45, 0.0, 1.0);
+    let intensity: Float = clamp_f((0.5 + 0.5 * beat) * falloff, 0.0, 1.0);
+    return math_paint_cell(c, m.info, m.palette, m.final_spec, intensity, 0, fill_fade);
+}
+
+pub fn moire_next(m: Moire) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if m.frame >= 64 { return out; }
+    let frame: Int = m.frame + 1;
+    let n: Int = list_len(m.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, settle_paint_cell(list_get(m.cells, i), m.info));
+            i = i + 1;
+        }
+        return out;
+    }
+    let frame_f: Float = m.frame_f + 1.0;
+    let progress: Float = frame_f / 64.0;
+    let angle_a: Float = frame_f * 0.026;
+    let angle_b: Float = frame_f * (0.0 - 0.017) + 0.62;
+    let sin_a: Float = sin(angle_a);
+    let cos_a: Float = cos(angle_a);
+    let sin_b: Float = sin(angle_b);
+    let cos_b: Float = cos(angle_b);
+    let mut fill_fade: Float = 1.0;
+    if progress > 0.78 { fill_fade = clamp_f((1.0 - progress) / 0.22, 0.0, 1.0); }
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, moire_cell(m, list_get(m.cells, j), sin_a, cos_a, sin_b, cos_b, fill_fade));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn moire_advance(m: Moire) -> Moire {
+    return Moire {
+        cells: m.cells,
+        palette: m.palette,
+        final_spec: m.final_spec,
+        frame: m.frame + 1,
+        frame_f: m.frame_f + 1.0,
+        info: m.info
+    };
+}
+
+pub fn moire_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {
+    let mut m: Moire = moire_new(cells, info);
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        let pcs: List[PaintCell] = moire_next(m);
+        if list_len(pcs) == 0 { break; }
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        m = moire_advance(m);
+    }
+    return run;
+}

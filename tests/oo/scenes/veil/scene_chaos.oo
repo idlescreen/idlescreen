@@ -1,0 +1,139 @@
+// # scene_chaos — Lorenz attractor phase-space trajectory port
+//
+// Logline: Bit-exact port of Chaos::next_frame for the parity harness.
+// Setup: Built over canvas_cells geometry + math_paint shared helpers.
+// Beats:
+//   1. chaos_new builds the 49-step palette and initial Lorenz attractor state.
+//   2. chaos_next computes glow and swirl potential for current attractor state.
+//   3. chaos_run drives the loop and returns the digest stream.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/math_paint.oo";
+import "tests/shade_float.oo";
+import "tests/digest_run.oo";
+
+pub type Chaos = struct {
+    cells: List[CellGeom], palette: List[Int], final_spec: List[Int],
+    frame: Int, frame_f: Float, sx: Float, sy: Float, sz: Float,
+    tx: List[Float], ty: List[Float], info: CanvasInfo
+};
+
+fn chaos_stops() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 2361404); s = list_push(s, 8069026);
+    s = list_push(s, 15022389); s = list_push(s, 16757504);
+    return list_push(s, 16775393);
+}
+
+fn step_lorenz(c: Chaos) -> Chaos {
+    let mut sx: Float = c.sx; let mut sy: Float = c.sy; let mut sz: Float = c.sz;
+    let mut tx: List[Float] = c.tx; let mut ty: List[Float] = c.ty;
+    let dt: Float = 0.0085; let beta: Float = 8.0 / 3.0;
+    let mut step: Int = 0;
+    while step < 4 {
+        let dx: Float = 10.0 * (sy - sx);
+        let dy: Float = sx * (28.0 - sz) - sy;
+        let dz: Float = sx * sy - beta * sz;
+        sx = sx + dx * dt; sy = sy + dy * dt; sz = sz + dz * dt;
+        let px: Float = clamp_f(sx / 22.0, 0.0 - 1.4, 1.4);
+        let py: Float = clamp_f((sz - 25.0) / 22.0, 0.0 - 1.0, 1.0);
+        let mut ntx: List[Float] = list_new(); let mut nty: List[Float] = list_new();
+        let n: Int = list_len(tx);
+        let mut i: Int = if n >= 48 { 1 } else { 0 };
+        while i < n {
+            ntx = list_push(ntx, list_get(tx, i));
+            nty = list_push(nty, list_get(ty, i));
+            i = i + 1;
+        }
+        tx = list_push(ntx, px); ty = list_push(nty, py);
+        step = step + 1;
+    }
+    return Chaos {
+        cells: c.cells, palette: c.palette, final_spec: c.final_spec,
+        frame: c.frame, frame_f: c.frame_f,
+        sx: sx, sy: sy, sz: sz, tx: tx, ty: ty, info: c.info
+    };
+}
+
+pub fn chaos_new(cells: List[CellGeom], info: CanvasInfo) -> Chaos {
+    let s5: List[Int] = chaos_stops();
+    let mut s3: List[Int] = list_new();
+    s3 = list_push(s3, list_get(s5, 2));
+    s3 = list_push(s3, list_get(s5, 3));
+    s3 = list_push(s3, list_get(s5, 4));
+    let mut c: Chaos = Chaos {
+        cells: cells, palette: spectrum_build(s5, 12),
+        final_spec: spectrum_build(s3, 12),
+        frame: 0, frame_f: 0.0, sx: 0.1, sy: 0.0, sz: 0.0,
+        tx: list_new(), ty: list_new(), info: info
+    };
+    let mut init_i: Int = 0;
+    while init_i < 13 { c = step_lorenz(c); init_i = init_i + 1; }
+    return c;
+}
+
+fn chaos_cell(c: Chaos, g: CellGeom, n_trail: Float, fill_fade: Float, reveal_radius: Float) -> PaintCell {
+    let locked: Int = if g.fill == 0 && g.dist <= reveal_radius { 1 } else { 0 };
+    let mut best: Float = 0.0;
+    let n: Int = list_len(c.tx);
+    let mut i: Int = 0;
+    while i < n {
+        let d2: Float = (g.dx - list_get(c.tx, i)) * (g.dx - list_get(c.tx, i)) + (g.dy - list_get(c.ty, i)) * (g.dy - list_get(c.ty, i));
+        if d2 < 0.18 {
+            let glow: Float = exp(0.0 - d2 * 22.0) * (0.35 + 0.65 * (int_to_f(i + 1) / n_trail));
+            if glow > best { best = glow; }
+        }
+        i = i + 1;
+    }
+    let lobe_l: Float = sqrt((g.dx + 0.45) * (g.dx + 0.45) + g.dy * g.dy);
+    let lobe_r: Float = sqrt((g.dx - 0.45) * (g.dx - 0.45) + g.dy * g.dy);
+    let min_lobe: Float = if lobe_l < lobe_r { lobe_l } else { lobe_r };
+    let swirl: Float = 0.32 * exp(0.0 - min_lobe * 3.2);
+    let intensity: Float = clamp_f(best + swirl, 0.0, 1.0);
+    return math_paint_cell(g, c.info, c.palette, c.final_spec, intensity, locked, fill_fade);
+}
+
+pub fn chaos_next(c: Chaos) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if c.frame >= 64 { return out; }
+    let n: Int = list_len(c.cells);
+    if c.frame + 1 == 64 {
+        let mut i: Int = 0;
+        while i < n { out = list_push(out, settle_paint_cell(list_get(c.cells, i), c.info)); i = i + 1; }
+        return out;
+    }
+    let progress: Float = (c.frame_f + 1.0) / 64.0;
+    let fill_fade: Float = if progress > 0.72 { clamp_f((1.0 - progress) / 0.28, 0.0, 1.0) } else { 1.0 };
+    let reveal_radius: Float = progress * 1.9;
+    let n_trail: Float = int_to_f(list_len(c.tx));
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, chaos_cell(c, list_get(c.cells, j), n_trail, fill_fade, reveal_radius));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn chaos_advance(c: Chaos) -> Chaos {
+    let mut s: Chaos = c;
+    if c.frame + 1 < 63 { s = step_lorenz(c); }
+    return Chaos {
+        cells: s.cells, palette: s.palette, final_spec: s.final_spec,
+        frame: c.frame + 1, frame_f: c.frame_f + 1.0,
+        sx: s.sx, sy: s.sy, sz: s.sz, tx: s.tx, ty: s.ty, info: s.info
+    };
+}
+
+pub fn chaos_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {
+    let mut c: Chaos = chaos_new(cells, info);
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        let pcs: List[PaintCell] = chaos_next(c);
+        if list_len(pcs) == 0 { break; }
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        c = chaos_advance(c);
+    }
+    return run;
+}

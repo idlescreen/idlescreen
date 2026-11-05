@@ -1,0 +1,127 @@
+// # scene_radar — sweeping radar scope port
+//
+// Logline: Bit-exact port of Radar::next_frame for the parity harness.
+//
+// Setup: Built over canvas_cells geometry + math_paint shared helpers. frame counts 1..=64; frame 64 settles text cells to bevel colors.
+//
+// Beats:
+//   1. radar_new builds the 60-step palette and 3-stop final spectrum.
+//   2. radar_next computes sweep, ring, and crosshair intensity per cell.
+//   3. radar_run drives the loop and returns the digest stream.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/math_paint.oo";
+import "tests/shade_float.oo";
+import "tests/digest_run.oo";
+
+pub type Radar = struct {
+    cells: List[CellGeom],
+    palette: List[Int],
+    final_spec: List[Int],
+    frame: Int,
+    frame_f: Float,
+    info: CanvasInfo
+};
+
+fn radar_stops5() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 0 * 65536 + 34 * 256 + 11);
+    s = list_push(s, 0 * 65536 + 92 * 256 + 31);
+    s = list_push(s, 0 * 65536 + 184 * 256 + 68);
+    s = list_push(s, 0 * 65536 + 255 * 256 + 102);
+    s = list_push(s, 212 * 65536 + 255 * 256 + 228);
+    return s;
+}
+
+fn radar_stops3() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 0 * 65536 + 184 * 256 + 68);
+    s = list_push(s, 0 * 65536 + 255 * 256 + 102);
+    s = list_push(s, 212 * 65536 + 255 * 256 + 228);
+    return s;
+}
+
+pub fn radar_new(cells: List[CellGeom], info: CanvasInfo) -> Radar {
+    return Radar {
+        cells: cells,
+        palette: spectrum_build(radar_stops5(), 12),
+        final_spec: spectrum_build(radar_stops3(), 12),
+        frame: 0,
+        frame_f: 0.0,
+        info: info
+    };
+}
+
+fn radar_cell(r: Radar, c: CellGeom, beam: Float, progress: Float, fill_fade: Float) -> PaintCell {
+    let rad: Float = c.dist;
+    if rad > 1.38 {
+        let mut lk: Int = 0;
+        if c.fill == 0 && progress > 0.65 { lk = 1; }
+        return math_paint_cell(c, r.info, r.palette, r.final_spec, 0.0, lk, fill_fade);
+    }
+    let delta: Float = rem_euclid_f(beam - c.angle, 6.283185307179586);
+    let sweep: Float = exp(0.0 - delta * 1.9);
+    let mut ring: Float = 0.0;
+    let sr: Float = sin(rad * 16.0);
+    if sr > 0.90 || sr < 0.0 - 0.90 { ring = 0.36; }
+    let mut cross: Float = 0.0;
+    let adx: Float = abs_f(c.dx);
+    let ady: Float = abs_f(c.dy);
+    if adx < 0.03 || ady < 0.03 { cross = 0.28; }
+    let intensity: Float = clamp_f(sweep * 0.95 + ring + cross, 0.0, 1.0);
+    let cell_norm: Float = (c.angle + 3.141592653589793) / 6.283185307179586;
+    let mut locked: Int = 0;
+    if c.fill == 0 && progress * 1.35 >= cell_norm { locked = 1; }
+    return math_paint_cell(c, r.info, r.palette, r.final_spec, intensity, locked, fill_fade);
+}
+
+pub fn radar_next(r: Radar) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if r.frame >= 64 { return out; }
+    let frame: Int = r.frame + 1;
+    let n: Int = list_len(r.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, settle_paint_cell(list_get(r.cells, i), r.info));
+            i = i + 1;
+        }
+        return out;
+    }
+    let frame_f: Float = r.frame_f + 1.0;
+    let progress: Float = frame_f / 64.0;
+    let beam: Float = progress * 6.283185307179586 * 1.65 - 3.141592653589793;
+    let mut fill_fade: Float = 1.0;
+    if progress > 0.72 { fill_fade = clamp_f((1.0 - progress) / 0.28, 0.0, 1.0); }
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, radar_cell(r, list_get(r.cells, j), beam, progress, fill_fade));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn radar_advance(r: Radar) -> Radar {
+    return Radar {
+        cells: r.cells,
+        palette: r.palette,
+        final_spec: r.final_spec,
+        frame: r.frame + 1,
+        frame_f: r.frame_f + 1.0,
+        info: r.info
+    };
+}
+
+pub fn radar_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {
+    let mut r: Radar = radar_new(cells, info);
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        let pcs: List[PaintCell] = radar_next(r);
+        if list_len(pcs) == 0 { break; }
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        r = radar_advance(r);
+    }
+    return run;
+}

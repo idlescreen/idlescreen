@@ -1,0 +1,126 @@
+// # scene_tunnel — polar wormhole vortex tunnel port
+//
+// Logline: Bit-exact port of Tunnel::next_frame for the parity harness.
+//
+// Setup: Built over canvas_cells geometry + math_paint shared helpers. frame counts 1..=64; frame 64 settles text cells to bevel colors.
+//
+// Beats:
+//   1. tunnel_new builds the 60-step palette and 3-stop final spectrum.
+//   2. tunnel_next computes banked polar checkerboard and depth fog per cell.
+//   3. tunnel_run drives the loop and returns the digest stream.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/math_paint.oo";
+import "tests/shade_float.oo";
+import "tests/shade_trig.oo";
+import "tests/digest_run.oo";
+
+pub type Tunnel = struct {
+    cells: List[CellGeom],
+    palette: List[Int],
+    final_spec: List[Int],
+    frame: Int,
+    frame_f: Float,
+    info: CanvasInfo
+};
+
+fn tunnel_stops5() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 1179691);
+    s = list_push(s, 4128881);
+    s = list_push(s, 16459126);
+    s = list_push(s, 62932);
+    s = list_push(s, 16775399);
+    return s;
+}
+
+fn tunnel_stops3() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 16459126);
+    s = list_push(s, 62932);
+    s = list_push(s, 16775399);
+    return s;
+}
+
+pub fn tunnel_new(cells: List[CellGeom], info: CanvasInfo) -> Tunnel {
+    return Tunnel {
+        cells: cells,
+        palette: spectrum_build(tunnel_stops5(), 12),
+        final_spec: spectrum_build(tunnel_stops3(), 12),
+        frame: 0,
+        frame_f: 0.0,
+        info: info
+    };
+}
+
+fn tunnel_cell(tu: Tunnel, c: CellGeom, t: Float, bx: Float, by: Float, ff: Float, rev_r: Float) -> PaintCell {
+    let rx: Float = c.dx - bx;
+    let ry: Float = c.dy - by;
+    let r: Float = max_f(hypot_f(rx, ry), 0.06);
+    let angle: Float = atan2_f(ry, rx);
+    let u: Float = (angle / 6.283185307179586 + 0.5) * 12.0 + (0.35 / r) * sin(t * 0.8);
+    let v: Float = 1.35 / r - t * 3.8;
+    let sum_floor: Float = floor_f(u) + floor_f(v);
+    let chk: Float = rem_euclid_f(sum_floor, 2.0);
+    let base: Float = if chk < 0.5 { 0.85 } else { 0.38 };
+    let ring_glow: Float = abs_f(sin(v * 3.141592653589793));
+    let depth_fog: Float = clamp_f(r * 0.95, 0.15, 1.0);
+    let intensity: Float = clamp_f(base * ring_glow * depth_fog, 0.0, 1.0);
+    let mut locked: Int = 0;
+    if c.fill == 0 && c.dist <= rev_r { locked = 1; }
+    return math_paint_cell(c, tu.info, tu.palette, tu.final_spec, intensity, locked, ff);
+}
+
+pub fn tunnel_next(tu: Tunnel) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if tu.frame >= 64 { return out; }
+    let frame: Int = tu.frame + 1;
+    let n: Int = list_len(tu.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, settle_paint_cell(list_get(tu.cells, i), tu.info));
+            i = i + 1;
+        }
+        return out;
+    }
+    let frame_f: Float = tu.frame_f + 1.0;
+    let progress: Float = frame_f / 64.0;
+    let t: Float = frame_f * 0.10;
+    let bank_x: Float = cos(t * 1.4) * 0.22 * (1.0 - progress);
+    let bank_y: Float = sin(t * 1.9) * 0.15 * (1.0 - progress);
+    let mut fill_fade: Float = 1.0;
+    if progress > 0.72 { fill_fade = clamp_f((1.0 - progress) / 0.28, 0.0, 1.0); }
+    let reveal_r: Float = progress * 1.85;
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, tunnel_cell(tu, list_get(tu.cells, j), t, bank_x, bank_y, fill_fade, reveal_r));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn tunnel_advance(tu: Tunnel) -> Tunnel {
+    return Tunnel {
+        cells: tu.cells,
+        palette: tu.palette,
+        final_spec: tu.final_spec,
+        frame: tu.frame + 1,
+        frame_f: tu.frame_f + 1.0,
+        info: tu.info
+    };
+}
+
+pub fn tunnel_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {
+    let mut tu: Tunnel = tunnel_new(cells, info);
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        let pcs: List[PaintCell] = tunnel_next(tu);
+        if list_len(pcs) == 0 { break; }
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        tu = tunnel_advance(tu);
+    }
+    return run;
+}

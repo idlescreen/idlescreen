@@ -9,9 +9,26 @@ VER := 5.0.0
 SRC := main.oo anchor.oo $(wildcard core/*.oo raster/*.oo ascii/*.oo ascii/*/*.oo ascii/*/*/*.oo wayland/*.oo daemon/*.oo tui/*.oo cli/*.oo)
 ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_NO_JAIL=1 OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER)
 
-.PHONY: all build verify test det check line-cap file-law academy density vocab shape clean
+.PHONY: all build verify test det check line-cap file-law academy density vocab shape clean parity
 
-all: build verify test det
+all: build verify test det parity
+
+PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel
+
+parity:
+	@mkdir -p .ooda-cache bin
+	$(ENV) $(OODA_COMPILER) build tests/oo/scene_emit.oo -o bin/scene_emit > /dev/null
+	@fail=0; \
+	for s in $(PARITY_SCENES); do \
+		./bin/scene_emit $$s > .ooda-cache/parity_$$s.txt; \
+		if cmp -s qa/golden/$$s.txt .ooda-cache/parity_$$s.txt; then \
+			echo "PASS: $$s bit-exact parity"; \
+		else \
+			echo "FAIL: $$s diverges from qa/golden/$$s.txt"; fail=1; \
+		fi; \
+	done; \
+	if [ $$fail -ne 0 ]; then exit 1; fi; \
+	echo "PASS: scene parity ($(words $(PARITY_SCENES)) scenes bit-exact)"
 
 build: $(BIN)
 

@@ -1,0 +1,125 @@
+// # scene_ripple — dual-source radial wave interference port
+//
+// Logline: Bit-exact port of Ripple::next_frame for the parity harness.
+//
+// Setup: Built over canvas_cells geometry + math_paint shared helpers. frame counts 1..=64; frame 64 settles text cells to bevel colors.
+//
+// Beats:
+//   1. ripple_new builds the 60-step palette and 3-stop final spectrum.
+//   2. ripple_next computes dual-source interference intensity per cell.
+//   3. ripple_run drives the loop and returns the digest stream.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/math_paint.oo";
+import "tests/shade_float.oo";
+import "tests/shade_trig.oo";
+import "tests/digest_run.oo";
+
+pub type Ripple = struct {
+    cells: List[CellGeom],
+    palette: List[Int],
+    final_spec: List[Int],
+    frame: Int,
+    frame_f: Float,
+    info: CanvasInfo
+};
+
+fn ripple_stops5() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 3 * 65536 + 26 * 256 + 56);
+    s = list_push(s, 0 * 65536 + 80 * 256 + 157);
+    s = list_push(s, 0 * 65536 + 150 * 256 + 199);
+    s = list_push(s, 72 * 65536 + 202 * 256 + 228);
+    s = list_push(s, 202 * 65536 + 240 * 256 + 248);
+    return s;
+}
+
+fn ripple_stops3() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 0 * 65536 + 150 * 256 + 199);
+    s = list_push(s, 72 * 65536 + 202 * 256 + 228);
+    s = list_push(s, 202 * 65536 + 240 * 256 + 248);
+    return s;
+}
+
+pub fn ripple_new(cells: List[CellGeom], info: CanvasInfo) -> Ripple {
+    return Ripple {
+        cells: cells,
+        palette: spectrum_build(ripple_stops5(), 12),
+        final_spec: spectrum_build(ripple_stops3(), 12),
+        frame: 0,
+        frame_f: 0.0,
+        info: info
+    };
+}
+
+fn ripple_cell(r: Ripple, c: CellGeom, t: Float, fill_fade: Float, reveal_r: Float) -> PaintCell {
+    let mut locked: Int = 0;
+    if c.fill == 0 && c.dist <= reveal_r { locked = 1; }
+    let s1x: Float = cos(t * 1.4) * 0.45;
+    let s1y: Float = sin(t * 1.4) * 0.30;
+    let s2x: Float = 0.0 - cos(t * 1.7) * 0.45;
+    let s2y: Float = 0.0 - sin(t * 1.7) * 0.30;
+    let d1: Float = hypot_f(c.dx - s1x, c.dy - s1y);
+    let d2: Float = hypot_f(c.dx - s2x, c.dy - s2y);
+    let w1: Float = sin(d1 * 18.0 - t * 4.5);
+    let w2: Float = sin(d2 * 18.0 - t * 4.5);
+    let mut dm: Float = d1;
+    if d2 < d1 { dm = d2; }
+    let atten: Float = exp(0.0 - 0.55 * dm);
+    let raw: Float = (0.5 + 0.25 * (w1 + w2)) * atten;
+    let intensity: Float = clamp_f(raw, 0.0, 1.0);
+    return math_paint_cell(c, r.info, r.palette, r.final_spec, intensity, locked, fill_fade);
+}
+
+pub fn ripple_next(r: Ripple) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if r.frame >= 64 { return out; }
+    let frame: Int = r.frame + 1;
+    let n: Int = list_len(r.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, settle_paint_cell(list_get(r.cells, i), r.info));
+            i = i + 1;
+        }
+        return out;
+    }
+    let frame_f: Float = r.frame_f + 1.0;
+    let progress: Float = frame_f / 64.0;
+    let t: Float = frame_f * 0.11;
+    let mut fill_fade: Float = 1.0;
+    if progress > 0.72 { fill_fade = clamp_f((1.0 - progress) / 0.28, 0.0, 1.0); }
+    let reveal_r: Float = progress * 1.85;
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, ripple_cell(r, list_get(r.cells, j), t, fill_fade, reveal_r));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn ripple_advance(r: Ripple) -> Ripple {
+    return Ripple {
+        cells: r.cells,
+        palette: r.palette,
+        final_spec: r.final_spec,
+        frame: r.frame + 1,
+        frame_f: r.frame_f + 1.0,
+        info: r.info
+    };
+}
+
+pub fn ripple_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {
+    let mut r: Ripple = ripple_new(cells, info);
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        let pcs: List[PaintCell] = ripple_next(r);
+        if list_len(pcs) == 0 { break; }
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        r = ripple_advance(r);
+    }
+    return run;
+}

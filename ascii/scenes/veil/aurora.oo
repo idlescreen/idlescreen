@@ -1,16 +1,111 @@
-// # Scene Aurora - Polar Curtain Ribbons
+// # Scene Aurora - Polar Curtain Ribbons and Bit-Exact Parity
 //
-// Logline: Layered aurora curtains draping down the grid in teal and violet waves.
-// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Logline: Layered aurora curtains draping down the grid, with 64-frame bit-exact parity pipeline.
+// Setup: Pure integer and float arithmetic over CellGrid and CellGeom. Zero ambient authority.
 // Beats:
-//   1. Wave three curtain edges across the sky by offset sines.
-//   2. Fill the band under each edge with dimming curtain cells.
-//   3. Blend teal, green, and violet bands into the night base.
+//   1. aurora_new builds the 5-stop palette and 3-stop vertical spectrum.
+//   2. aurora_next steps harmonic ribbons settling into the bevelled banner on frame 64.
+//   3. scene_aurora preserves the runtime screensaver tick animation.
 
 import "core/cell.oo";
 import "core/grid.oo";
 import "core/imath.oo";
 import "ascii/canvas.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/bevel_band.oo";
+import "tests/shade_float.oo";
+import "tests/oo/pixel_glyph.oo";
+
+pub type Aurora = struct {
+    cells: List[CellGeom],
+    palette: List[Int],
+    final_spec: List[Int],
+    frame: Int,
+    frame_f: Float,
+    info: CanvasInfo
+};
+
+pub fn aurora_new(cells: List[CellGeom], info: CanvasInfo) -> Aurora {
+    let mut s5: List[Int] = list_push(list_push(list_push(list_push(list_push(list_new(), 15140), 58741), 55551), 8005887), 14725375);
+    let mut s3: List[Int] = list_push(list_push(list_push(list_new(), 58741), 55551), 14725375);
+    return Aurora {
+        cells: cells,
+        palette: spectrum_build(s5, 12),
+        final_spec: spectrum_build(s3, 12),
+        frame: 0,
+        frame_f: 0.0,
+        info: info
+    };
+}
+
+fn aurora_cell(a: Aurora, c: CellGeom, t: Float, fill_fade: Float, reveal_y: Float) -> PaintCell {
+    let gx: Int = c.col - 1;
+    let gy: Int = a.info.rows - c.row;
+    if c.fill == 0 && c.ny <= reveal_y {
+        let col: Int = vertical_row_color(a.final_spec, c.row, a.info.tb, a.info.tt);
+        return emit_paint_cell(1, c.sym, col, gx, gy);
+    }
+    let ribbon1: Float = 0.38 + 0.20 * sin(c.nx * 5.2 + t * 1.9) + 0.10 * cos(c.nx * 11.5 - t * 1.3);
+    let ribbon2: Float = 0.64 + 0.18 * cos(c.nx * 4.1 - t * 1.6) + 0.09 * sin((c.nx + c.ny) * 8.4 + t * 2.3);
+    let d1: Float = abs_f(c.ny - ribbon1);
+    let d2: Float = abs_f(c.ny - ribbon2);
+    let curtain: Float = max_f(exp(0.0 - d1 * 6.0), exp(0.0 - d2 * 6.5) * 0.88);
+    let shimmer: Float = 0.55 + 0.45 * sin(c.nx * 18.0 + t * 3.4);
+    let intensity: Float = clamp_f(curtain * shimmer, 0.0, 1.0);
+    let mut eff: Float = clamp_f(intensity, 0.0, 1.0);
+    if c.fill == 1 { eff = clamp_f(intensity * fill_fade, 0.0, 1.0); }
+    if eff <= 0.14 { return emit_paint_cell(0, 32, 0, gx, gy); }
+    let shade_norm: Float = clamp_f((eff - 0.14) / 0.86, 0.0, 0.999);
+    let sidx: Int = float_idx(shade_norm * 4.0);
+    let color: Int = sample_palette(a.palette, eff);
+    return emit_paint_cell(1, shade_ramp_ord(sidx), color, gx, gy);
+}
+
+fn aurora_settle_cell(a: Aurora, c: CellGeom) -> PaintCell {
+    let gx: Int = c.col - 1;
+    let gy: Int = a.info.rows - c.row;
+    if c.fill == 1 { return emit_paint_cell(0, 32, 0, gx, gy); }
+    let y: Int = a.info.top - c.row;
+    let min_y: Int = a.info.top - a.info.tt;
+    let max_y: Int = a.info.top - a.info.tb;
+    let span: Int = max_y - min_y + 1;
+    let is_sf: Int = if span == 22 || span == 7 { 1 } else { 0 };
+    let col: Int = banner_bevel_color(y, min_y, max_y, is_sf, parity_accent());
+    return emit_paint_cell(1, c.sym, col, gx, gy);
+}
+
+pub fn aurora_next(a: Aurora) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if a.frame >= 64 { return out; }
+    let frame: Int = a.frame + 1;
+    let n: Int = list_len(a.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, aurora_settle_cell(a, list_get(a.cells, i)));
+            i = i + 1;
+        }
+        return out;
+    }
+    let frame_f: Float = a.frame_f + 1.0;
+    let progress: Float = frame_f / 64.0;
+    let t: Float = frame_f * 0.09;
+    let mut fill_fade: Float = 1.0;
+    if progress > 0.72 { fill_fade = clamp_f((1.0 - progress) / 0.28, 0.0, 1.0); }
+    let reveal_y: Float = clamp_f(progress * 1.35 - 0.15, 0.0, 1.0);
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, aurora_cell(a, list_get(a.cells, j), t, fill_fade, reveal_y));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn aurora_advance(a: Aurora) -> Aurora {
+    return Aurora { cells: a.cells, palette: a.palette, final_spec: a.final_spec, frame: a.frame + 1, frame_f: a.frame_f + 1.0, info: a.info };
+}
 
 pub fn scene_aurora(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = cv_fill(g, " ", rgb(10, 20, 40), rgb(2, 4, 14));

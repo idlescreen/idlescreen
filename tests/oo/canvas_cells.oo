@@ -11,6 +11,7 @@
 
 import "grid_cells.oo";
 import "tests/shade_float.oo";
+import "tests/shade_trig.oo";
 
 pub type CanvasInfo = struct {
     cols: Int,
@@ -100,7 +101,8 @@ fn geom_cell(info: CanvasInfo, col_f: Float, row_f: Float, col: Int, row: Int, s
         ny: ny,
         dx: dx,
         dy: dy,
-        dist: hypot_f(dx, dy)
+        dist: hypot_f(dx, dy),
+        angle: atan2_f(dy, dx)
     };
 }
 

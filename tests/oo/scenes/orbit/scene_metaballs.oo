@@ -1,0 +1,126 @@
+// # scene_metaballs — lava-lamp isosurface metaballs port
+//
+// Logline: Bit-exact port of Metaballs::next_frame for the parity harness.
+//
+// Setup: Built over canvas_cells geometry + math_paint shared helpers. frame counts 1..=64; frame 64 settles text cells to bevel colors.
+//
+// Beats:
+//   1. metaballs_new builds the 49-step palette and 3-stop final spectrum.
+//   2. metaballs_next steps 4 converging blobs and computes potential sum.
+//   3. metaballs_run drives the loop and returns the digest stream.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/math_paint.oo";
+import "tests/shade_float.oo";
+import "tests/digest_run.oo";
+
+pub type Metaballs = struct {
+    cells: List[CellGeom],
+    palette: List[Int],
+    final_spec: List[Int],
+    frame: Int,
+    frame_f: Float,
+    info: CanvasInfo
+};
+
+fn metaballs_stops5() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 58 * 65536 + 12 * 256 + 163);
+    s = list_push(s, 114 * 65536 + 9 * 256 + 183);
+    s = list_push(s, 247 * 65536 + 37 * 256 + 133);
+    s = list_push(s, 255 * 65536 + 109 * 256 + 0);
+    s = list_push(s, 255 * 65536 + 234 * 256 + 0);
+    return s;
+}
+
+fn metaballs_stops3() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 247 * 65536 + 37 * 256 + 133);
+    s = list_push(s, 255 * 65536 + 109 * 256 + 0);
+    s = list_push(s, 255 * 65536 + 234 * 256 + 0);
+    return s;
+}
+
+pub fn metaballs_new(cells: List[CellGeom], info: CanvasInfo) -> Metaballs {
+    return Metaballs {
+        cells: cells,
+        palette: spectrum_build(metaballs_stops5(), 12),
+        final_spec: spectrum_build(metaballs_stops3(), 12),
+        frame: 0,
+        frame_f: 0.0,
+        info: info
+    };
+}
+
+fn metaballs_cell(m: Metaballs, c: CellGeom, b0x: Float, b0y: Float, b1x: Float, b1y: Float, b2x: Float, b2y: Float, b3x: Float, b3y: Float, fill_fade: Float, reveal_r: Float) -> PaintCell {
+    let mut locked: Int = 0;
+    if c.fill == 0 && c.dist <= reveal_r { locked = 1; }
+    let d02: Float = (c.dx - b0x) * (c.dx - b0x) + (c.dy - b0y) * (c.dy - b0y) + 0.035;
+    let d12: Float = (c.dx - b1x) * (c.dx - b1x) + (c.dy - b1y) * (c.dy - b1y) + 0.035;
+    let d22: Float = (c.dx - b2x) * (c.dx - b2x) + (c.dy - b2y) * (c.dy - b2y) + 0.035;
+    let d32: Float = (c.dx - b3x) * (c.dx - b3x) + (c.dy - b3y) * (c.dy - b3y) + 0.035;
+    let sum: Float = 0.22 / d02 + 0.24 / d12 + 0.20 / d22 + 0.21 / d32;
+    let intensity: Float = clamp_f((sum - 0.85) / 2.4, 0.0, 1.0);
+    return math_paint_cell(c, m.info, m.palette, m.final_spec, intensity, locked, fill_fade);
+}
+
+pub fn metaballs_next(m: Metaballs) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if m.frame >= 64 { return out; }
+    let frame: Int = m.frame + 1;
+    let n: Int = list_len(m.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, settle_paint_cell(list_get(m.cells, i), m.info));
+            i = i + 1;
+        }
+        return out;
+    }
+    let frame_f: Float = m.frame_f + 1.0;
+    let progress: Float = frame_f / 64.0;
+    let t: Float = frame_f * 0.085;
+    let converge: Float = max_f(1.0 - progress * 0.65, 0.2);
+    let b0x: Float = cos(t * 1.3) * 0.75 * converge;
+    let b0y: Float = sin(t * 1.9) * 0.55 * converge;
+    let b1x: Float = (0.0 - sin(t * 1.7)) * 0.80 * converge;
+    let b1y: Float = cos(t * 1.1) * 0.50 * converge;
+    let b2x: Float = sin(t * 2.1) * 0.55 * converge;
+    let b2y: Float = (0.0 - cos(t * 1.5)) * 0.60 * converge;
+    let b3x: Float = (0.0 - cos(t * 1.2)) * 0.65 * converge;
+    let b3y: Float = (0.0 - sin(t * 2.2)) * 0.45 * converge;
+    let mut fill_fade: Float = 1.0;
+    if progress > 0.72 { fill_fade = clamp_f((1.0 - progress) / 0.28, 0.0, 1.0); }
+    let reveal_r: Float = progress * 1.85;
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, metaballs_cell(m, list_get(m.cells, j), b0x, b0y, b1x, b1y, b2x, b2y, b3x, b3y, fill_fade, reveal_r));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn metaballs_advance(m: Metaballs) -> Metaballs {
+    return Metaballs {
+        cells: m.cells,
+        palette: m.palette,
+        final_spec: m.final_spec,
+        frame: m.frame + 1,
+        frame_f: m.frame_f + 1.0,
+        info: m.info
+    };
+}
+
+pub fn metaballs_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {
+    let mut m: Metaballs = metaballs_new(cells, info);
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        let pcs: List[PaintCell] = metaballs_next(m);
+        if list_len(pcs) == 0 { break; }
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        m = metaballs_advance(m);
+    }
+    return run;
+}

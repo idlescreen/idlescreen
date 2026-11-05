@@ -1,0 +1,34 @@
+// # digest_run — parity run contract for .oo scene ports
+//
+// Logline: Shared digest types and the per-frame hash step every scene
+// port uses to reproduce the Rust scene_digest stream bit-for-bit.
+// Setup: Pure. Imports the paint-cell serializer and FNV-1a-64 module.
+// Beats:
+//   1. DigestRun carries per-frame digests, composite, last frame cells.
+//   2. digest_paint_cells hashes one frame's cell list.
+//   3. run_push folds a frame digest into the run accumulators.
+
+import "tests/oo/grid_cells.oo";
+import "tests/fnv1a64.oo";
+
+pub type DigestRun = struct {
+    frames: List[Int],
+    composite: Int,
+    last: List[PaintCell]
+};
+
+pub fn digest_run_new() -> DigestRun {
+    return DigestRun { frames: list_new(), composite: fnv1a64_new(), last: list_new() };
+}
+
+pub fn digest_paint_cells(pcs: List[PaintCell]) -> Int {
+    return fnv1a64_str(fnv1a64_new(), grid_record_list(pcs));
+}
+
+pub fn run_push(run: DigestRun, d: Int, pcs: List[PaintCell]) -> DigestRun {
+    return DigestRun {
+        frames: list_push(run.frames, d),
+        composite: fnv1a64_combine(run.composite, d),
+        last: pcs
+    };
+}

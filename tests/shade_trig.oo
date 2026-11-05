@@ -1,0 +1,45 @@
+// # shade_trig — exact polar coordinate and trigonometry helpers
+//
+// Logline: Bit-exact atan2 and hypot helpers for polar cell projection.
+//
+// Setup: Pure math functions over Float. Zero ambient authority.
+//
+// Beats:
+//   1. atan_poly computes degree-15 polynomial approximation.
+//   2. atan_small applies 3-step half-angle argument reduction.
+//   3. atan2_f handles octant classification and signed branch cuts.
+//   4. hypot_f computes Euclidean norm via standard sqrt.
+
+pub fn hypot_f(x: Float, y: Float) -> Float {
+    return sqrt(x * x + y * y);
+}
+
+fn atan_poly(u: Float) -> Float {
+    let u2: Float = u * u;
+    return u * (1.0 + u2 * (0.0 - 0.3333333333333333 + u2 * (0.2 + u2 * (0.0 - 0.14285714285714285 + u2 * (0.1111111111111111 + u2 * (0.0 - 0.09090909090909091 + u2 * (0.07692307692307693 + u2 * (0.0 - 0.06666666666666667 + u2 * 0.058823529411764705))))))));
+}
+
+fn atan_small(t: Float) -> Float {
+    let mut u: Float = t;
+    let mut k: Int = 0;
+    while k < 3 {
+        u = u / (1.0 + sqrt(1.0 + u * u));
+        k = k + 1;
+    }
+    return 8.0 * atan_poly(u);
+}
+
+pub fn atan2_f(y: Float, x: Float) -> Float {
+    if x == 0.0 && y == 0.0 { return 0.0; }
+    let ax: Float = if x < 0.0 { 0.0 - x } else { x };
+    let ay: Float = if y < 0.0 { 0.0 - y } else { y };
+    let mut a: Float = 0.0;
+    if ax >= ay {
+        a = atan_small(ay / ax);
+    } else {
+        a = 1.5707963267948966 - atan_small(ax / ay);
+    }
+    if x < 0.0 { a = 3.141592653589793 - a; }
+    if y < 0.0 { a = 0.0 - a; }
+    return a;
+}

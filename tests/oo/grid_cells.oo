@@ -33,7 +33,8 @@ pub type CellGeom = struct {
     ny: Float,
     dx: Float,
     dy: Float,
-    dist: Float
+    dist: Float,
+    angle: Float
 };
 
 pub fn paint_cell_default() -> PaintCell {

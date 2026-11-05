@@ -1,0 +1,45 @@
+// # math_paint — shared paint_math_cell and settle port
+//
+// Logline: Bit-exact port of field_ops::paint_math_cell and
+// settle_canvas_cells shared by every math-family scene port.
+// Setup: Pure. Colors packed 0xRRGGBB; intensity/fill_fade are f64.
+// Beats:
+//   1. math_paint_cell applies lock, fade, threshold, shade, palette.
+//   2. settle_paint_cell emits the bevel settle frame for text cells.
+
+import "tests/oo/grid_cells.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/bevel_band.oo";
+import "tests/shade_float.oo";
+import "tests/oo/pixel_glyph.oo";
+
+pub fn math_paint_cell(c: CellGeom, info: CanvasInfo, palette: List[Int], final_spec: List[Int], intensity: Float, locked: Int, fill_fade: Float) -> PaintCell {
+    let gx: Int = c.col - 1;
+    let gy: Int = info.rows - c.row;
+    if c.fill == 0 && locked == 1 {
+        let col: Int = vertical_row_color(final_spec, c.row, info.tb, info.tt);
+        return emit_paint_cell(1, c.sym, col, gx, gy);
+    }
+    let mut eff: Float = clamp_f(intensity, 0.0, 1.0);
+    if c.fill == 1 { eff = clamp_f(intensity * fill_fade, 0.0, 1.0); }
+    if eff <= 0.14 { return emit_paint_cell(0, 32, 0, gx, gy); }
+    let shade_norm: Float = clamp_f((eff - 0.14) / 0.86, 0.0, 0.999);
+    let sidx: Int = float_idx(shade_norm * 4.0);
+    let color: Int = sample_palette(palette, eff);
+    return emit_paint_cell(1, shade_ramp_ord(sidx), color, gx, gy);
+}
+
+pub fn settle_paint_cell(c: CellGeom, info: CanvasInfo) -> PaintCell {
+    let gx: Int = c.col - 1;
+    let gy: Int = info.rows - c.row;
+    if c.fill == 1 { return emit_paint_cell(0, 32, 0, gx, gy); }
+    let y: Int = info.top - c.row;
+    let min_y: Int = info.top - info.tt;
+    let max_y: Int = info.top - info.tb;
+    let span: Int = max_y - min_y + 1;
+    let mut is_sf: Int = 0;
+    if span == 22 || span == 7 { is_sf = 1; }
+    let col: Int = banner_bevel_color(y, min_y, max_y, is_sf, parity_accent());
+    return emit_paint_cell(1, c.sym, col, gx, gy);
+}
