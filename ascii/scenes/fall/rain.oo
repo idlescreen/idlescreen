@@ -1,0 +1,40 @@
+// # Scene Rain - Diagonal Rain Streak Field
+//
+// Logline: Slanted rain streaks falling through the grid with occasional brighter drops and ground splashes.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Seed streak columns by hash and advance their drop position with tick.
+//   2. Draw each falling drop and its faint trail.
+//   3. Splash tiny dots along the bottom two rows.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_rain(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(30, 40, 60), rgb(4, 8, 16));
+    let mut x: Int = 0;
+    while x < g.cols {
+        if cv_hash(x, 0, 9) % 4 == 0 {
+            let speed: Int = 1 + cv_hash(x, 7, 3) % 3;
+            let head: Int = (tick * speed + cv_hash(x, 3, 11)) % if g.rows > 0 { g.rows } else { 1 };
+            out = cv_put(out, x + head % 2, head, "│", rgb(170, 200, 255), rgb(4, 8, 16));
+            let mut t: Int = 1;
+            while t <= 3 {
+                let ty: Int = head - t;
+                if ty >= 0 {
+                    out = cv_put(out, x + ty % 2, ty, ":", rgb(50 + (3 - t) * 20, 70 + (3 - t) * 20, 120), rgb(4, 8, 16));
+                }
+                t = t + 1;
+            }
+        }
+        x = x + 1;
+    }
+    let mut sx: Int = 0;
+    while sx < g.cols {
+        if cv_hash(sx, tick, 23) % 13 == 0 {
+            out = cv_put(out, sx, g.rows - 1 - cv_hash(sx, 1, tick) % 2, "·", rgb(120, 150, 220), rgb(4, 8, 16));
+        }
+        sx = sx + 1;
+    }
+    return out;
+}

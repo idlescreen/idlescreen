@@ -1,0 +1,33 @@
+// # Scene Moire - Dual Interference Ring Lattice
+//
+// Logline: Two counter-rotating ring fields interfering into moire fringes over the grid.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Evaluate ring distance from two orbiting centres.
+//   2. Beat the two ring sines into fringe intensity.
+//   3. Colour fringes amber on charcoal.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_moire(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let cx1: Int = g.cols / 2 + isin(tick * 5) * (g.cols * 3 / 10) / 1000;
+    let cy1: Int = g.rows / 2 + icos(tick * 5) * (g.rows * 3 / 10) / 1000;
+    let cx2: Int = g.cols / 2 - isin(tick * 6 + 40) * (g.cols * 3 / 10) / 1000;
+    let cy2: Int = g.rows / 2 - icos(tick * 6 + 40) * (g.rows * 3 / 10) / 1000;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let d1: Int = idist(x - cx1, (y - cy1) * 2);
+            let d2: Int = idist(x - cx2, (y - cy2) * 2);
+            let v: Int = isin(d1 * 54) * isin(d2 * 54) / 1000;
+            let ramp: Int = (v + 1000) * 9 / 2000;
+            out = cv_put(out, x, y, cv_ramp(ramp), cv_mix(rgb(30, 20, 8), rgb(255, 190, 90), ramp * 28), rgb(4, 3, 2));
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

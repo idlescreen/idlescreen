@@ -1,0 +1,12 @@
+// # ascii/draw Domain Anchor
+//
+// Logline: Re-exports the ANSI emitter, banner chrome, dissolve, lens flare, post-FX, and starfield pages.
+// Setup: Pure shim. Imports the draw pages.
+// Beats:
+//   1. Re-export ansi, banner, dissolve, lens_flare, post_fx, and starfield for the tree.
+import "ansi.oo";
+import "banner.oo";
+import "dissolve.oo";
+import "lens_flare.oo";
+import "post_fx.oo";
+import "starfield.oo";

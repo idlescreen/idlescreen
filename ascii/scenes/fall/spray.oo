@@ -1,0 +1,35 @@
+// # Scene Spray - Particle Jet Fountains
+//
+// Logline: Twin particle fountains spraying droplets in ballistic arcs across the grid.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Emit droplets from two floor nozzles with spread by hash.
+//   2. Integrate a simple integer ballistic arc per droplet age.
+//   3. Tint fresh spray white fading to mist grey.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_spray(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(40, 40, 40), rgb(8, 8, 10));
+    let mut noz: Int = 0;
+    while noz < 2 {
+        let nx: Int = if noz == 0 { g.cols / 3 } else { g.cols * 2 / 3 };
+        let mut p: Int = 0;
+        while p < 24 {
+            let age: Int = (tick + p * 2) % 16;
+            let h: Int = cv_hash(p, noz, 3);
+            let vx: Int = (h % 7) - 3;
+            let sx: Int = nx + vx * age / 2;
+            let up: Int = age * 18 / 10 - age * age * 9 / 100;
+            let sy: Int = g.rows - 1 - up;
+            if sx >= 0 && sx < g.cols && sy >= 0 && sy < g.rows {
+                let bright: Int = 220 - age * 10;
+                out = cv_put(out, sx, sy, if age < 6 { "o" } else { "·" }, rgb(bright, bright, bright + 20), rgb(8, 8, 10));
+            }
+            p = p + 1;
+        }
+        noz = noz + 1;
+    }
+    return out;
+}

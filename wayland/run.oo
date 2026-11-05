@@ -1,0 +1,59 @@
+// # Wayland Run - Presenter Session and Frame Loop
+//
+// Logline: Drives the presenter: negotiate the layer-shell session when a display exists, else run the TTY frame loop.
+// Setup: Requires EnvCap, FsCap, FsWriteCap, FfiCap, and TimeCap.
+// Beats:
+//   1. Probe the Wayland display socket; on failure drop to the TTY presenter.
+//   2. Configure the overlay layer surface and register the idle notification.
+//   3. Loop frames with DPMS wake checks and bounded sleep between presents.
+
+import "core/cell.oo";
+import "ascii/engine.oo";
+import "ascii/effects.oo";
+import "protocol.oo";
+import "layer_shell.oo";
+import "idle_notify.oo";
+import "dpms.oo";
+import "shm_pool.oo";
+import "present.oo";
+
+pub type PresenterCtl = struct {
+    layer: LayerShell,
+    notify: IdleNotify,
+    dpms: DpmsState,
+    frames: Int
+};
+
+pub fn wayland_negotiate(env: &EnvCap, fs: &FsReadCap) -> WlSession {
+    return wl_session_open(env, fs);
+}
+
+pub fn wayland_ctl_new(timeout_s: Int, frames: Int) -> PresenterCtl {
+    return PresenterCtl {
+        layer: layer_shell_new(),
+        notify: idle_notify_new(timeout_s),
+        dpms: dpms_new(),
+        frames: frames
+    };
+}
+
+pub fn wayland_tty_present(ffi: &FfiCap, time: &TimeCap, cols: Int, rows: Int, scene: String, frames: Int, fps_ms: Int) -> Int {
+    let mut i: Int = 0;
+    let mut sent: Int = 0;
+    while i < frames {
+        let frame: String = engine_preview_frame(cols, rows, scene, i, false);
+        let w: Result[String, String] = oo_tui_write(ffi, frame);
+        if w.is_err() { return sent; }
+        sent = sent + 1;
+        if fps_ms > 0 { let _ = sleep_ms(time, fps_ms); }
+        i = i + 1;
+    }
+    return sent;
+}
+
+pub fn wayland_session_describe(s: WlSession) -> String {
+    if s.connected {
+        return "wayland: connected " + s.socket_path + " (layer-shell overlay, idle-notify, dpms armed)";
+    }
+    return "wayland: no display socket, tty fallback engaged";
+}

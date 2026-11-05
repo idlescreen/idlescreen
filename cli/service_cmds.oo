@@ -1,0 +1,26 @@
+// # Service Commands - start, stop, toggle, enable, disable, restart, service, uninstall
+//
+// Logline: The service-management verbs routed through the daemon control socket or reported when unmanaged.
+// Setup: Requires TcpCap and EnvCap for the loopback control endpoint.
+// Beats:
+//   1. Forward start, stop, toggle, sleep, and quit frames to the daemon socket.
+//   2. Report enable, disable, restart, service, and uninstall as systemd-managed hints.
+//   3. Fail closed with a hint when the daemon is absent.
+
+import "daemon/run.oo";
+import "daemon/config.oo";
+
+pub fn cmd_saver_ctl(tcp: &TcpCap, env: &EnvCap, verb: String) -> Int {
+    return ooidle_query(tcp, env, "idlescreen", verb);
+}
+
+pub fn cmd_service(env: &EnvCap, verb: String) -> Int {
+    let unit: String = "idlescreen.service";
+    if verb == "enable" { println("enable: run `systemctl --user enable " + unit + "`"); return 0; }
+    if verb == "disable" { println("disable: run `systemctl --user disable " + unit + "`"); return 0; }
+    if verb == "restart" { println("restart: run `systemctl --user restart " + unit + "`"); return 0; }
+    if verb == "service" { println("service unit: " + unit + " (user scope, Type=simple)"); return 0; }
+    if verb == "uninstall" { println("uninstall: remove binary and " + unit + "; no host residue kept"); return 0; }
+    println("unknown service verb " + verb);
+    return 1;
+}

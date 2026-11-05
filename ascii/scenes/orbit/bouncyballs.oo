@@ -1,0 +1,40 @@
+// # Scene BouncyBalls - Gravity Ball Ensemble
+//
+// Logline: A rack of bouncing balls under gravity with squash on floor impact and fading shadows.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Drive each ball on its own gravity period and phase in permille.
+//   2. Flatten the glyph to a shadow pancake near the floor.
+//   3. Colour balls by lane hue with a floor shadow line.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_bouncyballs(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(25, 25, 35), rgb(4, 4, 8));
+    let floor_y: Int = g.rows - 2;
+    let mut x: Int = 0;
+    while x < g.cols {
+        out = cv_put(out, x, floor_y + 1, "═", rgb(70, 70, 90), rgb(4, 4, 8));
+        x = x + 1;
+    }
+    let mut b: Int = 0;
+    while b < 8 {
+        let period: Int = 18 + cv_hash(b, 0, 3) % 10;
+        let ph: Int = (tick + cv_hash(b, 1, 7)) % (period * 2);
+        let hf: Int = if ph < period { ph * 1000 / period } else { 2000 - ph * 1000 / period };
+        let drop: Int = 1000 - (1000 - hf) * (1000 - hf) / 1000;
+        let height: Int = (floor_y - 1) * (1000 - drop) / 1000;
+        let bx: Int = 3 + b * (g.cols - 6) / 8 + cv_hash(b, 2, 11) % 3;
+        let by: Int = floor_y - 1 - height;
+        let col: Int = cv_hue(b * 75);
+        if hf < 60 || hf > 1940 {
+            out = cv_put(out, bx, floor_y, "▬", cv_mix(0, col, 200), rgb(4, 4, 8));
+        } else {
+            out = cv_put(out, bx, by, "●", col, rgb(4, 4, 8));
+            out = cv_put(out, bx, floor_y, "·", rgb(40, 40, 55), rgb(4, 4, 8));
+        }
+        b = b + 1;
+    }
+    return out;
+}

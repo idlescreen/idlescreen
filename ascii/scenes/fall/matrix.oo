@@ -1,0 +1,50 @@
+// # Scene Matrix - Digital Rain Glyph Columns
+//
+// Logline: Green kana-style glyph columns cascading down the grid with bright heads and decaying trails.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Give each column an independent phase and speed by hash.
+//   2. Draw the luminous head glyph and fading trail runes behind it.
+//   3. Mutate glyph choice deterministically per tick.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+fn matrix_glyph(h: Int) -> String {
+    let k: Int = h % 12;
+    if k == 0 { return "ﾊ"; }
+    if k == 1 { return "ﾐ"; }
+    if k == 2 { return "ﾋ"; }
+    if k == 3 { return "ｼ"; }
+    if k == 4 { return "ｦ"; }
+    if k == 5 { return "ｱ"; }
+    if k == 6 { return "ｳ"; }
+    if k == 7 { return "Z"; }
+    if k == 8 { return "7"; }
+    if k == 9 { return "*"; }
+    if k == 10 { return "+"; }
+    return ":";
+}
+
+pub fn scene_matrix(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(0, 40, 0), rgb(0, 3, 0));
+    let mut x: Int = 0;
+    while x < g.cols {
+        let span: Int = g.rows + 8;
+        let speed: Int = 1 + cv_hash(x, 5, 29) % 2;
+        let head: Int = (tick * speed + cv_hash(x, 2, 13)) % if span > 0 { span } else { 1 };
+        let mut t: Int = 0;
+        while t < 9 {
+            let ty: Int = head - t;
+            if ty >= 0 && ty < g.rows {
+                let h: Int = cv_hash(x, ty, tick / 3 + t);
+                let ch: String = matrix_glyph(h);
+                let c: Int = if t == 0 { rgb(210, 255, 210) } else if t < 3 { rgb(60, 230 - t * 40, 60) } else { rgb(0, 140 - t * 12, 0) };
+                out = cv_put_b(out, x, ty, ch, c, rgb(0, 3, 0), t == 0);
+            }
+            t = t + 1;
+        }
+        x = x + 1;
+    }
+    return out;
+}

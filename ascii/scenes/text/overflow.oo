@@ -1,0 +1,36 @@
+// # Scene Overflow - Buffer Fill and Wrap Wave
+//
+// Logline: A buffer that keeps filling: glyphs pour in left-to-right, overflow, and wrap with a warning stripe.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Fill cells in row-major order up to the tick-driven watermark.
+//   2. Draw the write head as a hazard-striped cursor.
+//   3. Tint the tail cells warning amber near overflow.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_overflow(g: CellGrid, tick: Int) -> CellGrid {
+    let total: Int = g.cols * g.rows;
+    let mark: Int = (tick * 7) % (total + g.cols * 2);
+    let mut out: CellGrid = cv_fill(g, " ", rgb(60, 60, 60), rgb(10, 10, 14));
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let idx: Int = y * g.cols + x;
+            if idx < mark {
+                let tail: Int = mark - idx;
+                let ch: String = cv_ramp(9 - tail % 9);
+                let c: Int = if tail < g.cols { rgb(255, 180, 60) } else { rgb(90, 190, 120) };
+                out = cv_put(out, x, y, ch, c, rgb(10, 10, 14));
+            }
+            if idx == mark {
+                out = cv_put_b(out, x, y, "▚", rgb(255, 80, 60), rgb(60, 10, 10), true);
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

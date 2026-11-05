@@ -1,0 +1,108 @@
+// # Glyph Font - 8x16 Block and Punctuation Bitmap Atlas
+//
+// Logline: 8x16 row-mask bitmaps for block, box, and punctuation glyphs with per-style variants and 8x8 HUD fallback.
+// Setup: Pure data tables. Operates with zero ambient authority.
+// Beats:
+//   1. Select the style-specific row mask for the heavy block glyph.
+//   2. Match punctuation, quadrant, and box-drawing glyphs to packed rows.
+//   3. Expand 8x8 HUD glyphs for every remaining codepoint.
+
+import "glyph_hud.oo";
+import "glyph_style.oo";
+
+fn rows_rep(v: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < 16 { out = list_push(out, v); i = i + 1; }
+    return out;
+}
+
+fn rows_pack(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    out = list_push(out, a); out = list_push(out, b);
+    out = list_push(out, c); out = list_push(out, d);
+    out = list_push(out, e); out = list_push(out, f);
+    out = list_push(out, g); out = list_push(out, h);
+    return out;
+}
+
+fn rows_mirror8(p: List[Int]) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(p) { out = list_push(out, list_get(p, i)); i = i + 1; }
+    i = list_len(p) - 1;
+    while i >= 0 { out = list_push(out, list_get(p, i)); i = i - 1; }
+    return out;
+}
+
+fn rows_repeat8(p: List[Int]) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < 2 {
+        let mut j: Int = 0;
+        while j < list_len(p) { out = list_push(out, list_get(p, j)); j = j + 1; }
+        i = i + 1;
+    }
+    return out;
+}
+
+fn block_rows(ch: String, style: String) -> List[Int] {
+    if ch == "█" {
+        if glyph_style_is_sharp(style) {
+            let m: List[Int] = rows_pack(255, 254, 252, 248, 240, 224, 192, 128);
+            return rows_mirror8(m);
+        }
+        if glyph_style_is_round(style) {
+            let m: List[Int] = rows_pack(126, 255, 255, 255, 255, 255, 255, 255);
+            return rows_mirror8(m);
+        }
+        return rows_rep(255);
+    }
+    if ch == "▀" { return rows_pack(255, 255, 255, 255, 255, 255, 255, 255); }
+    if ch == "▄" {
+        let z: List[Int] = rows_pack(0, 0, 0, 0, 0, 0, 0, 0);
+        let m: List[Int] = rows_pack(255, 255, 255, 255, 255, 255, 255, 255);
+        let mut out: List[Int] = z;
+        let mut i: Int = 0;
+        while i < 8 { out = list_push(out, list_get(m, i)); i = i + 1; }
+        return out;
+    }
+    if ch == "▌" { return rows_rep(240); }
+    if ch == "▐" { return rows_rep(15); }
+    if ch == "▖" { return rows_pack(0, 0, 0, 0, 240, 240, 240, 240); }
+    if ch == "▗" { return rows_pack(0, 0, 0, 0, 15, 15, 15, 15); }
+    if ch == "▘" { return rows_pack(240, 240, 240, 240, 240, 240, 240, 240); }
+    if ch == "▝" { return rows_pack(15, 15, 15, 15, 15, 15, 15, 15); }
+    if ch == "░" { return rows_repeat8(rows_pack(85, 0, 170, 0, 85, 0, 170, 0)); }
+    if ch == "▒" { return rows_repeat8(rows_pack(85, 34, 170, 68, 85, 34, 170, 68)); }
+    if ch == "▓" { return rows_repeat8(rows_pack(221, 119, 187, 238, 221, 119, 187, 238)); }
+    if ch == "│" { return rows_rep(24); }
+    if ch == "─" { return rows_pack(0, 0, 0, 0, 0, 0, 0, 255); }
+    if ch == "┌" { return rows_pack(0, 0, 0, 0, 0, 0, 0, 31); }
+    if ch == "┐" { return rows_pack(0, 0, 0, 0, 0, 0, 0, 248); }
+    if ch == "└" { return rows_pack(24, 24, 24, 24, 24, 24, 24, 248); }
+    if ch == "┘" { return rows_pack(24, 24, 24, 24, 24, 24, 24, 31); }
+    if ch == "╱" { return rows_repeat8(rows_pack(1, 2, 4, 8, 16, 32, 64, 128)); }
+    if ch == "╲" { return rows_repeat8(rows_pack(128, 64, 32, 16, 8, 4, 2, 1)); }
+    if ch == "▲" { return rows_mirror8(rows_pack(24, 60, 126, 255, 0, 0, 0, 0)); }
+    if ch == "▼" { return rows_pack(255, 126, 60, 24, 0, 0, 0, 0); }
+    if ch == "◆" { return rows_mirror8(rows_pack(24, 60, 126, 255, 255, 126, 60, 24)); }
+    if ch == "●" { return rows_mirror8(rows_pack(60, 126, 255, 255, 255, 255, 126, 60)); }
+    return list_new();
+}
+
+pub fn get_glyph_bitmap(ch: String) -> List[Int] {
+    let b: List[Int] = block_rows(ch, glyph_style_default());
+    if list_len(b) > 0 { return b; }
+    return expand_8x8_glyph(ch);
+}
+
+pub fn get_glyph_bitmap_for_style(ch: String, style: String) -> List[Int] {
+    let b: List[Int] = block_rows(ch, style);
+    if list_len(b) > 0 { return b; }
+    return expand_8x8_glyph(ch);
+}
+
+pub fn glyph_width() -> Int { return 8; }
+
+pub fn glyph_height() -> Int { return 16; }

@@ -1,0 +1,12 @@
+// # ascii Domain Anchor
+//
+// Logline: Re-exports the scene roster, canvas, engine, draw, layout, and scene family surfaces.
+// Setup: Pure shim. Imports the ascii domain pages and sub-anchors.
+// Beats:
+//   1. Re-export effects, canvas, engine, draw, layout, and scenes for the tree.
+import "effects.oo";
+import "canvas.oo";
+import "engine.oo";
+import "draw/anchor.oo";
+import "layout/anchor.oo";
+import "scenes/anchor.oo";

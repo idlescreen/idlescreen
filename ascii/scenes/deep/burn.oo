@@ -1,0 +1,39 @@
+// # Scene Burn - Fire Front with Ember Rise
+//
+// Logline: A Doom-style fire simulation: hot base row, upward heat diffusion, and drifting embers.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Drive a white-hot base line with flicker.
+//   2. Diffuse heat upward with hash turbulence cooling toward the top.
+//   3. Map heat to the fire palette black-red-amber-white.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+fn burn_palette(heat: Int) -> Int {
+    if heat > 220 { return rgb(255, 255, 220); }
+    if heat > 160 { return rgb(255, 200, 60); }
+    if heat > 100 { return rgb(230, 110, 20); }
+    if heat > 50 { return rgb(150, 40, 10); }
+    return rgb(30, 8, 4);
+}
+
+pub fn scene_burn(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(60, 20, 10), rgb(6, 2, 1));
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let lift: Int = (g.rows - 1 - y) * 24;
+            let turb: Int = cv_hash(x + tick / 2, y + tick, 13) % 60;
+            let heat: Int = 250 - lift - turb + (cv_hash(x, tick, 29) % 30);
+            if heat > 20 {
+                let ramp: Int = heat / 26;
+                out = cv_put(out, x, y, cv_ramp(if ramp > 9 { 9 } else { ramp }), burn_palette(heat), rgb(6, 2, 1));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

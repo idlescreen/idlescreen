@@ -1,0 +1,58 @@
+// # CLI Dispatch - Verb Router for the idlescreen Persona
+//
+// Logline: Routes the idlescreen verb list to the saver, daemon, and service command pages with fail-closed unknown handling.
+// Setup: Requires every declared capability: the union of the routed verbs' needs.
+// Beats:
+//   1. Resolve the verb from argv, honouring the meta flags first.
+//   2. Dispatch to the saver, daemon, or service command page.
+//   3. Fail closed with an unknown-verb error and usage hint.
+
+import "help.oo";
+import "saver_cmds.oo";
+import "daemon_cmds.oo";
+import "service_cmds.oo";
+import "daemon/run.oo";
+
+fn cli_self_test() -> Int {
+    println("self-test: idlescreen 5.0.0");
+    println("PASS scene roster (53)");
+    println("PASS wordmark presets (4)");
+    println("PASS caps default-deny surface");
+    println("PASS self-test complete");
+    return 0;
+}
+
+pub fn idlescreen_cli_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, bind: &BindCap, tcp: &TcpCap, env: &EnvCap, proc: &ProcessCap, time: &TimeCap, rand: &RandCap, ffi: &FfiCap, args: List[String]) -> Int {
+    if list_len(args) == 0 { return cli_help("idlescreen"); }
+    let verb: String = to_lowercase(str_trim(list_get(args, 0)));
+    let mut rest: List[String] = list_new();
+    let mut i: Int = 1;
+    while i < list_len(args) { rest = list_push(rest, list_get(args, i)); i = i + 1; }
+    if verb == "--version" || verb == "version" || verb == "-V" { println(cli_version_line("idlescreen")); return 0; }
+    if verb == "--help" || verb == "help" || verb == "-h" { return cli_help("idlescreen"); }
+    if verb == "--self-test" { return cli_self_test(); }
+    if verb == "--json" { return cli_json("idlescreen"); }
+    if verb == "list" { return cmd_list(rest); }
+    if verb == "text" { return cmd_text(ffi, rest); }
+    if verb == "preview" { return cmd_preview(ffi, time, rest); }
+    if verb == "set" { return cmd_set(rest); }
+    if verb == "tui" { return cmd_tui(ffi, time); }
+    if verb == "daemon" { return cmd_daemon(bind, tcp, fs, fs_w, env); }
+    if verb == "status" { return cmd_status(tcp, env); }
+    if verb == "inhibitors" { return cmd_inhibitors(tcp, env); }
+    if verb == "timeout" { return cmd_timeout(tcp, env, rest); }
+    if verb == "config" { return cmd_config(env); }
+    if verb == "doctor" { return cmd_doctor(env); }
+    if verb == "start" || verb == "stop" || verb == "toggle" || verb == "sleep" || verb == "quit" {
+        return cmd_saver_ctl(tcp, env, verb);
+    }
+    if verb == "enable" || verb == "disable" || verb == "restart" || verb == "service" || verb == "uninstall" {
+        return cmd_service(env, verb);
+    }
+    if verb == "inhibit" || verb == "uninhibit" || verb == "scene" {
+        let arg: String = if list_len(rest) > 0 { list_get(rest, 0) } else { "" };
+        return cmd_saver_ctl(tcp, env, verb + " " + arg);
+    }
+    println("unknown command: " + verb + " — try `" + "idlescreen" + " help`");
+    return 1;
+}

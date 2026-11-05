@@ -1,0 +1,13 @@
+// # scenes/orbit Family Anchor
+//
+// Logline: Re-exports the orbital scene pages: rings, orbittingvolley, metaballs, swarm, bouncyballs, spotlights, synthgrid.
+// Setup: Pure shim. Imports the family scene pages.
+// Beats:
+//   1. Re-export all seven orbit-family scene render functions for the dispatch anchor.
+import "rings.oo";
+import "orbittingvolley.oo";
+import "metaballs.oo";
+import "swarm.oo";
+import "bouncyballs.oo";
+import "spotlights.oo";
+import "synthgrid.oo";

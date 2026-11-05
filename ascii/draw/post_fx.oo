@@ -1,0 +1,58 @@
+// # Post FX - Scanline, Vignette, and CRT Falloff Pass
+//
+// Logline: Applies the 16-bit CRT treatment: scanline darkening, edge vignette, and subtle colour pull.
+// Setup: Pure draw over CellGrid. Operates with zero ambient authority.
+// Beats:
+//   1. Darken every second scanline by the scanline factor.
+//   2. Pull corners and edges toward black by the vignette factor.
+//   3. Leave the centre band untouched so scenes stay legible.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn post_scanline(g: CellGrid, k: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let mut y: Int = 1;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let c: TerminalCell = grid_get(out, x, y);
+            out = grid_set(out, x, y, cell_new(c.ch, cv_mix(c.fg, 0, k), c.bg, c.bold));
+            x = x + 1;
+        }
+        y = y + 2;
+    }
+    return out;
+}
+
+pub fn post_vignette(g: CellGrid, k: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let cx: Int = g.cols / 2;
+    let cy: Int = g.rows / 2;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let dx: Int = if x - cx < 0 { cx - x } else { x - cx };
+            let dy: Int = if y - cy < 0 { cy - y } else { y - cy };
+            let edge: Int = (dx * 100 / if cx > 0 { cx } else { 1 }) + (dy * 100 / if cy > 0 { cy } else { 1 });
+            if edge > 110 {
+                let c: TerminalCell = grid_get(out, x, y);
+                let f: Int = (edge - 110) * k / 60;
+                let mut kk: Int = f;
+                if kk > 200 { kk = 200; }
+                out = grid_set(out, x, y, cell_new(c.ch, cv_mix(c.fg, 0, kk), cv_mix(c.bg, 0, kk / 2), c.bold));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}
+
+pub fn post_apply(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    out = post_scanline(out, 90);
+    out = post_vignette(out, 120);
+    return out;
+}

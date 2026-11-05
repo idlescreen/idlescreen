@@ -1,0 +1,52 @@
+// # Banner Draw - Scrolling Marquee and Scene Title Chrome
+//
+// Logline: Paints the scrolling text marquee and the framed scene title bar used by the tour chrome.
+// Setup: Pure draw over CellGrid. Operates with zero ambient authority.
+// Beats:
+//   1. Marquee-scroll a message across a row by tick.
+//   2. Draw the double-rule scene title bar on the top row.
+//   3. Report the marquee window width for callers.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn banner_marquee(g: CellGrid, y: Int, text: String, tick: Int, fg: Int, bg: Int) -> CellGrid {
+    if y < 0 || y >= g.rows { return g; }
+    let w: Int = g.cols;
+    let span: Int = chars_len(text) + w;
+    let off: Int = tick % if span > 0 { span } else { 1 };
+    let mut out: CellGrid = g;
+    let mut i: Int = 0;
+    while i < chars_len(text) {
+        let pos: Int = i + w - off;
+        if pos >= 0 && pos < w {
+            out = cv_put(out, pos, y, char_at(text, i), fg, bg);
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn banner_title(g: CellGrid, title: String, fg: Int, bg: Int) -> CellGrid {
+    if g.cols < 8 || g.rows < 1 { return g; }
+    let t: String = " " + to_uppercase(title) + " ";
+    let mut line: String = "";
+    let pad_l: Int = if (g.cols - chars_len(t)) / 2 > 0 { (g.cols - chars_len(t)) / 2 } else { 0 };
+    let mut i: Int = 0;
+    while i < pad_l { line = line + "─"; i = i + 1; }
+    line = line + t;
+    while chars_len(line) < g.cols { line = line + "─"; }
+    let mut out: CellGrid = g;
+    i = 0;
+    while i < g.cols && i < chars_len(line) {
+        out = cv_put_b(out, i, 0, char_at(line, i), fg, bg, true);
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn banner_frame_tag(frame: Int) -> String {
+    return "frame " + frame.to_string();
+}
+
+pub fn banner_probe() -> Int { return 0; }

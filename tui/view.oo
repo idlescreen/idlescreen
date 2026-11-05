@@ -1,0 +1,48 @@
+// # TUI View - Picker Frame Rendering
+//
+// Logline: Renders the interactive picker frame: header, scrolling roster pane, preview pane, and key bar.
+// Setup: Pure string composition. Emission is the caller's job via oo_tui_write.
+// Beats:
+//   1. Draw the header and key bar in chrome colours.
+//   2. List the visible roster window with the cursor row inverted.
+//   3. Draw a mini ANSI preview of the selected scene on the right pane.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+import "ascii/effects.oo";
+import "ascii/scenes/anchor.oo";
+import "ascii/draw/ansi.oo";
+import "model.oo";
+
+pub fn tui_frame(m: TuiModel, tick: Int) -> String {
+    let mut out: String = ansi_home() + "\x1b[2J";
+    out = out + "\x1b[38;2;80;200;255m idlescreen 5.0.0 — 53-scene picker\x1b[0m\n";
+    out = out + "\x1b[38;2;90;90;110m────────────────────────────────\x1b[0m\n";
+    let vis: Int = tui_visible_rows(m);
+    let pv_cols: Int = if m.cols / 2 - 2 > 8 { m.cols / 2 - 2 } else { 8 };
+    let pv_rows: Int = if vis > 2 { vis - 1 } else { 2 };
+    let mut pg: CellGrid = grid_new(pv_cols, pv_rows, rgb(4, 6, 12));
+    pg = scene_render(tui_selected(m), pg, tick);
+    let mut i: Int = 0;
+    while i < vis {
+        let idx: Int = m.scroll + i;
+        if idx < 53 {
+            let name: String = effects_name(idx);
+            let cur: Bool = idx == m.cursor;
+            let mark: String = if cur { "▶ " } else { "  " };
+            let style: String = if cur { "\x1b[48;2;40;50;80m\x1b[38;2;255;230;120m" } else { "\x1b[38;2;180;190;210m" };
+            out = out + style + mark + name;
+            let mut pad: Int = 0;
+            while pad < 14 - chars_len(name) { out = out + " "; pad = pad + 1; }
+            out = out + "\x1b[0m";
+        }
+        if i < pv_rows {
+            out = out + "  " + ansi_render(grid_new(pv_cols, 1, 0));
+        }
+        out = out + "\n";
+        i = i + 1;
+    }
+    out = out + "\x1b[38;2;90;90;110m────────────────────────────────\x1b[0m\n";
+    out = out + "\x1b[38;2;140;160;200m[j/k] move  [enter] preview  [q/esc] quit\x1b[0m";
+    return out;
+}

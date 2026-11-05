@@ -1,0 +1,74 @@
+// # Damage Tracking - Tight Changed-Cell Pixel Bounds
+//
+// Logline: Computes the minimal pixel-space rectangle covering cells that differ between two glyph grids.
+// Setup: Pure arithmetic over CellGrid values. Operates with zero ambient authority.
+// Beats:
+//   1. Scan both grids cell-by-cell for differences.
+//   2. Grow the running min/max cell bounds around every changed cell.
+//   3. Convert cell bounds to a pixel rectangle using the glyph metrics.
+
+import "core/cell.oo";
+import "glyph_font.oo";
+
+pub type DamageRect = struct {
+    x: Int,
+    y: Int,
+    w: Int,
+    h: Int,
+    valid: Bool
+};
+
+pub fn damage_none() -> DamageRect {
+    return DamageRect { x: 0, y: 0, w: 0, h: 0, valid: false };
+}
+
+pub fn compute_cell_damage_rect(prev: CellGrid, next: CellGrid) -> DamageRect {
+    let mut min_x: Int = prev.cols;
+    let mut min_y: Int = prev.rows;
+    let mut max_x: Int = -1;
+    let mut max_y: Int = -1;
+    let mut y: Int = 0;
+    let rows: Int = if prev.rows < next.rows { prev.rows } else { next.rows };
+    let cols: Int = if prev.cols < next.cols { prev.cols } else { next.cols };
+    while y < rows {
+        let mut x: Int = 0;
+        while x < cols {
+            if !cell_eq(grid_get(prev, x, y), grid_get(next, x, y)) {
+                if x < min_x { min_x = x; }
+                if y < min_y { min_y = y; }
+                if x > max_x { max_x = x; }
+                if y > max_y { max_y = y; }
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    if max_x < 0 { return damage_none(); }
+    let cw: Int = glyph_width();
+    let ch: Int = glyph_height();
+    return DamageRect {
+        x: min_x * cw,
+        y: min_y * ch,
+        w: (max_x - min_x + 1) * cw,
+        h: (max_y - min_y + 1) * ch,
+        valid: true
+    };
+}
+
+pub fn damage_full(g: CellGrid) -> DamageRect {
+    return DamageRect { x: 0, y: 0, w: g.cols * glyph_width(), h: g.rows * glyph_height(), valid: true };
+}
+
+pub fn damage_merge(a: DamageRect, b: DamageRect) -> DamageRect {
+    if !a.valid { return b; }
+    if !b.valid { return a; }
+    let mut x0: Int = if a.x < b.x { a.x } else { b.x };
+    let mut y0: Int = if a.y < b.y { a.y } else { b.y };
+    let ax1: Int = a.x + a.w;
+    let bx1: Int = b.x + b.w;
+    let ay1: Int = a.y + a.h;
+    let by1: Int = b.y + b.h;
+    let x1: Int = if ax1 > bx1 { ax1 } else { bx1 };
+    let y1: Int = if ay1 > by1 { ay1 } else { by1 };
+    return DamageRect { x: x0, y: y0, w: x1 - x0, h: y1 - y0, valid: true };
+}

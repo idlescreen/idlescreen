@@ -1,0 +1,13 @@
+// # wayland Domain Anchor
+//
+// Logline: Re-exports the protocol, layer-shell, idle-notify, DPMS, shm-pool, present, and run pages.
+// Setup: Pure shim. Imports the wayland pages.
+// Beats:
+//   1. Re-export protocol, layer_shell, idle_notify, dpms, shm_pool, present, and run for the tree.
+import "protocol.oo";
+import "layer_shell.oo";
+import "idle_notify.oo";
+import "dpms.oo";
+import "shm_pool.oo";
+import "present.oo";
+import "run.oo";

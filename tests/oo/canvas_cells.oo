@@ -1,0 +1,135 @@
+// # canvas_cells — ttfx canvas geometry port for parity probes
+//
+// Logline: Replicates build_canvas_cells geometry for the fixed probe
+// configuration (ignore_terminal_dimensions, anchor C, seeded layout).
+//
+// Setup: Pure. cols/rows come from the probe; art is a List[String] of
+// lines. Grid order is row-major: gy 0..rows-1 maps to canvas row
+// (rows - gy); gx 0..cols-1 maps to col (gx + 1).
+//
+// Beats:
+//   1. canvas_info fixes the 1-based canvas bounds ttfx reports.
+//   2. art_block locates the centered text bounding box.
+//   3. canvas_cells emits CellGeom for every grid position.
+
+import "grid_cells.oo";
+import "shade_math.oo";
+
+pub type CanvasInfo = struct {
+    cols: Int,
+    rows: Int,
+    left: Int,
+    right: Int,
+    top: Int,
+    bottom: Int,
+    tl: Int,
+    tr: Int,
+    tt: Int,
+    tb: Int
+};
+
+pub fn canvas_info(cols: Int, rows: Int) -> CanvasInfo {
+    return CanvasInfo {
+        cols: cols,
+        rows: rows,
+        left: 1,
+        right: cols,
+        top: rows,
+        bottom: 1,
+        tl: 0,
+        tr: 0,
+        tt: 0,
+        tb: 0
+    };
+}
+
+pub fn art_block(lines: List[String], info: CanvasInfo) -> CanvasInfo {
+    let mut w: Int = 0;
+    let mut h: Int = 0;
+    let n: Int = list_len(lines);
+    let mut i: Int = 0;
+    while i < n {
+        let len: Int = chars_len(list_get(lines, i));
+        if len > w { w = len; }
+        h = h + 1;
+        i = i + 1;
+    }
+    let tl: Int = (info.cols - w) / 2 + 2;
+    let tr: Int = tl + w - 1;
+    let tb: Int = (info.rows + 1) / 2 - h / 2 + 1;
+    let tt: Int = tb + h - 1;
+    return CanvasInfo {
+        cols: info.cols,
+        rows: info.rows,
+        left: info.left,
+        right: info.right,
+        top: info.top,
+        bottom: info.bottom,
+        tl: tl,
+        tr: tr,
+        tt: tt,
+        tb: tb
+    };
+}
+
+fn art_char_ord(lines: List[String], col: Int, row: Int, info: CanvasInfo) -> Int {
+    if col < info.tl || col > info.tr { return 0; }
+    if row < info.tb || row > info.tt { return 0; }
+    let line_idx: Int = info.tt - row;
+    let char_idx: Int = col - info.tl;
+    let n: Int = list_len(lines);
+    if line_idx < 0 || line_idx >= n { return 0; }
+    let line: String = list_get(lines, line_idx);
+    if char_idx < 0 || char_idx >= chars_len(line) { return 0; }
+    return ord(char_at(line, char_idx));
+}
+
+fn geom_cell(info: CanvasInfo, col_f: Float, row_f: Float, col: Int, row: Int, sym: Int, fill: Int) -> CellGeom {
+    let left_f: Float = int_to_f(info.left);
+    let bottom_f: Float = int_to_f(info.bottom);
+    let width_f: Float = int_to_f(info.right - info.left);
+    let height_f: Float = int_to_f(info.top - info.bottom);
+    let aspect: Float = clamp_f(width_f / (height_f * 2.0), 0.5, 2.5);
+    let nx: Float = clamp_f((col_f - left_f) / width_f, 0.0, 1.0);
+    let ny: Float = clamp_f(1.0 - (row_f - bottom_f) / height_f, 0.0, 1.0);
+    let dx: Float = (nx - 0.5) * 2.0 * aspect;
+    let dy: Float = (ny - 0.5) * 2.0;
+    return CellGeom {
+        fill: fill,
+        sym: sym,
+        col: col,
+        row: row,
+        nx: nx,
+        ny: ny,
+        dx: dx,
+        dy: dy,
+        dist: hypot_f(dx, dy)
+    };
+}
+
+pub fn canvas_cells(info0: CanvasInfo, lines: List[String]) -> List[CellGeom] {
+    let info: CanvasInfo = art_block(lines, info0);
+    let mut cells: List[CellGeom] = list_new();
+    let rows_f: Float = int_to_f(info.rows);
+    let mut gy: Int = 0;
+    let mut gy_f: Float = 0.0;
+    while gy < info.rows {
+        let row: Int = info.rows - gy;
+        let row_f: Float = rows_f - gy_f;
+        let mut gx: Int = 0;
+        let mut gx_f: Float = 0.0;
+        while gx < info.cols {
+            let col: Int = gx + 1;
+            let col_f: Float = gx_f + 1.0;
+            let sym: Int = art_char_ord(lines, col, row, info);
+            let mut fill: Int = 0;
+            if sym == 0 || sym == 32 { fill = 1; }
+            cells = list_push(cells, geom_cell(info, col_f, row_f, col, row, sym, fill));
+            gx = gx + 1;
+            gx_f = gx_f + 1.0;
+        }
+        gy = gy + 1;
+        gy_f = gy_f + 1.0;
+    }
+    return cells;
+}

@@ -1,0 +1,43 @@
+// # Wordmark Font - 7x7 Bevel-Capable Block Letter Atlas
+//
+// Logline: Seven-row block letterforms covering every glyph used by the four wordmark presets.
+// Setup: Pure data table. Each letterform is seven 7-column bitmap strings joined by a bar.
+// Beats:
+//   1. Select the letterform string for the requested capital letter.
+//   2. Split the bar-joined bitmap into its seven scanline rows.
+//   3. Report the fixed glyph metrics used by the wordmark renderer.
+
+pub fn font7_raw(ch: String) -> String {
+    if ch == "O" { return ".#####.|#.....#|#.....#|#.....#|#.....#|#.....#|.#####."; }
+    if ch == "P" { return "######.|#.....#|#.....#|######.|#......|#......|#......"; }
+    if ch == "E" { return "#######|#......|#......|#####..|#......|#......|#######"; }
+    if ch == "N" { return "#.....#|##....#|#.#...#|#..#..#|#...#.#|#....##|#.....#"; }
+    if ch == "D" { return "#####..|#....#.|#.....#|#.....#|#.....#|#....#.|#####.."; }
+    if ch == "A" { return "..###..|.#...#.|#.....#|#######|#.....#|#.....#|#.....#"; }
+    if ch == "S" { return ".######|#......|#......|.#####.|......#|......#|######."; }
+    if ch == "U" { return "#.....#|#.....#|#.....#|#.....#|#.....#|#.....#|.#####."; }
+    if ch == "R" { return "######.|#.....#|#.....#|######.|#...#..|#....#.|#.....#"; }
+    if ch == "F" { return "#######|#......|#......|#####..|#......|#......|#......"; }
+    if ch == "C" { return ".######|#......|#......|#......|#......|#......|.######"; }
+    if ch == "H" { return "#.....#|#.....#|#.....#|#######|#.....#|#.....#|#.....#"; }
+    if ch == "I" { return "#######|...#...|...#...|...#...|...#...|...#...|#######"; }
+    if ch == "L" { return "#......|#......|#......|#......|#......|#......|#######"; }
+    if ch == "T" { return "#######|...#...|...#...|...#...|...#...|...#...|...#..."; }
+    if ch == " " { return ".......|.......|.......|.......|.......|.......|......."; }
+    return ".......|.#####.|.#...#.|....#..|...#...|.......|...#...";
+}
+
+pub fn font7_rows(ch: String) -> List[String] {
+    return str_split(font7_raw(ch), "|");
+}
+
+pub fn font7_width() -> Int { return 7; }
+
+pub fn font7_height() -> Int { return 7; }
+
+pub fn font7_at(rows: List[String], col: Int, row: Int) -> Bool {
+    if row < 0 || row >= list_len(rows) { return false; }
+    let line: String = list_get(rows, row);
+    if col < 0 || col >= chars_len(line) { return false; }
+    return char_at(line, col) == "#";
+}

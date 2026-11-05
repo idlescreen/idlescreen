@@ -1,0 +1,47 @@
+// # Scene Tetris - Falling Piece Well Silhouette
+//
+// Logline: A tetris well stacking tetromino rows with a falling piece ghosting down the centre.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Grow the stacked row silhouette from the bottom by hash.
+//   2. Drop the current piece down the centre columns.
+//   3. Colour stack cells by piece family and clear settled lines on a slow beat.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_tetris(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(30, 30, 45), rgb(5, 5, 12));
+    let well_l: Int = g.cols / 3;
+    let well_r: Int = g.cols * 2 / 3;
+    let clear_beat: Int = tick / 30;
+    let mut y: Int = g.rows - 1;
+    while y > g.rows - 8 && y >= 0 {
+        let depth: Int = g.rows - 1 - y;
+        let mut x: Int = well_l;
+        while x < well_r {
+            let h: Int = cv_hash(x, clear_beat, depth);
+            let fill: Bool = depth < 2 || h % 10 < depth + 2;
+            if fill {
+                let fam: Int = (x + clear_beat) % 6;
+                let c: Int = cv_hue(fam * 100);
+                out = cv_put(out, x, y, "▒", c, rgb(5, 5, 12));
+            }
+            x = x + 1;
+        }
+        y = y - 1;
+    }
+    let mut wy: Int = 0;
+    while wy < g.rows {
+        out = cv_put(out, well_l - 1, wy, "│", rgb(80, 80, 110), rgb(5, 5, 12));
+        out = cv_put(out, well_r, wy, "│", rgb(80, 80, 110), rgb(5, 5, 12));
+        wy = wy + 1;
+    }
+    let py: Int = (tick % if g.rows - 6 > 0 { g.rows - 6 } else { 1 }) + 1;
+    let pc: Int = cv_hue((tick / 30 % 6) * 100);
+    out = cv_put_b(out, well_l + 3, py, "█", pc, rgb(5, 5, 12), true);
+    out = cv_put_b(out, well_l + 4, py, "█", pc, rgb(5, 5, 12), true);
+    out = cv_put_b(out, well_l + 3, py + 1, "█", pc, rgb(5, 5, 12), true);
+    out = cv_put_b(out, well_l + 2, py + 1, "█", pc, rgb(5, 5, 12), true);
+    return out;
+}

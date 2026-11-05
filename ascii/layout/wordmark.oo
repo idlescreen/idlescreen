@@ -1,0 +1,63 @@
+// # Wordmark Presets - Bevelled Brand Strings and Palettes
+//
+// Logline: The four wordmark presets with their text, palette ramp, and per-column gradient shading.
+// Setup: Pure tables. Palette gradients run red->cyan for openooda, blue for fedora, cyan for arch.
+// Beats:
+//   1. Resolve a preset name to its display text and palette family.
+//   2. Shade each letter column through the palette with an optional time shimmer.
+//   3. Report the preset roster for the text command surface.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn wm_presets() -> List[String] {
+    let mut out: List[String] = list_new();
+    out = list_push(out, "openooda");
+    out = list_push(out, "superfedora");
+    out = list_push(out, "fedora");
+    out = list_push(out, "arch");
+    return out;
+}
+
+pub fn wm_text(name: String) -> String {
+    let n: String = to_lowercase(str_trim(name));
+    if n == "openooda" { return "OPENOODA"; }
+    if n == "superfedora" { return "SUPERFEDORA"; }
+    if n == "fedora" { return "FEDORA"; }
+    if n == "arch" { return "ARCH"; }
+    return to_uppercase(n);
+}
+
+pub fn wm_known(name: String) -> Bool {
+    let n: String = to_lowercase(str_trim(name));
+    return n == "openooda" || n == "superfedora" || n == "fedora" || n == "arch";
+}
+
+fn wm_grad(name: String, frac: Int) -> Int {
+    if name == "openooda" {
+        let a: Int = rgb(64, 224, 168);
+        let b: Int = rgb(80, 160, 255);
+        return cv_mix(a, b, frac * 255 / 100);
+    }
+    if name == "arch" {
+        let a: Int = rgb(23, 147, 209);
+        let b: Int = rgb(120, 220, 255);
+        return cv_mix(a, b, frac * 255 / 100);
+    }
+    let a: Int = rgb(60, 110, 220);
+    let b: Int = rgb(160, 200, 255);
+    return cv_mix(a, b, frac * 255 / 100);
+}
+
+pub fn wm_column_color(name: String, col: Int, total: Int, tick: Int) -> Int {
+    let n: String = to_lowercase(str_trim(name));
+    let mut frac: Int = if total <= 1 { 50 } else { col * 100 / (total - 1) };
+    if n == "openooda" {
+        frac = (frac + (tick % 60)) % 100;
+    }
+    return wm_grad(n, frac);
+}
+
+pub fn wm_shadow_color() -> Int { return rgb(8, 10, 22); }
+
+pub fn wm_hi_gain() -> Int { return 60; }

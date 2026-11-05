@@ -1,0 +1,44 @@
+// # Scene Zero - Binary Countdown Field
+//
+// Logline: Walls of zeroes and ones counting down in a binary cascade with a pulsing zero hero.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Fill the field with hash-driven 0/1 cells.
+//   2. March a bright countdown window through the columns.
+//   3. Centre a giant pulsing ZERO glyph cluster.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_zero(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(30, 40, 30), rgb(2, 6, 2));
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            if (x + y + tick / 3) % 3 == 0 {
+                let bit: Int = cv_hash(x + tick / 2, y, 17) % 2;
+                let ch: String = if bit == 0 { "0" } else { "1" };
+                out = cv_put(out, x, y, ch, rgb(50, 150, 70), rgb(2, 6, 2));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    let win: Int = (tick * 2) % (g.cols + 10) - 5;
+    y = 0;
+    while y < g.rows {
+        let mut wx: Int = win - 2;
+        while wx <= win + 2 {
+            if wx >= 0 && wx < g.cols {
+                let h: Int = cv_hash(wx, y, tick / 2) % 2;
+                let c: TerminalCell = grid_get(out, wx, y);
+                out = grid_set(out, wx, y, cell_new(if h == 0 { "0" } else { "1" }, rgb(140, 255, 160), c.bg, true));
+            }
+            wx = wx + 1;
+        }
+        y = y + 1;
+    }
+    out = cv_text(out, g.cols / 2 - 2, g.rows / 2, "ZERO", rgb(230, 255, 230), rgb(10, 30, 10));
+    return out;
+}

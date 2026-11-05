@@ -1,0 +1,26 @@
+// # Scene ColorShift - Global Hue Rotation Wash
+//
+// Logline: The full grid washed in a slowly rotating hue gradient that cycles the entire palette.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Rotate the hue wheel with tick.
+//   2. Offset each cell's hue by its column for a diagonal gradient.
+//   3. Fill with half-block cells so colour dominates glyph.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_colorshift(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let hue: Int = (tick * 3 + x * 4 + y * 10) % 600;
+            out = cv_put(out, x, y, "▓", cv_hue(hue), cv_hue((hue + 300) % 600));
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

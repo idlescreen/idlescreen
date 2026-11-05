@@ -1,0 +1,12 @@
+// # daemon Domain Anchor
+//
+// Logline: Re-exports the state, inhibit, config, control, reactor, and run pages of the idle daemon.
+// Setup: Pure shim. Imports the daemon pages.
+// Beats:
+//   1. Re-export state, inhibit, config, control, reactor, and run for the tree.
+import "state.oo";
+import "inhibit.oo";
+import "config.oo";
+import "control.oo";
+import "reactor.oo";
+import "run.oo";

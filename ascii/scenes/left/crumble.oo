@@ -1,0 +1,38 @@
+// # Scene Crumble - Edge-Erosion Decay Front
+//
+// Logline: A solid wall of glyphs crumbling inward from all four edges like eroding stone.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Compute each cell's distance to the nearest edge.
+//   2. Decay cells whose erosion deadline has passed.
+//   3. Leave falling debris dots under the erosion front.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_crumble(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(40, 35, 30), rgb(8, 6, 5));
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let mut edge: Int = x;
+            if g.cols - 1 - x < edge { edge = g.cols - 1 - x; }
+            if y < edge { edge = y; }
+            if g.rows - 1 - y < edge { edge = g.rows - 1 - y; }
+            let deadline: Int = edge * 4 + cv_hash(x, y, 7) % 12;
+            let age: Int = tick - deadline;
+            if age < 0 {
+                let h: Int = cv_hash(x, y, 3);
+                out = cv_put(out, x, y, cv_ramp(4 + h % 6), rgb(150 + h % 80, 130, 100), rgb(8, 6, 5));
+            } else if age < 4 {
+                out = cv_put(out, x, y, "░", rgb(90, 70, 50), rgb(8, 6, 5));
+            } else if age < 8 && cv_hash(x, y, 13) % 3 == 0 {
+                out = cv_put(out, x, y + (age / 3), "·", rgb(70, 55, 40), rgb(8, 6, 5));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

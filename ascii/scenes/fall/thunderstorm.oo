@@ -1,0 +1,40 @@
+// # Scene Thunderstorm - Lightning Bolts over Rolling Rain
+//
+// Logline: Jagged lightning bolts striking through a storm field over a steady rain backdrop.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Lay the dim rain streak field as the storm base.
+//   2. Fork a jagged bolt path from the top when the strike window opens.
+//   3. Flash the whole field white on the strike tick.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_thunderstorm(g: CellGrid, tick: Int) -> CellGrid {
+    let strike: Int = tick / 40;
+    let phase: Int = tick % 40;
+    let flash: Bool = phase == 0 || phase == 4;
+    let base: Int = if flash { rgb(60, 60, 80) } else { rgb(6, 8, 14) };
+    let mut out: CellGrid = cv_fill(g, " ", rgb(60, 80, 110), base);
+    let mut x: Int = 0;
+    while x < g.cols {
+        if cv_hash(x, 0, 9) % 5 == 0 {
+            let hy: Int = (tick * 2 + cv_hash(x, 3, 11)) % if g.rows > 0 { g.rows } else { 1 };
+            out = cv_put(out, x, hy, ":", rgb(90, 110, 160), base);
+        }
+        x = x + 1;
+    }
+    if phase < 6 {
+        let mut bx: Int = g.cols / 3 + cv_hash(strike, 1, 7) % (if g.cols / 3 > 0 { g.cols / 3 } else { 1 });
+        let mut by: Int = 0;
+        while by < g.rows {
+            let bolt_c: Int = if phase < 2 { rgb(255, 255, 255) } else { rgb(200, 200, 255) };
+            out = cv_put_b(out, bx, by, if cv_hash(bx, by, strike) % 3 == 0 { "╲" } else { "│" }, bolt_c, base, true);
+            bx = bx + (cv_hash(bx, by, strike + 1) % 3) - 1;
+            if bx < 0 { bx = 0; }
+            if bx >= g.cols { bx = g.cols - 1; }
+            by = by + 1;
+        }
+    }
+    return out;
+}

@@ -1,0 +1,125 @@
+// # HUD Glyph Table - 8x8 Packed Arcade Font and Preview Badge
+//
+// Logline: Packed 8x8 arcade HUD bitmaps decoded to 8x16 rows and the zero-allocation scene badge painter.
+// Setup: Pure data tables and arithmetic. Operates with zero ambient authority.
+// Beats:
+//   1. Decode each 64-bit row mask literal into eight 8-bit scanlines.
+//   2. Expand the 8x8 glyph into the 8x16 frame with two empty guard rows.
+//   3. Stamp the centred scene HUD badge on the bottom grid row.
+
+import "core/cell.oo";
+import "glyph_style.oo";
+
+fn hud_bits(ch: String) -> String {
+    if ch == "0" { return "0011110001100110011011100111011001100110011001100011110000000000"; }
+    if ch == "1" { return "0001100000111000000110000001100000011000000110000111111000000000"; }
+    if ch == "2" { return "0011110001100110000001100001110000110000011001100111111000000000"; }
+    if ch == "3" { return "0011110001100110000001100001110000000110011001100011110000000000"; }
+    if ch == "4" { return "0000110000011100001111000110110001111110000011000000110000000000"; }
+    if ch == "5" { return "0111111001100000011111000000011000000110011001100011110000000000"; }
+    if ch == "6" { return "0011110001100000011111000110011001100110011001100011110000000000"; }
+    if ch == "7" { return "0111111001100110000001100000110000011000000110000001100000000000"; }
+    if ch == "8" { return "0011110001100110011001100011110001100110011001100011110000000000"; }
+    if ch == "9" { return "0011110001100110011001100011111000000110000011000011100000000000"; }
+    if ch == "A" { return "0001100000111100011001100110011001111110011001100110011000000000"; }
+    if ch == "B" { return "0111110001100110011001100111110001100110011001100111110000000000"; }
+    if ch == "C" { return "0011110001100110011000000110000001100000011001100011110000000000"; }
+    if ch == "D" { return "0111100001101100011001100110011001100110011011000111100000000000"; }
+    if ch == "E" { return "0111111001100000011000000111100001100000011000000111111000000000"; }
+    if ch == "F" { return "0111111001100000011000000111100001100000011000000110000000000000"; }
+    if ch == "G" { return "0011110001100110011000000110111001100110011001100011111000000000"; }
+    if ch == "H" { return "0110011001100110011001100111111001100110011001100110011000000000"; }
+    if ch == "I" { return "0011110000011000000110000001100000011000000110000011110000000000"; }
+    if ch == "J" { return "0001111000001100000011000000110001101100011011000011100000000000"; }
+    if ch == "K" { return "0110011001101100011110000111000001111000011011000110011000000000"; }
+    if ch == "L" { return "0110000001100000011000000110000001100000011000000111111000000000"; }
+    if ch == "M" { return "0110001101110111011111110110101101100011011000110110001100000000"; }
+    if ch == "N" { return "0110011001110110011111100111111001101110011001100110011000000000"; }
+    if ch == "O" { return "0011110001100110011001100110011001100110011001100011110000000000"; }
+    if ch == "P" { return "0111110001100110011001100111110001100000011000000110000000000000"; }
+    if ch == "Q" { return "0011110001100110011001100110011001101010011011000011011000000000"; }
+    if ch == "R" { return "0111110001100110011001100111110001101100011001100110011000000000"; }
+    if ch == "S" { return "0011110001100110011000000011110000000110011001100011110000000000"; }
+    if ch == "T" { return "0111111000011000000110000001100000011000000110000001100000000000"; }
+    if ch == "U" { return "0110011001100110011001100110011001100110011001100011110000000000"; }
+    if ch == "V" { return "0110011001100110011001100110011001100110001111000001100000000000"; }
+    if ch == "W" { return "0110001101100011011000110110101101111111011101110110001100000000"; }
+    if ch == "X" { return "0110011001100110001111000001100000111100011001100110011000000000"; }
+    if ch == "Y" { return "0110011001100110011001100011110000011000000110000001100000000000"; }
+    if ch == "Z" { return "0111111000000110000011000001100000110000011000000111111000000000"; }
+    if ch == "/" { return "0000011000001100000110000011000001100000110000001000000000000000"; }
+    if ch == "[" { return "0011110000110000001100000011000000110000001100000011110000000000"; }
+    if ch == "]" { return "0011110000001100000011000000110000001100000011000011110000000000"; }
+    if ch == "<" { return "0000110000011000001100000111111000110000000110000000110000000000"; }
+    if ch == ">" { return "0011000000011000000011000111111000001100000110000011000000000000"; }
+    if ch == " " { return ""; }
+    return "0000000000111100001111000011110000111100001111000000000000000000";
+}
+
+fn bits_to_row(bits: String, row: Int) -> Int {
+    let mut v: Int = 0;
+    let mut i: Int = 0;
+    while i < 8 {
+        v = v * 2;
+        if char_at(bits, row * 8 + i) == "1" { v = v + 1; }
+        i = i + 1;
+    }
+    return v;
+}
+
+pub fn hud_8x8_rows(ch: String) -> List[Int] {
+    let bits: String = hud_bits(ch);
+    let mut rows: List[Int] = list_new();
+    let mut r: Int = 0;
+    while r < 8 {
+        rows = list_push(rows, if bits == "" { 0 } else { bits_to_row(bits, r) });
+        r = r + 1;
+    }
+    return rows;
+}
+
+pub fn expand_8x8_glyph(ch: String) -> List[Int] {
+    let bits: String = hud_bits(ch);
+    let mut out: List[Int] = list_new();
+    out = list_push(out, 0);
+    out = list_push(out, 0);
+    let mut y: Int = 2;
+    while y < 14 {
+        let row: Int = ((y - 2) * 8) / 12;
+        out = list_push(out, if bits == "" { 0 } else { bits_to_row(bits, row) });
+        y = y + 1;
+    }
+    out = list_push(out, 0);
+    out = list_push(out, 0);
+    return out;
+}
+
+pub fn hud_pill_bg() -> Int { return rgb(16, 20, 34); }
+
+pub fn draw_preview_hud(g: CellGrid, scene_name: String, idx: Int, total: Int, tour_mode: Bool) -> CellGrid {
+    let cols: Int = g.cols;
+    let rows: Int = g.rows;
+    if cols < 16 || rows < 3 { return g; }
+    let tag: String = if tour_mode { " TOUR " } else { " SCENE " };
+    let mut line: String = tag + idx.to_string() + "/" + total.to_string() + ": " + to_uppercase(scene_name) + " ";
+    if cols >= chars_len(line) + 34 { line = line + " [</>: STEP | Q/ESC: EXIT] "; }
+    if chars_len(line) + 2 > cols { return g; }
+    let start_x: Int = (cols - chars_len(line) - 2) / 2;
+    let pill: Int = hud_pill_bg();
+    let mut out: CellGrid = g;
+    let mut cx: Int = start_x + 1;
+    let mut i: Int = 0;
+    while i < chars_len(line) {
+        let fg: Int = if i < chars_len(tag) { rgb(110, 210, 255) } else if i < chars_len(tag) + 8 { rgb(255, 225, 85) } else { rgb(175, 195, 225) };
+        out = grid_set(out, cx, rows - 1, cell_new(char_at(line, i), fg, pill, true));
+        cx = cx + 1;
+        i = i + 1;
+    }
+    if start_x >= 0 && start_x < cols {
+        out = grid_set(out, start_x, rows - 1, cell_new("▐", pill, grid_get(out, start_x, rows - 1).bg, false));
+    }
+    if cx < cols {
+        out = grid_set(out, cx, rows - 1, cell_new("▌", pill, grid_get(out, cx, rows - 1).bg, false));
+    }
+    return out;
+}

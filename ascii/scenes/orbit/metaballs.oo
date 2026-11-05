@@ -1,0 +1,44 @@
+// # Scene Metaballs - Implicit Field Blob Fusion
+//
+// Logline: Three orbiting metaballs fusing into blobs wherever their summed implicit field exceeds the threshold.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Orbit three ball centres at distinct radii and speeds.
+//   2. Sum the inverse-square field of all balls per cell.
+//   3. Threshold the field into blob interior, rim, and void.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_metaballs(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(15, 25, 20), rgb(2, 6, 4));
+    let t: Int = tick * 9;
+    let cx: Int = g.cols / 2;
+    let cy: Int = g.rows / 2;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let mut field: Int = 0;
+            let mut b: Int = 0;
+            while b < 3 {
+                let bx: Int = cx + icos(t + b * 126) * (cx / 2) / 1000;
+                let by: Int = cy + isin(t * 13 / 10 + b * 126) * (cy / 2) / 1000;
+                let dx: Int = x - bx;
+                let dy: Int = (y - by) * 2;
+                field = field + 90000 / (dx * dx + dy * dy + 10);
+                b = b + 1;
+            }
+            if field > 3000 {
+                out = cv_put(out, x, y, "█", rgb(120, 255, 170), rgb(2, 6, 4));
+            } else if field > 1500 {
+                out = cv_put(out, x, y, "▓", rgb(60, 170, 110), rgb(2, 6, 4));
+            } else if field > 900 {
+                out = cv_put(out, x, y, "░", rgb(30, 90, 60), rgb(2, 6, 4));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

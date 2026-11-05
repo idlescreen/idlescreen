@@ -1,0 +1,45 @@
+// # Scene Spotlights - Sweeping Stage Light Cones
+//
+// Logline: Twin spotlight cones sweeping the stage from overhead rigs and crossing mid-frame.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Anchor two rig points at the top corners.
+//   2. Sweep each cone's floor target on a pendulum schedule.
+//   3. Grade the cone interior by distance from the axis.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_spotlights(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(15, 12, 25), rgb(2, 2, 5));
+    let mut rig: Int = 0;
+    while rig < 2 {
+        let rx: Int = if rig == 0 { 1 } else { g.cols - 2 };
+        let tx: Int = g.cols / 2 + isin(tick * 10 + rig * 114) * (g.cols / 3) / 1000;
+        let ax: Int = tx - rx;
+        let ay: Int = g.rows * 2;
+        let alen: Int = idist(ax, ay) + 1;
+        let mut y: Int = 0;
+        while y < g.rows {
+            let mut x: Int = 0;
+            while x < g.cols {
+                let dx: Int = x - rx;
+                let dy: Int = (y + 1) * 2;
+                let along: Int = (dx * ax + dy * ay) / alen;
+                let side: Int = iabs(dx * ay - dy * ax) / alen;
+                if along > 0 && side * 100 < alen * 7 {
+                    let k: Int = 220 - side * 3000 / alen - along * 30 / alen;
+                    if k > 20 {
+                        let col: Int = cv_mix(rgb(15, 12, 25), cv_hue(rig * 250 + 60), if k > 230 { 230 } else { k });
+                        out = cv_put(out, x, y, if side * 100 < alen * 2 { "▓" } else { "░" }, col, rgb(2, 2, 5));
+                    }
+                }
+                x = x + 1;
+            }
+            y = y + 1;
+        }
+        out = cv_put_b(out, rx, 0, "▲", rgb(240, 240, 250), rgb(2, 2, 5), true);
+        rig = rig + 1;
+    }
+    return out;
+}

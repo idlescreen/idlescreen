@@ -1,0 +1,36 @@
+// # Scene OrbittingVolley - Orbiting Projectile Swarm
+//
+// Logline: A volley of projectiles orbiting the centre at staggered radii and angular speeds.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Place each projectile on its own elliptical orbit radius.
+//   2. Advance phase per projectile by its angular speed.
+//   3. Draw the hot head and a short fading tail arc.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_orbittingvolley(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(20, 20, 35), rgb(3, 3, 9));
+    let cx: Int = g.cols / 2;
+    let cy: Int = g.rows / 2;
+    let mut p: Int = 0;
+    while p < 10 {
+        let r: Int = 2000 + (p % 5) * 1600;
+        let speed: Int = 12 - (p % 3) * 2;
+        let ph: Int = tick * speed + p * 70;
+        let mut tail: Int = 0;
+        while tail < 5 {
+            let tph: Int = ph - tail * 12;
+            let sx: Int = cx + icos(tph) * r * 2 / 1000000;
+            let sy: Int = cy + isin(tph) * r * 55 / 100000;
+            if sx >= 0 && sx < g.cols && sy >= 0 && sy < g.rows {
+                let c: Int = if tail == 0 { rgb(255, 250, 200) } else { cv_mix(rgb(3, 3, 9), cv_hue(p * 60), 200 - tail * 40) };
+                out = cv_put(out, sx, sy, if tail == 0 { "◉" } else { "·" }, c, rgb(3, 3, 9));
+            }
+            tail = tail + 1;
+        }
+        p = p + 1;
+    }
+    return out;
+}

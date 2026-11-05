@@ -1,0 +1,51 @@
+// # Dissolve Transition - Hash-Ordered Cell Crossfade
+//
+// Logline: Crossfades two grids by revealing the destination in a deterministic hash-dissolve order.
+// Setup: Pure arithmetic over two CellGrid values. Operates with zero ambient authority.
+// Beats:
+//   1. Order every cell by its coordinate hash.
+//   2. Reveal destination cells whose order key is below the progress fraction.
+//   3. Report progress as a 0..100 percentage for the engine.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn dissolve_step(from: CellGrid, to: CellGrid, pct: Int) -> CellGrid {
+    let mut p: Int = pct;
+    if p < 0 { p = 0; }
+    if p > 100 { p = 100; }
+    let mut out: CellGrid = from;
+    let rows: Int = if from.rows < to.rows { from.rows } else { to.rows };
+    let cols: Int = if from.cols < to.cols { from.cols } else { to.cols };
+    let mut y: Int = 0;
+    while y < rows {
+        let mut x: Int = 0;
+        while x < cols {
+            let key: Int = cv_hash(x, y, 7919) % 100;
+            if key < p {
+                out = grid_set(out, x, y, grid_get(to, x, y));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}
+
+pub fn dissolve_wipe(to: CellGrid, pct: Int) -> CellGrid {
+    let mut p: Int = pct;
+    if p < 0 { p = 0; }
+    if p > 100 { p = 100; }
+    let mut out: CellGrid = to;
+    let cut: Int = to.cols * p / 100;
+    let mut y: Int = 0;
+    while y < to.rows {
+        let mut x: Int = cut;
+        while x < to.cols {
+            out = cv_put(out, x, y, " ", 0, 0);
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

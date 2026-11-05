@@ -1,0 +1,9 @@
+// # ascii/layout Domain Anchor
+//
+// Logline: Re-exports the wordmark font atlas, preset table, and bevelled renderer.
+// Setup: Pure shim. Imports the layout pages.
+// Beats:
+//   1. Re-export fonts, wordmark, and render for the tree.
+import "fonts.oo";
+import "wordmark.oo";
+import "render.oo";

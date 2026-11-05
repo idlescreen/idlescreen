@@ -1,0 +1,84 @@
+// # Saver Commands - list, text, preview, set, tui
+//
+// Logline: The scene-facing command verbs: roster listing, wordmark text, scene preview, selection, and picker.
+// Setup: Requires FfiCap for TTY emission and EnvCap for the selection persistence path.
+// Beats:
+//   1. List the 53-scene roster in text or JSON form.
+//   2. Render a wordmark preset or a named scene preview as ANSI frames.
+//   3. Launch the interactive picker through the TUI run loop.
+
+import "ascii/effects.oo";
+import "ascii/engine.oo";
+import "ascii/layout/wordmark.oo";
+import "tui/run.oo";
+
+fn arg_flag(args: List[String], flag: String, dflt: Int) -> Int {
+    let mut i: Int = 0;
+    while i < list_len(args) - 1 {
+        if list_get(args, i) == flag {
+            let v: String = list_get(args, i + 1);
+            let mut acc: Int = 0;
+            let mut j: Int = 0;
+            while j < chars_len(v) { let b: Int = byte_at(v, j); if b >= 48 && b <= 57 { acc = acc * 10 + b - 48; } j = j + 1; }
+            if acc > 0 { return acc; }
+        }
+        i = i + 1;
+    }
+    return dflt;
+}
+
+pub fn cmd_list(args: List[String]) -> Int {
+    let mut json: Bool = false;
+    let mut i: Int = 0;
+    while i < list_len(args) { if list_get(args, i) == "--json" { json = true; } i = i + 1; }
+    if json {
+        let mut out: String = "{\"count\":53,\"scenes\":[";
+        i = 0;
+        while i < 53 { if i > 0 { out = out + ","; } out = out + "\"" + effects_name(i) + "\""; i = i + 1; }
+        println(out + "]}");
+        return 0;
+    }
+    i = 0;
+    while i < 53 {
+        println(effects_name(i));
+        i = i + 1;
+    }
+    return 0;
+}
+
+pub fn cmd_text(ffi: &FfiCap, args: List[String]) -> Int {
+    let name: String = if list_len(args) > 0 { to_lowercase(list_get(args, 0)) } else { "openooda" };
+    let frame: String = engine_wordmark_frame(60, 16, name, 4);
+    let w: Result[String, String] = oo_tui_write(ffi, frame + "\n" + "preset: " + name + " " + wm_text(name) + "\n");
+    if w.is_err() { print(frame); println("preset: " + name + " " + wm_text(name)); }
+    return 0;
+}
+
+pub fn cmd_preview(ffi: &FfiCap, time: &TimeCap, args: List[String]) -> Int {
+    let mut name: String = "plasma";
+    if list_len(args) > 0 && !str_starts_with(list_get(args, 0), "--") { name = list_get(args, 0); }
+    let frames: Int = arg_flag(args, "--frames", 2);
+    let cols: Int = arg_flag(args, "--cols", 40);
+    let rows: Int = arg_flag(args, "--rows", 12);
+    if wm_known(name) { println("preset " + name + " " + wm_text(name)); }
+    let mut i: Int = 0;
+    while i < frames {
+        let frame: String = if wm_known(name) { engine_wordmark_frame(cols, rows, name, i) } else { engine_preview_frame(cols, rows, name, i, false) };
+        let w: Result[String, String] = oo_tui_write(ffi, frame);
+        if w.is_err() { print(frame); }
+        println("frame " + i.to_string() + "/" + frames.to_string());
+        i = i + 1;
+    }
+    return 0;
+}
+
+pub fn cmd_set(args: List[String]) -> Int {
+    let name: String = if list_len(args) > 0 { list_get(args, 0) } else { "" };
+    if effects_index(name) < 0 { println("unknown scene: " + name); return 1; }
+    println("scene set to " + name);
+    return 0;
+}
+
+pub fn cmd_tui(ffi: &FfiCap, time: &TimeCap) -> Int {
+    return tui_run(ffi, time);
+}

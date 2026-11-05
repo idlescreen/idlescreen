@@ -1,0 +1,36 @@
+// # Scene Unstable - Glitching Corruption Bursts
+//
+// Logline: Intermittent glitch bursts scrambling bands of the frame like an unstable broadcast signal.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Roll a per-row glitch dice against a tick-driven burst window.
+//   2. Scramble and chroma-shift cells inside burst rows.
+//   3. Leave quiet rows on a faint static texture.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_unstable(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(45, 45, 55), rgb(6, 6, 10));
+    let burst: Int = tick % 12;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let roll: Int = cv_hash(0, y, tick / 3) % 10;
+        let glitch: Bool = burst < 4 && roll < 3;
+        let mut x: Int = 0;
+        while x < g.cols {
+            if glitch {
+                let h: Int = cv_hash(x, y, tick);
+                let ch: String = cv_ramp(h % 10);
+                let shift: Int = (h % 7) - 3;
+                let c: Int = if h % 3 == 0 { rgb(255, 60, 120) } else if h % 3 == 1 { rgb(60, 255, 200) } else { rgb(200, 200, 220) };
+                out = cv_put(out, x + shift, y, ch, c, rgb(20, 10, 15));
+            } else if cv_hash(x, y, 5) % 17 == 0 {
+                out = cv_put(out, x, y, "·", rgb(60, 60, 80), rgb(6, 6, 10));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

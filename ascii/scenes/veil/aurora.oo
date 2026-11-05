@@ -1,0 +1,36 @@
+// # Scene Aurora - Polar Curtain Ribbons
+//
+// Logline: Layered aurora curtains draping down the grid in teal and violet waves.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Wave three curtain edges across the sky by offset sines.
+//   2. Fill the band under each edge with dimming curtain cells.
+//   3. Blend teal, green, and violet bands into the night base.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_aurora(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(10, 20, 40), rgb(2, 4, 14));
+    let mut x: Int = 0;
+    while x < g.cols {
+        let mut band: Int = 0;
+        while band < 3 {
+            let edge: Int = g.rows / 4 + band * 2 + isin(x * 7 + tick * 9 + band * 102) * 4 / 1000;
+            let mut y: Int = edge;
+            while y < edge + 5 && y < g.rows {
+                let depth: Int = y - edge;
+                let base: Int = if band == 0 { rgb(40, 230, 160) } else if band == 1 { rgb(80, 160, 255) } else { rgb(170, 90, 255) };
+                let dim: Int = 220 - depth * 45;
+                if dim > 25 {
+                    let ch: String = if depth == 0 { "▓" } else if depth < 3 { "▒" } else { "░" };
+                    out = cv_put(out, x, y, ch, cv_mix(rgb(2, 4, 14), base, dim), rgb(2, 4, 14));
+                }
+                y = y + 1;
+            }
+            band = band + 1;
+        }
+        x = x + 1;
+    }
+    return out;
+}

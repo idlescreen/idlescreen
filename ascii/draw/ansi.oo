@@ -1,0 +1,55 @@
+// # ANSI Emitter - Cell Grid to 24-Bit Terminal Escape Stream
+//
+// Logline: Serialises a cell grid into a 24-bit truecolor ANSI frame with run-based escape coalescing.
+// Setup: Pure string composition. Escape emission happens on caller-controlled writes only.
+// Beats:
+//   1. Walk the grid row-major and emit SGR sequences only when colour or weight changes.
+//   2. Encode each foreground as 38;2 and each background as 48;2.
+//   3. Reset attributes and advance lines between rows.
+
+import "core/cell.oo";
+
+fn sgr_fg(c: Int, bold: Bool) -> String {
+    let mut s: String = "\x1b[38;2;" + rgb_r(c).to_string() + ";" + rgb_g(c).to_string() + ";" + rgb_b(c).to_string();
+    if bold { s = s + ";1"; }
+    return s + "m";
+}
+
+fn sgr_bg(c: Int) -> String {
+    return "\x1b[48;2;" + rgb_r(c).to_string() + ";" + rgb_g(c).to_string() + ";" + rgb_b(c).to_string() + "m";
+}
+
+pub fn ansi_home() -> String { return "\x1b[H"; }
+
+pub fn ansi_reset() -> String { return "\x1b[0m"; }
+
+pub fn ansi_render(g: CellGrid) -> String {
+    let mut out: String = "";
+    let mut last_fg: Int = -1;
+    let mut last_bg: Int = -1;
+    let mut last_bold: Bool = false;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let c: TerminalCell = grid_get(g, x, y);
+            if c.fg != last_fg || c.bold != last_bold {
+                out = out + sgr_fg(c.fg, c.bold);
+                last_fg = c.fg;
+                last_bold = c.bold;
+            }
+            if c.bg != last_bg {
+                out = out + sgr_bg(c.bg);
+                last_bg = c.bg;
+            }
+            out = out + c.ch;
+            x = x + 1;
+        }
+        if y + 1 < g.rows { out = out + ansi_reset() + "\n"; }
+        last_fg = -1;
+        last_bg = -1;
+        last_bold = false;
+        y = y + 1;
+    }
+    return out + ansi_reset();
+}

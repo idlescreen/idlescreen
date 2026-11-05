@@ -1,0 +1,42 @@
+// # Scene BlackHole - Accretion Disc and Event Horizon
+//
+// Logline: A swirling accretion disc spiralling into a dark event horizon with gravitational lensing bands.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Swirl disc matter on spiral arms around the centre.
+//   2. Carve the event horizon as a black core.
+//   3. Rim the photon sphere with a bright lensed band.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_blackhole(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(20, 15, 35), rgb(2, 1, 6));
+    let cx: Int = g.cols / 2;
+    let cy: Int = g.rows / 2;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let dx: Int = (x - cx) * 50;
+            let dy: Int = (y - cy) * 100;
+            let d: Int = idist(dx, dy) / 100;
+            if d < 2 {
+                out = cv_put(out, x, y, " ", 0, 0);
+            } else if d < 3 {
+                out = cv_put(out, x, y, "▓", rgb(255, 230, 160), rgb(10, 5, 2));
+            } else {
+                let arm: Int = isin(d * 90 - tick * 18 + dy * 40 / (d + 10));
+                if arm > 550 && d < cy {
+                    let heat: Int = 255 - d * 18;
+                    let mut hh: Int = heat;
+                    if hh < 40 { hh = 40; }
+                    out = cv_put(out, x, y, "░", rgb(hh, hh * 2 / 3, 60), rgb(2, 1, 6));
+                }
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

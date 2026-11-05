@@ -1,0 +1,38 @@
+// # Scene Tunnel - Inverted-Depth Radial Flight
+//
+// Logline: Flies through a checkerboard tunnel by mapping cells onto inverse radial depth and spin.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Compute radial distance and quadrant index per cell.
+//   2. Compress depth by inverse distance so the centre recedes.
+//   3. Checker the tunnel walls in phosphor green and void black.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_tunnel(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let cx: Int = g.cols / 2;
+    let cy: Int = g.rows / 2;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let dx: Int = x - cx;
+            let dy: Int = (y - cy) * 2;
+            let d: Int = idist(dx, dy) + 1;
+            let depth: Int = 12000 / d + tick;
+            let mut ang: Int = 0;
+            if dx > 0 && dy > 0 { ang = 1; }
+            if dx < 0 && dy > 0 { ang = 2; }
+            if dx < 0 && dy < 0 { ang = 3; }
+            let sq: Int = (depth + ang + d / 4) % 2;
+            let fade: Int = if d < 3 { d * 30 } else { 90 };
+            let c: Int = if sq == 0 { rgb(10 + fade, 120 + fade, 60) } else { rgb(2, 20, 8) };
+            out = cv_put(out, x, y, cv_ramp(sq * 5 + 3), c, rgb(0, 2, 0));
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

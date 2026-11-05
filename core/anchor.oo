@@ -1,0 +1,7 @@
+// # core Domain Anchor
+//
+// Logline: Re-exports the cell and glyph-grid primitives shared by every subsystem.
+// Setup: Pure shim. Imports the terminal cell page.
+// Beats:
+//   1. Re-export the cell page for the rest of the tree.
+import "cell.oo";

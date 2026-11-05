@@ -1,0 +1,34 @@
+// # Scene Wipe - Directional Screen Wipe Loop
+//
+// Logline: A hard wipe edge sweeping the frame with trailing phosphor decay in a repeating loop.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Advance the wipe front across the diagonal by tick.
+//   2. Draw fresh cells bright ahead of the front.
+//   3. Decay swept cells through the ramp into black.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_wipe(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(20, 20, 20), rgb(2, 2, 4));
+    let span: Int = g.cols + g.rows;
+    let front: Int = (tick * 3) % (span * 2);
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let proj: Int = x + y;
+            let mut age: Int = front - proj;
+            if age >= span { age = age - span * 2; }
+            if age >= 0 {
+                let ramp: Int = if age < 20 { 9 - age / 2 } else { 0 };
+                let c: Int = cv_mix(rgb(10, 10, 16), rgb(140, 255, 200), ramp * 28);
+                out = cv_put(out, x, y, cv_ramp(ramp), c, rgb(2, 2, 4));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

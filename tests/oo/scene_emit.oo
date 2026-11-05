@@ -1,0 +1,92 @@
+// # scene_emit — deterministic scene digest emitter
+//
+// Logline: Runs a ported scene over the fixed probe grid and prints the
+// same `frame\t<idx>\t<hash>` / `done\t<n>\t<hash>` stream as the Rust
+// scene_digest example, for golden parity comparison.
+//
+// Setup: Pure compute plus println. argv[1] selects the scene; all other
+// probe parameters are pinned to the golden configuration (80x24, seed
+// 42, 60fps, art "IDLESCREEN\nSCREENSAVER").
+//
+// Beats:
+//   1. Split the pinned art into lines and build canvas cells.
+//   2. Dispatch the scene port and step it to completion.
+//   3. Serialize each frame grid, FNV-1a-64 it, print digest lines.
+
+import "canvas_cells.oo";
+import "grid_cells.oo";
+import "fnv1a64.oo";
+import "scene_plasma.oo";
+
+fn art_lines() -> List[String] {
+    let mut lines: List[String] = list_new();
+    let mut cur: String = "";
+    let art: String = "IDLESCREEN\nSCREENSAVER";
+    let n: Int = chars_len(art);
+    let mut i: Int = 0;
+    while i < n {
+        let ch: String = char_at(art, i);
+        if ord(ch) == 10 {
+            lines = list_push(lines, cur);
+            cur = "";
+        } else {
+            cur = cur + ch;
+        }
+        i = i + 1;
+    }
+    lines = list_push(lines, cur);
+    return lines;
+}
+
+fn arg_int(s: String) -> Int {
+    let n: Int = chars_len(s);
+    let mut v: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(s, i);
+        let d: Int = ord(c) - 48;
+        if d < 0 || d > 9 { return 0 - 1; }
+        v = v * 10 + d;
+        i = i + 1;
+    }
+    return v;
+}
+
+fn scene_name(args: List[String]) -> String {
+    if list_len(args) > 0 { return list_get(args, 0); }
+    return "plasma";
+}
+
+pub fn main(args: List[String]) -> Result[Int, String] {
+    let name: String = scene_name(args);
+    if name != "plasma" {
+        return Err("ERR\tscene\tunknown .oo scene: " + name);
+    }
+    let info0: CanvasInfo = canvas_info(80, 24);
+    let lines: List[String] = art_lines();
+    let info: CanvasInfo = art_block(lines, info0);
+    let cells: List[CellGeom] = canvas_cells(info, lines);
+    let mut p: Plasma = plasma_new(cells, info);
+    let mut idx: Int = 0;
+    let mut composite: Int = fnv1a64_new();
+    while true {
+        let pcs: List[PaintCell] = plasma_next(p);
+        if list_len(pcs) == 0 { break; }
+        let rec: String = grid_record_list(pcs);
+        let d: Int = fnv1a64_str(fnv1a64_new(), rec);
+        println("frame\t" + idx.to_string() + "\t" + d.to_string());
+        if list_len(args) > 2 && list_get(args, 1) == "dump" && idx == arg_int(list_get(args, 2)) {
+            let dn: Int = list_len(pcs);
+            let mut di: Int = 0;
+            while di < dn {
+                println("cell\t" + di.to_string() + "\t" + paint_cell_record(list_get(pcs, di)));
+                di = di + 1;
+            }
+        }
+        composite = fnv1a64_combine(composite, d);
+        p = plasma_advance(p);
+        idx = idx + 1;
+    }
+    println("done\t" + idx.to_string() + "\t" + composite.to_string());
+    return Ok(0);
+}

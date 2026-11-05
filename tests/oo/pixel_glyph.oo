@@ -1,0 +1,84 @@
+// # pixel_glyph — 16-bit block glyph quantization
+//
+// Logline: Bit-exact port of pixel_art_glyph: emitted scene symbols map to
+// deterministic Unicode block glyphs by character class and cell hash.
+//
+// Setup: Pure functions over packed Int ordinals. No caps, no state.
+//
+// Beats:
+//   1. is_glyph_ord recognizes ordinals already in the block set.
+//   2. glyph_pick selects a class table entry by hash modulo.
+//   3. glyph_ord hashes (ch, x, y) and returns the final glyph ordinal.
+
+fn is_glyph_ord(ch: Int) -> Bool {
+    if ch == 32 || ch == 9608 || ch == 9600 || ch == 9604 { return true; }
+    if ch == 9612 || ch == 9616 || ch == 9601 || ch == 9602 { return true; }
+    if ch == 9603 || ch == 9605 || ch == 9606 || ch == 9607 { return true; }
+    if ch == 9609 || ch == 9610 || ch == 9611 || ch == 9613 { return true; }
+    if ch == 9614 || ch == 9615 || ch == 9617 || ch == 9618 { return true; }
+    if ch == 9619 || ch == 9622 || ch == 9623 || ch == 9624 { return true; }
+    if ch == 9629 || ch == 9626 || ch == 9630 || ch == 9625 { return true; }
+    return ch == 9627 || ch == 9628 || ch == 9631;
+}
+
+fn glyph_pick(cls: Int, h: Int) -> Int {
+    if cls == 0 {
+        let t: Int = h % 5;
+        if t == 0 { return 9619; }
+        if t == 1 { return 9627; }
+        if t == 2 { return 9631; }
+        if t == 3 { return 9625; }
+        return 9628;
+    }
+    if cls == 1 {
+        let t2: Int = h % 5;
+        if t2 == 0 { return 9617; }
+        if t2 == 1 { return 9622; }
+        if t2 == 2 { return 9623; }
+        if t2 == 3 { return 9624; }
+        return 9629;
+    }
+    if cls == 2 {
+        let t3: Int = h % 8;
+        if t3 == 0 { return 9600; }
+        if t3 == 1 { return 9604; }
+        if t3 == 2 { return 9612; }
+        if t3 == 3 { return 9616; }
+        if t3 == 4 { return 9630; }
+        if t3 == 5 { return 9626; }
+        if t3 == 6 { return 9624; }
+        return 9629;
+    }
+    let mm: Int = h % 12;
+    if mm == 0 { return 9619; }
+    if mm == 1 { return 9618; }
+    if mm == 2 { return 9600; }
+    if mm == 3 { return 9604; }
+    if mm == 4 { return 9612; }
+    if mm == 5 { return 9616; }
+    if mm == 6 { return 9627; }
+    if mm == 7 { return 9631; }
+    if mm == 8 { return 9625; }
+    if mm == 9 { return 9628; }
+    if mm == 10 { return 9630; }
+    return 9626;
+}
+
+pub fn shade_ramp_ord(idx: Int) -> Int {
+    if idx == 0 { return 9617; }
+    if idx == 1 { return 9618; }
+    if idx == 2 { return 9619; }
+    return 9608;
+}
+
+pub fn glyph_ord(ch: Int, x: Int, y: Int) -> Int {
+    if is_glyph_ord(ch) { return ch; }
+    let h: Int = ch * 31 + x * 17 + y * 13;
+    if ch == 64 || ch == 35 || ch == 37 || ch == 38 || ch == 87 { return glyph_pick(0, h); }
+    if ch == 77 || ch == 66 || ch == 56 || ch == 48 || ch == 81 { return glyph_pick(0, h); }
+    if ch == 46 || ch == 44 || ch == 39 || ch == 96 || ch == 58 { return glyph_pick(1, h); }
+    if ch == 59 || ch == 45 || ch == 95 || ch == 126 { return glyph_pick(1, h); }
+    if ch == 42 || ch == 43 || ch == 111 || ch == 79 || ch == 94 { return glyph_pick(2, h); }
+    if ch == 47 || ch == 92 || ch == 124 || ch == 61 { return glyph_pick(2, h); }
+    return glyph_pick(3, h);
+}

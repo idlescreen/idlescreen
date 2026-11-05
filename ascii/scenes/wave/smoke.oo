@@ -1,0 +1,33 @@
+// # Scene Smoke - Rising Turbulent Plume Field
+//
+// Logline: Turbulent grey plumes rising from the bottom edge with density fading toward the top.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Fold the coordinate and tick hashes into drifting turbulence.
+//   2. Fade plume density with height so columns thin upward.
+//   3. Shade smoke in layered greys over near-black.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_smoke(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let drift: Int = (cv_hash(x, 0, tick / 3) % 7) - 3;
+            let h: Int = cv_hash(x + drift + tick / 2, y + tick, 17);
+            let density: Int = (g.rows - y) * 100 / if g.rows > 0 { g.rows } else { 1 };
+            let v: Int = (h % 100 + density) / 2;
+            let ramp: Int = v / 11;
+            let shade: Int = 20 + v * 2;
+            let mut s: Int = shade;
+            if s > 220 { s = 220; }
+            out = cv_put(out, x, y, cv_ramp(ramp), rgb(s, s, s + 8), rgb(4, 4, 6));
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

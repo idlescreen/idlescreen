@@ -1,0 +1,31 @@
+// # Scene Highlight - Scanning Highlight Sweep
+//
+// Logline: A bright highlight band sweeping the frame, lifting foreground intensity as it passes.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Sweep a vertical bright band across the grid by tick.
+//   2. Boost cell brightness inside the band with soft shoulders.
+//   3. Keep a faint grid texture behind the sweep.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_highlight(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let front: Int = (tick * 2) % (g.cols + 20) - 10;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let d: Int = if x - front < 0 { front - x } else { x - front };
+            let tex: Int = cv_hash(x, y, 4) % 8;
+            let ch: String = cv_ramp(tex);
+            let base: Int = rgb(40 + tex * 10, 45 + tex * 8, 60 + tex * 6);
+            let lit: Int = if d < 4 { 255 - d * 55 } else { 0 };
+            out = cv_put(out, x, y, ch, cv_mix(base, rgb(255, 250, 220), lit), rgb(4, 4, 8));
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

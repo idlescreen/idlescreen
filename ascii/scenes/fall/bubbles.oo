@@ -1,0 +1,34 @@
+// # Scene Bubbles - Buoyant Rising Bubble Field
+//
+// Logline: Columns of bubbles wobbling upward at per-lane speeds with highlight rims.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Seed bubble lanes by hash with per-lane phase and rise speed.
+//   2. Wobble each bubble horizontally with an integer sine of lane and tick.
+//   3. Draw the bright rim glyph and a faint trail beneath.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_bubbles(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(20, 50, 80), rgb(2, 10, 20));
+    let lane_step: Int = 4;
+    let mut lane: Int = 0;
+    while lane * lane_step < g.cols {
+        let x0: Int = lane * lane_step + cv_hash(lane, 0, 7) % lane_step;
+        let speed: Int = 1 + cv_hash(lane, 3, 5) % 2;
+        let span: Int = g.rows + 6;
+        let by: Int = g.rows - 1 - ((tick * speed + cv_hash(lane, 1, 13)) % if span > 0 { span } else { 1 });
+        let wob: Int = isin(tick * 24 + lane * 57) * 2 / 1000;
+        let big: Bool = cv_hash(lane, 9, 2) % 5 == 0;
+        let ch: String = if big { "○" } else { "°" };
+        if by >= 0 && by < g.rows {
+            out = cv_put(out, x0 + wob, by, ch, rgb(160, 220, 255), rgb(2, 10, 20));
+            if by + 1 < g.rows {
+                out = cv_put(out, x0 + wob, by + 1, "·", rgb(60, 110, 160), rgb(2, 10, 20));
+            }
+        }
+        lane = lane + 1;
+    }
+    return out;
+}

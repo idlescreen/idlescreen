@@ -1,0 +1,10 @@
+// # tui Domain Anchor
+//
+// Logline: Re-exports the picker model, view, input decode, and run loop pages.
+// Setup: Pure shim. Imports the tui pages.
+// Beats:
+//   1. Re-export model, view, input, and run for the tree.
+import "model.oo";
+import "view.oo";
+import "input.oo";
+import "run.oo";

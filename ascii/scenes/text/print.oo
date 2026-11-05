@@ -1,0 +1,37 @@
+// # Scene Print - Teletype Text Cascade
+//
+// Logline: Streams a source-code poem line by line like a teletype, wrapping at the grid width.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Hold the rotating message corpus as bar-joined lines.
+//   2. Print characters at teletype pace gated by tick.
+//   3. Show the block cursor at the print head.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_print(g: CellGrid, tick: Int) -> CellGrid {
+    let corpus: String = "boot ooda kernel|mount /dev/idle|spawn rasterd --hdr|vsync locked at 60hz|palette: 16-bit arcade|scene graph: 53 effects|render loop: pure cells|idle is a state of mind|";
+    let all: List[String] = str_split(corpus, "|");
+    let mut out: CellGrid = cv_fill(g, " ", rgb(200, 200, 200), rgb(8, 10, 8));
+    let head: Int = tick / 2;
+    let mut y: Int = 1;
+    let mut li: Int = 0;
+    let mut done_chars: Int = 0;
+    while li < list_len(all) && y < g.rows - 1 {
+        let s: String = list_get(all, (li + head / 24) % list_len(all));
+        let shown: Int = if head - li * 24 > 0 { head - li * 24 } else { 0 };
+        let mut i: Int = 0;
+        while i < shown && i < chars_len(s) && i < g.cols - 2 {
+            out = cv_put(out, 1 + i, y, char_at(s, i), rgb(190, 230, 190), rgb(8, 10, 8));
+            i = i + 1;
+        }
+        if li == head / 24 && i < g.cols - 2 {
+            out = cv_put(out, 1 + i, y, "▌", rgb(120, 255, 120), rgb(8, 10, 8));
+        }
+        done_chars = done_chars + i;
+        y = y + 2;
+        li = li + 1;
+    }
+    return out;
+}

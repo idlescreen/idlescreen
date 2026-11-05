@@ -1,0 +1,43 @@
+// # Scene BinaryPath - Branching Binary Decision Tree
+//
+// Logline: A binary path glowing through a decision lattice, forking left and right at hash-determined junctions.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Grow several walker paths from the top edge with binary branch decisions.
+//   2. Stamp branch elbows brighter than straight runs.
+//   3. Draw the lattice skeleton faintly underneath.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_binarypath(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(20, 30, 20), rgb(3, 6, 3));
+    let mut p: Int = 0;
+    while p < 5 {
+        let mut x: Int = 2 + p * (g.cols - 4) / 5;
+        let mut y: Int = 0;
+        let depth: Int = if tick % (g.rows * 2) == 0 { g.rows } else { tick % (g.rows * 2) };
+        let mut d: Int = 0;
+        while d < depth && y < g.rows {
+            let h: Int = cv_hash(p, d, tick / (g.rows * 2) + 1);
+            let fork: Int = h % 4;
+            let col: Int = cv_hue(p * 120 + 40);
+            if fork == 0 && x > 0 {
+                out = cv_put(out, x, y, "╲", cv_mix(col, rgb(255, 255, 255), 90), rgb(3, 6, 3));
+                x = x - 1;
+            } else if fork == 1 && x < g.cols - 1 {
+                out = cv_put(out, x, y, "╱", cv_mix(col, rgb(255, 255, 255), 90), rgb(3, 6, 3));
+                x = x + 1;
+            } else {
+                out = cv_put(out, x, y, "│", col, rgb(3, 6, 3));
+            }
+            y = y + 1;
+            d = d + 1;
+        }
+        if y < g.rows {
+            out = cv_put_b(out, x, y, "◆", rgb(255, 255, 200), rgb(3, 6, 3), true);
+        }
+        p = p + 1;
+    }
+    return out;
+}

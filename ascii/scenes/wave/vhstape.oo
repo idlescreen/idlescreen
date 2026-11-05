@@ -1,0 +1,39 @@
+// # Scene VHSTape - Tracking Noise and Chroma Tears
+//
+// Logline: Emulates a worn VHS frame with horizontal jitter, chroma band ghosts, and a rolling tracking bar.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Jitter each scanline horizontally by its hash.
+//   2. Lay magenta and cyan chroma ghosts beside every glyph.
+//   3. Scroll a bright tracking tear through the frame.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_vhstape(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(40, 40, 50), rgb(6, 6, 10));
+    let track_y: Int = (tick * 2) % if g.rows > 0 { g.rows } else { 1 };
+    let mut y: Int = 0;
+    while y < g.rows {
+        let jit: Int = (cv_hash(0, y, tick / 4) % 5) - 2;
+        let mut x: Int = 0;
+        while x < g.cols {
+            let h: Int = cv_hash(x, y, tick / 8);
+            let ch: String = if h % 23 == 0 { "▒" } else if h % 7 == 0 { "─" } else { " " };
+            let near_track: Int = if y - track_y < 0 { track_y - y } else { y - track_y };
+            if ch != " " {
+                let fg: Int = if near_track < 2 { rgb(230, 230, 240) } else { rgb(120, 80, 160) };
+                out = cv_put(out, x + jit, y, ch, fg, rgb(6, 6, 10));
+                if h % 11 == 0 {
+                    out = cv_put(out, x + jit + 1, y, ch, rgb(60, 160, 200), rgb(6, 6, 10));
+                }
+            }
+            if near_track == 0 && x % 3 == 0 {
+                out = cv_put(out, x, y, "▓", rgb(200, 200, 210), rgb(30, 30, 40));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

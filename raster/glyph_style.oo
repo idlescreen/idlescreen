@@ -1,0 +1,35 @@
+// # Glyph Font Style - Bitmap Treatment Selection
+//
+// Logline: Names the three bitmap treatments the 8x16 glyph font can draw and parses probe strings into one.
+// Setup: Pure data type. Operates with zero ambient authority.
+// Beats:
+//   1. Match sharp and round keyword families against a lowercased probe string.
+//   2. Default to the arcade block treatment when no family matches.
+//   3. Report the canonical kebab-case style name.
+
+pub fn glyph_style_parse(raw: String) -> String {
+    let l: String = to_lowercase(str_trim(raw));
+    if str_contains(l, "sharp") || str_contains(l, "cyber") { return "cyber-sharp"; }
+    if str_contains(l, "jetbrains") || str_contains(l, "iosevka") { return "cyber-sharp"; }
+    if str_contains(l, "fira") || str_contains(l, "hack") { return "cyber-sharp"; }
+    if str_contains(l, "round") || str_contains(l, "retro") { return "retro-round"; }
+    if str_contains(l, "ubuntu") || str_contains(l, "cascadia") { return "retro-round"; }
+    if str_contains(l, "comic") { return "retro-round"; }
+    return "arcade-block";
+}
+
+pub fn glyph_style_is_sharp(style: String) -> Bool {
+    return style == "cyber-sharp";
+}
+
+pub fn glyph_style_is_round(style: String) -> Bool {
+    return style == "retro-round";
+}
+
+pub fn glyph_style_default() -> String {
+    return "arcade-block";
+}
+
+pub fn glyph_style_probe() -> Int {
+    return 0;
+}

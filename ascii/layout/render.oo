@@ -1,0 +1,91 @@
+// # Wordmark Renderer - Bevelled Block Text onto the Cell Grid
+//
+// Logline: Rasterizes a wordmark preset onto the grid with drop shadow, gradient fill, and top-edge bevel highlight.
+// Setup: Pure draw over CellGrid using the 7x7 font atlas and preset palettes. Zero ambient authority.
+// Beats:
+//   1. Centre the composed wordmark horizontally and vertically in the grid.
+//   2. Stamp the shadow pass, then the gradient body pass letter by letter.
+//   3. Overlay the lighter bevel on pixels that sit on a letter's top edge.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+import "fonts.oo";
+import "wordmark.oo";
+
+pub fn wm_measure(name: String) -> Int {
+    let t: String = wm_text(name);
+    return chars_len(t) * (font7_width() + 1) - 1;
+}
+
+fn wm_light(c: Int) -> Int {
+    let gain: Int = wm_hi_gain();
+    let mut r: Int = rgb_r(c) + gain;
+    let mut g: Int = rgb_g(c) + gain;
+    let mut b: Int = rgb_b(c) + gain;
+    if r > 255 { r = 255; }
+    if g > 255 { g = 255; }
+    if b > 255 { b = 255; }
+    return rgb(r, g, b);
+}
+
+fn wm_letter(g: CellGrid, ch: String, ox: Int, oy: Int, col: Int, total: Int, tick: Int, name: String) -> CellGrid {
+    let rows: List[String] = font7_rows(ch);
+    let mut out: CellGrid = g;
+    let fg: Int = wm_column_color(name, col, total, tick);
+    let sh: Int = wm_shadow_color();
+    let hi: Int = wm_light(fg);
+    let mut y: Int = 0;
+    while y < font7_height() {
+        let mut x: Int = 0;
+        while x < font7_width() {
+            if font7_at(rows, x, y) {
+                out = cv_put(out, ox + x + 2, oy + y + 1, "░", sh, grid_get(out, ox + x + 2, oy + y + 1).bg);
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    y = 0;
+    while y < font7_height() {
+        let mut x: Int = 0;
+        while x < font7_width() {
+            if font7_at(rows, x, y) {
+                let edge: Bool = !font7_at(rows, x, y - 1);
+                let c: Int = if edge { hi } else { fg };
+                out = cv_put_b(out, ox + x, oy + y, "█", c, grid_get(out, ox + x, oy + y).bg, edge);
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}
+
+pub fn wm_render(g: CellGrid, name: String, tick: Int) -> CellGrid {
+    let t: String = wm_text(name);
+    let total: Int = chars_len(t) * (font7_width() + 1) - 1;
+    if total > g.cols || font7_height() + 2 > g.rows { return g; }
+    let ox: Int = (g.cols - total) / 2;
+    let oy: Int = (g.rows - font7_height()) / 2;
+    let mut out: CellGrid = g;
+    let mut i: Int = 0;
+    while i < chars_len(t) {
+        out = wm_letter(out, char_at(t, i), ox + i * (font7_width() + 1), oy, i, chars_len(t), tick, name);
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn wm_render_at(g: CellGrid, name: String, oy: Int, tick: Int) -> CellGrid {
+    let t: String = wm_text(name);
+    let total: Int = chars_len(t) * (font7_width() + 1) - 1;
+    if total > g.cols { return g; }
+    let ox: Int = (g.cols - total) / 2;
+    let mut out: CellGrid = g;
+    let mut i: Int = 0;
+    while i < chars_len(t) {
+        out = wm_letter(out, char_at(t, i), ox + i * (font7_width() + 1), oy, i, chars_len(t), tick, name);
+        i = i + 1;
+    }
+    return out;
+}

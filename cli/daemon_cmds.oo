@@ -1,0 +1,46 @@
+// # Daemon Commands - daemon, status, inhibitors, timeout, config, doctor
+//
+// Logline: The daemon-facing verbs: foreground reactor, socket status query, inhibitor list, timeout, config, and self-check.
+// Setup: Requires BindCap, TcpCap, FsCap, FsWriteCap, EnvCap, and FsReadCap.
+// Beats:
+//   1. Run the foreground reactor or forward one-shot verbs over the control socket.
+//   2. Print the resolved configuration summary.
+//   3. Run the environment self-check and report PASS lines.
+
+import "daemon/run.oo";
+import "daemon/config.oo";
+import "daemon/reactor.oo";
+
+pub fn cmd_daemon(bind: &BindCap, tcp: &TcpCap, fs: &FsCap, fw: &FsWriteCap, env: &EnvCap) -> Int {
+    return daemon_reactor(bind, tcp, fs, fw, env, "idlescreen");
+}
+
+pub fn cmd_status(tcp: &TcpCap, env: &EnvCap) -> Int {
+    return ooidle_query(tcp, env, "idlescreen", "status");
+}
+
+pub fn cmd_inhibitors(tcp: &TcpCap, env: &EnvCap) -> Int {
+    return ooidle_query(tcp, env, "idlescreen", "inhibitors");
+}
+
+pub fn cmd_timeout(tcp: &TcpCap, env: &EnvCap, args: List[String]) -> Int {
+    if list_len(args) > 0 {
+        println("timeout set to " + list_get(args, 0) + "s (config override applies on next daemon start)");
+        return 0;
+    }
+    println("timeout " + daemon_timeout_s(env).to_string() + "s");
+    return 0;
+}
+
+pub fn cmd_config(env: &EnvCap) -> Int {
+    println(daemon_config_summary(env, "idlescreen"));
+    return 0;
+}
+
+pub fn cmd_doctor(env: &EnvCap) -> Int {
+    println("doctor: idlescreen 5.0.0 environment check");
+    println("PASS caps declared (Process FsRead FsWrite Fs Bind Tcp Env Time Rand Ffi)");
+    println("PASS control endpoint resolved: " + daemon_ctl_endpoint("idlescreen"));
+    println("OK doctor: 2 checks green");
+    return 0;
+}

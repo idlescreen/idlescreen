@@ -1,0 +1,35 @@
+// # Scene ErrorCorrect - Checksum Repair Pass
+//
+// Logline: Corrupted cells flagged red being repaired left-to-right by a travelling ECC correction cursor.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Scatter corrupted glyph cells across the grid by hash.
+//   2. March a correction column across the frame by tick.
+//   3. Mark repaired cells green and pending ones red.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_errorcorrect(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(35, 35, 40), rgb(6, 6, 9));
+    let front: Int = (tick * 3) % (g.cols + 16) - 8;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let bad: Bool = cv_hash(x, y, 99) % 11 == 0;
+            if bad {
+                if x < front {
+                    out = cv_put(out, x, y, "✓", rgb(90, 230, 120), rgb(6, 6, 9));
+                } else {
+                    out = cv_put(out, x, y, "✗", rgb(240, 80, 80), rgb(30, 8, 8));
+                }
+            } else if x == front && y % 2 == 0 {
+                out = cv_put(out, x, y, "▌", rgb(255, 220, 120), rgb(6, 6, 9));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

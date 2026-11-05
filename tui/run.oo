@@ -1,0 +1,62 @@
+// # TUI Run - Interactive Picker Event Loop
+//
+// Logline: Runs the interactive picker: raw mode on, alt screen up, render-and-read loop, clean restore on exit.
+// Setup: Requires FfiCap for terminal intrinsics and TimeCap for frame pacing.
+// Beats:
+//   1. Enter raw mode and the alternate screen, hiding the cursor.
+//   2. Loop: write the picker frame, block on a bounded read, apply the decoded action.
+//   3. Restore cooked mode, cursor, and main screen on every exit path.
+
+import "model.oo";
+import "view.oo";
+import "input.oo";
+import "ascii/effects.oo";
+
+// The oo_tui_* intrinsics ship in liboodar-net.a; the toolchain links that
+// extension tier only when the emitted IR references an oo_ffi/oo_hot_reload
+// family symbol. This probe materialises the tier so the terminal intrinsics
+// resolve. It is never invoked.
+fn tui_link_tier_probe() -> Int {
+    return hot_reload("idlescreen-tui-tier");
+}
+
+pub fn tui_run(ffi: &FfiCap, time: &TimeCap) -> Int {
+    let sz: Result[String, String] = oo_tui_get_size(ffi);
+    let dims: String = match sz { Ok(s) => s, Err(_) => "24:80" };
+    let colon: Int = str_index_of(dims, ":");
+    let mut rows: Int = 24;
+    let mut cols: Int = 80;
+    if colon >= 0 {
+        let rstr: String = str_slice(dims, 0, colon);
+        let cstr: String = str_slice(dims, colon + 1, chars_len(dims));
+        let mut ra: Int = 0;
+        let mut ca: Int = 0;
+        let mut i: Int = 0;
+        while i < chars_len(rstr) { let b: Int = byte_at(rstr, i); if b >= 48 && b <= 57 { ra = ra * 10 + b - 48; } i = i + 1; }
+        i = 0;
+        while i < chars_len(cstr) { let b: Int = byte_at(cstr, i); if b >= 48 && b <= 57 { ca = ca * 10 + b - 48; } i = i + 1; }
+        if ra > 0 { rows = ra; }
+        if ca > 0 { cols = ca; }
+    }
+    let er: Result[String, String] = oo_tui_enable_raw(ffi, "");
+    if er.is_err() { println("tui: raw mode unavailable"); return 1; }
+    let _ = oo_tui_alt_screen_enter(ffi);
+    let _ = oo_tui_show_cursor(ffi, 0);
+    let mut m: TuiModel = tui_new(cols, rows);
+    let mut tick: Int = 0;
+    while m.running {
+        let _ = oo_tui_write(ffi, tui_frame(m, tick));
+        let rb: Result[String, String] = oo_tui_read_byte_timeout(ffi, "", 90);
+        let s: String = match rb { Ok(v) => v, Err(_) => "" };
+        let act: String = input_action(input_byte_of(s));
+        if act == "quit" { m = tui_set(m, m.cursor, m.scroll, false, m.preview); }
+        if act == "down" { m = tui_move(m, 1); }
+        if act == "up" { m = tui_move(m, -1); }
+        tick = tick + 1;
+    }
+    let _ = oo_tui_show_cursor(ffi, 1);
+    let _ = oo_tui_alt_screen_leave(ffi);
+    let _ = oo_tui_disable_raw(ffi, "");
+    println("selected " + effects_name(tui_selected(m)));
+    return 0;
+}

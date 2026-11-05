@@ -1,0 +1,10 @@
+// # scenes/left Family Anchor
+//
+// Logline: Re-exports the remaining scene pages: pour, unstable, middleout, crumble.
+// Setup: Pure shim. Imports the family scene pages.
+// Beats:
+//   1. Re-export the four remaining scene render functions for the dispatch anchor.
+import "pour.oo";
+import "unstable.oo";
+import "middleout.oo";
+import "crumble.oo";

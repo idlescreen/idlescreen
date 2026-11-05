@@ -1,0 +1,11 @@
+// # cli Domain Anchor
+//
+// Logline: Re-exports the help, saver, daemon, service, and dispatch pages of the command surface.
+// Setup: Pure shim. Imports the cli pages.
+// Beats:
+//   1. Re-export help, saver_cmds, daemon_cmds, service_cmds, and dispatch for the tree.
+import "help.oo";
+import "saver_cmds.oo";
+import "daemon_cmds.oo";
+import "service_cmds.oo";
+import "dispatch.oo";

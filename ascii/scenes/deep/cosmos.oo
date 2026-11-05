@@ -1,0 +1,37 @@
+// # Scene Cosmos - Deep Field Nebula and Stars
+//
+// Logline: A deep-field vista: drifting nebula bands, twinkling stars, and a slow comet transit.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Layer the star field over a violet nebula wash.
+//   2. Undulate nebula density with a two-octave sine sum.
+//   3. Sweep one comet across the top third per cycle.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+import "ascii/draw/starfield.oo";
+
+pub fn scene_cosmos(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(15, 12, 30), rgb(4, 3, 12));
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let neb: Int = isin(x * 9 + tick * 2) + isin(y * 18 + (x * 9 + tick * 2) / 2);
+            if neb > 600 {
+                let k: Int = (neb - 600) * 255 / 1400;
+                out = cv_put(out, x, y, "░", cv_mix(rgb(4, 3, 12), rgb(90, 50, 160), k), rgb(4, 3, 12));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    out = starfield_seed(out, tick, 26);
+    let span: Int = g.cols + 20;
+    let cxp: Int = (tick * 2) % span - 10;
+    let cyp: Int = 2 + cv_hash(tick / (span / 2 + 1), 1, 7) % (if g.rows / 3 > 0 { g.rows / 3 } else { 1 });
+    out = cv_put(out, cxp, cyp, "☄", rgb(255, 240, 200), rgb(4, 3, 12));
+    out = cv_put(out, cxp - 1, cyp, "·", rgb(140, 120, 90), rgb(4, 3, 12));
+    out = cv_put(out, cxp - 2, cyp, "·", rgb(80, 70, 50), rgb(4, 3, 12));
+    return out;
+}

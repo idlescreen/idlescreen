@@ -1,0 +1,32 @@
+// # Scene Slice - Diagonal Shear Bands
+//
+// Logline: Vertical slices of the frame shearing sideways in a travelling diagonal wave.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Offset each row by a diagonal shear of row phase and tick.
+//   2. Alternate slice glyph texture by band parity.
+//   3. Keep sheared edges crisp against the dark field.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_slice(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(35, 35, 50), rgb(4, 4, 10));
+    let mut y: Int = 0;
+    while y < g.rows {
+        let shear: Int = isin(y * 36 + tick * 30) * 6 / 1000;
+        let mut x: Int = 0;
+        while x < g.cols {
+            let sx: Int = x + shear;
+            let band: Int = (x / 6) % 2;
+            let ch: String = if band == 0 { "▓" } else { "▒" };
+            let col: Int = if band == 0 { rgb(200, 120, 220) } else { rgb(90, 160, 255) };
+            if sx >= 0 && sx < g.cols {
+                out = cv_put(out, sx, y, ch, cv_mix(rgb(20, 20, 35), col, 160), rgb(4, 4, 10));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

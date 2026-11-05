@@ -1,0 +1,28 @@
+// # Scene Plasma - Triple-Sine Interference Field
+//
+// Logline: Classic demoscene plasma from three interfering sine fields mapped onto the ramp and a rotating hue.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Sum three travelling integer-sine waves over each cell.
+//   2. Map the milli-unit field onto the ten-step ramp glyph.
+//   3. Cycle the hue palette with the field and tick.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_plasma(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let v: Int = isin(x * 21 + tick * 8) + isin(y * 36 - tick * 6) + isin((x * 10 + y * 18) + tick * 5);
+            let ramp: Int = (v + 3000) * 9 / 6000;
+            let hue: Int = ((v + 3000) / 10 + tick * 4) % 600;
+            out = cv_put(out, x, y, cv_ramp(ramp), cv_hue(hue), rgb(2, 2, 10));
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

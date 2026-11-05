@@ -1,0 +1,45 @@
+// # Scene Beams - Rotating Light Beam Fan
+//
+// Logline: Hard-edged light beams rotating about the centre like a lighthouse array.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Project each cell onto the rotating beam axis in milli-units.
+//   2. Rotate four beam angles with tick.
+//   3. Grade beam edges with a soft penumbra band.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_beams(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(20, 20, 30), rgb(3, 3, 8));
+    let cx: Int = g.cols / 2;
+    let cy: Int = g.rows / 2;
+    let mut b: Int = 0;
+    while b < 4 {
+        let ang: Int = tick * 3 + b * 90;
+        let bx: Int = icos(ang);
+        let by: Int = isin(ang);
+        let mut y: Int = 0;
+        while y < g.rows {
+            let mut x: Int = 0;
+            while x < g.cols {
+                let dx: Int = (x - cx) * 500;
+                let dy: Int = (y - cy) * 1000;
+                let along: Int = (dx * bx + dy * by) / 1000;
+                let side: Int = iabs((dx * by - dy * bx) / 1000);
+                if along > 0 && side < 1600 {
+                    let k: Int = 255 - side * 120 / 1000 - along / 6000;
+                    if k > 30 {
+                        let col: Int = cv_mix(rgb(20, 20, 40), cv_hue(b * 150), k);
+                        out = cv_put(out, x, y, if side < 600 { "█" } else { "▓" }, col, rgb(3, 3, 8));
+                    }
+                }
+                x = x + 1;
+            }
+            y = y + 1;
+        }
+        b = b + 1;
+    }
+    out = cv_put_b(out, cx, cy, "◉", rgb(255, 255, 255), rgb(3, 3, 8), true);
+    return out;
+}

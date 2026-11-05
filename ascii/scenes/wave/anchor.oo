@@ -1,0 +1,13 @@
+// # scenes/wave Family Anchor
+//
+// Logline: Re-exports the wave family scene pages: plasma, waves, ripple, moire, tunnel, vhstape, smoke.
+// Setup: Pure shim. Imports the family scene pages.
+// Beats:
+//   1. Re-export all seven wave-family scene render functions for the dispatch anchor.
+import "plasma.oo";
+import "waves.oo";
+import "ripple.oo";
+import "moire.oo";
+import "tunnel.oo";
+import "vhstape.oo";
+import "smoke.oo";

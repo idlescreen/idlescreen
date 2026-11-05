@@ -1,0 +1,41 @@
+// # Lens Flare - Sweeping Highlight Streak Overlay
+//
+// Logline: Adds a moving lens-flare streak and halo ghosts across the grid for the HDR showcase scenes.
+// Setup: Pure draw over CellGrid. Flare position derives from tick only.
+// Beats:
+//   1. Sweep the flare centre across the grid on a slow sinusoid.
+//   2. Brighten cells near the horizontal streak and diagonal glint.
+//   3. Ghost three faint halos at fixed offsets along the sweep.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn lens_flare(g: CellGrid, tick: Int, gain: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let cx: Int = (g.cols / 2) + ((g.cols / 3) * ((tick % 120) - 60)) / 60;
+    let cy: Int = g.rows / 2;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let dx: Int = if x - cx < 0 { cx - x } else { x - cx };
+            let dy: Int = if y - cy < 0 { cy - y } else { y - cy };
+            let dd: Int = if dx > dy { dx } else { dy };
+            if dd <= 2 || (dy == 0 && dx < g.cols / 3) || (dx == dy && dx < 8) {
+                let c: TerminalCell = grid_get(out, x, y);
+                let k: Int = if dd == 0 { gain } else { gain / (dd + 1) };
+                out = grid_set(out, x, y, cell_new(c.ch, cv_mix(c.fg, rgb(255, 240, 210), k), c.bg, c.bold));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    let mut gch: Int = 1;
+    while gch <= 3 {
+        let gx: Int = cx + gch * (if gch % 2 == 0 { -7 } else { 9 });
+        let gy: Int = cy + gch * 2 - 4;
+        out = cv_put(out, gx, gy, "◌", rgb(90 + gch * 40, 90 + gch * 30, 140), 0);
+        gch = gch + 1;
+    }
+    return out;
+}

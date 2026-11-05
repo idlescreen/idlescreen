@@ -1,0 +1,81 @@
+// # grid_cells — painted-cell records and serialization for parity
+//
+// Logline: TerminalCell-equivalent records serialized byte-identically to
+// the Rust scene_digest probe (ord,r,g,b,br,bg,bb,bold per cell).
+//
+// Setup: Pure value types. Grid order is row-major over the digest grid:
+// grid row gy maps to canvas row (rows - gy), grid col gx to col (gx + 1).
+//
+// Beats:
+//   1. paint_cell_default yields the untouched ' ' cell.
+//   2. emit_paint_cell applies glyph_ord + neon_rgb like paint_frame.
+//   3. paint_cell_record serializes one cell in Rust field order.
+//   4. grid_record_list concatenates all cells for hashing.
+
+import "shade_math.oo";
+import "pixel_glyph.oo";
+
+pub type PaintCell = struct {
+    ord: Int,
+    fr: Int,
+    fg: Int,
+    fb: Int,
+    br: Int,
+    bg: Int,
+    bb: Int,
+    bold: Int
+};
+
+pub type CellGeom = struct {
+    fill: Int,
+    sym: Int,
+    col: Int,
+    row: Int,
+    nx: Float,
+    ny: Float,
+    dx: Float,
+    dy: Float,
+    dist: Float
+};
+
+pub fn paint_cell_default() -> PaintCell {
+    return PaintCell { ord: 32, fr: 248, fg: 248, fb: 242, br: 0, bg: 0, bb: 0, bold: 0 };
+}
+
+pub fn emit_paint_cell(visible: Int, sym_ord: Int, color: Int, gx: Int, gy: Int) -> PaintCell {
+    if visible == 0 { return paint_cell_default(); }
+    let ch: Int = glyph_ord(sym_ord, gx, gy);
+    if ch == 32 {
+        return PaintCell { ord: 32, fr: 248, fg: 248, fb: 242, br: 0, bg: 0, bb: 0, bold: 0 };
+    }
+    let pack: Int = neon_rgb(color);
+    let mut bold: Int = 0;
+    if ch == 9608 { bold = 1; }
+    return PaintCell {
+        ord: ch,
+        fr: (pack / 65536) % 256,
+        fg: (pack / 256) % 256,
+        fb: pack % 256,
+        br: 0,
+        bg: 0,
+        bb: 0,
+        bold: bold
+    };
+}
+
+pub fn paint_cell_record(c: PaintCell) -> String {
+    return c.ord.to_string() + "," + c.fr.to_string() + "," + c.fg.to_string() + ","
+        + c.fb.to_string() + "," + c.br.to_string() + "," + c.bg.to_string() + ","
+        + c.bb.to_string() + "," + c.bold.to_string() + ";";
+}
+
+pub fn grid_record_list(cells: List[PaintCell]) -> String {
+    let mut out: String = "";
+    let n: Int = list_len(cells);
+    let mut i: Int = 0;
+    while i < n {
+        out = out + paint_cell_record(list_get(cells, i));
+        i = i + 1;
+    }
+    return out;
+}

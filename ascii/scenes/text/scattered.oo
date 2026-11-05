@@ -1,0 +1,33 @@
+// # Scene Scattered - Glyph Scatter and Regather
+//
+// Logline: Letters of a phrase scattered across the grid that periodically regather into the word IDLE.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Place each phrase letter on a hash-scattered orbit.
+//   2. Pull letters toward their home slots as the gather phase peaks.
+//   3. Brighten letters as they settle home.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_scattered(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(40, 40, 60), rgb(5, 5, 12));
+    let word: String = "OPENOODA";
+    let phase: Int = tick % 80;
+    let gather: Int = if phase > 40 { 100 - (phase - 40) * 2 } else { phase * 2 };
+    let n: Int = chars_len(word);
+    let home_x0: Int = (g.cols - n * 3) / 2;
+    let mut i: Int = 0;
+    while i < n {
+        let hx: Int = home_x0 + i * 3;
+        let hy: Int = g.rows / 2;
+        let sx: Int = cv_hash(i, 1, 3) % g.cols;
+        let sy: Int = cv_hash(i, 2, 5) % g.rows;
+        let x: Int = sx + (hx - sx) * gather / 100;
+        let y: Int = sy + (hy - sy) * gather / 100;
+        let c: Int = cv_mix(rgb(80, 80, 120), rgb(255, 220, 120), gather * 2);
+        out = cv_put_b(out, x, y, char_at(word, i), c, rgb(5, 5, 12), gather > 60);
+        i = i + 1;
+    }
+    return out;
+}

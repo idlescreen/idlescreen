@@ -1,0 +1,54 @@
+// # Scene Mystify - Bouncing Polygon Lattice
+//
+// Logline: The classic mystify polygon: a square whose vertices bounce inside the frame, edges drawn as vectors.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Bounce four vertices on independent 2D ping-pong schedules.
+//   2. Rasterise the four polygon edges with a Bresenham walk.
+//   3. Cycle the lattice colour slowly through the hue wheel.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+fn myst_bounce(p: Int, span: Int, speed: Int) -> Int {
+    let per: Int = span * 2 - 2;
+    let mut v: Int = (p * speed) % if per > 0 { per } else { 1 };
+    if v < 0 { v = v + per; }
+    if v >= span { v = per - v; }
+    return v;
+}
+
+fn myst_line(g: CellGrid, x0: Int, y0: Int, x1: Int, y1: Int, c: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let n: Int = if x1 - x0 < 0 { x0 - x1 } else { x1 - x0 };
+    let m: Int = if y1 - y0 < 0 { y0 - y1 } else { y1 - y0 };
+    let steps: Int = if n > m { n } else { m };
+    let mut i: Int = 0;
+    while i <= steps {
+        let x: Int = x0 + (x1 - x0) * i / (if steps > 0 { steps } else { 1 });
+        let y: Int = y0 + (y1 - y0) * i / (if steps > 0 { steps } else { 1 });
+        out = cv_put(out, x, y, "·", c, rgb(4, 4, 12));
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn scene_mystify(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(20, 20, 40), rgb(4, 4, 12));
+    let w: Int = if g.cols - 1 > 0 { g.cols - 1 } else { 1 };
+    let h: Int = if g.rows - 1 > 0 { g.rows - 1 } else { 1 };
+    let x0: Int = myst_bounce(tick, w, 3);
+    let y0: Int = myst_bounce(tick, h, 2);
+    let x1: Int = myst_bounce(tick + 40, w, 2);
+    let y1: Int = myst_bounce(tick + 17, h, 3);
+    let x2: Int = myst_bounce(tick + 80, w, 1);
+    let y2: Int = myst_bounce(tick + 55, h, 2);
+    let x3: Int = myst_bounce(tick + 25, w, 2);
+    let y3: Int = myst_bounce(tick + 90, h, 1);
+    let c: Int = cv_hue((tick * 5) % 600);
+    out = myst_line(out, x0, y0, x1, y1, c);
+    out = myst_line(out, x1, y1, x2, y2, c);
+    out = myst_line(out, x2, y2, x3, y3, c);
+    out = myst_line(out, x3, y3, x0, y0, c);
+    return out;
+}

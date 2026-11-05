@@ -1,0 +1,136 @@
+// # scene_plasma — Amiga copper-bar plasma port
+//
+// Logline: Bit-exact port of Plasma::next_frame for the parity harness.
+//
+// Setup: Built over canvas_cells geometry + gradient/bevel/shade modules.
+// frame counts 1..=64; frame 64 settles text cells to bevel colors.
+//
+// Beats:
+//   1. plasma_new builds the 51-step palette and 3-stop final spectrum.
+//   2. plasma_next computes per-cell intensity; frame 64 settles to bevel.
+//   3. Empty result signals scene end (frame >= TOTAL_FRAMES).
+
+import "canvas_cells.oo";
+import "grid_cells.oo";
+import "gradient_spectrum.oo";
+import "bevel_band.oo";
+import "shade_math.oo";
+import "pixel_glyph.oo";
+
+pub type Plasma = struct {
+    cells: List[CellGeom],
+    palette: List[Int],
+    final_spec: List[Int],
+    frame: Int,
+    frame_f: Float,
+    info: CanvasInfo
+};
+
+fn plasma_stops6() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 36 * 65536 + 0 * 256 + 70);
+    s = list_push(s, 123 * 65536 + 44 * 256 + 191);
+    s = list_push(s, 255 * 65536 + 0 * 256 + 127);
+    s = list_push(s, 255 * 65536 + 136 * 256 + 0);
+    s = list_push(s, 255 * 65536 + 234 * 256 + 0);
+    s = list_push(s, 0 * 65536 + 245 * 256 + 212);
+    return s;
+}
+
+fn plasma_stops3() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 255 * 65536 + 0 * 256 + 127);
+    s = list_push(s, 255 * 65536 + 234 * 256 + 0);
+    s = list_push(s, 0 * 65536 + 245 * 256 + 212);
+    return s;
+}
+
+pub fn plasma_new(cells: List[CellGeom], info: CanvasInfo) -> Plasma {
+    return Plasma {
+        cells: cells,
+        palette: spectrum_build(plasma_stops6(), 10),
+        final_spec: spectrum_build(plasma_stops3(), 12),
+        frame: 0,
+        frame_f: 0.0,
+        info: info
+    };
+}
+
+fn plasma_cell(p: Plasma, c: CellGeom, t: Float, fill_fade: Float, reveal_x: Float) -> PaintCell {
+    let gx: Int = c.col - 1;
+    let gy: Int = p.info.rows - c.row;
+    if c.fill == 0 {
+        let mut locked: Int = 0;
+        if c.nx <= reveal_x { locked = 1; }
+        if locked == 1 {
+            let col: Int = vertical_row_color(p.final_spec, c.row, p.info.tb, p.info.tt);
+            return emit_paint_cell(1, c.sym, col, gx, gy);
+        }
+    }
+    let v1: Float = sin(c.dx * 4.5 + t);
+    let v2: Float = sin(c.dy * 5.2 - t * 1.2);
+    let v3: Float = sin((c.dx + c.dy) * 4.0 + t * 0.8);
+    let v4: Float = sin(c.dist * 7.5 - t * 1.6);
+    let copper: Float = sin(c.ny * 14.0 + t * 2.2) * 0.2;
+    let raw: Float = (v1 + v2 + v3 + v4) * 0.125 + 0.5 + copper;
+    let intensity: Float = clamp_f(raw, 0.15, 1.0);
+    let mut eff: Float = clamp_f(intensity, 0.0, 1.0);
+    if c.fill == 1 { eff = clamp_f(intensity * fill_fade, 0.0, 1.0); }
+    if eff <= 0.14 { return emit_paint_cell(0, 32, 0, gx, gy); }
+    let shade_norm: Float = clamp_f((eff - 0.14) / 0.86, 0.0, 0.999);
+    let sidx: Int = float_idx(shade_norm * 4.0);
+    let color: Int = sample_palette(p.palette, eff);
+    return emit_paint_cell(1, shade_ramp_ord(sidx), color, gx, gy);
+}
+
+fn plasma_settle_cell(p: Plasma, c: CellGeom) -> PaintCell {
+    let gx: Int = c.col - 1;
+    let gy: Int = p.info.rows - c.row;
+    if c.fill == 1 { return emit_paint_cell(0, 32, 0, gx, gy); }
+    let y: Int = p.info.top - c.row;
+    let min_y: Int = p.info.top - p.info.tt;
+    let max_y: Int = p.info.top - p.info.tb;
+    let span: Int = max_y - min_y + 1;
+    let mut is_sf: Int = 0;
+    if span == 22 || span == 7 { is_sf = 1; }
+    let col: Int = banner_bevel_color(y, min_y, max_y, is_sf, parity_accent());
+    return emit_paint_cell(1, c.sym, col, gx, gy);
+}
+
+pub fn plasma_next(p: Plasma) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if p.frame >= 64 { return out; }
+    let frame: Int = p.frame + 1;
+    let n: Int = list_len(p.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, plasma_settle_cell(p, list_get(p.cells, i)));
+            i = i + 1;
+        }
+        return out;
+    }
+    let frame_f: Float = p.frame_f + 1.0;
+    let progress: Float = frame_f / 64.0;
+    let t: Float = frame_f * 0.11;
+    let mut fill_fade: Float = 1.0;
+    if progress > 0.72 { fill_fade = clamp_f((1.0 - progress) / 0.28, 0.0, 1.0); }
+    let reveal_x: Float = clamp_f(progress * 1.35 - 0.15, 0.0, 1.0);
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, plasma_cell(p, list_get(p.cells, j), t, fill_fade, reveal_x));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn plasma_advance(p: Plasma) -> Plasma {
+    return Plasma {
+        cells: p.cells,
+        palette: p.palette,
+        final_spec: p.final_spec,
+        frame: p.frame + 1,
+        frame_f: p.frame_f + 1.0,
+        info: p.info
+    };
+}

@@ -1,0 +1,100 @@
+// # shade_math — neon colors and float helpers
+//
+// Logline: Bit-exact ports of neon_overdrive_rgb and the f64 helpers the
+// math scenes need. oodac 0.11.63 has no `as` numeric casts, so conversions
+// use exact bounded loops instead.
+//
+// Setup: Pure functions. Colors are packed 0xRRGGBB into Int. No caps.
+// int_to_f/float_idx are exact for |n| < 4096 (all probe uses qualify).
+// Glyph mapping lives in pixel_glyph.oo.
+//
+// Beats:
+//   1. int_to_f converts small Ints to Float by exact +1.0 accumulation.
+//   2. float_idx truncates a non-negative Float via repeated -1.0.
+//   3. neon_rgb boosts a packed color exactly like neon_overdrive_rgb.
+//   4. round_f/clamp_f/hypot_f mirror Rust f64 semantics.
+
+pub fn imin(a: Int, b: Int) -> Int {
+    if a < b { return a; }
+    return b;
+}
+
+pub fn imax(a: Int, b: Int) -> Int {
+    if a > b { return a; }
+    return b;
+}
+
+pub fn int_to_f(n: Int) -> Float {
+    let mut acc: Float = 0.0;
+    let mut i: Int = 0;
+    let mut k: Int = n;
+    if k < 0 { k = 0 - k; }
+    while i < k {
+        acc = acc + 1.0;
+        i = i + 1;
+    }
+    if n < 0 { return 0.0 - acc; }
+    return acc;
+}
+
+pub fn float_idx(v: Float) -> Int {
+    if v < 0.0 { return 0; }
+    let mut n: Int = 0;
+    let mut r: Float = v;
+    while r >= 1.0 {
+        r = r - 1.0;
+        n = n + 1;
+        if n > 4096 { return n; }
+    }
+    return n;
+}
+
+pub fn clamp_f(x: Float, lo: Float, hi: Float) -> Float {
+    if x < lo { return lo; }
+    if x > hi { return hi; }
+    return x;
+}
+
+pub fn round_f(x: Float) -> Float {
+    let mut neg: Int = 0;
+    let mut v: Float = x;
+    if v < 0.0 { v = 0.0 - v; neg = 1; }
+    let mut t: Float = 0.0;
+    let mut r: Float = v;
+    while r >= 1.0 {
+        r = r - 1.0;
+        t = t + 1.0;
+    }
+    let mut out: Float = t;
+    if r >= 0.5 { out = t + 1.0; }
+    if neg == 1 { return 0.0 - out; }
+    return out;
+}
+
+pub fn hypot_f(x: Float, y: Float) -> Float {
+    return sqrt(x * x + y * y);
+}
+
+fn neon_chan(v: Int, fl: Int, scale: Int) -> Int {
+    let spread: Int = imax(v - fl, 0) * scale;
+    return imin(spread / 256, 255);
+}
+
+pub fn neon_rgb(packed: Int) -> Int {
+    let r: Int = (packed / 65536) % 256;
+    let g: Int = (packed / 256) % 256;
+    let b: Int = packed % 256;
+    let max_c: Int = imax(r, imax(g, b));
+    if max_c == 0 { return 81 * 65536 + 162 * 256 + 218; }
+    let min_c: Int = imin(r, imin(g, b));
+    let chroma: Int = max_c - min_c;
+    let fl: Int = min_c / 3 + min_c / 4;
+    let denom: Int = imax(max_c - fl, 1);
+    let tm: Int = imin(imax(max_c, 175) + chroma / 4, 255);
+    let scale: Int = (tm * 256) / denom;
+    return neon_chan(r, fl, scale) * 65536 + neon_chan(g, fl, scale) * 256 + neon_chan(b, fl, scale);
+}
+
+pub fn pack_rgb(r: Int, g: Int, b: Int) -> Int {
+    return r * 65536 + g * 256 + b;
+}

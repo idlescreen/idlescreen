@@ -1,0 +1,41 @@
+// # Inhibitor Registry - Idle Inhibit Token Table
+//
+// Logline: Registers and revokes named idle inhibitors so desktop clients can hold the saver off.
+// Setup: Pure list-of-strings table over the inhibitor names. Operates with zero ambient authority.
+// Beats:
+//   1. Admit an inhibitor name once, deduplicating repeats.
+//   2. Revoke by name, shrinking the table.
+//   3. Serialise the registry for the inhibitors command reply.
+
+pub fn inhibit_add(list: List[String], name: String) -> List[String] {
+    let mut i: Int = 0;
+    while i < list_len(list) {
+        if list_get(list, i) == name { return list; }
+        i = i + 1;
+    }
+    return list_push(list, name);
+}
+
+pub fn inhibit_remove(list: List[String], name: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(list) {
+        let n: String = list_get(list, i);
+        if n != name { out = list_push(out, n); }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn inhibit_count(list: List[String]) -> Int { return list_len(list); }
+
+pub fn inhibit_json(list: List[String]) -> String {
+    let mut out: String = "[";
+    let mut i: Int = 0;
+    while i < list_len(list) {
+        if i > 0 { out = out + ","; }
+        out = out + "\"" + list_get(list, i) + "\"";
+        i = i + 1;
+    }
+    return out + "]";
+}

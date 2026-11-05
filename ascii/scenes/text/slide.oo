@@ -1,0 +1,35 @@
+// # Scene Slide - Sliding Panel Bands
+//
+// Logline: Alternating horizontal bands sliding in opposite directions like a credit-roll wipe.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Slice the grid into four bands.
+//   2. Scroll each band's glyph stripe by an alternating sign.
+//   3. Edge each band with a thin separator rule.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_slide(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(30, 30, 30), rgb(6, 6, 8));
+    let bands: Int = 4;
+    let bh: Int = if g.rows / bands > 0 { g.rows / bands } else { 1 };
+    let mut b: Int = 0;
+    while b < bands {
+        let dir: Int = if b % 2 == 0 { tick } else { 0 - tick };
+        let col: Int = cv_hue(b * 90 + 40);
+        let mut y: Int = b * bh;
+        while y < (b + 1) * bh && y < g.rows {
+            let mut x: Int = 0;
+            while x < g.cols {
+                let sx: Int = (x + dir + g.cols * 4) % g.cols;
+                let ch: String = if sx % 6 == 0 { "◆" } else if sx % 3 == 0 { "·" } else { "─" };
+                out = cv_put(out, x, y, ch, cv_mix(rgb(30, 30, 40), col, 140), rgb(6, 6, 8));
+                x = x + 1;
+            }
+            y = y + 1;
+        }
+        b = b + 1;
+    }
+    return out;
+}

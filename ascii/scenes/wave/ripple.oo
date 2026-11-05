@@ -1,0 +1,31 @@
+// # Scene Ripple - Concentric Interference Rings
+//
+// Logline: Expanding concentric ripple rings radiating from the grid centre with decaying amplitude.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Measure each cell's integer distance from centre.
+//   2. Drive a radial sine whose phase contracts with tick.
+//   3. Tint wavefronts teal and troughs deep navy.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_ripple(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let cx: Int = g.cols / 2;
+    let cy: Int = g.rows / 2;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let d: Int = idist(x - cx, (y - cy) * 2);
+            let v: Int = isin(d * 48 - tick * 15) * 400 / (d + 40);
+            let ramp: Int = (v + 400) * 9 / 800;
+            let c: Int = if v > 160 { rgb(120, 230, 220) } else if v > 0 { rgb(40, 130, 160) } else { rgb(8, 24, 60) };
+            out = cv_put(out, x, y, cv_ramp(ramp), c, rgb(2, 6, 18));
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

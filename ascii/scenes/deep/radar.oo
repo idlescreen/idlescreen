@@ -1,0 +1,44 @@
+// # Scene Radar - Range Rings and Contact Pings
+//
+// Logline: Concentric radar range rings with blip contacts that ping bright then decay.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Draw the range rings around the centre by integer distance.
+//   2. Ping contacts bright when the rotating sector passes their hash slot.
+//   3. Decay each contact through green into the dark field.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_radar(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(10, 30, 10), rgb(1, 4, 1));
+    let cx: Int = g.cols / 2;
+    let cy: Int = g.rows / 2;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let d: Int = idist(x - cx, (y - cy) * 2);
+            if d % 5 == 0 && d > 1 {
+                out = cv_put(out, x, y, "·", rgb(30, 90, 30), rgb(1, 4, 1));
+            }
+            let sector: Int = x * 100 + y * 100 + tick * 7;
+            if sector % 977 < 3 && d < cy * 2 {
+                out = cv_put(out, x, y, "▓", rgb(60, 200, 60), rgb(1, 4, 1));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    let mut c: Int = 0;
+    while c < 6 {
+        let bx: Int = cv_hash(c, 1, 3) % g.cols;
+        let by: Int = cv_hash(c, 2, 5) % g.rows;
+        let ping: Int = (tick + cv_hash(c, 3, 7)) % 30;
+        if ping < 5 {
+            out = cv_put_b(out, bx, by, if ping < 2 { "●" } else { "○" }, rgb(120, 255, 140), rgb(1, 4, 1), true);
+        }
+        c = c + 1;
+    }
+    return out;
+}

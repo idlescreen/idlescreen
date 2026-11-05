@@ -1,0 +1,54 @@
+// # Layer Shell - wlr-layer-shell Surface Configuration
+//
+// Logline: The zwlr_layer_shell_v1 surface contract: overlay layer, all-edge anchor, exclusive zone, and configure serials.
+// Setup: Pure state record. Operates with zero ambient authority.
+// Beats:
+//   1. Anchor the idle surface on all four edges of the overlay layer.
+//   2. Track the compositor configure serial for acked resizes.
+//   3. Report the layer role and exclusive-zone request.
+
+pub type LayerShell = struct {
+    layer: String,
+    exclusive_zone: Int,
+    anchor_top: Bool,
+    anchor_bottom: Bool,
+    anchor_left: Bool,
+    anchor_right: Bool,
+    keyboard_interactivity: Int,
+    configured: Bool,
+    configure_serial: Int
+};
+
+pub fn layer_shell_new() -> LayerShell {
+    return LayerShell {
+        layer: "overlay",
+        exclusive_zone: -1,
+        anchor_top: true,
+        anchor_bottom: true,
+        anchor_left: true,
+        anchor_right: true,
+        keyboard_interactivity: 1,
+        configured: false,
+        configure_serial: 0
+    };
+}
+
+pub fn layer_shell_on_configure(ls: LayerShell, serial: Int) -> LayerShell {
+    return LayerShell {
+        layer: ls.layer,
+        exclusive_zone: ls.exclusive_zone,
+        anchor_top: ls.anchor_top,
+        anchor_bottom: ls.anchor_bottom,
+        anchor_left: ls.anchor_left,
+        anchor_right: ls.anchor_right,
+        keyboard_interactivity: ls.keyboard_interactivity,
+        configured: true,
+        configure_serial: serial
+    };
+}
+
+pub fn layer_shell_role() -> String { return "zwlr_layer_surface_v1"; }
+
+pub fn layer_shell_is_fullscreen(ls: LayerShell) -> Bool {
+    return ls.anchor_top && ls.anchor_bottom && ls.anchor_left && ls.anchor_right && ls.exclusive_zone < 0;
+}

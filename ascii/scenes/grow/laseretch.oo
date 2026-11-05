@@ -1,0 +1,31 @@
+// # Scene LaserEtch - Vector Burn Tracing
+//
+// Logline: A laser head burning a persistent vector squiggle into the plate, cell by cell.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Trace a lissajous burn path whose length grows with tick.
+//   2. Mark burnt cells with hot ember shades by burn age.
+//   3. Draw the live laser point as a white-hot head.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_laseretch(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(25, 20, 20), rgb(8, 5, 5));
+    let len: Int = tick * 3 % 900;
+    let mut s: Int = 0;
+    while s < len {
+        let t: Int = s * 11;
+        let fx: Int = (isin(t * 17 / 10) + 1000) * (g.cols - 1) / 2000;
+        let fy: Int = (icos(t * 23 / 10) + 1000) * (g.rows - 1) / 2000;
+        let age: Int = len - s;
+        let c: Int = if age < 12 { rgb(255, 240, 180) } else if age < 60 { rgb(255, 120, 40) } else { rgb(140, 40, 15) };
+        out = cv_put(out, fx, fy, if age < 12 { "█" } else { "▓" }, c, rgb(8, 5, 5));
+        s = s + 1;
+    }
+    let t: Int = (len - 1) * 11;
+    let hx: Int = (isin(t * 17 / 10) + 1000) * (g.cols - 1) / 2000;
+    let hy: Int = (icos(t * 23 / 10) + 1000) * (g.rows - 1) / 2000;
+    out = cv_put_b(out, hx, hy, "◎", rgb(255, 255, 255), rgb(8, 5, 5), true);
+    return out;
+}

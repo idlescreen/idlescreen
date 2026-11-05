@@ -1,0 +1,50 @@
+// # SHM Pool - Shared-Memory Buffer Geometry
+//
+// Logline: Computes the wl_shm buffer geometry for ARGB8888 and ARGB2101010 frames and holds the pool descriptor.
+// Setup: Pure arithmetic. The actual fd pool is materialised by the presenter; this page owns the geometry only.
+// Beats:
+//   1. Derive stride and byte size from width, height, and pixel format.
+//   2. Track the double-buffered slot index for damage-only commits.
+//   3. Report the wl_shm format code for each supported format.
+
+import "core/cell.oo";
+import "raster/blit.oo";
+
+pub type ShmPool = struct {
+    width: Int,
+    height: Int,
+    format: String,
+    stride: Int,
+    size: Int,
+    slot: Int
+};
+
+pub fn shm_format_code(fmt: String) -> Int {
+    if fmt == "argb2101010" { return 2; }
+    return 1;
+}
+
+pub fn shm_pool_new(width: Int, height: Int, fmt: String) -> ShmPool {
+    let stride: Int = width * 4;
+    return ShmPool {
+        width: width,
+        height: height,
+        format: fmt,
+        stride: stride,
+        size: stride * height * 2,
+        slot: 0
+    };
+}
+
+pub fn shm_pool_for_grid(g: CellGrid, fmt: String) -> ShmPool {
+    let dims: List[Int] = pixel_dims(g);
+    return shm_pool_new(list_get(dims, 0), list_get(dims, 1), fmt);
+}
+
+pub fn shm_pool_flip(p: ShmPool) -> ShmPool {
+    return ShmPool { width: p.width, height: p.height, format: p.format, stride: p.stride, size: p.size, slot: 1 - p.slot };
+}
+
+pub fn shm_slot_offset(p: ShmPool) -> Int {
+    return p.slot * p.stride * p.height;
+}

@@ -1,0 +1,37 @@
+// # Scene Pour - Liquid Fill and Slosh
+//
+// Logline: A vessel filling with sloshing liquid from the bottom, surface line rocking with the pour.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Raise the fill level with tick until the vessel is full.
+//   2. Rock the surface line with a decaying slosh sine.
+//   3. Render liquid cells amber below the surface line.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_pour(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(30, 25, 20), rgb(8, 6, 4));
+    let lvl: Int = if tick / 2 < g.rows - 2 { tick / 2 } else { g.rows - 2 };
+    let mut x: Int = 0;
+    while x < g.cols {
+        let surf: Int = g.rows - 1 - lvl + isin(x * 24 + tick * 18) * 12 / 1000;
+        let mut y: Int = surf;
+        while y < g.rows {
+            let depth: Int = y - surf;
+            let ch: String = if depth == 0 { "≈" } else if depth < 3 { "▓" } else { "▒" };
+            let c: Int = cv_mix(rgb(60, 35, 10), rgb(255, 170, 40), 255 - depth * 20);
+            out = cv_put(out, x, y, ch, c, rgb(8, 6, 4));
+            y = y + 1;
+        }
+        if lvl < g.rows - 3 && x == g.cols / 2 {
+            let mut py: Int = 0;
+            while py < surf {
+                out = cv_put(out, x, py, "│", rgb(255, 200, 90), rgb(8, 6, 4));
+                py = py + 1;
+            }
+        }
+        x = x + 1;
+    }
+    return out;
+}

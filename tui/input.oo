@@ -1,0 +1,27 @@
+// # TUI Input - Key Byte to Action Decode
+//
+// Logline: Decodes raw terminal key bytes into picker actions with fail-closed defaults.
+// Setup: Pure byte inspection. Operates with zero ambient authority.
+// Beats:
+//   1. Map byte 27 (esc) and q to the quit action.
+//   2. Map j/k, down/up sequences, and enter to move and select.
+//   3. Treat every other byte as a no-op so unknown input never mutates state.
+
+pub fn input_action(b: Int) -> String {
+    if b < 0 { return "none"; }
+    if b == 27 || b == 113 { return "quit"; }
+    if b == 106 || b == 66 { return "down"; }
+    if b == 107 || b == 65 { return "up"; }
+    if b == 13 || b == 10 { return "enter"; }
+    if b == 32 { return "enter"; }
+    if b == 104 { return "up"; }
+    if b == 108 { return "down"; }
+    return "none";
+}
+
+pub fn input_byte_of(s: String) -> Int {
+    if s == "" { return -1; }
+    return byte_at(s, 0);
+}
+
+pub fn input_probe() -> Int { return 0; }

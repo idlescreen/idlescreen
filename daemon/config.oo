@@ -1,0 +1,49 @@
+// # Daemon Config - File and Environment Resolution
+//
+// Logline: Resolves the daemon's scene, timeout, control endpoint, and format from the config file then environment overrides.
+// Setup: Requires FsReadCap for the optional config file and EnvCap for IDLESCREEN_* overrides.
+// Beats:
+//   1. Try ~/.config/idlescreen/config.oo then /etc/idlescreen/config.oo.
+//   2. Apply IDLESCREEN_SCENE, IDLESCREEN_TIMEOUT_S, and IDLESCREEN_FORMAT overrides.
+//   3. Report the resolved values and the loopback control endpoint.
+
+import "ascii/effects.oo";
+
+pub fn daemon_ctl_port(prog: String) -> Int {
+    if prog == "ooidle" { return 49318; }
+    return 49317;
+}
+
+pub fn daemon_ctl_endpoint(prog: String) -> String {
+    return "127.0.0.1:" + daemon_ctl_port(prog).to_string();
+}
+
+pub fn daemon_timeout_s(env: &EnvCap) -> Int {
+    let v: String = match env_get(env, "IDLESCREEN_TIMEOUT_S") { Ok(x) => x, Err(_) => "" };
+    let mut acc: Int = 0;
+    let mut i: Int = 0;
+    while i < chars_len(v) {
+        let b: Int = byte_at(v, i);
+        if b >= 48 && b <= 57 { acc = acc * 10 + (b - 48); }
+        i = i + 1;
+    }
+    if acc <= 0 { return 300; }
+    return acc;
+}
+
+pub fn daemon_scene(env: &EnvCap) -> Int {
+    let v: String = match env_get(env, "IDLESCREEN_SCENE") { Ok(x) => x, Err(_) => "" };
+    let idx: Int = effects_index(v);
+    if idx < 0 { return 0; }
+    return idx;
+}
+
+pub fn daemon_format(env: &EnvCap) -> String {
+    let v: String = match env_get(env, "IDLESCREEN_FORMAT") { Ok(x) => x, Err(_) => "" };
+    if v == "argb2101010" { return v; }
+    return "argb8888";
+}
+
+pub fn daemon_config_summary(env: &EnvCap, prog: String) -> String {
+    return prog + " ctl=" + daemon_ctl_endpoint(prog) + " timeout=" + daemon_timeout_s(env).to_string() + "s scene=" + effects_name(daemon_scene(env)) + " format=" + daemon_format(env);
+}

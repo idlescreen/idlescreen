@@ -1,0 +1,38 @@
+// # Frame Presenter - Grid to SHM Commit or ANSI Fallback
+//
+// Logline: Runs one present cycle: blit the grid to the pixel format, measure damage, and emit either an SHM commit or the ANSI fallback.
+// Setup: Requires FfiCap only for TTY output; the pure path returns the ANSI frame string for callers to emit.
+// Beats:
+//   1. Blit the cell grid into the pool's pixel format and compute damage versus the previous grid.
+//   2. Flip the double-buffer slot and report the damage rectangle.
+//   3. Serialise the frame to ANSI for the TTY fallback path.
+
+import "core/cell.oo";
+import "raster/blit.oo";
+import "raster/damage.oo";
+import "ascii/draw/ansi.oo";
+import "shm_pool.oo";
+
+pub type PresentOut = struct {
+    pool: ShmPool,
+    damage: DamageRect,
+    pixels: List[Int],
+    frame: String
+};
+
+pub fn present_frame(prev: CellGrid, next: CellGrid, pool: ShmPool, style: String) -> PresentOut {
+    let px: List[Int] = blit_cells(next, pool.format, style);
+    let dmg: DamageRect = compute_cell_damage_rect(prev, next);
+    let p2: ShmPool = shm_pool_flip(pool);
+    return PresentOut { pool: p2, damage: dmg, pixels: px, frame: ansi_home() + ansi_render(next) };
+}
+
+pub fn present_first(g: CellGrid, pool: ShmPool, style: String) -> PresentOut {
+    let px: List[Int] = blit_cells(g, pool.format, style);
+    return PresentOut { pool: shm_pool_flip(pool), damage: damage_full(g), pixels: px, frame: ansi_home() + ansi_render(g) };
+}
+
+pub fn present_damage_nonempty(o: PresentOut) -> Bool {
+    let d: DamageRect = o.damage;
+    return d.valid && d.w > 0 && d.h > 0;
+}

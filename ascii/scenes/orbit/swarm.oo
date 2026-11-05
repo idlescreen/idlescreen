@@ -1,0 +1,32 @@
+// # Scene Swarm - Boid-Like Particle Murmuration
+//
+// Logline: A murmuration of particles swirling around a slowly wandering attractor point.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Wander the attractor on a lissajous course.
+//   2. Orbit each particle around it with hash-staggered radius and phase.
+//   3. Shade by orbit radius for depth.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_swarm(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(25, 20, 35), rgb(4, 3, 8));
+    let ax: Int = g.cols / 2 + isin(tick * 7) * (g.cols / 4) / 1000;
+    let ay: Int = g.rows / 2 + icos(tick * 10 + 40) * (g.rows / 4) / 1000;
+    let mut p: Int = 0;
+    while p < 60 {
+        let r: Int = 1500 + (cv_hash(p, 0, 3) % 60) * 160;
+        let ph: Int = tick * (7 + (cv_hash(p, 1, 5) % 5) * 2) + p * 60;
+        let sx: Int = ax + icos(ph) * r / 1000000;
+        let sy: Int = ay + isin(ph) * r / 2000000;
+        if sx >= 0 && sx < g.cols && sy >= 0 && sy < g.rows {
+            let mut dd: Int = 255 - r / 40;
+            if dd < 60 { dd = 60; }
+            out = cv_put(out, sx, sy, if r < 4000 { "•" } else { "·" }, rgb(dd / 2, dd, 200), rgb(4, 3, 8));
+        }
+        p = p + 1;
+    }
+    out = cv_put_b(out, ax, ay, "✦", rgb(255, 200, 120), rgb(4, 3, 8), true);
+    return out;
+}

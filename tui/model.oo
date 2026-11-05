@@ -1,0 +1,46 @@
+// # TUI Model - Interactive Scene Picker State
+//
+// Logline: The interactive picker model: cursor index, scroll offset, terminal size, and the running flag.
+// Setup: Pure record over the 53-scene roster. Operates with zero ambient authority.
+// Beats:
+//   1. Hold the cursor and scroll window over the scene roster.
+//   2. Clamp cursor movement to the roster bounds.
+//   3. Report the selected scene index for the preview pane.
+
+import "ascii/effects.oo";
+
+pub type TuiModel = struct {
+    cursor: Int,
+    scroll: Int,
+    cols: Int,
+    rows: Int,
+    running: Bool,
+    preview: Bool
+};
+
+pub fn tui_new(cols: Int, rows: Int) -> TuiModel {
+    return TuiModel { cursor: 0, scroll: 0, cols: cols, rows: rows, running: true, preview: true };
+}
+
+pub fn tui_set(c: TuiModel, cursor: Int, scroll: Int, running: Bool, preview: Bool) -> TuiModel {
+    return TuiModel { cursor: cursor, scroll: scroll, cols: c.cols, rows: c.rows, running: running, preview: preview };
+}
+
+pub fn tui_move(c: TuiModel, delta: Int) -> TuiModel {
+    let mut cur: Int = c.cursor + delta;
+    if cur < 0 { cur = 0; }
+    if cur >= 53 { cur = 52; }
+    let vis: Int = if c.rows - 8 > 0 { c.rows - 8 } else { 1 };
+    let mut sc: Int = c.scroll;
+    if cur < sc { sc = cur; }
+    if cur >= sc + vis { sc = cur - vis + 1; }
+    return tui_set(c, cur, sc, c.running, c.preview);
+}
+
+pub fn tui_selected(c: TuiModel) -> Int { return c.cursor; }
+
+pub fn tui_visible_rows(c: TuiModel) -> Int {
+    let v: Int = c.rows - 8;
+    if v <= 0 { return 1; }
+    return v;
+}

@@ -1,0 +1,13 @@
+// # scenes/text Family Anchor
+//
+// Logline: Re-exports the text-motion scene pages: print, overflow, scattered, slide, slice, expand, wipe.
+// Setup: Pure shim. Imports the family scene pages.
+// Beats:
+//   1. Re-export all seven text-family scene render functions for the dispatch anchor.
+import "print.oo";
+import "overflow.oo";
+import "scattered.oo";
+import "slide.oo";
+import "slice.oo";
+import "expand.oo";
+import "wipe.oo";

@@ -1,0 +1,81 @@
+// # Raster Blitter - Cell Grid to Packed Pixel Buffer
+//
+// Logline: Packs ARGB8888 and HDR ARGB2101010 pixels, LUT-caches glyph rows, and blits a cell grid into a pixel buffer.
+// Setup: Pure arithmetic over Int pixel words. The 10-bit HDR path expands each 8-bit channel to 10 bits.
+// Beats:
+//   1. Pack 8-bit channels into ARGB8888 or expand them into ARGB2101010 with alpha bits 0b11.
+//   2. Resolve each cell's 16 row masks through the style-aware glyph atlas.
+//   3. Stamp foreground where the mask is set, otherwise preserve background.
+
+import "core/cell.oo";
+import "glyph_font.oo";
+import "glyph_style.oo";
+
+pub fn pack_argb8888(a: Int, r: Int, g: Int, b: Int) -> Int {
+    return ((a & 255) << 24) | ((r & 255) << 16) | ((g & 255) << 8) | (b & 255);
+}
+
+fn chan8_to_10(v: Int) -> Int {
+    return ((v << 2) | (v >> 6)) & 1023;
+}
+
+pub fn pack_argb2101010(a: Int, r: Int, g: Int, b: Int) -> Int {
+    let al: Int = if a >= 192 { 3 } else if a >= 128 { 2 } else if a >= 64 { 1 } else { 0 };
+    return ((al & 3) << 30) | (chan8_to_10(r) << 20) | (chan8_to_10(g) << 10) | chan8_to_10(b);
+}
+
+pub fn pack_color(fmt: String, c: Int) -> Int {
+    if fmt == "argb2101010" {
+        return pack_argb2101010(255, rgb_r(c), rgb_g(c), rgb_b(c));
+    }
+    return pack_argb8888(255, rgb_r(c), rgb_g(c), rgb_b(c));
+}
+
+pub fn convert_argb8888_to_2101010(px: Int) -> Int {
+    return pack_argb2101010((px >> 24) & 255, (px >> 16) & 255, (px >> 8) & 255, px & 255);
+}
+
+fn blit_glyph_row(px: List[Int], off: Int, mask: Int, fg: Int, bg: Int) -> List[Int] {
+    let mut out: List[Int] = px;
+    let mut i: Int = 0;
+    while i < 8 {
+        let bit: Int = (mask >> (7 - i)) & 1;
+        out = list_set(out, off + i, bg + ((fg - bg) * bit));
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn pixel_dims(g: CellGrid) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    out = list_push(out, g.cols * glyph_width());
+    out = list_push(out, g.rows * glyph_height());
+    return out;
+}
+
+pub fn blit_cells(g: CellGrid, fmt: String, style: String) -> List[Int] {
+    let pw: Int = g.cols * glyph_width();
+    let ph: Int = g.rows * glyph_height();
+    let mut px: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < pw * ph { px = list_push(px, 0); i = i + 1; }
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let c: TerminalCell = grid_get(g, x, y);
+            let rows: List[Int] = get_glyph_bitmap_for_style(c.ch, style);
+            let fg: Int = pack_color(fmt, c.fg);
+            let bg: Int = pack_color(fmt, c.bg);
+            let mut gr: Int = 0;
+            while gr < glyph_height() && gr < list_len(rows) {
+                let base: Int = ((y * glyph_height() + gr) * pw) + (x * glyph_width());
+                px = blit_glyph_row(px, base, list_get(rows, gr), fg, bg);
+                gr = gr + 1;
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return px;
+}

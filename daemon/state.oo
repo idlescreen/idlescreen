@@ -1,0 +1,36 @@
+// # Daemon State - Idle Session Bookkeeping
+//
+// Logline: The authoritative daemon state: running flag, idle clock, sleep request, scene selection, and inhibitor count.
+// Setup: Pure record. Operates with zero ambient authority.
+// Beats:
+//   1. Track whether the session is idle and whether the saver is armed.
+//   2. Fold inhibitor registration and revocation into the counter.
+//   3. Report the status line emitted to control clients.
+
+pub type DaemonState = struct {
+    running: Bool,
+    idle: Bool,
+    saver_on: Bool,
+    sleep_req: Bool,
+    scene_idx: Int,
+    timeout_s: Int,
+    inhibitors: Int,
+    uptime_ticks: Int
+};
+
+pub fn daemon_state_new(timeout_s: Int, scene_idx: Int) -> DaemonState {
+    return DaemonState { running: true, idle: false, saver_on: false, sleep_req: false, scene_idx: scene_idx, timeout_s: timeout_s, inhibitors: 0, uptime_ticks: 0 };
+}
+
+pub fn daemon_state_set(d: DaemonState, idle: Bool, saver_on: Bool, sleep_req: Bool, scene_idx: Int, timeout_s: Int, inhibitors: Int, ticks: Int) -> DaemonState {
+    return DaemonState { running: d.running, idle: idle, saver_on: saver_on, sleep_req: sleep_req, scene_idx: scene_idx, timeout_s: timeout_s, inhibitors: inhibitors, uptime_ticks: ticks };
+}
+
+pub fn daemon_state_stop(d: DaemonState) -> DaemonState {
+    return DaemonState { running: false, idle: d.idle, saver_on: d.saver_on, sleep_req: d.sleep_req, scene_idx: d.scene_idx, timeout_s: d.timeout_s, inhibitors: d.inhibitors, uptime_ticks: d.uptime_ticks };
+}
+
+pub fn daemon_status_line(d: DaemonState, prog: String) -> String {
+    let st: String = if !d.running { "stopped" } else if d.saver_on { "saver-on" } else if d.idle { "idle" } else { "armed" };
+    return prog + " " + st + " scene=" + d.scene_idx.to_string() + " timeout=" + d.timeout_s.to_string() + "s inhibitors=" + d.inhibitors.to_string();
+}

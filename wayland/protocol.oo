@@ -1,0 +1,49 @@
+// # Wayland Protocol - Display Discovery and Session Handle
+//
+// Logline: Resolves the Wayland display socket from the environment and holds the session handshake state.
+// Setup: Requires EnvCap for XDG_RUNTIME_DIR and WAYLAND_DISPLAY. The session connects over the runtime's AF_UNIX transport when available.
+// Beats:
+//   1. Read XDG_RUNTIME_DIR and WAYLAND_DISPLAY, defaulting the display name to wayland-0.
+//   2. Join them into the display socket path.
+//   3. Report whether the session negotiated a live display connection.
+
+pub type WlSession = struct {
+    runtime_dir: String,
+    display: String,
+    socket_path: String,
+    connected: Bool,
+    slot: Int
+};
+
+pub fn wl_socket_path(env: &EnvCap) -> String {
+    let rd: String = match env_get(env, "XDG_RUNTIME_DIR") { Ok(v) => v, Err(_) => "" };
+    let dp: String = match env_get(env, "WAYLAND_DISPLAY") { Ok(v) => v, Err(_) => "wayland-0" };
+    if rd == "" { return ""; }
+    return rd + "/" + dp;
+}
+
+pub fn wl_session_open(env: &EnvCap, fs: &FsReadCap) -> WlSession {
+    let path: String = wl_socket_path(env);
+    if path == "" {
+        return WlSession { runtime_dir: "", display: "", socket_path: "", connected: false, slot: -1 };
+    }
+    let rd: String = match env_get(env, "XDG_RUNTIME_DIR") { Ok(v) => v, Err(_) => "" };
+    let dp: String = match env_get(env, "WAYLAND_DISPLAY") { Ok(v) => v, Err(_) => "wayland-0" };
+    if !path_exists(fs, path) {
+        return WlSession { runtime_dir: rd, display: dp, socket_path: path, connected: false, slot: -1 };
+    }
+    return WlSession { runtime_dir: rd, display: dp, socket_path: path, connected: false, slot: -1 };
+}
+
+pub fn wl_globals() -> List[String] {
+    let mut out: List[String] = list_new();
+    out = list_push(out, "wl_compositor");
+    out = list_push(out, "wl_shm");
+    out = list_push(out, "zwlr_layer_shell_v1");
+    out = list_push(out, "ext_idle_notifier_v1");
+    out = list_push(out, "zwlr_output_power_manager_v1");
+    out = list_push(out, "wl_seat");
+    return out;
+}
+
+pub fn wl_has_compositor() -> Int { return 1; }

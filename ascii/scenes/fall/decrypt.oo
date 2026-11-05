@@ -1,0 +1,52 @@
+// # Scene Decrypt - Scrambled Text Resolving Left to Right
+//
+// Logline: Columns of ciphertext resolving into a plaintext message as a decrypt front sweeps the grid.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Hold a three-line plaintext payload centred on the grid.
+//   2. Sweep a decrypt front with tick; settled cells show plaintext.
+//   3. Ahead of the front, spin through ciphertext glyphs by hash.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+fn decrypt_noise(h: Int) -> String {
+    let k: Int = h % 10;
+    if k == 0 { return "#"; }
+    if k == 1 { return "%"; }
+    if k == 2 { return "&"; }
+    if k == 3 { return "@"; }
+    if k == 4 { return "$"; }
+    if k == 5 { return "*"; }
+    if k == 6 { return "+"; }
+    if k == 7 { return "="; }
+    if k == 8 { return "?"; }
+    return "!";
+}
+
+pub fn scene_decrypt(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(30, 30, 30), rgb(6, 8, 6));
+    let lines: String = "THE SIGNAL WAS ALWAYS THERE|BURIED UNDER THE NOISE|IDLE IS A STATE OF MIND";
+    let parts: List[String] = str_split(lines, "|");
+    let front: Int = (tick * 2) % (g.cols + 40);
+    let mut li: Int = 0;
+    while li < list_len(parts) {
+        let s: String = list_get(parts, li);
+        let y: Int = g.rows / 2 - 2 + li * 2;
+        let ox: Int = if (g.cols - chars_len(s)) / 2 > 0 { (g.cols - chars_len(s)) / 2 } else { 0 };
+        let mut i: Int = 0;
+        while i < chars_len(s) && ox + i < g.cols {
+            let solved: Bool = (ox + i) < (front - 20);
+            if solved {
+                out = cv_put(out, ox + i, y, char_at(s, i), rgb(200, 255, 180), rgb(6, 8, 6));
+            } else {
+                let ch: String = decrypt_noise(cv_hash(i, li, tick));
+                let c: Int = if ox + i < front { rgb(255, 210, 90) } else { rgb(60, 120, 70) };
+                out = cv_put(out, ox + i, y, ch, c, rgb(6, 8, 6));
+            }
+            i = i + 1;
+        }
+        li = li + 1;
+    }
+    return out;
+}

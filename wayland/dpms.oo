@@ -1,0 +1,40 @@
+// # DPMS - zwlr-output-power-management-v1 State Machine
+//
+// Logline: Ports the DPMS power state machine: on/off modes, compositor-owned transitions, and 300ms wake debounce.
+// Setup: Pure state record. Operates with zero ambient authority.
+// Beats:
+//   1. Track the compositor mode and the client-requested sleep flag separately.
+//   2. Debounce wake requests inside a 300ms guard window.
+//   3. Fold compositor mode events into the reported power state.
+
+pub type DpmsState = struct {
+    mode: Int,
+    last_wake_ms: Int,
+    client_sleep: Bool,
+    compositor_off: Bool
+};
+
+pub fn dpms_new() -> DpmsState {
+    return DpmsState { mode: 1, last_wake_ms: 0, client_sleep: false, compositor_off: false };
+}
+
+pub fn dpms_on_mode(d: DpmsState, mode: Int) -> DpmsState {
+    return DpmsState { mode: mode, last_wake_ms: d.last_wake_ms, client_sleep: d.client_sleep, compositor_off: mode == 0 };
+}
+
+pub fn dpms_client_sleep(d: DpmsState, on: Bool) -> DpmsState {
+    return DpmsState { mode: d.mode, last_wake_ms: d.last_wake_ms, client_sleep: on, compositor_off: d.compositor_off };
+}
+
+pub fn dpms_request_wake(d: DpmsState, now_ms: Int) -> DpmsState {
+    if now_ms - d.last_wake_ms < 300 {
+        return d;
+    }
+    return DpmsState { mode: 1, last_wake_ms: now_ms, client_sleep: false, compositor_off: false };
+}
+
+pub fn dpms_effective_on(d: DpmsState) -> Bool {
+    return d.mode == 1 && !d.client_sleep && !d.compositor_off;
+}
+
+pub fn dpms_interface() -> String { return "zwlr_output_power_v1"; }

@@ -1,0 +1,48 @@
+// # Scene Pipes - Self-Avoiding Pipe Walkers
+//
+// Logline: Classic pipe-screenwalker: coloured pipes that turn at random joints and trail elbows across the grid.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. March four pipe heads from the centre with hash-driven turns.
+//   2. Stamp straight runs as bars and joints as elbow glyphs.
+//   3. Assign each pipe a saturated conduit colour.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+fn pipe_step(x: Int, y: Int, dir: Int) -> Int {
+    if dir == 0 { return x + 1; }
+    if dir == 1 { return y + 1; }
+    if dir == 2 { return x - 1; }
+    return y - 1;
+}
+
+pub fn scene_pipes(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(20, 20, 30), rgb(6, 6, 10));
+    let mut p: Int = 0;
+    while p < 4 {
+        let mut x: Int = g.cols / 2;
+        let mut y: Int = g.rows / 2;
+        let mut dir: Int = cv_hash(p, 0, 1) % 4;
+        let col: Int = cv_hue(p * 150);
+        let steps: Int = 10 + (tick % 60);
+        let mut s: Int = 0;
+        while s < steps {
+            let turn: Int = cv_hash(p, s, tick / 60);
+            let ch: String = if turn % 7 == 0 { "┼" } else if dir % 2 == 0 { "─" } else { "│" };
+            out = cv_put(out, x, y, ch, col, rgb(6, 6, 10));
+            if turn % 7 == 0 { dir = (dir + 1 + turn % 3) % 4; }
+            if dir == 0 { x = x + 1; }
+            if dir == 1 { y = y + 1; }
+            if dir == 2 { x = x - 1; }
+            if dir == 3 { y = y - 1; }
+            if x < 0 { x = g.cols - 1; }
+            if x >= g.cols { x = 0; }
+            if y < 0 { y = g.rows - 1; }
+            if y >= g.rows { y = 0; }
+            s = s + 1;
+        }
+        p = p + 1;
+    }
+    return out;
+}

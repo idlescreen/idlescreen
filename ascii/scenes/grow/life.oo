@@ -1,0 +1,33 @@
+// # Scene Life - Conway-Style Cellular Automaton View
+//
+// Logline: Cellular colonies blooming and dying across the grid under a deterministic birth-death hash.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Seed each cell alive from a slowly rotating hash domain.
+//   2. Thin the field so colonies clump instead of flooding.
+//   3. Colour live cells by cluster age bands.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_life(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(10, 30, 10), rgb(0, 4, 0));
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let gen: Int = tick / 4;
+            let h: Int = cv_hash(x + gen % 3, y + gen / 5, gen);
+            let alive: Bool = (h % 100) < 34;
+            if alive {
+                let n: Int = (cv_hash(x - 1, y, gen) % 2) + (cv_hash(x + 1, y, gen) % 2) + (cv_hash(x, y - 1, gen) % 2) + (cv_hash(x, y + 1, gen) % 2);
+                let c: Int = if n >= 3 { rgb(120, 255, 140) } else if n == 2 { rgb(60, 190, 80) } else { rgb(20, 110, 40) };
+                let ch: String = if n >= 3 { "█" } else if n == 2 { "▓" } else { "▒" };
+                out = cv_put(out, x, y, ch, c, rgb(0, 4, 0));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

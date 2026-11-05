@@ -1,0 +1,35 @@
+// # Scene Waves - Stacked Sine Ridges
+//
+// Logline: Rows of sinusoidal ocean ridges marching in layered parallax with foam crests.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Offset each ridge line by a phase-shifted integer sine of the column.
+//   2. Mark crest cells bright cyan and bodies deep blue.
+//   3. Leave dark water gaps between ridges.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_waves(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(10, 20, 40), rgb(1, 4, 12));
+    let mut ridge: Int = 0;
+    while ridge < 5 {
+        let base: Int = 3 + ridge * (g.rows / 6 + 1);
+        let speed: Int = tick * (ridge + 1) / 2;
+        let mut x: Int = 0;
+        while x < g.cols {
+            let wv: Int = base + isin((x + speed) * 18 + ridge * 60) * 2 / 1000;
+            if wv >= 0 && wv < g.rows {
+                let foam: Int = cv_hash(x, ridge, 5) % 5;
+                let ch: String = if foam == 0 { "≈" } else { "~" };
+                out = cv_put(out, x, wv, ch, rgb(140 - ridge * 15, 200 - ridge * 15, 255), rgb(1, 4, 12));
+                if wv + 1 < g.rows {
+                    out = cv_put(out, x, wv + 1, "·", rgb(30, 60 + ridge * 10, 110), rgb(1, 4, 12));
+                }
+            }
+            x = x + 1;
+        }
+        ridge = ridge + 1;
+    }
+    return out;
+}

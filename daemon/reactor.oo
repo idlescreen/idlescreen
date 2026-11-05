@@ -1,0 +1,65 @@
+// # Daemon Reactor - Blocking Event Loop on the Loopback Control Socket
+//
+// Logline: The zero-wakeup event loop: block in tcp_accept, read one bounded frame, dispatch, reply, close, repeat.
+// Setup: Requires BindCap for tcp_bind on 127.0.0.1 and TcpCap for accept/read/write/close; EnvCap resolves the port.
+// Beats:
+//   1. Bind the loopback control socket and hold the listen slot.
+//   2. Block in tcp_accept between events so the daemon holds 0.00% CPU while idle.
+//   3. Serve one frame per connection and unwind cleanly on quit.
+
+import "std/core/primitives/str.oo";
+import "state.oo";
+import "inhibit.oo";
+import "control.oo";
+import "config.oo";
+
+fn ctl_slot_of(raw: String) -> Int {
+    if !str_starts_with(raw, "fd:") { return -1; }
+    return parse_int_digits(str_slice(raw, 3, chars_len(raw)));
+}
+
+pub fn daemon_serve_conn(tcp: &TcpCap, d: DaemonState, inh: List[String], listener: Int, prog: String) -> CtlReply {
+    let acc: Result[String, String] = tcp_accept(tcp, listener);
+    if acc.is_err() {
+        return CtlReply { text: "accept failed", state: d, inhibitors: inh, quit: false };
+    }
+    let conn: Int = ctl_slot_of(match acc { Ok(s) => s, Err(_) => "" });
+    if conn < 0 {
+        return CtlReply { text: "accept slot invalid", state: d, inhibitors: inh, quit: false };
+    }
+    let rd: Result[String, String] = tcp_read(tcp, conn, 4096);
+    let frame: String = match rd { Ok(s) => s, Err(_) => "" };
+    let reply: CtlReply = ctl_dispatch(d, inh, frame, prog);
+    let body: String = reply.text + "\n";
+    let _ = tcp_write(tcp, conn, body);
+    let _ = tcp_close(tcp, conn);
+    return reply;
+}
+
+pub fn daemon_reactor(bind: &BindCap, tcp: &TcpCap, fs: &FsCap, fw: &FsWriteCap, env: &EnvCap, prog: String) -> Int {
+    let port: Int = daemon_ctl_port(prog);
+    let lis: Result[String, String] = tcp_bind(bind, port);
+    if lis.is_err() {
+        println("ooidle: bind failed on " + daemon_ctl_endpoint(prog));
+        return 1;
+    }
+    let listener: Int = ctl_slot_of(match lis { Ok(s) => s, Err(_) => "" });
+    if listener < 0 {
+        println("ooidle: listen slot invalid on " + daemon_ctl_endpoint(prog));
+        return 1;
+    }
+    println("ooidle: reactor up on " + daemon_ctl_endpoint(prog));
+    let mut d: DaemonState = daemon_state_new(daemon_timeout_s(env), daemon_scene(env));
+    let mut inh: List[String] = list_new();
+    let mut quit: Bool = false;
+    let mut guard: Int = 0;
+    while !quit && guard < 100000 {
+        let reply: CtlReply = daemon_serve_conn(tcp, d, inh, listener, prog);
+        d = reply.state;
+        inh = reply.inhibitors;
+        quit = reply.quit;
+        guard = guard + 1;
+    }
+    let _ = tcp_close(tcp, listener);
+    return 0;
+}

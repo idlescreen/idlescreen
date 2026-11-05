@@ -1,0 +1,34 @@
+// # Scene MMX - Register Lane Wave Demonstrator
+//
+// Logline: Eight SIMD-style register lanes pulsing packed element waves like a multimedia instruction demo.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Divide the grid into eight horizontal register lanes.
+//   2. Drive a phase-shifted intensity wave down each lane.
+//   3. Draw packed element cells as blocks with register-rail chrome.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_mmx(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(40, 40, 50), rgb(4, 4, 10));
+    let lanes: Int = 8;
+    let lane_h: Int = if g.rows / lanes > 0 { g.rows / lanes } else { 1 };
+    let mut lane: Int = 0;
+    while lane < lanes {
+        let y0: Int = lane * lane_h;
+        let mut x: Int = 0;
+        while x < g.cols {
+            let v: Int = isin(x * 24 - tick * 21 + lane * 54) / 2 + 500;
+            let ramp: Int = v * 9 / 1000;
+            let c: Int = cv_mix(rgb(30, 20, 60), cv_hue(lane * 75), v * 255 / 1000);
+            out = cv_put(out, x, y0, cv_ramp(ramp), c, rgb(4, 4, 10));
+            if lane_h > 2 && y0 + 1 < g.rows {
+                out = cv_put(out, x, y0 + 1, "─", rgb(50, 50, 70), rgb(4, 4, 10));
+            }
+            x = x + 1;
+        }
+        lane = lane + 1;
+    }
+    return out;
+}

@@ -1,0 +1,36 @@
+// # Scene Expand - Centre-Out Glyph Bloom
+//
+// Logline: Glyphs blooming outward from the centre cell by ring, like a detonation in slow motion.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Compute the chebyshev ring index of each cell from the centre.
+//   2. Light rings in sequence as the bloom front advances with tick.
+//   3. Cool the trailing rings through amber to ember red.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_expand(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(30, 20, 20), rgb(8, 4, 4));
+    let cx: Int = g.cols / 2;
+    let cy: Int = g.rows / 2;
+    let front: Int = tick % (g.cols / 2 + g.rows);
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let dx: Int = if x - cx < 0 { cx - x } else { x - cx };
+            let dy: Int = if y - cy < 0 { cy - y } else { y - cy };
+            let ring: Int = if dx > dy { dx } else { dy };
+            let age: Int = front - ring;
+            if age >= 0 {
+                let c: Int = if age < 4 { rgb(255, 240, 180) } else if age < 10 { rgb(255, 160, 60) } else { rgb(160, 50, 20) };
+                let ch: String = if age < 4 { "█" } else if age < 10 { "▓" } else { "░" };
+                out = cv_put(out, x, y, ch, c, rgb(8, 4, 4));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}

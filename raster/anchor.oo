@@ -1,0 +1,11 @@
+// # raster Domain Anchor
+//
+// Logline: Re-exports the glyph font, style, blitter, and damage pages of the CPU rasterizer.
+// Setup: Pure shim. Imports the rasterizer pages.
+// Beats:
+//   1. Re-export glyph_style, glyph_hud, glyph_font, damage, and blit for the tree.
+import "glyph_style.oo";
+import "glyph_hud.oo";
+import "glyph_font.oo";
+import "damage.oo";
+import "blit.oo";

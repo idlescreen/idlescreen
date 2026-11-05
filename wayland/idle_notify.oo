@@ -1,0 +1,31 @@
+// # Idle Notify - ext-idle-notify-v1 Notification State
+//
+// Logline: Models the ext_idle_notification_v1 contract: the compositor emits idled and resumed events on the seat timeout.
+// Setup: Pure state record. Operates with zero ambient authority.
+// Beats:
+//   1. Register the idle timeout the compositor notifies on.
+//   2. Fold idled events into the idle flag and count.
+//   3. Fold resumed events back to the active state.
+
+pub type IdleNotify = struct {
+    timeout_ms: Int,
+    is_idle: Bool,
+    idle_count: Int,
+    resume_count: Int
+};
+
+pub fn idle_notify_new(timeout_s: Int) -> IdleNotify {
+    return IdleNotify { timeout_ms: timeout_s * 1000, is_idle: false, idle_count: 0, resume_count: 0 };
+}
+
+pub fn idle_notify_on_idled(n: IdleNotify) -> IdleNotify {
+    return IdleNotify { timeout_ms: n.timeout_ms, is_idle: true, idle_count: n.idle_count + 1, resume_count: n.resume_count };
+}
+
+pub fn idle_notify_on_resumed(n: IdleNotify) -> IdleNotify {
+    return IdleNotify { timeout_ms: n.timeout_ms, is_idle: false, idle_count: n.idle_count, resume_count: n.resume_count + 1 };
+}
+
+pub fn idle_notify_interface() -> String { return "ext_idle_notification_v1"; }
+
+pub fn idle_notify_timeout(n: IdleNotify) -> Int { return n.timeout_ms / 1000; }

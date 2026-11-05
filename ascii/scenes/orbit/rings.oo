@@ -1,0 +1,35 @@
+// # Scene Rings - Saturn-Style Ring Bands
+//
+// Logline: Concentric elliptical ring bands precessing around the centre in alternating metals.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Measure elliptical distance to the precessing centre.
+//   2. Quantise distance into ring bands with gaps.
+//   3. Alternate gold and steel ring palettes per band.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_rings(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(15, 15, 25), rgb(2, 2, 6));
+    let cx: Int = g.cols / 2 + isin(tick * 5) * 4 / 1000;
+    let cy: Int = g.rows / 2;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let d: Int = idist((x - cx) * 55, (y - cy) * 100) / 100;
+            let band: Int = d % 4;
+            if band < 2 && d > 1 {
+                let idx: Int = (d / 4) % 2;
+                let c: Int = if idx == 0 { rgb(210, 170, 80) } else { rgb(150, 160, 190) };
+                let ch: String = if band == 0 { "▓" } else { "░" };
+                out = cv_put(out, x, y, ch, c, rgb(2, 2, 6));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    out = cv_put_b(out, cx, cy, "●", rgb(255, 230, 150), rgb(2, 2, 6), true);
+    return out;
+}

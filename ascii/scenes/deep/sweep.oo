@@ -1,0 +1,37 @@
+// # Scene Sweep - Rotating Sonar Sweep Arm
+//
+// Logline: A CRT-style radial sweep arm rotating about the centre with phosphor persistence trails.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. Project each cell onto the rotating arm axis in milli-units.
+//   2. Light the cells inside the narrow wedge of the arm.
+//   3. Mark the centre pivot and trailing glow.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_sweep(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(15, 25, 15), rgb(2, 6, 2));
+    let cx: Int = g.cols / 2;
+    let cy: Int = g.rows / 2;
+    let arm: Int = tick * 5;
+    let bx: Int = icos(arm);
+    let by: Int = isin(arm);
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let dx: Int = (x - cx) * 500;
+            let dy: Int = (y - cy) * 1000;
+            let along: Int = (dx * bx + dy * by) / 1000;
+            let side: Int = iabs(dx * by - dy * bx) / 1000;
+            if along > 0 && side * 1000 < along * 120 {
+                out = cv_put(out, x, y, "░", rgb(120, 255, 120), rgb(2, 6, 2));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    out = cv_put_b(out, cx, cy, "◉", rgb(220, 255, 220), rgb(2, 6, 2), true);
+    return out;
+}

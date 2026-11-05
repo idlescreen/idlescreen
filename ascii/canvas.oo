@@ -1,0 +1,114 @@
+// # Scene Canvas - Cell Draw Helpers, Integer Trig, Hash Noise, Palette Ramps
+//
+// Logline: Drawing verbs shared by all scenes: put, text, fill, integer sine/cosine, integer distance, hash noise, and HSV ramps.
+// Setup: Pure integer arithmetic over CellGrid and Int-packed RGB. Trig is Bhaskara's parabola on degrees.
+// Beats:
+//   1. Stamp cells, strings, and filled fields.
+//   2. Provide isin/icos in milli-units (-1000..1000) and idist integer euclidean distance.
+//   3. Fold coordinates and tick into hash noise and map intensity onto ramps and hues.
+
+import "core/cell.oo";
+
+pub fn cv_put(g: CellGrid, x: Int, y: Int, ch: String, fg: Int, bg: Int) -> CellGrid {
+    return grid_set(g, x, y, cell_new(ch, fg, bg, false));
+}
+
+pub fn cv_put_b(g: CellGrid, x: Int, y: Int, ch: String, fg: Int, bg: Int, bold: Bool) -> CellGrid {
+    return grid_set(g, x, y, cell_new(ch, fg, bg, bold));
+}
+
+pub fn cv_text(g: CellGrid, x: Int, y: Int, s: String, fg: Int, bg: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let mut i: Int = 0;
+    while i < chars_len(s) {
+        out = cv_put(out, x + i, y, char_at(s, i), fg, bg);
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn cv_fill(g: CellGrid, ch: String, fg: Int, bg: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            out = cv_put(out, x, y, ch, fg, bg);
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    return out;
+}
+
+pub fn cv_hash(x: Int, y: Int, t: Int) -> Int {
+    let mut h: Int = (x * 374761393 + y * 668265263 + t * 2147483647) & 2147483647;
+    h = (h * 1274126177) & 2147483647;
+    h = h - (h >> 16);
+    if h < 0 { return 0 - h; }
+    return h;
+}
+
+pub fn isin(d0: Int) -> Int {
+    let mut d: Int = d0 % 360;
+    if d < 0 { d = d + 360; }
+    let mut sign: Int = 1;
+    let mut x: Int = d;
+    if x > 180 { x = 360 - x; }
+    if d > 180 { sign = 0 - 1; }
+    let n: Int = x * (180 - x);
+    return sign * (4 * n * 1000) / (40500 - n);
+}
+
+pub fn icos(d: Int) -> Int { return isin(d + 90); }
+
+pub fn idist(dx: Int, dy: Int) -> Int {
+    let mut n: Int = dx * dx + dy * dy;
+    if n <= 0 { return 0; }
+    let mut x: Int = if n > 4 { n / 2 } else { n };
+    let mut i: Int = 0;
+    while i < 24 {
+        let nx: Int = (x + n / x) / 2;
+        if nx >= x { i = 40; }
+        x = nx;
+        i = i + 1;
+    }
+    return x;
+}
+
+pub fn iabs(v: Int) -> Int {
+    if v < 0 { return 0 - v; }
+    return v;
+}
+
+pub fn cv_ramp(v: Int) -> String {
+    let ramp: String = " .:-=+*#%@";
+    let mut i: Int = v;
+    if i < 0 { i = 0; }
+    if i > 9 { i = 9; }
+    return char_at(ramp, i);
+}
+
+pub fn cv_hue(frac: Int) -> Int {
+    let mut f: Int = frac % 600;
+    if f < 0 { f = f + 600; }
+    let seg: Int = f / 100;
+    let k: Int = (f % 100) * 255 / 100;
+    let q: Int = 255 - k;
+    if seg == 0 { return rgb(255, k, 0); }
+    if seg == 1 { return rgb(q, 255, 0); }
+    if seg == 2 { return rgb(0, 255, k); }
+    if seg == 3 { return rgb(0, q, 255); }
+    if seg == 4 { return rgb(k, 0, 255); }
+    return rgb(255, 0, q);
+}
+
+pub fn cv_mix(a: Int, b: Int, k: Int) -> Int {
+    let mut kk: Int = k;
+    if kk < 0 { kk = 0; }
+    if kk > 255 { kk = 255; }
+    let r: Int = (rgb_r(a) * (255 - kk) + rgb_r(b) * kk) / 255;
+    let g: Int = (rgb_g(a) * (255 - kk) + rgb_g(b) * kk) / 255;
+    let bch: Int = (rgb_b(a) * (255 - kk) + rgb_b(b) * kk) / 255;
+    return rgb(r, g, bch);
+}

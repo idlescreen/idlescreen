@@ -1,0 +1,50 @@
+// # Scene Engine - Frame Pipeline, Tour Scheduling, Wordmark Overlay
+//
+// Logline: The frame pipeline: render the active scene, lay the optional wordmark, post-FX, HUD, and ANSI out.
+// Setup: Pure pipeline over CellGrid. Output strings are produced; emission is the caller's job.
+// Beats:
+//   1. Resolve the scene index from name or tour schedule.
+//   2. Render scene, optional wordmark, post-FX, and preview HUD in order.
+//   3. Serialise the finished grid to ANSI for the presenter.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+import "ascii/effects.oo";
+import "ascii/scenes/anchor.oo";
+import "ascii/draw/anchor.oo";
+import "ascii/layout/anchor.oo";
+import "raster/glyph_hud.oo";
+
+pub fn engine_frame(g: CellGrid, scene_idx: Int, tick: Int, wordmark: String) -> CellGrid {
+    let mut out: CellGrid = scene_render(scene_idx, g, tick);
+    if wordmark != "" {
+        out = wm_render(out, wordmark, tick);
+    }
+    out = post_apply(out, tick);
+    return out;
+}
+
+pub fn engine_tour_index(tick: Int, scene_secs: Int) -> Int {
+    let mut s: Int = scene_secs;
+    if s <= 0 { s = 10; }
+    return (tick / s) % 53;
+}
+
+pub fn engine_preview_frame(cols: Int, rows: Int, name: String, tick: Int, tour: Bool) -> String {
+    let idx: Int = if tour { engine_tour_index(tick, 12) } else { effects_index(name) };
+    let mut i: Int = idx;
+    if i < 0 { i = 0; }
+    let mut g: CellGrid = grid_new(cols, rows, rgb(4, 6, 12));
+    let wm: String = if wm_known(name) { name } else { "" };
+    g = engine_frame(g, i, tick, wm);
+    g = draw_preview_hud(g, effects_name(i), i + 1, 53, tour);
+    return ansi_home() + ansi_render(g);
+}
+
+pub fn engine_wordmark_frame(cols: Int, rows: Int, name: String, tick: Int) -> String {
+    let mut g: CellGrid = grid_new(cols, rows, rgb(4, 6, 12));
+    g = starfield_seed(g, tick, 14);
+    g = wm_render(g, name, tick);
+    g = post_apply(g, tick);
+    return ansi_home() + ansi_render(g);
+}

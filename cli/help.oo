@@ -1,0 +1,45 @@
+// # CLI Help - Usage Surface and Version Line
+//
+// Logline: The help text, version line, and JSON metadata for the idlescreen CLI surface.
+// Setup: Pure string tables. Operates with zero ambient authority.
+// Beats:
+//   1. Emit the name-version banner line.
+//   2. List the command surface grouped by domain.
+//   3. Emit the machine-readable JSON descriptor for --json.
+
+pub fn cli_version_line(prog: String) -> String {
+    return prog + " 5.0.0";
+}
+
+pub fn cli_help(prog: String) -> Int {
+    println(cli_version_line(prog) + " — capability-secured ASCII idle screensaver suite");
+    println("");
+    println("usage: " + prog + " <command> [args]");
+    println("");
+    println("saver:");
+    println("  preview [SCENE] [--frames N] [--cols N] [--rows N]  render a scene preview");
+    println("  text [PRESET]        render a bevelled wordmark (openooda|superfedora|fedora|arch)");
+    println("  list [--json]        list the 53 scenes");
+    println("  set SCENE            select the active scene");
+    println("  tui                  interactive scene picker");
+    println("daemon:");
+    println("  daemon               run the idle daemon in the foreground");
+    println("  status               query daemon status");
+    println("  inhibitors           list registered idle inhibitors");
+    println("  timeout [SECONDS]    query or set the idle timeout");
+    println("  config               show resolved daemon configuration");
+    println("  doctor               run the environment self-check");
+    println("service:");
+    println("  start|stop|toggle    control the saver via the daemon socket");
+    println("  enable|disable|restart|service|uninstall   service management verbs");
+    println("misc:");
+    println("  --self-test          run the internal self-check");
+    println("  --json               emit the machine descriptor");
+    println("  --version            print the version line");
+    return 0;
+}
+
+pub fn cli_json(prog: String) -> Int {
+    println("{\"name\":\"" + prog + "\",\"version\":\"5.0.0\",\"scenes\":53,\"presets\":[\"openooda\",\"superfedora\",\"fedora\",\"arch\"],\"caps\":[\"Process\",\"FsRead\",\"FsWrite\",\"Fs\",\"Bind\",\"Tcp\",\"Env\",\"Time\",\"Rand\",\"Ffi\"],\"status\":\"pass\"}");
+    return 0;
+}

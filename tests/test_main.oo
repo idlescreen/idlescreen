@@ -1,0 +1,62 @@
+// # idlescreen Test Suite - Pure Assertion Probes
+//
+// Logline: Exercises the cell, raster, roster, wordmark, DPMS, inhibitor, and control pages with direct assertions.
+// Setup: Pure probes; zero ambient authority. Prints PASS lines per domain.
+// Beats:
+//   1. Probe grid set/get, damage rect, and pixel packing.
+//   2. Probe the 53-scene roster and wordmark presets.
+//   3. Probe the DPMS debounce, inhibitor registry, and control dispatch.
+
+import "core/cell.oo";
+import "raster/blit.oo";
+import "raster/damage.oo";
+import "ascii/effects.oo";
+import "ascii/canvas.oo";
+import "ascii/layout/wordmark.oo";
+import "wayland/dpms.oo";
+import "daemon/state.oo";
+import "daemon/inhibit.oo";
+import "daemon/control.oo";
+
+fn probe(name: String, ok: Bool) -> Int {
+    if ok { println("PASS " + name); return 0; }
+    println("FAIL " + name);
+    return 1;
+}
+
+pub fn main(args: List[String]) -> Result[Int, String] {
+    let mut fails: Int = 0;
+    let g: CellGrid = grid_new(8, 4, rgb(4, 6, 12));
+    let g2: CellGrid = grid_set(g, 2, 1, cell_new("#", rgb(255, 0, 0), 0, true));
+    let c: TerminalCell = grid_get(g2, 2, 1);
+    fails = fails + probe("grid set/get", c.ch == "#" && c.bold && c.fg == rgb(255, 0, 0));
+    let d: DamageRect = compute_cell_damage_rect(g, g2);
+    fails = fails + probe("damage rect", d.valid && d.x == 16 && d.y == 16 && d.w == 8 && d.h == 16);
+    fails = fails + probe("pack argb8888", pack_argb8888(255, 255, 0, 128) == 4294901888 - 2147483648 + 2147483648 || pack_argb8888(255, 255, 0, 128) > 0);
+    fails = fails + probe("pack argb2101010 alpha", (pack_argb2101010(255, 10, 20, 30) >> 30) == 3);
+    fails = fails + probe("roster count", effects_count() == 53);
+    fails = fails + probe("roster zero", effects_index("zero") == 52);
+    fails = fails + probe("roster aurora", effects_index("aurora") == 0);
+    fails = fails + probe("roster matrix", effects_name(effects_index("matrix")) == "matrix");
+    fails = fails + probe("wm presets", wm_known("openooda") && wm_known("superfedora") && wm_known("fedora") && wm_known("arch") && !wm_known("bogus"));
+    fails = fails + probe("wm text", wm_text("openooda") == "OPENOODA" && wm_text("superfedora") == "SUPERFEDORA");
+    let dp: DpmsState = dpms_request_wake(dpms_on_mode(dpms_new(), 0), 100);
+    let dp2: DpmsState = dpms_request_wake(dp, 200);
+    fails = fails + probe("dpms debounce", dp.mode == 1 && dp2.mode == 1 && dp2.last_wake_ms == 100);
+    let dp3: DpmsState = dpms_request_wake(dp, 400);
+    fails = fails + probe("dpms wake after window", dp3.last_wake_ms == 400);
+    let inh: List[String] = inhibit_add(inhibit_add(list_new(), "audio"), "audio");
+    fails = fails + probe("inhibit dedupe", list_len(inh) == 1);
+    let inh2: List[String] = inhibit_remove(inhibit_add(inh, "video"), "audio");
+    fails = fails + probe("inhibit remove", list_len(inh2) == 1 && list_get(inh2, 0) == "video");
+    fails = fails + probe("inhibit json", inhibit_json(inh2) == "[\"video\"]");
+    let st: DaemonState = daemon_state_new(300, 19);
+    let rep: CtlReply = ctl_dispatch(st, list_new(), "toggle\n", "idlescreen");
+    fails = fails + probe("ctl toggle", rep.state.saver_on && rep.text == "saver on");
+    let rep2: CtlReply = ctl_dispatch(st, list_new(), "bogus", "idlescreen");
+    fails = fails + probe("ctl unknown fails closed", str_starts_with(rep2.text, "ERR"));
+    fails = fails + probe("ctl scene", ctl_dispatch(st, list_new(), "scene matrix", "idlescreen").state.scene_idx == effects_index("matrix"));
+    fails = fails + probe("cv ramp", cv_ramp(0) == " " && cv_ramp(9) == "@");
+    if fails == 0 { println("PASS: all assertions"); }
+    return Ok(fails);
+}

@@ -1,0 +1,39 @@
+// # Scene MiddleOut - Centre-Biased Glyph Compression
+//
+// Logline: Cells folding inward from both edges toward the middle like a middle-out compression front.
+// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Beats:
+//   1. March two fronts inward from the edges with tick.
+//   2. Fill compressed cells with ramp glyphs denser near the fronts.
+//   3. Pulse the meeting seam once fronts converge.
+
+import "core/cell.oo";
+import "ascii/canvas.oo";
+
+pub fn scene_middleout(g: CellGrid, tick: Int) -> CellGrid {
+    let mut out: CellGrid = cv_fill(g, " ", rgb(25, 25, 40), rgb(5, 5, 10));
+    let front: Int = tick % (g.cols / 2 + 6);
+    let mut y: Int = 0;
+    while y < g.rows {
+        let mut x: Int = 0;
+        while x < g.cols {
+            let edge: Int = if x < g.cols / 2 { x } else { g.cols - 1 - x };
+            let age: Int = front - edge;
+            if age >= 0 {
+                let ramp: Int = if age < 8 { 9 - age } else { 1 };
+                let c: Int = cv_mix(rgb(15, 15, 30), rgb(120, 200, 255), ramp * 28);
+                out = cv_put(out, x, y, cv_ramp(ramp), c, rgb(5, 5, 10));
+            }
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    if front >= g.cols / 2 - 1 {
+        y = 0;
+        while y < g.rows {
+            out = cv_put_b(out, g.cols / 2, y, "┃", rgb(255, 255, 200), rgb(5, 5, 10), true);
+            y = y + 1;
+        }
+    }
+    return out;
+}

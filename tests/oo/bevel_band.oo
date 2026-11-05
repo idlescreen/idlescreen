@@ -1,0 +1,64 @@
+// # bevel_band — 16-bit SNES banner bevel color port
+//
+// Logline: Bit-exact port of banner_bevel_color + theme_bevel_band for the
+// pinned parity theme (IDLE_THEME_ACCENT=5196DA -> accent (81,150,218)).
+//
+// Setup: Pure. Returns packed 0xRRGGBB. accent is passed in so the module
+// stays free of env authority; callers pin the probe theme.
+//
+// Beats:
+//   1. super_rows selects the gold band only for stacked banners.
+//   2. theme_bevel_band derives the 4-stop gradient from the accent.
+//   3. banner_bevel_color picks theme vs default table like the Rust arm.
+
+import "shade_math.oo";
+
+pub fn parity_accent() -> Int {
+    return 81 * 65536 + 150 * 256 + 218;
+}
+
+fn theme_bevel_band(band: Int, accent: Int) -> Int {
+    let r: Int = accent / 65536;
+    let g: Int = (accent / 256) % 256;
+    let b: Int = accent % 256;
+    if band == 0 || band == 1 {
+        return pack_rgb(imin((r * 2 + 510) / 3, 255), imin((g * 2 + 510) / 3, 255), imin((b * 2 + 510) / 3, 255));
+    }
+    if band <= 4 {
+        return pack_rgb(imin((r * 3 + 255) / 4, 255), imin((g * 3 + 255) / 4, 255), imin((b * 3 + 255) / 4, 255));
+    }
+    if band <= 7 { return accent; }
+    return pack_rgb(imax((r * 7) / 10, 32), imax((g * 7) / 10, 48), imax((b * 8) / 10, 96));
+}
+
+pub fn banner_bevel_color(y: Int, min_y: Int, max_y: Int, is_sf: Int, accent: Int) -> Int {
+    let span: Int = max_y - min_y + 1;
+    if span < 1 { return 0; }
+    let rel_y: Int = y - min_y;
+    if rel_y < 0 { return 0; }
+    let mut super_rows: Int = 0;
+    if is_sf == 1 {
+        if span >= 18 { super_rows = 6; }
+        else if span >= 6 { super_rows = (span * 3) / 7; }
+    }
+    if super_rows > 0 && rel_y < super_rows {
+        let band: Int = (rel_y * 6) / super_rows;
+        if band == 0 || band == 1 { return pack_rgb(255, 240, 130); }
+        if band == 2 || band == 3 { return pack_rgb(255, 205, 55); }
+        return pack_rgb(235, 155, 30);
+    }
+    let mut fedora_start: Int = 0;
+    if super_rows > 0 { fedora_start = super_rows + 1; }
+    let mut fedora_span: Int = span - fedora_start;
+    if fedora_span < 1 { fedora_span = 1; }
+    let mut fedora_y: Int = rel_y - fedora_start;
+    if fedora_y < 0 { fedora_y = 0; }
+    let band2: Int = (fedora_y * 10) / fedora_span;
+    if accent != 81 * 65536 + 162 * 256 + 218 {
+        return theme_bevel_band(band2, accent);
+    }
+    if band2 == 0 || band2 == 1 { return pack_rgb(170, 245, 255); }
+    if band2 <= 4 { return pack_rgb(100, 205, 255); }
+    if band2 <= 7 { return pack_rgb(81, 162, 218); }
+    return pack_rgb(52, 118, 220);
+}

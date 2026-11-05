@@ -1,0 +1,105 @@
+// # gradient_spectrum — ttfx Gradient spectrum port
+//
+// Logline: Bit-exact port of Gradient::new spectrum generation and
+// get_color_at_fraction indexing used by the math scenes.
+//
+// Setup: Pure. Colors are packed 0xRRGGBB Ints. steps_per_segment mirrors
+// the upstream scalar-steps call shape (steps_was_int = true).
+//
+// Beats:
+//   1. floor_div_i reproduces Python floor division for i64 deltas.
+//   2. spectrum_build emits the same color list as Gradient::new.
+//   3. color_at_fraction and sample_palette index identically.
+
+import "shade_math.oo";
+
+fn floor_div_i(a: Int, b: Int) -> Int {
+    let q: Int = a / b;
+    let r: Int = a % b;
+    if r != 0 && a < 0 { return q - 1; }
+    return q;
+}
+
+fn clamp_color_channel(v: Int) -> Int {
+    if v < 0 { return 0; }
+    if v > 255 { return 255; }
+    return v;
+}
+
+fn seg_color(start: Int, dr: Int, dg: Int, db: Int, i: Int) -> Int {
+    let r: Int = clamp_color_channel(((start / 65536) % 256) + dr * i);
+    let g: Int = clamp_color_channel(((start / 256) % 256) + dg * i);
+    let b: Int = clamp_color_channel((start % 256) + db * i);
+    return r * 65536 + g * 256 + b;
+}
+
+pub fn spectrum_build(stops: List[Int], steps_per_segment: Int) -> List[Int] {
+    let mut spectrum: List[Int] = list_new();
+    let n: Int = list_len(stops);
+    if n == 1 {
+        let mut k: Int = 0;
+        while k < steps_per_segment {
+            spectrum = list_push(spectrum, list_get(stops, 0));
+            k = k + 1;
+        }
+        return spectrum;
+    }
+    let pair_count: Int = n - 1;
+    let mut p: Int = 0;
+    while p < pair_count {
+        let step_count: Int = steps_per_segment;
+        if step_count < 1 { return spectrum; }
+        let start: Int = list_get(stops, p);
+        let end: Int = list_get(stops, p + 1);
+        let sr: Int = (start / 65536) % 256;
+        let sg: Int = (start / 256) % 256;
+        let sb: Int = start % 256;
+        let er: Int = (end / 65536) % 256;
+        let eg: Int = (end / 256) % 256;
+        let eb: Int = end % 256;
+        let dr: Int = floor_div_i(er - sr, step_count);
+        let dg: Int = floor_div_i(eg - sg, step_count);
+        let db: Int = floor_div_i(eb - sb, step_count);
+        let mut range_start: Int = 0;
+        if list_len(spectrum) > 0 { range_start = 1; }
+        let mut i: Int = range_start;
+        while i < step_count {
+            spectrum = list_push(spectrum, seg_color(start, dr, dg, db, i));
+            i = i + 1;
+        }
+        spectrum = list_push(spectrum, end);
+        p = p + 1;
+    }
+    return spectrum;
+}
+
+pub fn color_at_fraction(spectrum: List[Int], fraction: Float) -> Int {
+    let len: Int = list_len(spectrum);
+    if len == 0 { return 0; }
+    let mut index: Int = float_idx(fraction * int_to_f(len));
+    if index > len - 1 { index = len - 1; }
+    if index < 0 { index = 0; }
+    let len_f: Float = int_to_f(len);
+    while index > 0 && fraction <= (int_to_f(index)) / len_f {
+        index = index - 1;
+    }
+    while index + 1 < len && fraction > (int_to_f(index + 1)) / len_f {
+        index = index + 1;
+    }
+    return list_get(spectrum, index);
+}
+
+pub fn sample_palette(palette: List[Int], t: Float) -> Int {
+    let clamped: Float = clamp_f(t, 0.0, 1.0);
+    let max_idx: Int = list_len(palette) - 1;
+    let idx_f: Float = round_f(clamped * int_to_f(max_idx));
+    let mut idx: Int = float_idx(idx_f);
+    if idx > max_idx { idx = max_idx; }
+    if idx < 0 { idx = 0; }
+    return list_get(palette, idx);
+}
+
+pub fn vertical_row_color(spectrum: List[Int], row: Int, tb: Int, tt: Int) -> Int {
+    let frac: Float = int_to_f(row - tb + 1) / int_to_f(tt - tb + 1);
+    return color_at_fraction(spectrum, frac);
+}
