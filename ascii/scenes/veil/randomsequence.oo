@@ -8,6 +8,7 @@
 //   3. Keep a low floor so the static reads as texture not snow.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_randomsequence(g: CellGrid, tick: Int) -> CellGrid {

@@ -8,7 +8,7 @@
 //   3. Draw a mini ANSI preview of the selected scene on the right pane.
 
 import "core/cell.oo";
-import "ascii/canvas.oo";
+import "core/grid.oo";
 import "ascii/effects.oo";
 import "ascii/scenes/anchor.oo";
 import "ascii/draw/ansi.oo";

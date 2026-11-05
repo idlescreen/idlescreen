@@ -40,7 +40,7 @@ pub fn cmd_list(args: List[String]) -> Int {
     }
     i = 0;
     while i < 53 {
-        println(effects_name(i));
+        println((i + 1).to_string() + " " + effects_name(i));
         i = i + 1;
     }
     return 0;

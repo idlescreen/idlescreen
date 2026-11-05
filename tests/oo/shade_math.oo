@@ -1,18 +1,13 @@
 // # shade_math — neon colors and float helpers
 //
-// Logline: Bit-exact ports of neon_overdrive_rgb and the f64 helpers the
-// math scenes need. oodac 0.11.63 has no `as` numeric casts, so conversions
-// use exact bounded loops instead.
+// Logline: Bit-exact ports of neon_overdrive_rgb and the f64 helpers the math scenes need. oodac 0.11.63 has no `as` numeric casts, so conversions use exact bounded loops instead.
 //
-// Setup: Pure functions. Colors are packed 0xRRGGBB into Int. No caps.
-// int_to_f/float_idx are exact for |n| < 4096 (all probe uses qualify).
-// Glyph mapping lives in pixel_glyph.oo.
+// Setup: Pure functions. Colors are packed 0xRRGGBB into Int. No caps. int_to_f/float_idx are exact for |n| < 4096 (all probe uses qualify). Glyph mapping lives in pixel_glyph.oo.
 //
 // Beats:
-//   1. int_to_f converts small Ints to Float by exact +1.0 accumulation.
-//   2. float_idx truncates a non-negative Float via repeated -1.0.
-//   3. neon_rgb boosts a packed color exactly like neon_overdrive_rgb.
-//   4. round_f/clamp_f/hypot_f mirror Rust f64 semantics.
+//   1. neon_rgb boosts a packed color exactly like neon_overdrive_rgb.
+//   2. neon_chan derives one channel's spread from the floor and scale.
+//   3. imin/imax keep the int clamps callers rely on; float helpers live in tests/shade_float.oo.
 
 pub fn imin(a: Int, b: Int) -> Int {
     if a < b { return a; }
@@ -22,57 +17,6 @@ pub fn imin(a: Int, b: Int) -> Int {
 pub fn imax(a: Int, b: Int) -> Int {
     if a > b { return a; }
     return b;
-}
-
-pub fn int_to_f(n: Int) -> Float {
-    let mut acc: Float = 0.0;
-    let mut i: Int = 0;
-    let mut k: Int = n;
-    if k < 0 { k = 0 - k; }
-    while i < k {
-        acc = acc + 1.0;
-        i = i + 1;
-    }
-    if n < 0 { return 0.0 - acc; }
-    return acc;
-}
-
-pub fn float_idx(v: Float) -> Int {
-    if v < 0.0 { return 0; }
-    let mut n: Int = 0;
-    let mut r: Float = v;
-    while r >= 1.0 {
-        r = r - 1.0;
-        n = n + 1;
-        if n > 4096 { return n; }
-    }
-    return n;
-}
-
-pub fn clamp_f(x: Float, lo: Float, hi: Float) -> Float {
-    if x < lo { return lo; }
-    if x > hi { return hi; }
-    return x;
-}
-
-pub fn round_f(x: Float) -> Float {
-    let mut neg: Int = 0;
-    let mut v: Float = x;
-    if v < 0.0 { v = 0.0 - v; neg = 1; }
-    let mut t: Float = 0.0;
-    let mut r: Float = v;
-    while r >= 1.0 {
-        r = r - 1.0;
-        t = t + 1.0;
-    }
-    let mut out: Float = t;
-    if r >= 0.5 { out = t + 1.0; }
-    if neg == 1 { return 0.0 - out; }
-    return out;
-}
-
-pub fn hypot_f(x: Float, y: Float) -> Float {
-    return sqrt(x * x + y * y);
 }
 
 fn neon_chan(v: Int, fl: Int, scale: Int) -> Int {

@@ -1,12 +1,8 @@
 // # scene_emit — deterministic scene digest emitter
 //
-// Logline: Runs a ported scene over the fixed probe grid and prints the
-// same `frame\t<idx>\t<hash>` / `done\t<n>\t<hash>` stream as the Rust
-// scene_digest example, for golden parity comparison.
+// Logline: Runs a ported scene over the fixed probe grid and prints the same `frame\t<idx>\t<hash>` / `done\t<n>\t<hash>` stream as the Rust scene_digest example, for golden parity comparison.
 //
-// Setup: Pure compute plus println. argv[1] selects the scene; all other
-// probe parameters are pinned to the golden configuration (80x24, seed
-// 42, 60fps, art "IDLESCREEN\nSCREENSAVER").
+// Setup: Pure compute plus println. argv[1] selects the scene; all other probe parameters are pinned to the golden configuration (80x24, seed 42, 60fps, art "IDLESCREEN\nSCREENSAVER"). Owns the FNV-1a-64 digest pipeline inline (was fnv1a64.oo, folded for directory density).
 //
 // Beats:
 //   1. Split the pinned art into lines and build canvas cells.
@@ -15,8 +11,40 @@
 
 import "canvas_cells.oo";
 import "grid_cells.oo";
-import "fnv1a64.oo";
 import "scene_plasma.oo";
+
+fn fnv1a64_update(h: Int, byte_val: Int) -> Int {
+    let b: Int = byte_val & 255;
+    return (h ^ b) * 1099511628211;
+}
+
+fn fnv1a64_str(h: Int, s: String) -> Int {
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    let mut acc: Int = h;
+    while i < n {
+        let ch: String = char_at(s, i);
+        acc = fnv1a64_update(acc, ord(ch));
+        i = i + 1;
+    }
+    return acc;
+}
+
+fn fnv1a64_new() -> Int {
+    return 0 - 3750763034362895579;
+}
+
+fn fnv1a64_combine(h: Int, other: Int) -> Int {
+    let mut i: Int = 0;
+    let mut v: Int = other;
+    let mut acc: Int = h;
+    while i < 8 {
+        acc = fnv1a64_update(acc, v & 255);
+        v = v >> 8;
+        i = i + 1;
+    }
+    return acc;
+}
 
 fn art_lines() -> List[String] {
     let mut lines: List[String] = list_new();

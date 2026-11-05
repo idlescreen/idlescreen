@@ -8,43 +8,8 @@
 //   3. Expand 8x8 HUD glyphs for every remaining codepoint.
 
 import "glyph_hud.oo";
+import "glyph_rows.oo";
 import "glyph_style.oo";
-
-fn rows_rep(v: Int) -> List[Int] {
-    let mut out: List[Int] = list_new();
-    let mut i: Int = 0;
-    while i < 16 { out = list_push(out, v); i = i + 1; }
-    return out;
-}
-
-fn rows_pack(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int) -> List[Int] {
-    let mut out: List[Int] = list_new();
-    out = list_push(out, a); out = list_push(out, b);
-    out = list_push(out, c); out = list_push(out, d);
-    out = list_push(out, e); out = list_push(out, f);
-    out = list_push(out, g); out = list_push(out, h);
-    return out;
-}
-
-fn rows_mirror8(p: List[Int]) -> List[Int] {
-    let mut out: List[Int] = list_new();
-    let mut i: Int = 0;
-    while i < list_len(p) { out = list_push(out, list_get(p, i)); i = i + 1; }
-    i = list_len(p) - 1;
-    while i >= 0 { out = list_push(out, list_get(p, i)); i = i - 1; }
-    return out;
-}
-
-fn rows_repeat8(p: List[Int]) -> List[Int] {
-    let mut out: List[Int] = list_new();
-    let mut i: Int = 0;
-    while i < 2 {
-        let mut j: Int = 0;
-        while j < list_len(p) { out = list_push(out, list_get(p, j)); j = j + 1; }
-        i = i + 1;
-    }
-    return out;
-}
 
 fn block_rows(ch: String, style: String) -> List[Int] {
     if ch == "█" {

@@ -8,6 +8,8 @@
 //   3. Blend teal, green, and violet bands into the night base.
 
 import "core/cell.oo";
+import "core/grid.oo";
+import "core/imath.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_aurora(g: CellGrid, tick: Int) -> CellGrid {

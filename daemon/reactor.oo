@@ -9,7 +9,6 @@
 
 import "std/core/primitives/str.oo";
 import "state.oo";
-import "inhibit.oo";
 import "control.oo";
 import "config.oo";
 

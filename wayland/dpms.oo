@@ -27,7 +27,7 @@ pub fn dpms_client_sleep(d: DpmsState, on: Bool) -> DpmsState {
 }
 
 pub fn dpms_request_wake(d: DpmsState, now_ms: Int) -> DpmsState {
-    if now_ms - d.last_wake_ms < 300 {
+    if d.last_wake_ms > 0 && now_ms - d.last_wake_ms < 300 {
         return d;
     }
     return DpmsState { mode: 1, last_wake_ms: now_ms, client_sleep: false, compositor_off: false };

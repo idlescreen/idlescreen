@@ -7,7 +7,7 @@
 //   2. Track the double-buffered slot index for damage-only commits.
 //   3. Report the wl_shm format code for each supported format.
 
-import "core/cell.oo";
+import "core/grid.oo";
 import "raster/blit.oo";
 
 pub type ShmPool = struct {

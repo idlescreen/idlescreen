@@ -8,6 +8,8 @@
 //   3. Sweep one comet across the top third per cycle.
 
 import "core/cell.oo";
+import "core/grid.oo";
+import "core/imath.oo";
 import "ascii/canvas.oo";
 import "ascii/draw/starfield.oo";
 

@@ -8,6 +8,7 @@
 //   3. Convert cell bounds to a pixel rectangle using the glyph metrics.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "glyph_font.oo";
 
 pub type DamageRect = struct {

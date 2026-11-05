@@ -8,6 +8,7 @@
 //   3. Ahead of the front, spin through ciphertext glyphs by hash.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 fn decrypt_noise(h: Int) -> String {

@@ -8,7 +8,7 @@
 //   3. Serialise the finished grid to ANSI for the presenter.
 
 import "core/cell.oo";
-import "ascii/canvas.oo";
+import "core/grid.oo";
 import "ascii/effects.oo";
 import "ascii/scenes/anchor.oo";
 import "ascii/draw/anchor.oo";

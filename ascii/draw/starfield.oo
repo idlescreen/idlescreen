@@ -8,6 +8,7 @@
 //   3. Twinkle star glyphs between dot, plus, and star runes.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn starfield_seed(g: CellGrid, tick: Int, density_x1000: Int) -> CellGrid {

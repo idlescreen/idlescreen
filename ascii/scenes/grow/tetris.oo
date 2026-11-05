@@ -8,6 +8,7 @@
 //   3. Colour stack cells by piece family and clear settled lines on a slow beat.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_tetris(g: CellGrid, tick: Int) -> CellGrid {

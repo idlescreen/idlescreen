@@ -16,6 +16,7 @@ import "orbit/anchor.oo";
 import "veil/anchor.oo";
 import "deep/anchor.oo";
 import "left/anchor.oo";
+import "core/grid.oo";
 
 pub fn scene_render(idx: Int, g: CellGrid, tick: Int) -> CellGrid {
     let n: String = effects_name(idx);

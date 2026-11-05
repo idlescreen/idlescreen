@@ -8,6 +8,8 @@
 //   3. Checker the tunnel walls in phosphor green and void black.
 
 import "core/cell.oo";
+import "core/grid.oo";
+import "core/imath.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_tunnel(g: CellGrid, tick: Int) -> CellGrid {

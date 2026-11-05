@@ -8,6 +8,8 @@
 //   3. Scroll horizontal lines downward to fake forward motion.
 
 import "core/cell.oo";
+import "core/grid.oo";
+import "core/imath.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_synthgrid(g: CellGrid, tick: Int) -> CellGrid {

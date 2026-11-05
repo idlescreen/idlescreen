@@ -1,11 +1,11 @@
-// # Terminal Cell and CellGrid - Glyph Grid Primitives and LCG RNG
+// # Terminal Cell - Glyph Cell Value Type and Packed RGB
 //
-// Logline: Terminal cell definitions, the cols x rows glyph grid value type, and the deterministic LCG pseudo-random generator.
-// Setup: Pure data and arithmetic. Operates with zero ambient authority.
+// Logline: Terminal cell definition, cell equality, and 8-bit RGB channel packing and accessors.
+// Setup: Pure data and arithmetic. Operates with zero ambient authority. CellGrid lives in core/grid.oo, LcgRng in core/lcg.oo.
 // Beats:
 //   1. Pack 8-bit RGB channels into one Int and expose channel accessors.
-//   2. Hold the frame grid as a persistent List of TerminalCell indexed y * cols + x.
-//   3. Advance the LCG state by value so scenes stay pure and deterministic.
+//   2. Construct styled terminal cells for grid writes.
+//   3. Compare cells field-by-field for damage tracking.
 
 pub type TerminalCell = struct {
     ch: String,
@@ -33,67 +33,3 @@ pub fn rgb(r: Int, g: Int, b: Int) -> Int {
 pub fn rgb_r(c: Int) -> Int { return (c >> 16) & 255; }
 pub fn rgb_g(c: Int) -> Int { return (c >> 8) & 255; }
 pub fn rgb_b(c: Int) -> Int { return c & 255; }
-
-pub type CellGrid = struct {
-    cols: Int,
-    rows: Int,
-    cells: List[TerminalCell]
-};
-
-pub fn grid_new(cols: Int, rows: Int, bg: Int) -> CellGrid {
-    let mut cells: List[TerminalCell] = list_new();
-    let blank: TerminalCell = TerminalCell { ch: " ", fg: 16446712, bg: bg, bold: false };
-    let total: Int = if cols * rows > 0 { cols * rows } else { 0 };
-    let mut i: Int = 0;
-    while i < total {
-        cells = list_push(cells, blank);
-        i = i + 1;
-    }
-    return CellGrid { cols: cols, rows: rows, cells: cells };
-}
-
-pub fn grid_len(g: CellGrid) -> Int { return list_len(g.cells); }
-
-pub fn grid_get(g: CellGrid, x: Int, y: Int) -> TerminalCell {
-    let idx: Int = y * g.cols + x;
-    if x < 0 || y < 0 || x >= g.cols || y >= g.rows || idx >= list_len(g.cells) {
-        return cell_default();
-    }
-    return list_get(g.cells, idx);
-}
-
-pub fn grid_set(g: CellGrid, x: Int, y: Int, c: TerminalCell) -> CellGrid {
-    let idx: Int = y * g.cols + x;
-    if x < 0 || y < 0 || x >= g.cols || y >= g.rows || idx >= list_len(g.cells) { return g; }
-    return CellGrid { cols: g.cols, rows: g.rows, cells: list_set(g.cells, idx, c) };
-}
-
-pub type LcgRng = struct {
-    state: Int
-};
-
-pub fn lcg_new(seed: Int) -> LcgRng {
-    return LcgRng { state: seed | 1 };
-}
-
-pub fn lcg_next(r: LcgRng) -> LcgRng {
-    return LcgRng { state: r.state * 6364136223846793005 + 1442695040888963407 };
-}
-
-pub fn lcg_value(r: LcgRng) -> Int { return r.state; }
-
-pub fn lcg_usize(r: LcgRng, max: Int) -> Int {
-    if max <= 0 { return 0; }
-    let v: Int = (r.state >> 32) % max;
-    if v < 0 { return 0 - v; }
-    return v;
-}
-
-pub fn lcg_frac(r: LcgRng) -> Int {
-    let v: Int = (r.state >> 40) & 16777215;
-    return v * 1000 / 16777216;
-}
-
-pub fn lcg_bool(r: LcgRng, prob_x1000: Int) -> Bool {
-    return lcg_usize(r, 1000) < prob_x1000;
-}

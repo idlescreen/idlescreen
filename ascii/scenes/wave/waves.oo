@@ -8,6 +8,8 @@
 //   3. Leave dark water gaps between ridges.
 
 import "core/cell.oo";
+import "core/grid.oo";
+import "core/imath.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_waves(g: CellGrid, tick: Int) -> CellGrid {

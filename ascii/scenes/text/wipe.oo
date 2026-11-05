@@ -8,6 +8,7 @@
 //   3. Decay swept cells through the ramp into black.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_wipe(g: CellGrid, tick: Int) -> CellGrid {

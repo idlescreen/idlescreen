@@ -1,11 +1,8 @@
 // # canvas_cells — ttfx canvas geometry port for parity probes
 //
-// Logline: Replicates build_canvas_cells geometry for the fixed probe
-// configuration (ignore_terminal_dimensions, anchor C, seeded layout).
+// Logline: Replicates build_canvas_cells geometry for the fixed probe configuration (ignore_terminal_dimensions, anchor C, seeded layout).
 //
-// Setup: Pure. cols/rows come from the probe; art is a List[String] of
-// lines. Grid order is row-major: gy 0..rows-1 maps to canvas row
-// (rows - gy); gx 0..cols-1 maps to col (gx + 1).
+// Setup: Pure. cols/rows come from the probe; art is a List[String] of lines. Grid order is row-major: gy 0..rows-1 maps to canvas row (rows - gy); gx 0..cols-1 maps to col (gx + 1).
 //
 // Beats:
 //   1. canvas_info fixes the 1-based canvas bounds ttfx reports.
@@ -13,7 +10,7 @@
 //   3. canvas_cells emits CellGeom for every grid position.
 
 import "grid_cells.oo";
-import "shade_math.oo";
+import "tests/shade_float.oo";
 
 pub type CanvasInfo = struct {
     cols: Int,

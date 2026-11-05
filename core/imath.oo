@@ -1,0 +1,40 @@
+// # Integer Math - Fixed-Point Trig and Distance Helpers
+//
+// Logline: Integer-only sine, cosine, distance, and absolute value used by the scene engine in place of floating-point math.
+// Setup: Pure arithmetic. Zero ambient authority; deterministic across builds.
+// Beats:
+//   1. isin evaluates Bhaskara's parabola on degrees in milli-units (-1000..1000).
+//   2. icos composes isin with a 90 degree phase shift.
+//   3. idist takes integer euclidean distance by Newton iteration, iabs mirrors sign.
+
+pub fn isin(d0: Int) -> Int {
+    let mut d: Int = d0 % 360;
+    if d < 0 { d = d + 360; }
+    let mut sign: Int = 1;
+    let mut x: Int = d;
+    if x > 180 { x = 360 - x; }
+    if d > 180 { sign = 0 - 1; }
+    let n: Int = x * (180 - x);
+    return sign * (4 * n * 1000) / (40500 - n);
+}
+
+pub fn icos(d: Int) -> Int { return isin(d + 90); }
+
+pub fn idist(dx: Int, dy: Int) -> Int {
+    let mut n: Int = dx * dx + dy * dy;
+    if n <= 0 { return 0; }
+    let mut x: Int = if n > 4 { n / 2 } else { n };
+    let mut i: Int = 0;
+    while i < 24 {
+        let nx: Int = (x + n / x) / 2;
+        if nx >= x { i = 40; }
+        x = nx;
+        i = i + 1;
+    }
+    return x;
+}
+
+pub fn iabs(v: Int) -> Int {
+    if v < 0 { return 0 - v; }
+    return v;
+}

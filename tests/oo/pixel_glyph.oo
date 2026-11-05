@@ -1,7 +1,6 @@
 // # pixel_glyph — 16-bit block glyph quantization
 //
-// Logline: Bit-exact port of pixel_art_glyph: emitted scene symbols map to
-// deterministic Unicode block glyphs by character class and cell hash.
+// Logline: Bit-exact port of pixel_art_glyph: emitted scene symbols map to deterministic Unicode block glyphs by character class and cell hash.
 //
 // Setup: Pure functions over packed Int ordinals. No caps, no state.
 //

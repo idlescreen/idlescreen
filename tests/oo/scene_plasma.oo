@@ -2,8 +2,7 @@
 //
 // Logline: Bit-exact port of Plasma::next_frame for the parity harness.
 //
-// Setup: Built over canvas_cells geometry + gradient/bevel/shade modules.
-// frame counts 1..=64; frame 64 settles text cells to bevel colors.
+// Setup: Built over canvas_cells geometry + gradient/bevel/shade modules. frame counts 1..=64; frame 64 settles text cells to bevel colors.
 //
 // Beats:
 //   1. plasma_new builds the 51-step palette and 3-stop final spectrum.
@@ -14,7 +13,7 @@ import "canvas_cells.oo";
 import "grid_cells.oo";
 import "gradient_spectrum.oo";
 import "bevel_band.oo";
-import "shade_math.oo";
+import "tests/shade_float.oo";
 import "pixel_glyph.oo";
 
 pub type Plasma = struct {

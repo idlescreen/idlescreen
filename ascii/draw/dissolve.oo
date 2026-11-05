@@ -7,7 +7,7 @@
 //   2. Reveal destination cells whose order key is below the progress fraction.
 //   3. Report progress as a 0..100 percentage for the engine.
 
-import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn dissolve_step(from: CellGrid, to: CellGrid, pct: Int) -> CellGrid {

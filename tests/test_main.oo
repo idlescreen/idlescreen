@@ -8,6 +8,7 @@
 //   3. Probe the DPMS debounce, inhibitor registry, and control dispatch.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "raster/blit.oo";
 import "raster/damage.oo";
 import "ascii/effects.oo";

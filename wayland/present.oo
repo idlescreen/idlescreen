@@ -7,7 +7,7 @@
 //   2. Flip the double-buffer slot and report the damage rectangle.
 //   3. Serialise the frame to ANSI for the TTY fallback path.
 
-import "core/cell.oo";
+import "core/grid.oo";
 import "raster/blit.oo";
 import "raster/damage.oo";
 import "ascii/draw/ansi.oo";

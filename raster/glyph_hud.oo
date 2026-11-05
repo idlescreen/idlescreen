@@ -8,7 +8,7 @@
 //   3. Stamp the centred scene HUD badge on the bottom grid row.
 
 import "core/cell.oo";
-import "glyph_style.oo";
+import "core/grid.oo";
 
 fn hud_bits(ch: String) -> String {
     if ch == "0" { return "0011110001100110011011100111011001100110011001100011110000000000"; }

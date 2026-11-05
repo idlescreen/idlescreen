@@ -8,9 +8,6 @@
 //   3. Exit 0 on clean shutdown, 1 on bind failure.
 
 import "std/core/primitives/str.oo";
-import "state.oo";
-import "inhibit.oo";
-import "control.oo";
 import "config.oo";
 import "reactor.oo";
 

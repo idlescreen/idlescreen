@@ -1,0 +1,44 @@
+// # CellGrid - Cols x Rows Glyph Grid Value Type
+//
+// Logline: Persistent frame grid of TerminalCell values indexed y * cols + x.
+// Setup: Pure data and arithmetic. Imports cell.oo for TerminalCell.
+// Beats:
+//   1. grid_new pre-allocates a blank grid of cols * rows cells.
+//   2. grid_get returns cell_default for out-of-bounds reads.
+//   3. grid_set returns a new grid with one cell replaced.
+
+import "core/cell.oo";
+
+pub type CellGrid = struct {
+    cols: Int,
+    rows: Int,
+    cells: List[TerminalCell]
+};
+
+pub fn grid_new(cols: Int, rows: Int, bg: Int) -> CellGrid {
+    let mut cells: List[TerminalCell] = list_new();
+    let blank: TerminalCell = TerminalCell { ch: " ", fg: 16446712, bg: bg, bold: false };
+    let total: Int = if cols * rows > 0 { cols * rows } else { 0 };
+    let mut i: Int = 0;
+    while i < total {
+        cells = list_push(cells, blank);
+        i = i + 1;
+    }
+    return CellGrid { cols: cols, rows: rows, cells: cells };
+}
+
+pub fn grid_len(g: CellGrid) -> Int { return list_len(g.cells); }
+
+pub fn grid_get(g: CellGrid, x: Int, y: Int) -> TerminalCell {
+    let idx: Int = y * g.cols + x;
+    if x < 0 || y < 0 || x >= g.cols || y >= g.rows || idx >= list_len(g.cells) {
+        return cell_default();
+    }
+    return list_get(g.cells, idx);
+}
+
+pub fn grid_set(g: CellGrid, x: Int, y: Int, c: TerminalCell) -> CellGrid {
+    let idx: Int = y * g.cols + x;
+    if x < 0 || y < 0 || x >= g.cols || y >= g.rows || idx >= list_len(g.cells) { return g; }
+    return CellGrid { cols: g.cols, rows: g.rows, cells: list_set(g.cells, idx, c) };
+}

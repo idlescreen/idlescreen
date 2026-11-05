@@ -8,6 +8,8 @@
 //   3. Shade by orbit radius for depth.
 
 import "core/cell.oo";
+import "core/grid.oo";
+import "core/imath.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_swarm(g: CellGrid, tick: Int) -> CellGrid {

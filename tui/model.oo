@@ -7,7 +7,6 @@
 //   2. Clamp cursor movement to the roster bounds.
 //   3. Report the selected scene index for the preview pane.
 
-import "ascii/effects.oo";
 
 pub type TuiModel = struct {
     cursor: Int,

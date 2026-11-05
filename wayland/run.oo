@@ -7,15 +7,11 @@
 //   2. Configure the overlay layer surface and register the idle notification.
 //   3. Loop frames with DPMS wake checks and bounded sleep between presents.
 
-import "core/cell.oo";
 import "ascii/engine.oo";
-import "ascii/effects.oo";
 import "protocol.oo";
 import "layer_shell.oo";
 import "idle_notify.oo";
 import "dpms.oo";
-import "shm_pool.oo";
-import "present.oo";
 
 pub type PresenterCtl = struct {
     layer: LayerShell,

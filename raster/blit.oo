@@ -8,8 +8,8 @@
 //   3. Stamp foreground where the mask is set, otherwise preserve background.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "glyph_font.oo";
-import "glyph_style.oo";
 
 pub fn pack_argb8888(a: Int, r: Int, g: Int, b: Int) -> Int {
     return ((a & 255) << 24) | ((r & 255) << 16) | ((g & 255) << 8) | (b & 255);

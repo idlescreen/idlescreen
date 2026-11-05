@@ -8,6 +8,7 @@
 //   3. Reset attributes and advance lines between rows.
 
 import "core/cell.oo";
+import "core/grid.oo";
 
 fn sgr_fg(c: Int, bold: Bool) -> String {
     let mut s: String = "\x1b[38;2;" + rgb_r(c).to_string() + ";" + rgb_g(c).to_string() + ";" + rgb_b(c).to_string();

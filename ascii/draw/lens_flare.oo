@@ -8,6 +8,7 @@
 //   3. Ghost three faint halos at fixed offsets along the sweep.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn lens_flare(g: CellGrid, tick: Int, gain: Int) -> CellGrid {

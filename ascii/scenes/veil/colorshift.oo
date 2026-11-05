@@ -7,7 +7,7 @@
 //   2. Offset each cell's hue by its column for a diagonal gradient.
 //   3. Fill with half-block cells so colour dominates glyph.
 
-import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_colorshift(g: CellGrid, tick: Int) -> CellGrid {

@@ -8,6 +8,7 @@
 //   3. Edge each band with a thin separator rule.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_slide(g: CellGrid, tick: Int) -> CellGrid {

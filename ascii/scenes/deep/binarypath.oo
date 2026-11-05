@@ -8,6 +8,7 @@
 //   3. Draw the lattice skeleton faintly underneath.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_binarypath(g: CellGrid, tick: Int) -> CellGrid {

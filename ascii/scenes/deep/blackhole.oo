@@ -8,6 +8,8 @@
 //   3. Rim the photon sphere with a bright lensed band.
 
 import "core/cell.oo";
+import "core/grid.oo";
+import "core/imath.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_blackhole(g: CellGrid, tick: Int) -> CellGrid {

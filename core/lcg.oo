@@ -1,0 +1,38 @@
+// # LcgRng - Deterministic LCG Pseudo-Random Generator
+//
+// Logline: Knuth MMIX linear congruential generator carried by value.
+// Setup: Pure arithmetic. Zero ambient authority; scenes stay deterministic.
+// Beats:
+//   1. lcg_new seeds the state, forcing odd parity.
+//   2. lcg_next advances state by the MMIX multiplier and increment.
+//   3. lcg_usize, lcg_frac, and lcg_bool project bounded draws.
+
+pub type LcgRng = struct {
+    state: Int
+};
+
+pub fn lcg_new(seed: Int) -> LcgRng {
+    return LcgRng { state: seed | 1 };
+}
+
+pub fn lcg_next(r: LcgRng) -> LcgRng {
+    return LcgRng { state: r.state * 6364136223846793005 + 1442695040888963407 };
+}
+
+pub fn lcg_value(r: LcgRng) -> Int { return r.state; }
+
+pub fn lcg_usize(r: LcgRng, max: Int) -> Int {
+    if max <= 0 { return 0; }
+    let v: Int = (r.state >> 32) % max;
+    if v < 0 { return 0 - v; }
+    return v;
+}
+
+pub fn lcg_frac(r: LcgRng) -> Int {
+    let v: Int = (r.state >> 40) & 16777215;
+    return v * 1000 / 16777216;
+}
+
+pub fn lcg_bool(r: LcgRng, prob_x1000: Int) -> Bool {
+    return lcg_usize(r, 1000) < prob_x1000;
+}

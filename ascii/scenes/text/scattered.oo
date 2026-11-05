@@ -8,6 +8,7 @@
 //   3. Brighten letters as they settle home.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_scattered(g: CellGrid, tick: Int) -> CellGrid {

@@ -1,10 +1,8 @@
 // # grid_cells — painted-cell records and serialization for parity
 //
-// Logline: TerminalCell-equivalent records serialized byte-identically to
-// the Rust scene_digest probe (ord,r,g,b,br,bg,bb,bold per cell).
+// Logline: TerminalCell-equivalent records serialized byte-identically to the Rust scene_digest probe (ord,r,g,b,br,bg,bb,bold per cell).
 //
-// Setup: Pure value types. Grid order is row-major over the digest grid:
-// grid row gy maps to canvas row (rows - gy), grid col gx to col (gx + 1).
+// Setup: Pure value types. Grid order is row-major over the digest grid: grid row gy maps to canvas row (rows - gy), grid col gx to col (gx + 1).
 //
 // Beats:
 //   1. paint_cell_default yields the untouched ' ' cell.

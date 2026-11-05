@@ -8,6 +8,8 @@
 //   3. Draw the live laser point as a white-hot head.
 
 import "core/cell.oo";
+import "core/grid.oo";
+import "core/imath.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_laseretch(g: CellGrid, tick: Int) -> CellGrid {

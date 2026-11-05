@@ -1,17 +1,15 @@
 // # gradient_spectrum — ttfx Gradient spectrum port
 //
-// Logline: Bit-exact port of Gradient::new spectrum generation and
-// get_color_at_fraction indexing used by the math scenes.
+// Logline: Bit-exact port of Gradient::new spectrum generation and get_color_at_fraction indexing used by the math scenes.
 //
-// Setup: Pure. Colors are packed 0xRRGGBB Ints. steps_per_segment mirrors
-// the upstream scalar-steps call shape (steps_was_int = true).
+// Setup: Pure. Colors are packed 0xRRGGBB Ints. steps_per_segment mirrors the upstream scalar-steps call shape (steps_was_int = true).
 //
 // Beats:
 //   1. floor_div_i reproduces Python floor division for i64 deltas.
 //   2. spectrum_build emits the same color list as Gradient::new.
 //   3. color_at_fraction and sample_palette index identically.
 
-import "shade_math.oo";
+import "tests/shade_float.oo";
 
 fn floor_div_i(a: Int, b: Int) -> Int {
     let q: Int = a / b;

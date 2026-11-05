@@ -8,6 +8,7 @@
 //   3. Leave quiet rows on a faint static texture.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_unstable(g: CellGrid, tick: Int) -> CellGrid {

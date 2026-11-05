@@ -8,6 +8,7 @@
 //   3. Show the block cursor at the print head.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_print(g: CellGrid, tick: Int) -> CellGrid {

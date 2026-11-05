@@ -8,6 +8,7 @@
 //   3. Colour live cells by cluster age bands.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_life(g: CellGrid, tick: Int) -> CellGrid {

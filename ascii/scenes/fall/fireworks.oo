@@ -8,6 +8,8 @@
 //   3. Fan sparks radially after detonation, fading with age.
 
 import "core/cell.oo";
+import "core/grid.oo";
+import "core/imath.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_fireworks(g: CellGrid, tick: Int) -> CellGrid {

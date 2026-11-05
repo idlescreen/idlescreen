@@ -8,6 +8,7 @@
 //   3. Overlay the lighter bevel on pixels that sit on a letter's top edge.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 import "fonts.oo";
 import "wordmark.oo";

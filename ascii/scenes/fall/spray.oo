@@ -8,6 +8,7 @@
 //   3. Tint fresh spray white fading to mist grey.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_spray(g: CellGrid, tick: Int) -> CellGrid {

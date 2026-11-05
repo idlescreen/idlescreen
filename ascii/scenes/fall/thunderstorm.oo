@@ -8,6 +8,7 @@
 //   3. Flash the whole field white on the strike tick.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_thunderstorm(g: CellGrid, tick: Int) -> CellGrid {

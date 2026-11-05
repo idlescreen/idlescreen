@@ -8,6 +8,7 @@
 //   3. Cool the trailing rings through amber to ember red.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_expand(g: CellGrid, tick: Int) -> CellGrid {

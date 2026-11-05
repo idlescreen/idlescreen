@@ -1,10 +1,8 @@
 // # bevel_band — 16-bit SNES banner bevel color port
 //
-// Logline: Bit-exact port of banner_bevel_color + theme_bevel_band for the
-// pinned parity theme (IDLE_THEME_ACCENT=5196DA -> accent (81,150,218)).
+// Logline: Bit-exact port of banner_bevel_color + theme_bevel_band for the pinned parity theme (IDLE_THEME_ACCENT=5196DA -> accent (81,150,218)).
 //
-// Setup: Pure. Returns packed 0xRRGGBB. accent is passed in so the module
-// stays free of env authority; callers pin the probe theme.
+// Setup: Pure. Returns packed 0xRRGGBB. accent is passed in so the module stays free of env authority; callers pin the probe theme.
 //
 // Beats:
 //   1. super_rows selects the gold band only for stacked banners.

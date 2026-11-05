@@ -8,6 +8,8 @@
 //   3. Alternate gold and steel ring palettes per band.
 
 import "core/cell.oo";
+import "core/grid.oo";
+import "core/imath.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_rings(g: CellGrid, tick: Int) -> CellGrid {

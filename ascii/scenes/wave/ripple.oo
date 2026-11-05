@@ -8,6 +8,8 @@
 //   3. Tint wavefronts teal and troughs deep navy.
 
 import "core/cell.oo";
+import "core/grid.oo";
+import "core/imath.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_ripple(g: CellGrid, tick: Int) -> CellGrid {

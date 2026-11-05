@@ -8,6 +8,7 @@
 //   3. Centre a giant pulsing ZERO glyph cluster.
 
 import "core/cell.oo";
+import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_zero(g: CellGrid, tick: Int) -> CellGrid {
