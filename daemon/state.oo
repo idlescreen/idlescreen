@@ -37,5 +37,6 @@ pub fn daemon_state_with_saver(d: DaemonState, saver_name: String) -> DaemonStat
 
 pub fn daemon_status_line(d: DaemonState, prog: String) -> String {
     let st: String = if !d.running { "stopped" } else if d.saver_on { "saver-on" } else if d.idle { "idle" } else { "armed" };
-    return prog + " " + st + " saver=" + d.saver_name + " scene=" + d.scene_idx.to_string() + " timeout=" + d.timeout_s.to_string() + "s inhibitors=" + d.inhibitors.to_string();
+    let live: String = if d.running { "active" } else { "inactive" };
+    return prog + " " + live + " " + st + " saver=" + d.saver_name + " scene=" + d.scene_idx.to_string() + " timeout=" + d.timeout_s.to_string() + "s inhibitors=" + d.inhibitors.to_string();
 }
