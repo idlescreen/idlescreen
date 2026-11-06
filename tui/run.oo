@@ -14,6 +14,7 @@ import "daemon/config_file.oo";
 import "daemon/config.oo";
 import "daemon/run.oo";
 import "cli/saver_cmds.oo";
+import "core/shell.oo";
 import "std/fs/process/process.oo";
 
 fn tui_link_probe() -> Int {
@@ -74,7 +75,7 @@ fn tui_save_model(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, m: TuiModel) ->
     return "Settings saved to config.toml";
 }
 
-fn tui_preview_run(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, m: TuiModel) -> TuiModel {
+fn tui_preview_run(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, ar: &ArenaCap, m: TuiModel) -> TuiModel {
     let mut cur: TuiModel = m;
     let _ = oo_tui_show_cursor(ffi, 1);
     let _ = oo_tui_alt_screen_leave(ffi);
@@ -86,7 +87,7 @@ fn tui_preview_run(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap
     pargs = list_push(pargs, wm);
     pargs = list_push(pargs, "--timeout");
     pargs = list_push(pargs, "10");
-    let _ = cmd_preview(proc, env, ffi, time, pargs);
+    let _ = cmd_preview(proc, env, ffi, time, ar, pargs);
     let _ = oo_tui_enable_raw(ffi, "");
     let _ = oo_tui_alt_screen_enter(ffi);
     let _ = oo_tui_show_cursor(ffi, 0);
@@ -94,7 +95,7 @@ fn tui_preview_run(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap
     return cur;
 }
 
-fn tui_apply_action(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, tcp: &TcpCap, m: TuiModel, b: Int, act: String) -> TuiModel {
+fn tui_apply_action(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, tcp: &TcpCap, ar: &ArenaCap, m: TuiModel, b: Int, act: String) -> TuiModel {
     let mut cur: TuiModel = m;
     if m.editing_text {
         return tui_apply_text(m, b, act);
@@ -113,7 +114,7 @@ fn tui_apply_action(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCa
         if msg != "" { cur.dirty = false; cur.status_msg = msg; }
         else { cur.status_msg = "Error: Failed to save config.toml"; }
     } else if act == "preview" || act == "fullscreen" || (act == "enter" && (cur.focused == 9 || cur.focused == 10)) {
-        cur = tui_preview_run(proc, env, ffi, time, cur);
+        cur = tui_preview_run(proc, env, ffi, time, ar, cur);
     } else if act == "toggle_daemon" {
         let _ = ooidle_query(tcp, env, "idlescreen", "toggle");
         let active_now: Bool = tui_probe_daemon(tcp);
@@ -129,7 +130,7 @@ fn tui_apply_action(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCa
     return cur;
 }
 
-pub fn tui_run(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, tcp: &TcpCap) -> Int {
+pub fn tui_run(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, tcp: &TcpCap, ar: &ArenaCap) -> Int {
     let dims: String = match oo_tui_get_size(ffi) { Ok(s) => s, Err(_) => "24:80" };
     let colon: Int = str_index_of(dims, ":");
     let mut rows: Int = 24;
@@ -149,9 +150,12 @@ pub fn tui_run(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, tc
     let is_up: Bool = tui_probe_daemon(tcp);
     m.daemon_active = is_up;
     m.inhibitor_desc = if is_up { tui_query_inhibitors(tcp) } else { "None (Daemon Inactive)" };
+    let aid: Int = frame_arena_open(ar);
     let mut tick: Int = 0;
     while m.running {
+        let _e: Int = frame_arena_enter(ar, aid);
         let _ = oo_tui_write(ffi, tui_frame(m, tick));
+        let _l: Int = frame_arena_leave(ar, aid);
         let s: String = match oo_tui_read_byte_timeout(ffi, "", 50) { Ok(v) => v, Err(_) => "" };
         let mut b: Int = input_byte_of(s);
         let mut act: String = input_action(b);
@@ -160,9 +164,10 @@ pub fn tui_run(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, tc
             let s3: String = if s2 == "[" { match oo_tui_read_byte_timeout(ffi, "", 10) { Ok(v) => v, Err(_) => "" } } else { "" };
             if s3 != "" { act = input_arrow_action(input_byte_of(s3)); b = -1; }
         }
-        m = tui_apply_action(proc, env, ffi, time, tcp, m, b, act);
+        m = tui_apply_action(proc, env, ffi, time, tcp, ar, m, b, act);
         tick = tick + 1;
     }
+    let _c: Int = frame_arena_close(ar, aid);
     let _ = oo_tui_show_cursor(ffi, 1);
     let _ = oo_tui_alt_screen_leave(ffi);
     let _ = oo_tui_disable_raw(ffi, "");

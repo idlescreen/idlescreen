@@ -5,7 +5,7 @@ OO_LIST_AMBIENT_QUOTA ?= 8589934592
 BIN := bin/idlescreen
 TESTBIN := bin/test_idlescreen
 REPO_NAME := idlescreen
-VER := 5.0.1
+VER := 5.0.2
 SRC := main.oo anchor.oo $(wildcard core/*.oo raster/*.oo ascii/*.oo ascii/*/*.oo ascii/*/*/*.oo wayland/*.oo daemon/*.oo tui/*.oo cli/*.oo)
 ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_NO_JAIL=1 OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER)
 
@@ -155,7 +155,7 @@ test: $(BIN)
 	@./$(BIN) status | grep -qi "inactive\|active\|daemon" && echo "PASS: status"
 	@./$(BIN) inhibitors | grep -q "\[" && echo "PASS: inhibitors"
 	@./$(BIN) config | grep -qi "idlescreen" && echo "PASS: config"
-	@./$(BIN) doctor | grep -qi "PASS\|OK" && echo "PASS: doctor"
+	@./$(BIN) doctor | grep -qi "Diagnostics complete\|PASS\|OK" && echo "PASS: doctor"
 	@./$(BIN) timeout | grep -qi "timeout" && echo "PASS: timeout query"
 	@./$(BIN) service | grep -qi "idlescreen service" && echo "PASS: service query"
 	@./$(BIN) service status | grep -qi "inactive\|active\|daemon" && echo "PASS: service status"

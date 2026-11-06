@@ -13,6 +13,33 @@ import "daemon/run.oo";
 import "daemon/config.oo";
 import "daemon/config_file.oo";
 import "daemon/reactor.oo";
+import "ascii/effects.oo";
+
+fn saver_canonical(name: String) -> String {
+    if name == "ascii" || name == "superfedora" { return name; }
+    if name == "tour" || name == "new" { return "tour"; }
+    if effects_index(name) >= 0 { return name; }
+    return "";
+}
+
+pub fn cmd_set(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, args: List[String]) -> Int {
+    let raw: String = if list_len(args) > 0 { str_trim(list_get(args, 0)) } else { "" };
+    if raw == "" { println("usage: idlescreen set <saver_name>"); return 1; }
+    let canonical: String = saver_canonical(to_lowercase(raw));
+    if canonical == "" { println("unknown screensaver: " + raw); return 1; }
+    let cfg: ConfigData = config_read_file(proc, env);
+    let next: ConfigData = config_with(cfg, canonical, cfg.idle_timeout_secs);
+    if !config_write_file(proc, env, next) {
+        println("error: refusing to overwrite an unreadable config.toml — fix or remove it to continue");
+        return 1;
+    }
+    if ooidle_notify(tcp, env, "idlescreen", "set " + canonical) {
+        println("Active screensaver set to '" + canonical + "' (via control socket)");
+        return 0;
+    }
+    println("Active screensaver set to '" + canonical + "' (saved to config)");
+    return 0;
+}
 
 pub fn cmd_daemon(proc: &ProcessCap, bind: &BindCap, tcp: &TcpCap, fs: &FsCap, fw: &FsWriteCap, env: &EnvCap) -> Int {
     return daemon_reactor(proc, bind, tcp, fs, fw, env, "idlescreen");
@@ -55,13 +82,5 @@ pub fn cmd_config(proc: &ProcessCap, env: &EnvCap) -> Int {
     if body == "" { println("(No active config.toml on disk; using defaults)"); }
     else { print(body); }
     println(daemon_config_summary(proc, env, "idlescreen"));
-    return 0;
-}
-
-pub fn cmd_doctor(env: &EnvCap) -> Int {
-    println("doctor: idlescreen 5.0.1 environment check");
-    println("PASS caps declared (Process FsRead FsWrite Fs Bind Tcp Env Time Rand Ffi Alloc)");
-    println("PASS control endpoint resolved: " + daemon_ctl_endpoint("idlescreen"));
-    println("OK doctor: 2 checks green");
     return 0;
 }

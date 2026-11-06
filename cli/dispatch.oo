@@ -9,14 +9,14 @@
 
 import "help.oo";
 import "saver_cmds.oo";
-import "set.oo";
 import "daemon_cmds.oo";
 import "service_cmds.oo";
+import "doctor.oo";
 import "daemon/run.oo";
 import "tui/run.oo";
 
 fn cli_self_test() -> Int {
-    println("self-test: idlescreen 5.0.1");
+    println("self-test: idlescreen 5.0.2");
     println("PASS scene roster (53)");
     println("PASS wordmark presets (4)");
     println("PASS caps default-deny surface");
@@ -24,13 +24,13 @@ fn cli_self_test() -> Int {
     return 0;
 }
 
-fn dispatch_service_ctl(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, ffi: &FfiCap, time: &TimeCap, verb: String, rest: List[String]) -> Int {
+fn dispatch_service_ctl(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, ffi: &FfiCap, time: &TimeCap, ar: &ArenaCap, verb: String, rest: List[String]) -> Int {
     if verb == "start" {
         if ooidle_notify(tcp, env, "idlescreen", "start") {
             println("Daemon response: Activated screensaver");
             return 0;
         }
-        return cmd_preview(proc, env, ffi, time, rest);
+        return cmd_preview(proc, env, ffi, time, ar, rest);
     }
     if verb == "stop" || verb == "sleep" || verb == "quit" {
         return cmd_saver_ctl(tcp, env, verb);
@@ -55,7 +55,7 @@ fn dispatch_service_ctl(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, ffi: &Ffi
     return 1;
 }
 
-pub fn idlescreen_cli_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, bind: &BindCap, tcp: &TcpCap, env: &EnvCap, proc: &ProcessCap, time: &TimeCap, rand: &RandCap, ffi: &FfiCap, args: List[String]) -> Int {
+pub fn idlescreen_cli_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, bind: &BindCap, tcp: &TcpCap, env: &EnvCap, proc: &ProcessCap, time: &TimeCap, rand: &RandCap, ffi: &FfiCap, ar: &ArenaCap, args: List[String]) -> Int {
     if list_len(args) == 0 { return cli_help("idlescreen"); }
     let verb: String = to_lowercase(str_trim(list_get(args, 0)));
     let mut rest: List[String] = list_new();
@@ -67,14 +67,14 @@ pub fn idlescreen_cli_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, bind:
     if verb == "--json" { return cli_json("idlescreen"); }
     if verb == "list" { return cmd_list(rest); }
     if verb == "text" { return cmd_text(proc, env, ffi, rest); }
-    if verb == "preview" { return cmd_preview(proc, env, ffi, time, rest); }
+    if verb == "preview" { return cmd_preview(proc, env, ffi, time, ar, rest); }
     if verb == "set" { return cmd_set(proc, env, tcp, rest); }
-    if verb == "tui" || verb == "ui" { return tui_run(proc, env, ffi, time, tcp); }
+    if verb == "tui" || verb == "ui" { return tui_run(proc, env, ffi, time, tcp, ar); }
     if verb == "daemon" { return cmd_daemon(proc, bind, tcp, fs, fs_w, env); }
     if verb == "status" { return cmd_status(tcp, env); }
     if verb == "inhibitors" { return cmd_inhibitors(tcp, env); }
     if verb == "timeout" { return cmd_timeout(proc, env, tcp, rest); }
     if verb == "config" { return cmd_config(proc, env); }
-    if verb == "doctor" { return cmd_doctor(env); }
-    return dispatch_service_ctl(proc, env, tcp, ffi, time, verb, rest);
+    if verb == "doctor" { return cmd_doctor(proc, env, tcp, rest); }
+    return dispatch_service_ctl(proc, env, tcp, ffi, time, ar, verb, rest);
 }

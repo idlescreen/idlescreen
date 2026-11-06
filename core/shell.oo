@@ -22,3 +22,32 @@ pub fn shell_out(proc: &ProcessCap, cmd: String) -> String {
     if res.is_err() { return ""; }
     return str_trim(match res { Ok(v) => v, Err(_) => "" });
 }
+
+pub fn frame_arena_open(ar: &ArenaCap) -> Int {
+    let res: Result[String, String] = arena_create(ar, 67108864);
+    if res.is_err() { return -1; }
+    let s: String = match res { Ok(v) => v, Err(_) => "" };
+    if str_starts_with(s, "arena:") {
+        return parse_int_digits(str_slice(s, 6, chars_len(s)));
+    }
+    return parse_int_digits(s);
+}
+
+pub fn frame_arena_enter(ar: &ArenaCap, id: Int) -> Int {
+    if id < 0 { return 0; }
+    let _: Result[String, String] = arena_alloc(ar, id, 0);
+    return 0;
+}
+
+pub fn frame_arena_leave(ar: &ArenaCap, id: Int) -> Int {
+    if id < 0 { return 0; }
+    let _: Result[String, String] = arena_alloc(ar, 0, -1);
+    let _: Result[String, String] = arena_reset(ar, id);
+    return 0;
+}
+
+pub fn frame_arena_close(ar: &ArenaCap, id: Int) -> Int {
+    if id < 0 { return 0; }
+    let _: Result[String, String] = arena_destroy(ar, id);
+    return 0;
+}

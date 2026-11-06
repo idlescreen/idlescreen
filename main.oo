@@ -1,7 +1,7 @@
 // # idlescreen Multi-Call Entrypoint
 //
 // Logline: Multi-call entrypoint that resolves the invoked persona from argv[0] or --persona and dispatches to it.
-// Setup: Declared capabilities: Process, FsRead, FsWrite, Fs, Bind, Tcp, Env, Time, Rand, Ffi, Alloc. sys_argv0 under ProcessCap authorises the persona probe; Alloc lifts the ambient List ceiling by a bounded 8 GiB for the animation hot path; the persona owns the rest.
+// Setup: Declared capabilities: Process, FsRead, FsWrite, Fs, Bind, Tcp, Env, Time, Rand, Ffi, Alloc, Arena. sys_argv0 under ProcessCap authorises the persona probe; Alloc and Arena bound per-frame animation allocations; the persona owns the rest.
 // Beats:
 //   1. Read the invoked program basename under ProcessCap and resolve the persona with the dispatch table.
 //   2. Fail closed on an unknown persona selector.
@@ -31,11 +31,8 @@ pub fn main(
     fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap,
     bind: &BindCap, tcp: &TcpCap, env: &EnvCap,
     proc: &ProcessCap, time: &TimeCap, rand: &RandCap,
-    ffi: &FfiCap, alloc: &AllocCap, args: List[String]
+    ffi: &FfiCap, alloc: &AllocCap, ar: &ArenaCap, args: List[String]
 ) -> Result[Int, String] {
-    // Raise the ambient List quota by 8 GiB (8 x 1 GiB) for zero-env 60-144 FPS animation on constrained hosts.
-    // The raise is bounded: an unbounded loop here would lift the ceiling past the
-    // "ambient memory quota exceeded" guard and disable the memory bound for the whole process.
     let mut qi: Int = 0;
     while qi < 8 {
         let _q: Int = alloc_bytes(alloc, 1073741824);
@@ -56,5 +53,5 @@ pub fn main(
     if persona == "ooidle" {
         return Ok(ooidle_persona_run(fs_r, fs_w, fs, proc, bind, tcp, env, time, rand, args2));
     }
-    return Ok(idlescreen_cli_run(fs_r, fs_w, fs, bind, tcp, env, proc, time, rand, ffi, args2));
+    return Ok(idlescreen_cli_run(fs_r, fs_w, fs, bind, tcp, env, proc, time, rand, ffi, ar, args2));
 }
