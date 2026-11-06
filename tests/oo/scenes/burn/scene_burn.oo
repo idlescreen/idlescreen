@@ -29,7 +29,7 @@ import "tests/oo/engine/easing_fns.oo";
 import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
-import "tests/oo/scenes/burn/bn_parts.oo";
+import "tests/oo/scenes/burn/bn_state.oo";
 import "tests/oo/scenes/burn/bn_smoke.oo";
 import "tests/digest_run.oo";
 

@@ -178,7 +178,7 @@ fn doctor_print_json(r: DoctorReport) -> Int {
 fn doctor_fix(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap) -> Int {
     println("=== IdleScreen Doctor Repair (--fix) ===\n");
     let cfg: ConfigData = config_read_file(proc, env);
-    let _ = config_write_file(proc, env, cfg);
+    let _ = config_save(proc, env, cfg);
     let path: String = config_dir(proc, env) + "/config.toml";
     println("  [✓] Configuration   : Verified and persisted " + path);
     let xdg0: String = host_env(proc, env, "XDG_RUNTIME_DIR");

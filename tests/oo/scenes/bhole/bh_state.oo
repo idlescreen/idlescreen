@@ -1,4 +1,4 @@
-// # bh_parts — blackhole state, tables, and the ring-pick helpers
+// # bh_state — blackhole state, tables, and the ring-pick helpers
 //
 // Logline: Shared types, config tables, and pure helpers for the
 // Blackhole port: the Bh phase state record, the star/unstable/star-color
