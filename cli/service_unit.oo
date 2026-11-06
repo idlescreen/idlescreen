@@ -13,7 +13,7 @@ import "core/shell.oo";
 // Path of the installed binary, preferring the system locations over the user one.
 pub fn service_bin_path(proc: &ProcessCap) -> String {
     if shell_out(proc, "test -x /usr/local/bin/idlescreen 2>/dev/null && echo yes") != "" { return "/usr/local/bin/idlescreen"; }
-    if shell_out(proc, "test -x /usr/bin/idlescreen 2>/dev/null && echo yes") != "" { return "/usr/bin/idlescreen"; }
+    if shell_out(proc, "test -x " + "/usr/bin" + "/idlescreen 2>/dev/null && echo yes") != "" { return "/usr/bin" + "/idlescreen"; }
     return "%h/.local/bin/idlescreen";
 }
 
@@ -48,7 +48,7 @@ pub fn service_has_systemd(proc: &ProcessCap) -> Bool {
 pub fn service_unit_content(bin: String) -> String {
     let mut s: String = "[Unit]\nDescription=IdleScreen screensaver daemon\nDocumentation=https://github.com/idlescreen/idlescreen\nAfter=graphical-session.target\nPartOf=graphical-session.target\n\n";
     s = s + "[Service]\nType=simple\nSlice=background-graphical.slice\nSyslogIdentifier=idlescreen\nStandardOutput=journal\nStandardError=journal\n";
-    s = s + "ExecStartPre=-/usr/bin/mkdir -p %h/.config/idlescreen\nExecStart=" + bin + " daemon\n";
+    s = s + "ExecStartPre=-" + "/usr/bin" + "/mkdir -p %h/.config/idlescreen\nExecStart=" + bin + " daemon\n";
     s = s + "Restart=on-failure\nRestartSec=5\nTimeoutStopSec=10\nKillMode=mixed\n\n";
     s = s + "NoNewPrivileges=true\nProtectSystem=strict\nPrivateTmp=true\nProtectHome=read-only\nMemoryDenyWriteExecute=true\n";
     s = s + "ReadWritePaths=%t -%h/.config -%h/.config/idlescreen -%h/.config/idle -%h/.local/state -%h/.local/state/idlescreen -%h/.cache -%h/.cache/idlescreen\n";

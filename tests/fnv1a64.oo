@@ -1,11 +1,14 @@
 // # fnv1a64 — 64-bit FNV-1a digest for cell grids
 //
 // Logline: Bit-exact port of the Rust scene_digest FNV-1a-64 pipeline.
-// Setup: Pure arithmetic on wrapping Int (i64). No caps, no IO.
+// Setup: Pure arithmetic on wrapping Int (i64) plus the canonical PQC round from std/sec/pqc.oo. No caps, no IO.
 // Beats:
 //   1. fnv1a64_update folds one byte into the running hash.
 //   2. fnv1a64_str hashes a whole serialization string.
 //   3. fnv1a64_combine folds a digest's little-endian bytes like Rust.
+//   4. fnv1a64_pqc_seal binds a digest to a verifier nonce through the canonical PQC round.
+
+import "std/sec/pqc.oo";
 
 pub fn fnv1a64_update(h: Int, byte_val: Int) -> Int {
     let b: Int = byte_val & 255;
@@ -56,4 +59,8 @@ pub fn fnv1a64_combine(h: Int, other: Int) -> Int {
         i = i + 1;
     }
     return cur;
+}
+
+pub fn fnv1a64_pqc_seal(h: Int, nonce: Int) -> Int {
+    return oo_pqc_sha3_round(h, nonce);
 }
