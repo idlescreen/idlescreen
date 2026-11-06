@@ -32,7 +32,7 @@ fn scene_render_b(n: String, g: CellGrid, tick: Int) -> CellGrid {
     else if n == "slice" { r = scene_slice(g, tick); }
     else if n == "slide" { r = scene_slide(g, tick); }
     else if n == "smoke" { r = scene_smoke(g, tick); }
-    else if n == "spotlights" { r = scene_spotlights(g, tick); }
+    else if n == "searchlights" { r = scene_searchlights(g, tick); }
     else if n == "spray" { r = scene_spray(g, tick); }
     else if n == "swarm" { r = scene_swarm(g, tick); }
     else if n == "sweep" { r = scene_sweep(g, tick); }
