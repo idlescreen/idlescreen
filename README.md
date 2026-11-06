@@ -26,18 +26,18 @@
 
 </div>
 
-**IdleScreen** (`v4.8.2`) is a high-performance, zero-overhead Wayland screensaver and idle management suite for Linux.
+**IdleScreen** (`v5.0.0`) is a high-performance, capability-secured Wayland & terminal screensaver and idle management suite for Linux and Windows (`PE32+`), built 100% natively in **openOODA (`.oo`)** with zero external runtime dependencies.
 
-- **0.00% CPU at idle & Post-Session Arena Reclamation**: Pure event-driven reactor (`epoll` / `tokio`) sleeping with zero periodic wakeups, a ~2–3 MB resident memory footprint, and automatic post-screensaver heap/arena page reclamation (`release_subcell_overlay` + `malloc_trim`).
-- **Single-Pass 10-Bit HDR Deep Color, Branchless SIMD Blitting & Tight Partial `damage_buffer`**: Negotiates 10-bit per channel HDR `wl_shm` pixel formats (`Argb2101010` / `Xrgb2101010` with seamless fallback to `Argb8888`) and packs `fg`/`bg`/overlay colors in a single pass with branchless SIMD-vectorized glyph row writes, per-buffer dirty-cell diffing, and tight partial `wl_surface.damage_buffer` bounding boxes while offloading 2x 4K/UHD (`1920×1152`) fullscreen scaling to the GPU via `wp_viewporter`.
+- **0.00% CPU at idle & `< 2.7 MiB` 1,000-Frame Flat Peak RSS**: Pure event-driven reactor with zero periodic wakeups at idle and per-frame OODA arena reclamation (`@oo_arena_mark` / `@oo_arena_reset_mark`), sustaining a flat `2.62 MiB` Peak RSS across 1,000+ continuous frames.
+- **Single-Pass 10-Bit HDR Deep Color, Branchless SIMD Blitting & Tight Partial `damage_buffer`**: Negotiates 10-bit per channel HDR `wl_shm` pixel formats (`Argb2101010` / `Xrgb2101010` with seamless fallback to `Argb8888`) and packs `fg`/`bg`/overlay colors in a single pass with branchless glyph row writes, per-buffer dirty-cell diffing, and tight partial `wl_surface.damage_buffer` bounding boxes while offloading 2x 4K/UHD (`1920×1152`) fullscreen scaling to the GPU via `wp_viewporter`.
 - **System Theme Adaptation (Colors, Light/Dark & Glyph Fonts)**: Dynamically probes XDG Desktop Portal (`org.freedesktop.appearance` `color-scheme` and `accent-color`), COSMIC theme files, Hyprland/Omarchy/SuperFedora/GTK/KDE configs, and environment overrides (`IDLE_THEME_ACCENT`, `IDLE_THEME_MODE`, `IDLE_FONT_STYLE`) to adapt banner chrome bevels, starfield palettes, background tone (OLED black in Dark mode vs. low-glare deep midnight in Light mode), and bitmap glyph typography (`ArcadeBlock`, `CyberSharp`, `RetroRound`).
 - **Anamorphic Lens Flares & Neon Overdrive ("So Things Pop")**: Specular gleam sweeps across the 16-bit wordmark emit anamorphic horizontal lens-flare wings and soft vertical neon outer-glow halos, paired with a chroma-boosted neon overdrive pipeline that makes foreground characters pop vividly against the deep space backdrop.
 - **Dynamic 60–144 Hz refresh rate matching**: Queries Wayland `wl_output` display modes (60 Hz laptops $\to$ 60 FPS, 144 Hz+ desktops $\to$ 144 FPS) with delta-time-synchronized physics.
-- **Unified Single-Binary 53-Scene 16-Bit Arcade Engine**: Renders your detected OS wordmark (`SUPERFEDORA`, `FEDORA`, `ARCH`, `UBUNTU`, `DEBIAN`, etc.) or custom text in bevelled 16-bit block typography (`U+2580..=U+259F`) with parallax starfields, 4×8 sub-cell sprite Scale2x compositing, and 400% responsive scaling across **53 built-in 16-bit arcade, demoscene, and mathematical scenes** (`aurora`, `breakout`, `chaos`, `cosmos`, `fireworks`, `life`, `matrix`, `metaballs`, `mmx`, `moire`, `mystify`, `pipes`, `plasma`, `radar`, `ripple`, `synthgrid`, `tetris`, `tunnel`, `zero`, and more) — zero external helper binaries or IPC overhead.
+- **Unified Single-Binary 53-Scene 16-Bit Arcade Engine (`339 KB` ELF / `1.5 MB` Win64 `PE32+`)**: Renders your detected OS wordmark (`OPENOODA`, `SUPERFEDORA`, `FEDORA`, `ARCH`, `UBUNTU`, `DEBIAN`, etc.) or custom text in bevelled 16-bit block typography (`U+2580..=U+259F`) with parallax starfields, 4×8 sub-cell sprite Scale2x compositing, and 400% responsive scaling across **53 built-in 16-bit arcade, demoscene, and mathematical scenes** (`aurora`, `breakout`, `chaos`, `cosmos`, `fireworks`, `life`, `matrix`, `metaballs`, `mmx`, `moire`, `mystify`, `pipes`, `plasma`, `radar`, `ripple`, `synthgrid`, `tetris`, `tunnel`, `zero`, and more) — zero external helper binaries or IPC overhead.
 - **Hardware DPMS Power-Off (`zwlr-output-power-management-v1`)**: Optional `dpms_timeout_secs` puts displays into hardware DPMS standby after the screensaver runs (`0%` CPU/GPU while sleeping) and wakes outputs immediately upon user input or dismissal.
 - **Interactive Tour & Scene Stepping**: Run `idlescreen preview --tour` to tour all 53 scenes in order (`[01/53]` to `[53/53]`) with an on-screen 16-bit HUD badge and live `←`/`→` (`n`/`p`/`Tab`) scene stepping.
 - **Overhauled TUI Dashboard with Live Side-by-Side Mini-Preview (`idlescreen tui`)**: Interactive terminal director with a live animated side-by-side 16-bit mini-preview viewport on wide terminals (`>= 105` cols), 53-scene selector (`superfedora`, `ascii` 53 shuffled, `tour` 1–53 in order, or any pinned scene), clean `OS Name` vs. `Custom Text` banner toggle, `Dwell`, `FPS`, and `DPMS Power-Off` controls, live daemon/inhibitor status bar, `[T]` standby toggle, and `[P]` Terminal / `[F]` Fullscreen preview triggers.
-- **First-Class SuperFedora Integration**: Native detection of SuperFedora (`SUPERFEDORA` arcade banner, Quickshell/Hyprland session awareness, and zero-conflict idle hand-off).
+- **First-Class openOODA & SuperFedora Integration**: Native capability-attenuated openOODA architecture (`std/core/ooda.oo` + `std/sec/pqc.oo`), plus first-class detection of SuperFedora (`SUPERFEDORA` arcade banner, Quickshell/Hyprland session awareness, and zero-conflict idle hand-off).
 - **Universal Linux OS, Desktop & Compositor Support**: Works across Wayland compositors via `wlr-layer-shell` + `ext-idle-notify-v1` (Hyprland, Sway, COSMIC, KDE Plasma, River, Wayfire, Labwc, Niri) plus native **GNOME Mutter** (`org.gnome.Mutter.IdleMonitor`) idle tracking.
 - **COSMIC Cage & Container Runtime Detection**: Autonomous zero-overhead detection of `CosmicCage`, `PodmanContainer`, `GenericContainer`, and bare-metal `Host` environments at daemon startup and in `idlescreen doctor`.
 - **Multi-Init First Class**: Built-in `idlescreen service install` provisioning for `systemd` (user unit), `OpenRC`, `runit`, `s6`, `dinit`, and XDG autostart (`~/.config/autostart/idlescreen.desktop`).
@@ -50,14 +50,14 @@
 curl -fsSL https://idlescreen.github.io/install.sh | sh
 ```
 
-### Hardware-Tuned Source Build
+### Native openOODA (`.oo`) Source Build
 
-Build from source with native CPU SIMD target optimizations (`target-cpu=native`):
+Build the capability-secured native Linux ELF (`bin/idlescreen`) and Windows PE32+ (`bin/idlescreen.exe`) binaries from source with `oodac`:
 
 ```sh
 git clone https://github.com/idlescreen/idlescreen
 cd idlescreen
-RUSTFLAGS="-C target-cpu=native" cargo build --release --workspace
+make build && make verify && make test && make det && make parity
 ```
 
 ---
@@ -79,7 +79,8 @@ idlescreen inhibitors [--json]          Inspect active D-Bus / portal / audio id
 idlescreen service install [--init <X>] Install user service for systemd, openrc, runit, s6, dinit, or xdg
 idlescreen doctor [--fix] [--json]      Diagnose Wayland protocols, sockets, and service state (with auto-remediation via --fix)
 idlescreen config                       Display configuration path and active TOML settings
-idlescreen version                      Show version information (v4.8.0)
+idlescreen --self-test                  Run built-in capability & 53-scene self-verification
+idlescreen version                      Show version information (v5.0.0)
 ```
 
 ---
