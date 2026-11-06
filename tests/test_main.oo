@@ -14,6 +14,8 @@ import "raster/damage.oo";
 import "ascii/effects.oo";
 import "ascii/canvas.oo";
 import "ascii/layout/wordmark.oo";
+import "ascii/layout/fonts.oo";
+import "ascii/layout/render.oo";
 import "wayland/dpms.oo";
 import "daemon/state.oo";
 import "daemon/inhibit.oo";
@@ -52,6 +54,11 @@ fn test_ctl_and_config() -> Int {
     fails = fails + probe("shell quote neutralises quotes", shell_quote("a'b") == "'a'\\''b'");
     fails = fails + probe("shell quote keeps newlines", shell_quote("a\nb") == "'a\nb'");
     fails = fails + probe("wm clean os", wm_clean_os("Fedora Linux 45 (Server Edition)") == "FEDORA" && wm_clean_os("SuperFedora 45") == "SUPERFEDORA");
+    fails = fails + probe("font5 punctuation", list_get(font5_rows("?"), 2) == "  ██ " && list_get(font5_rows("+"), 2) == " ███ ");
+    fails = fails + probe("wm narrow tier", list_len(wm_banner_lines("FEDORA", 6, 10)) == 6 && list_len(wm_banner_lines("SUPERFEDORA", 40, 10)) == 7);
+    let bg_fill: CellGrid = cv_fill(grid_new(30, 8, 0), "▓", rgb(100, 100, 100), 0);
+    let wmg: CellGrid = wm_render(bg_fill, "O", 0);
+    fails = fails + probe("wm clears interior", grid_get(wmg, 14, 3).ch == " " || grid_get(wmg, 14, 3).ch == "░");
     return fails;
 }
 

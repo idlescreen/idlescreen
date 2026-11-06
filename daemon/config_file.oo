@@ -34,17 +34,22 @@ pub fn config_default() -> ConfigData {
     };
 }
 
-// Value of a "key = value" line, with surrounding double quotes removed.
+// Value of a "key = value" line, with surrounding quotes and inline comments removed.
 fn config_parse_str(s: String) -> String {
     let eq: Int = str_index_of(s, "=");
     if eq < 0 { return ""; }
     let val: String = str_trim(str_slice(s, eq + 1, chars_len(s)));
     if val == "" { return ""; }
-    if char_at(val, 0) != "\"" { return val; }
-    let rest: String = str_slice(val, 1, chars_len(val));
-    let q2: Int = str_index_of(rest, "\"");
-    if q2 < 0 { return rest; }
-    return str_slice(rest, 0, q2);
+    let c0: String = char_at(val, 0);
+    if c0 == "\"" || c0 == "'" {
+        let rest: String = str_slice(val, 1, chars_len(val));
+        let q2: Int = str_index_of(rest, c0);
+        if q2 < 0 { return rest; }
+        return str_slice(rest, 0, q2);
+    }
+    let hc: Int = str_index_of(val, "#");
+    if hc >= 0 { return str_trim(str_slice(val, 0, hc)); }
+    return val;
 }
 
 pub fn config_load_toml(content: String) -> ConfigData {
