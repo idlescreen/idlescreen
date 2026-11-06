@@ -18,20 +18,24 @@ pub fn service_bin_path(proc: &ProcessCap) -> String {
 }
 
 // Directory holding the systemd user unit.
-pub fn service_unit_dir(env: &EnvCap) -> String {
-    let xdg: String = match env_get(env, "XDG_CONFIG_HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+pub fn service_unit_dir(proc: &ProcessCap, env: &EnvCap) -> String {
+    let xdg: String = host_env(proc, env, "XDG_CONFIG_HOME");
     if xdg != "" { return xdg + "/systemd/user"; }
-    let home: String = match env_get(env, "HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+    let home: String = host_env(proc, env, "HOME");
     if home != "" { return home + "/.config/systemd/user"; }
+    let pw_home: String = shell_out(proc, "echo \"$HOME\"");
+    if pw_home != "" { return pw_home + "/.config/systemd/user"; }
     return "/etc/systemd/user";
 }
 
 // Directory holding the XDG autostart entry.
-pub fn service_autostart_dir(env: &EnvCap) -> String {
-    let xdg: String = match env_get(env, "XDG_CONFIG_HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+pub fn service_autostart_dir(proc: &ProcessCap, env: &EnvCap) -> String {
+    let xdg: String = host_env(proc, env, "XDG_CONFIG_HOME");
     if xdg != "" { return xdg + "/autostart"; }
-    let home: String = match env_get(env, "HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+    let home: String = host_env(proc, env, "HOME");
     if home != "" { return home + "/.config/autostart"; }
+    let pw_home: String = shell_out(proc, "echo \"$HOME\"");
+    if pw_home != "" { return pw_home + "/.config/autostart"; }
     return "/etc/xdg/autostart";
 }
 
@@ -72,7 +76,7 @@ pub fn service_write_artefact(proc: &ProcessCap, dir: String, name: String, cont
 pub fn service_install(proc: &ProcessCap, env: &EnvCap) -> Int {
     let bin: String = service_bin_path(proc);
     if service_has_systemd(proc) {
-        let dir: String = service_unit_dir(env);
+        let dir: String = service_unit_dir(proc, env);
         if !service_write_artefact(proc, dir, "idlescreen.service", service_unit_content(bin)) {
             println("Error: Failed to write the systemd user unit.");
             return 1;
@@ -82,7 +86,7 @@ pub fn service_install(proc: &ProcessCap, env: &EnvCap) -> Int {
         println("Installed and enabled systemd user unit: " + dir + "/idlescreen.service");
         return 0;
     }
-    let dir: String = service_autostart_dir(env);
+    let dir: String = service_autostart_dir(proc, env);
     if !service_write_artefact(proc, dir, "idlescreen.desktop", service_autostart_content(bin)) {
         println("Error: Failed to write the XDG autostart entry.");
         return 1;

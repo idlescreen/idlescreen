@@ -76,5 +76,5 @@ pub fn daemon_format(env: &EnvCap) -> String {
 }
 
 pub fn daemon_config_summary(proc: &ProcessCap, env: &EnvCap, prog: String) -> String {
-    return prog + " ctl=" + daemon_ctl_endpoint(prog) + " timeout=" + daemon_timeout_s(proc, env).to_string() + "s saver=" + daemon_saver_name(proc, env) + " scene=" + effects_name(daemon_scene(proc, env)) + " banner=" + daemon_banner_text(proc, env) + " format=" + daemon_format(env) + " config=" + config_dir(env);
+    return prog + " ctl=" + daemon_ctl_endpoint(prog) + " timeout=" + daemon_timeout_s(proc, env).to_string() + "s saver=" + daemon_saver_name(proc, env) + " scene=" + effects_name(daemon_scene(proc, env)) + " banner=" + daemon_banner_text(proc, env) + " format=" + daemon_format(env) + " config=" + config_dir(proc, env);
 }

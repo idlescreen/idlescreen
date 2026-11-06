@@ -76,7 +76,7 @@ pub fn cmd_timeout(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, args: List[Str
 }
 
 pub fn cmd_config(proc: &ProcessCap, env: &EnvCap) -> Int {
-    let path: String = config_dir(env) + "/config.toml";
+    let path: String = config_dir(proc, env) + "/config.toml";
     println("Config file: " + path);
     let body: String = shell_out(proc, "cat " + shell_quote(path) + " 2>/dev/null");
     if body == "" { println("(No active config.toml on disk; using defaults)"); }

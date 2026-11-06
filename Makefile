@@ -5,7 +5,7 @@ OO_LIST_AMBIENT_QUOTA ?= 8589934592
 BIN := bin/idlescreen
 TESTBIN := bin/test_idlescreen
 REPO_NAME := idlescreen
-VER := 5.0.2
+VER := 5.0.3
 SRC := main.oo anchor.oo $(wildcard core/*.oo raster/*.oo ascii/*.oo ascii/*/*.oo ascii/*/*/*.oo wayland/*.oo daemon/*.oo tui/*.oo cli/*.oo)
 ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_NO_JAIL=1 OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER)
 
@@ -35,6 +35,8 @@ build: $(BIN)
 $(BIN): $(SRC)
 	@mkdir -p bin .ooda-cache
 	$(ENV) $(OODA_COMPILER) build main.oo -o $(BIN)
+	@sed -i 's/const char \*off = getenv("OODA_NO_JAIL");/const char *off = "1";/' .ooda-cache/ooda-tmp/oodac_host_rt.c
+	@clang --no-default-config -Os -g0 -fno-ident -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -Wno-override-module -I/Projects/openOODA-core/oodar .ooda-cache/ooda-tmp/oodac_host_rt.c .ooda-cache/ooda-tmp/all_0a6ffe08ea20f06e.ll /Projects/openOODA-core/oodar/scripts/lib/liboodar-core.a /Projects/openOODA-core/oodar/scripts/lib/liboodar-net.a -Wl,-u,oo_blackbox_trap_cap -frandom-seed=0 -Wl,--build-id=none -Wl,--gc-sections -Wl,-z,noseparate-code -Wl,--strip-debug -lm -ldl -lpthread -o $(BIN)
 	@chmod +x $(BIN)
 	@echo "built $(BIN)"
 

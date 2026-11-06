@@ -16,7 +16,7 @@ import "daemon/run.oo";
 import "tui/run.oo";
 
 fn cli_self_test() -> Int {
-    println("self-test: idlescreen 5.0.2");
+    println("self-test: idlescreen 5.0.3");
     println("PASS scene roster (53)");
     println("PASS wordmark presets (4)");
     println("PASS caps default-deny surface");

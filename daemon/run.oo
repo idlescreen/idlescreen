@@ -65,11 +65,11 @@ pub fn ooidle_persona_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, proc:
         verb = to_lowercase(str_trim(list_get(args, 0)));
     }
     if verb == "--version" || verb == "version" || verb == "-V" {
-        println("ooidle 5.0.2");
+        println("ooidle 5.0.3");
         return 0;
     }
     if verb == "--help" || verb == "help" || verb == "-h" {
-        println("ooidle 5.0.2 — idle daemon persona");
+        println("ooidle 5.0.3 — idle daemon persona");
         println("usage: ooidle [run|status|inhibitors|start|stop|toggle|quit|inhibit NAME|uninhibit NAME|scene NAME|sleep]");
         return 0;
     }

@@ -113,11 +113,13 @@ pub fn config_to_toml(c: ConfigData) -> String {
 }
 
 // Config dir resolution: XDG_CONFIG_HOME, then $HOME/.config, then /etc.
-pub fn config_dir(env: &EnvCap) -> String {
-    let xdg: String = match env_get(env, "XDG_CONFIG_HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+pub fn config_dir(proc: &ProcessCap, env: &EnvCap) -> String {
+    let xdg: String = host_env(proc, env, "XDG_CONFIG_HOME");
     if xdg != "" { return xdg + "/idlescreen"; }
-    let home: String = match env_get(env, "HOME") { Ok(s) => str_trim(s), Err(_) => "" };
+    let home: String = host_env(proc, env, "HOME");
     if home != "" { return home + "/.config/idlescreen"; }
+    let pw_home: String = shell_out(proc, "echo \"$HOME\"");
+    if pw_home != "" { return pw_home + "/.config/idlescreen"; }
     return "/etc/idlescreen";
 }
 
@@ -136,7 +138,7 @@ pub fn config_with(c: ConfigData, active: String, timeout_s: Int) -> ConfigData 
 }
 
 pub fn config_read_file(proc: &ProcessCap, env: &EnvCap) -> ConfigData {
-    let dir: String = config_dir(env);
+    let dir: String = config_dir(proc, env);
     if dir == "" { return config_default(); }
     let path: String = dir + "/config.toml";
     let content: String = shell_out(proc, "cat " + shell_quote(path) + " 2>/dev/null");
@@ -145,7 +147,7 @@ pub fn config_read_file(proc: &ProcessCap, env: &EnvCap) -> ConfigData {
 }
 
 pub fn config_write_file(proc: &ProcessCap, env: &EnvCap, c: ConfigData) -> Bool {
-    let dir: String = config_dir(env);
+    let dir: String = config_dir(proc, env);
     if dir == "" { return false; }
     // Refuse to persist over a config we could not parse: writing defaults
     // would silently discard the user's settings.

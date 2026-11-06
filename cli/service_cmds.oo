@@ -26,7 +26,7 @@ pub fn service_is_active(proc: &ProcessCap, tcp: &TcpCap, env: &EnvCap) -> Bool 
 }
 
 pub fn service_enable(proc: &ProcessCap, env: &EnvCap) -> Int {
-    let unit: String = service_unit_dir(env) + "/idlescreen.service";
+    let unit: String = service_unit_dir(proc, env) + "/idlescreen.service";
     if shell_out(proc, "test -f " + shell_quote(unit) + " 2>/dev/null && echo yes") == "" {
         let inst: Int = service_install(proc, env);
         if inst != 0 { return inst; }
@@ -41,7 +41,7 @@ pub fn service_enable(proc: &ProcessCap, env: &EnvCap) -> Int {
 pub fn service_disable(proc: &ProcessCap, env: &EnvCap) -> Int {
     let _d: String = shell_out(proc, "systemctl --user disable --now idlescreen.service 2>/dev/null || true");
     let _i: String = shell_out(proc, "dinitctl disable idlescreen 2>/dev/null || true");
-    let desk: String = service_autostart_dir(env) + "/idlescreen.desktop";
+    let desk: String = service_autostart_dir(proc, env) + "/idlescreen.desktop";
     let _r: String = shell_out(proc, "rm -f " + shell_quote(desk) + " 2>/dev/null || true");
     println("IdleScreen service disabled and stopped.");
     return 0;
@@ -57,7 +57,7 @@ pub fn service_restart(proc: &ProcessCap, env: &EnvCap) -> Int {
 
 pub fn service_uninstall(proc: &ProcessCap, env: &EnvCap) -> Int {
     let _d: Int = service_disable(proc, env);
-    let unit: String = service_unit_dir(env) + "/idlescreen.service";
+    let unit: String = service_unit_dir(proc, env) + "/idlescreen.service";
     let _rm: String = shell_out(proc, "rm -f " + shell_quote(unit) + " 2>/dev/null || true");
     let _rl: String = shell_out(proc, "systemctl --user daemon-reload 2>/dev/null || true");
     println("IdleScreen service uninstalled.");
