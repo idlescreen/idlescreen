@@ -62,7 +62,7 @@ fn test_ctl_and_config() -> Int {
     return fails;
 }
 
-pub fn main(args: List[String]) -> Result[Int, String] {
+pub fn main(fs: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
     let mut fails: Int = 0;
     let g: CellGrid = grid_new(8, 4, rgb(4, 6, 12));
     let g2: CellGrid = grid_set(grid_new(8, 4, rgb(4, 6, 12)), 2, 1, cell_new("#", rgb(255, 0, 0), 0, true));

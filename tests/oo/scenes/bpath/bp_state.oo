@@ -1,4 +1,4 @@
-// # bp_parts — binarypath representation state and build helpers
+// # bp_state — binarypath representation state and build helpers
 //
 // Logline: Shared types and pure build helpers for the BinaryPath port:
 // the BRep record (source id, eight binary char ids, pending list, home

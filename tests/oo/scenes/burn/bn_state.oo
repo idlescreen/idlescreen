@@ -1,4 +1,4 @@
-// # bn_parts — PrimsSimple spanning-tree machinery for the burn port
+// # bn_state — PrimsSimple spanning-tree machinery for the burn port
 //
 // Logline: Bit-exact port of PrimsSimple (random start inside the text
 // boundary, then random-edge Prim growth until every in-text char is

@@ -26,7 +26,7 @@ import "tests/oo/engine/geometry_fns.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
 import "tests/oo/engine/float_conv.oo";
-import "tests/oo/scenes/bhole/bh_parts.oo";
+import "tests/oo/scenes/bhole/bh_state.oo";
 
 fn bh_ring1(w: World, id: Int, i: Int, ring: List[Int]) -> World {
     let mut w2: World = w_path(w, id, 0.7, 1, ez(3), 0 - 1, 0, 0, "blackhole");
