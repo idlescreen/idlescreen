@@ -1,10 +1,10 @@
 // # Scene Engine - Frame Pipeline, Tour Scheduling, Wordmark Overlay
 //
-// Logline: The frame pipeline: render the active scene, lay the optional wordmark, post-FX, HUD, and ANSI out.
+// Logline: The frame pipeline: render the active scene, lay the bevelled OS/custom wordmark banner, post-FX, HUD, and ANSI out.
 // Setup: Pure pipeline over CellGrid. Output strings are produced; emission is the caller's job.
 // Beats:
 //   1. Resolve the scene index from name or tour schedule.
-//   2. Render scene, optional wordmark, post-FX, and preview HUD in order.
+//   2. Render scene, bevelled wordmark banner (defaulting to host OS / preset when empty), post-FX, and preview HUD in order.
 //   3. Serialise the finished grid to ANSI for the presenter.
 
 import "core/cell.oo";
@@ -17,9 +17,8 @@ import "raster/glyph_hud.oo";
 
 pub fn engine_frame(g: CellGrid, scene_idx: Int, tick: Int, wordmark: String) -> CellGrid {
     let mut out: CellGrid = scene_render(scene_idx, g, tick);
-    if wordmark != "" {
-        out = wm_render(out, wordmark, tick);
-    }
+    let wm: String = if wordmark == "" { "FEDORA" } else { wordmark };
+    out = wm_render(out, wm, tick);
     out = post_apply(out, tick);
     return out;
 }
@@ -30,17 +29,21 @@ pub fn engine_tour_index(tick: Int, scene_secs: Int) -> Int {
     return (tick / s) % 53;
 }
 
-pub fn engine_preview_frame(cols: Int, rows: Int, name: String, tick: Int, tour: Bool) -> String {
+pub fn engine_preview_wordmark(cols: Int, rows: Int, name: String, tick: Int, tour: Bool, wordmark: String) -> String {
     let idx: Int = if tour { engine_tour_index(tick, 12) } else { effects_index(name) };
     let mut i: Int = idx;
     if i < 0 { i = 0; }
     let mut g: CellGrid = grid_new(cols, rows, rgb(4, 6, 12));
-    let wm: String = if wm_known(name) { name } else { "" };
+    let wm: String = if wordmark != "" { wordmark } else if wm_known(name) { name } else { "FEDORA" };
     g = engine_frame(g, i, tick, wm);
     let sn: String = effects_name(i);
     g = draw_preview_hud(g, sn, i + 1, 53, tour);
     let res: String = ansi_frame(g);
     return res;
+}
+
+pub fn engine_preview_frame(cols: Int, rows: Int, name: String, tick: Int, tour: Bool) -> String {
+    return engine_preview_wordmark(cols, rows, name, tick, tour, "");
 }
 
 pub fn engine_wordmark_frame(cols: Int, rows: Int, name: String, tick: Int) -> String {

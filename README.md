@@ -26,7 +26,7 @@
 
 </div>
 
-**IdleScreen** (`v5.0.0`) is a capability-secured screensaver and idle management suite for Linux (`339 KB` ELF) and Windows (`1.5 MB` `PE32+`), built 100% natively in **openOODA (`.oo`)** with zero external runtime dependencies.
+**IdleScreen** (`v5.0.1`) is a capability-secured screensaver and idle management suite for Linux (`359 KB` ELF) and Windows (`1.5 MB` `PE32+`), built 100% natively in **openOODA (`.oo`)** with zero external runtime dependencies.
 
 - **`0.00%` CPU at Idle & `2.62 MiB` Flat 1,000-Frame Peak RSS**: Event-driven reactor with zero periodic wakeups at idle and per-frame OODA arena reclamation (`@oo_arena_mark` / `@oo_arena_reset_mark`), sustaining a flat `2.62 MiB` (`2,688 KB`) Peak RSS across 1,000+ continuous frames with zero heap growth.
 - **Default-Deny Capability Security (`std/core/ooda.oo` + `std/sec/pqc.oo`)**: Every subsystem requires explicit capability tokens (`CAP_FS_READ`, `CAP_STDIO`) attenuated before entering the render loop, with zero `unsafe` blocks and fail-closed parser bounds (`MAX_CONFIG_BYTES = 65536`).
@@ -76,7 +76,7 @@ idlescreen service install [--init <X>] Install user service for systemd, openrc
 idlescreen doctor [--fix] [--json]      Diagnose Wayland protocols, sockets, and service state (with auto-remediation via --fix)
 idlescreen config                       Display configuration path and active TOML settings
 idlescreen --self-test                  Run built-in capability & 53-scene self-verification
-idlescreen version                      Show version information (v5.0.0)
+idlescreen version                      Show version information (v5.0.1)
 ```
 
 ---

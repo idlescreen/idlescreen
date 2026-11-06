@@ -41,7 +41,7 @@ fn test_ctl_and_config() -> Int {
     fails = fails + probe("ctl timeout retunes", ctl_dispatch(st, list_new(), "timeout 600", "idlescreen").state.timeout_s == 600);
     fails = fails + probe("ctl timeout rejects empty", str_starts_with(ctl_dispatch(st, list_new(), "timeout", "idlescreen").text, "ERR"));
     fails = fails + probe("ctl ping answers PONG", ctl_dispatch(st, list_new(), "ping", "idlescreen").text == "PONG");
-    fails = fails + probe("cv ramp", cv_ramp(0) == " " && cv_ramp(9) == "@");
+    fails = fails + probe("cv ramp", cv_ramp(0) == " " && cv_ramp(9) == "█");
     let cfg: ConfigData = config_default();
     let toml: String = config_to_toml(cfg);
     let cfg2: ConfigData = config_load_toml(toml);
@@ -51,6 +51,7 @@ fn test_ctl_and_config() -> Int {
     fails = fails + probe("config parses persisted saver", config_load_toml(config_to_toml(cfg3)).active == "plasma");
     fails = fails + probe("shell quote neutralises quotes", shell_quote("a'b") == "'a'\\''b'");
     fails = fails + probe("shell quote keeps newlines", shell_quote("a\nb") == "'a\nb'");
+    fails = fails + probe("wm clean os", wm_clean_os("Fedora Linux 45 (Server Edition)") == "FEDORA" && wm_clean_os("SuperFedora 45") == "SUPERFEDORA");
     return fails;
 }
 

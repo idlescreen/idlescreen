@@ -1,14 +1,16 @@
 // # Daemon Config - File and Environment Resolution
 //
-// Logline: Resolves the daemon's scene, timeout, control endpoint, and format from the config file then environment overrides.
-// Setup: Requires EnvCap for XDG_CONFIG_HOME, HOME, and the IDLESCREEN_* overrides, plus ProcessCap to read config.toml.
+// Logline: Resolves the daemon's scene, timeout, banner wordmark, control endpoint, and format from the config file then environment overrides.
+// Setup: Requires EnvCap for XDG_CONFIG_HOME, HOME, and the IDLESCREEN_* overrides, plus ProcessCap to read config.toml and /etc/os-release.
 // Beats:
 //   1. Read the persistent config.toml from the resolved config dir.
-//   2. Apply IDLESCREEN_SCENE, IDLESCREEN_TIMEOUT_S, and IDLESCREEN_FORMAT overrides on top.
+//   2. Resolve the active OS or custom banner wordmark from env, config.toml, and /etc/os-release.
 //   3. Report the resolved values and the loopback control endpoint.
 
 import "std/core/primitives/str.oo";
+import "core/shell.oo";
 import "ascii/effects.oo";
+import "ascii/layout/wordmark.oo";
 import "config_file.oo";
 
 pub fn daemon_ctl_port(prog: String) -> Int {
@@ -48,6 +50,25 @@ pub fn daemon_saver_name(proc: &ProcessCap, env: &EnvCap) -> String {
     return cfg.active;
 }
 
+pub fn daemon_banner_text(proc: &ProcessCap, env: &EnvCap) -> String {
+    let sf_env: String = match env_get(env, "SUPERFEDORA") { Ok(x) => str_trim(x), Err(_) => "" };
+    if sf_env == "1" || to_lowercase(sf_env) == "true" { return "SUPERFEDORA"; }
+    let os_env: String = match env_get(env, "IDLE_OS_NAME") { Ok(x) => str_trim(x), Err(_) => "" };
+    if os_env != "" { return wm_clean_os(os_env); }
+    let cfg: ConfigData = config_read_file(proc, env);
+    if cfg.active == "superfedora" { return "SUPERFEDORA"; }
+    if !cfg.use_os_brand && str_trim(cfg.custom_text) != "" {
+        return to_uppercase(str_trim(cfg.custom_text));
+    }
+    let sf_probe: String = shell_out(proc, "(test -e /etc/superfedora/release -o -e /etc/superfedora-release -o -e \"$HOME/.config/superfedora\" || grep -qi superfedora /etc/os-release 2>/dev/null) && echo yes");
+    if sf_probe == "yes" { return "SUPERFEDORA"; }
+    let raw_os: String = shell_out(proc, "grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'");
+    if raw_os != "" { return wm_clean_os(raw_os); }
+    let un: String = shell_out(proc, "uname -s 2>/dev/null");
+    if un != "" { return wm_clean_os(un); }
+    return "FEDORA";
+}
+
 pub fn daemon_format(env: &EnvCap) -> String {
     let v: String = match env_get(env, "IDLESCREEN_FORMAT") { Ok(x) => x, Err(_) => "" };
     if v == "argb2101010" { return v; }
@@ -55,5 +76,5 @@ pub fn daemon_format(env: &EnvCap) -> String {
 }
 
 pub fn daemon_config_summary(proc: &ProcessCap, env: &EnvCap, prog: String) -> String {
-    return prog + " ctl=" + daemon_ctl_endpoint(prog) + " timeout=" + daemon_timeout_s(proc, env).to_string() + "s saver=" + daemon_saver_name(proc, env) + " scene=" + effects_name(daemon_scene(proc, env)) + " format=" + daemon_format(env) + " config=" + config_dir(env);
+    return prog + " ctl=" + daemon_ctl_endpoint(prog) + " timeout=" + daemon_timeout_s(proc, env).to_string() + "s saver=" + daemon_saver_name(proc, env) + " scene=" + effects_name(daemon_scene(proc, env)) + " banner=" + daemon_banner_text(proc, env) + " format=" + daemon_format(env) + " config=" + config_dir(env);
 }

@@ -59,7 +59,7 @@ pub fn cmd_config(proc: &ProcessCap, env: &EnvCap) -> Int {
 }
 
 pub fn cmd_doctor(env: &EnvCap) -> Int {
-    println("doctor: idlescreen 5.0.0 environment check");
+    println("doctor: idlescreen 5.0.1 environment check");
     println("PASS caps declared (Process FsRead FsWrite Fs Bind Tcp Env Time Rand Ffi Alloc)");
     println("PASS control endpoint resolved: " + daemon_ctl_endpoint("idlescreen"));
     println("OK doctor: 2 checks green");

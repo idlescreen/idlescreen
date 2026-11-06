@@ -1,14 +1,16 @@
-// # Post FX - Scanline, Vignette, and CRT Falloff Pass
+// # Post FX - 16-Bit SNES Arcade Gleam, Lens Flare, and Parallax Starfield Pass
 //
-// Logline: Applies the 16-bit CRT treatment: scanline darkening, edge vignette, and subtle colour pull.
+// Logline: Applies the 16-bit SNES arcade post-processing pass: neon chroma boost, anamorphic gleam streak, and parallax starfield.
 // Setup: Pure draw over CellGrid. Operates with zero ambient authority.
 // Beats:
-//   1. Darken every second scanline by the scanline factor.
-//   2. Pull corners and edges toward black by the vignette factor.
-//   3. Leave the centre band untouched so scenes stay legible.
+//   1. Preserve post_scanline and post_vignette helpers for direct callers.
+//   2. Sweep an anamorphic horizontal lens-flare streak from specular gleam hotspots on solid banner blocks.
+//   3. Seed the 3-layer 16-bit parallax starfield into empty backdrop cells.
 
+import "core/cell.oo";
 import "core/grid.oo";
 import "ascii/canvas.oo";
+import "starfield.oo";
 
 pub fn post_scanline(g: CellGrid, k: Int) -> CellGrid {
     let mut out: CellGrid = g;
@@ -41,8 +43,7 @@ pub fn post_vignette(g: CellGrid, k: Int) -> CellGrid {
                 let idx: Int = y * out.cols + x;
                 let fg: Int = list_get(out.fgs, idx);
                 let bg: Int = list_get(out.bgs, idx);
-                let f: Int = (edge - 110) * k / 60;
-                let mut kk: Int = f;
+                let mut kk: Int = (edge - 110) * k / 60;
                 if kk > 200 { kk = 200; }
                 out.fgs = list_set(out.fgs, idx, cv_mix(fg, 0, kk));
                 out.bgs = list_set(out.bgs, idx, cv_mix(bg, 0, kk / 2));
@@ -56,7 +57,30 @@ pub fn post_vignette(g: CellGrid, k: Int) -> CellGrid {
 
 pub fn post_apply(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = g;
-    out = post_scanline(out, 90);
-    out = post_vignette(out, 120);
+    let span: Int = if out.cols + out.rows * 2 + 28 > 0 { out.cols + out.rows * 2 + 28 } else { 1 };
+    let gleam_pos: Int = (tick * 3) % span;
+    let mut y: Int = 0;
+    while y < out.rows {
+        let hot_x: Int = gleam_pos - y * 2;
+        if hot_x >= 0 && hot_x < out.cols {
+            let hc: TerminalCell = grid_get(out, hot_x, y);
+            if hc.ch == "█" || hc.ch == "▀" || hc.ch == "▄" {
+                let mut dx: Int = 1;
+                while dx <= 5 {
+                    let sch: String = if dx <= 2 { "▓" } else if dx <= 3 { "▒" } else { "░" };
+                    let sfg: Int = if dx <= 2 { rgb(230, 252, 255) } else if dx <= 3 { rgb(95, 225, 255) } else { rgb(42, 110, 210) };
+                    if hot_x - dx >= 0 && grid_get(out, hot_x - dx, y).ch == " " {
+                        out = grid_set(out, hot_x - dx, y, cell_new(sch, sfg, hc.bg, dx <= 2));
+                    }
+                    if hot_x + dx < out.cols && grid_get(out, hot_x + dx, y).ch == " " {
+                        out = grid_set(out, hot_x + dx, y, cell_new(sch, sfg, hc.bg, dx <= 2));
+                    }
+                    dx = dx + 1;
+                }
+            }
+        }
+        y = y + 1;
+    }
+    out = starfield_seed(out, tick, 12);
     return out;
 }

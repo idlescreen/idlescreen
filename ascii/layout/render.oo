@@ -1,11 +1,11 @@
-// # Wordmark Renderer - Bevelled Block Text onto the Cell Grid
+// # Wordmark Renderer - 3-Tier Progressive Bevelled Banner onto the Cell Grid
 //
-// Logline: Rasterizes a wordmark preset onto the grid with drop shadow, gradient fill, and top-edge bevel highlight.
-// Setup: Pure draw over CellGrid using the 7x7 font atlas and preset palettes. Zero ambient authority.
+// Logline: Rasterizes OS/custom wordmark banners with 3-tier scaling (22-row SuperFedora, scaled 5x5, 3x3) and 16-bit SNES bevel + gleam.
+// Setup: Pure draw over CellGrid using the 5x5, 3x3, and SuperFedora font atlases. Zero ambient authority.
 // Beats:
-//   1. Centre the composed wordmark horizontally and vertically in the grid.
-//   2. Stamp the shadow pass, then the gradient body pass letter by letter.
-//   3. Overlay the lighter bevel on pixels that sit on a letter's top edge.
+//   1. Select the progressive layout tier (SuperFedora 22-row, scaled 5x5, 1x 5x5, or 3x3 condensed) for the grid dimensions.
+//   2. Centre the composed banner lines horizontally and vertically in the grid.
+//   3. Stamp the 16-bit SNES vertical chrome bevel, diagonal specular gleam, and drop shadow.
 
 import "core/cell.oo";
 import "core/grid.oo";
@@ -14,73 +14,158 @@ import "wordmark.oo";
 
 pub fn wm_measure(name: String) -> Int {
     let t: String = wm_text(name);
-    return chars_len(t) * (font7_width() + 1) - 1;
+    if t == "" { return 0; }
+    return chars_len(t) * 6 - 1;
 }
 
-fn wm_light(c: Int) -> Int {
-    let gain: Int = wm_hi_gain();
-    let mut r: Int = rgb_r(c) + gain;
-    let mut g: Int = rgb_g(c) + gain;
-    let mut b: Int = rgb_b(c) + gain;
-    if r > 255 { r = 255; }
-    if g > 255 { g = 255; }
-    if b > 255 { b = 255; }
-    return rgb(r, g, b);
-}
-
-fn wm_pixel(c: TerminalCell, t: String, n: Int, ox: Int, oy: Int, x: Int, y: Int, tick: Int, name: String) -> TerminalCell {
-    let mut res: TerminalCell = c;
+fn wm_build_3x3(word: String) -> List[String] {
+    let mut r0: String = "";
+    let mut r1: String = "";
+    let mut r2: String = "";
+    let n: Int = chars_len(word);
     let mut i: Int = 0;
     while i < n {
-        let lox: Int = ox + i * 8;
-        let ch: String = char_at(t, i);
-        let sx: Int = x - (lox + 2);
-        let sy: Int = y - (oy + 1);
-        if font7_char_at(ch, sx, sy) {
-            res = cell_new("░", wm_shadow_color(), res.bg, false);
+        let pat: List[String] = font3_rows(char_at(word, i));
+        let sep: String = if i + 1 < n { " " } else { "" };
+        r0 = r0 + list_get(pat, 0) + sep;
+        r1 = r1 + list_get(pat, 1) + sep;
+        r2 = r2 + list_get(pat, 2) + sep;
+        i = i + 1;
+    }
+    return list_push(list_push(list_push(list_new(), r0), r1), r2);
+}
+
+fn wm_build_5x5_scaled(word: String, scale: Int) -> List[String] {
+    let sp: String = if scale >= 4 { "   " } else if scale >= 2 { "  " } else { " " };
+    let n: Int = chars_len(word);
+    let mut out: List[String] = list_new();
+    let mut r: Int = 0;
+    while r < 5 {
+        let mut line: String = "";
+        let mut ci: Int = 0;
+        while ci < n {
+            let pat: List[String] = font5_rows(char_at(word, ci));
+            let base: String = list_get(pat, r);
+            let mut k: Int = 0;
+            while k < chars_len(base) {
+                let ch: String = if char_at(base, k) == " " { " " } else { "█" };
+                let mut s: Int = 0;
+                while s < scale { line = line + ch; s = s + 1; }
+                k = k + 1;
+            }
+            if ci + 1 < n { line = line + sp; }
+            ci = ci + 1;
         }
-        let bx: Int = x - lox;
-        let by: Int = y - oy;
-        if font7_char_at(ch, bx, by) {
-            let edge: Bool = !font7_char_at(ch, bx, by - 1);
-            let fg: Int = wm_column_color(name, i, n, tick);
-            let col_fg: Int = if edge { wm_light(fg) } else { fg };
-            res = cell_new("█", col_fg, res.bg, edge);
+        let mut sr: Int = 0;
+        while sr < scale { out = list_push(out, line); sr = sr + 1; }
+        r = r + 1;
+    }
+    return out;
+}
+
+pub fn wm_banner_lines(name: String, cols: Int, rows: Int) -> List[String] {
+    let t: String = wm_text(name);
+    let n: Int = chars_len(t);
+    if n == 0 || cols < 1 || rows < 1 { return list_new(); }
+    if t == "SUPERFEDORA" {
+        if cols >= 90 && rows >= 22 { return font_sf_art(); }
+        if cols >= 23 && rows >= 7 {
+            let sup: List[String] = wm_build_3x3("SUPER");
+            let fed: List[String] = wm_build_3x3("FEDORA");
+            let mut sf: List[String] = list_push(sup, "");
+            sf = list_push(sf, list_get(fed, 0));
+            sf = list_push(sf, list_get(fed, 1));
+            sf = list_push(sf, list_get(fed, 2));
+            return sf;
+        }
+    }
+    if cols >= 60 && rows >= 5 {
+        if rows >= 40 && n * 20 + (n - 1) * 3 + 4 <= cols { return wm_build_5x5_scaled(t, 4); }
+        if rows >= 30 && n * 15 + (n - 1) * 2 + 4 <= cols { return wm_build_5x5_scaled(t, 3); }
+        if rows >= 24 && n * 10 + (n - 1) * 2 + 4 <= cols { return wm_build_5x5_scaled(t, 2); }
+        let mut max_c: Int = (cols - 4) / 6;
+        if max_c < 1 { max_c = 1; }
+        let sub: String = if n > max_c { str_slice(t, 0, max_c) } else { t };
+        return wm_build_5x5_scaled(sub, 1);
+    }
+    if cols >= 25 && rows >= 3 {
+        let mut b3: Int = (cols - 2) / 4;
+        if b3 < 1 { b3 = 1; }
+        let sub3: String = if n > b3 { (if b3 > 1 { str_slice(t, 0, b3 - 1) + "." } else { str_slice(t, 0, 1) }) } else { t };
+        return wm_build_3x3(sub3);
+    }
+    let max_v: Int = if rows > 4 { rows - 4 } else { 1 };
+    let v_str: String = if t == "SUPERFEDORA" { "SUPER FEDORA" } else { t };
+    let mut v_out: List[String] = list_new();
+    let mut vi: Int = 0;
+    while vi < chars_len(v_str) && vi < max_v {
+        let vc: String = char_at(v_str, vi);
+        v_out = list_push(v_out, if vc == " " { " " } else { "█" });
+        vi = vi + 1;
+    }
+    return v_out;
+}
+
+fn wm_stamp_line(g: CellGrid, line: String, ox: Int, y: Int, min_y: Int, max_y: Int, is_sf: Bool, gleam_pos: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let base_fg: Int = wm_bevel_color(y, min_y, max_y, is_sf);
+    let shad_fg: Int = wm_shadow_color();
+    let len: Int = chars_len(line);
+    let mut i: Int = 0;
+    while i < len {
+        let ch: String = char_at(line, i);
+        let x: Int = ox + i;
+        if x >= 0 && x < out.cols {
+            let cur: TerminalCell = grid_get(out, x, y);
+            if ch != " " {
+                let diag: Int = x + y * 2;
+                let dist: Int = if diag - gleam_pos < 0 { gleam_pos - diag } else { diag - gleam_pos };
+                let fg: Int = if dist == 0 { rgb(245, 255, 255) } else if dist == 1 { rgb(255, 225, 110) } else if dist == 2 { rgb(130, 235, 255) } else { base_fg };
+                out = grid_set(out, x, y, cell_new(ch, fg, cur.bg, true));
+                if x + 1 < out.cols && y + 1 < out.rows {
+                    let sc: TerminalCell = grid_get(out, x + 1, y + 1);
+                    out = grid_set(out, x + 1, y + 1, cell_new("░", shad_fg, sc.bg, false));
+                }
+            } else if cur.ch != "░" {
+                out = grid_set(out, x, y, cell_new(" ", shad_fg, cur.bg, false));
+            }
         }
         i = i + 1;
     }
-    return res;
-}
-
-pub fn wm_render(g: CellGrid, name: String, tick: Int) -> CellGrid {
-    let t: String = wm_text(name);
-    let total: Int = chars_len(t) * (font7_width() + 1) - 1;
-    if total > g.cols || font7_height() + 2 > g.rows { return g; }
-    let r: CellGrid = wm_render_at(g, name, (g.rows - font7_height()) / 2, tick);
-    return r;
+    return out;
 }
 
 pub fn wm_render_at(g: CellGrid, name: String, oy: Int, tick: Int) -> CellGrid {
-    let t: String = wm_text(name);
-    let n: Int = chars_len(t);
-    let total: Int = n * (font7_width() + 1) - 1;
-    if total > g.cols { return g; }
-    let ox: Int = (g.cols - total) / 2;
+    let lines: List[String] = wm_banner_lines(name, g.cols, g.rows);
+    let h: Int = list_len(lines);
+    if h == 0 { return g; }
+    let mut max_w: Int = 0;
+    let mut i: Int = 0;
+    while i < h {
+        let lw: Int = chars_len(list_get(lines, i));
+        if lw > max_w { max_w = lw; }
+        i = i + 1;
+    }
+    let ox: Int = if g.cols > max_w { (g.cols - max_w) / 2 } else { 0 };
+    let is_sf: Bool = wm_text(name) == "SUPERFEDORA" && (h == 22 || h == 7);
+    let gleam_span: Int = if g.cols + g.rows * 2 + 28 > 0 { g.cols + g.rows * 2 + 28 } else { 1 };
+    let gleam_pos: Int = (tick * 3) % gleam_span;
     let mut out: CellGrid = g;
-    let mut y: Int = oy;
-    while y < oy + 8 && y < out.rows {
-        if y >= 0 {
-            let mut x: Int = ox;
-            while x < ox + total + 2 && x < out.cols {
-                if x >= 0 {
-                    let c: TerminalCell = grid_get(out, x, y);
-                    let px: TerminalCell = wm_pixel(c, t, n, ox, oy, x, y, tick, name);
-                    out = grid_set(out, x, y, px);
-                }
-                x = x + 1;
-            }
+    let mut r: Int = 0;
+    while r < h {
+        let y: Int = oy + r;
+        if y >= 0 && y < out.rows {
+            out = wm_stamp_line(out, list_get(lines, r), ox, y, oy, oy + h - 1, is_sf, gleam_pos);
         }
-        y = y + 1;
+        r = r + 1;
     }
     return out;
+}
+
+pub fn wm_render(g: CellGrid, name: String, tick: Int) -> CellGrid {
+    let lines: List[String] = wm_banner_lines(name, g.cols, g.rows);
+    let h: Int = list_len(lines);
+    if h == 0 { return g; }
+    let oy: Int = if g.rows > h { (g.rows - h) / 2 } else { 0 };
+    return wm_render_at(g, name, oy, tick);
 }

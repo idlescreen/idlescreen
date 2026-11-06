@@ -8,7 +8,7 @@
 //   3. Emit the machine-readable JSON descriptor for --json.
 
 pub fn cli_version_line(prog: String) -> String {
-    return prog + " 5.0.0";
+    return prog + " 5.0.1";
 }
 
 pub fn cli_help(prog: String) -> Int {
@@ -40,6 +40,6 @@ pub fn cli_help(prog: String) -> Int {
 }
 
 pub fn cli_json(prog: String) -> Int {
-    println("{\"name\":\"" + prog + "\",\"version\":\"5.0.0\",\"scenes\":53,\"presets\":[\"openooda\",\"superfedora\",\"fedora\",\"arch\"],\"caps\":[\"Process\",\"FsRead\",\"FsWrite\",\"Fs\",\"Bind\",\"Tcp\",\"Env\",\"Time\",\"Rand\",\"Ffi\"],\"status\":\"pass\"}");
+    println("{\"name\":\"" + prog + "\",\"version\":\"5.0.1\",\"scenes\":53,\"presets\":[\"openooda\",\"superfedora\",\"fedora\",\"arch\"],\"caps\":[\"Process\",\"FsRead\",\"FsWrite\",\"Fs\",\"Bind\",\"Tcp\",\"Env\",\"Time\",\"Rand\",\"Ffi\"],\"status\":\"pass\"}");
     return 0;
 }

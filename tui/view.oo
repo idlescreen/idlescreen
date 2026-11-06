@@ -10,7 +10,8 @@
 import "core/cell.oo";
 import "core/grid.oo";
 import "ascii/effects.oo";
-import "ascii/scenes/dispatch.oo";
+import "ascii/engine.oo";
+import "ascii/layout/wordmark.oo";
 import "ascii/draw/ansi.oo";
 import "model.oo";
 
@@ -31,103 +32,116 @@ fn tui_format_dpms(secs: Int) -> String {
     return secs.to_string() + " s (" + m.to_string() + "m " + pad + s.to_string() + "s)";
 }
 
-fn tui_format_fps(fps: Int) -> String {
-    if fps <= 0 { return "Auto (Monitor Hz)"; }
-    return fps.to_string() + " FPS";
+fn tui_csi(seq: String) -> String {
+    let mut b: List[Int] = bytes_new();
+    b = bytes_push(b, 27);
+    b = bytes_push(b, 91);
+    return bytes_to_str(b) + seq;
 }
 
 fn tui_slider_row(label: String, val: String, hint: String, focused: Bool) -> String {
-    let ls: String = if focused { "\x1b[1;33m" } else { "\x1b[1m" };
-    let rev: String = if focused { "\x1b[7m" } else { "" };
-    let end: String = if focused { "\x1b[0m" } else { "" };
+    let ls: String = if focused { tui_csi("1;33m") } else { tui_csi("1m") };
+    let rev: String = if focused { tui_csi("7m") } else { "" };
+    let end: String = if focused { tui_csi("0m") } else { "" };
     let pad_val: String = tui_fit_str(val, 20);
-    return ls + tui_fit_str(label, 19) + "\x1b[0m " + rev + "[ ◄  " + pad_val + "  ► ]" + end + " \x1b[2m" + hint + "\x1b[0m\x1b[K\r\n";
+    return ls + tui_fit_str(label, 19) + tui_csi("0m ") + rev + "[ ◄  " + pad_val + "  ► ]" + end + " " + tui_csi("2m") + hint + tui_csi("0m") + tui_csi("K\r\n");
 }
 
 fn tui_button_bar(focused: Int) -> String {
-    let b_s: String = if focused == 8 { "\x1b[7;1;32m [ S: Save ] \x1b[0m" } else { "\x1b[1;32m [ S: Save ] \x1b[0m" };
-    let b_p: String = if focused == 9 { "\x1b[7;1;36m [ P: Terminal Preview ] \x1b[0m" } else { "\x1b[1;36m [ P: Terminal Preview ] \x1b[0m" };
-    let b_f: String = if focused == 10 { "\x1b[7;1;35m [ F: Fullscreen Preview ] \x1b[0m" } else { "\x1b[1;35m [ F: Fullscreen Preview ] \x1b[0m" };
-    let b_q: String = if focused == 11 { "\x1b[7;1;31m [ Q: Quit ] \x1b[0m" } else { "\x1b[1;31m [ Q: Quit ] \x1b[0m" };
-    return "  " + b_s + "  " + b_p + "  " + b_f + "  " + b_q + "\x1b[K\r\n\x1b[K\r\n";
+    let r0: String = tui_csi("0m");
+    let b_s: String = (if focused == 8 { tui_csi("7;1;32m") } else { tui_csi("1;32m") }) + " [ S: Save ] " + r0;
+    let b_p: String = (if focused == 9 { tui_csi("7;1;36m") } else { tui_csi("1;36m") }) + " [ P: Terminal Preview ] " + r0;
+    let b_f: String = (if focused == 10 { tui_csi("7;1;35m") } else { tui_csi("1;35m") }) + " [ F: Fullscreen Preview ] " + r0;
+    let b_q: String = (if focused == 11 { tui_csi("7;1;31m") } else { tui_csi("1;31m") }) + " [ Q: Quit ] " + r0;
+    return "  " + b_s + "  " + b_p + "  " + b_f + "  " + b_q + tui_csi("K\r\n") + tui_csi("K\r\n");
 }
 
 pub fn tui_render_mini_preview(m: TuiModel, tick: Int) -> String {
     if m.cols < 105 { return ""; }
     let mut pv_cols: Int = m.cols - 77;
     if pv_cols < 28 { pv_cols = 28; }
-    if pv_cols > 36 { pv_cols = 36; }
+    if pv_cols > 48 { pv_cols = 48; }
     let mut out: String = "";
     let mut sc_idx: Int = 0;
     if m.selected_saver >= 3 { sc_idx = m.selected_saver - 3; }
     else { sc_idx = (tick / 60) % 53; }
+    let wm: String = if m.selected_saver == 2 { "SUPERFEDORA" } else if !m.use_os_brand && str_trim(m.custom_text) != "" { to_uppercase(str_trim(m.custom_text)) } else { wm_clean_os(m.detected_os) };
     let mut pg: CellGrid = grid_new(pv_cols, 16, rgb(4, 6, 12));
-    pg = scene_render(sc_idx, pg, tick);
+    pg = engine_frame(pg, sc_idx, tick, wm);
+    let r0: String = tui_csi("0m");
+    let c6: String = tui_csi("1;36m");
     let mut top_bar: String = "┌─ Live Preview ";
     let mut di: Int = 15;
     while di < pv_cols { top_bar = top_bar + "─"; di = di + 1; }
-    top_bar = top_bar + "┐\x1b[0m";
-    out = out + "\x1b[1;75H\x1b[1;36m" + top_bar;
-    out = out + "\x1b[2;75H\x1b[1;36m│\x1b[0m\x1b[1;33m " + tui_fit_str("Scene: " + effects_name(sc_idx), pv_cols - 1) + "\x1b[0m\x1b[1;36m│\x1b[0m";
+    top_bar = top_bar + "┐" + r0;
+    out = out + tui_csi("1;75H") + c6 + top_bar;
+    out = out + tui_csi("2;75H") + c6 + "│" + r0 + tui_csi("1;33m ") + tui_fit_str("Scene: " + effects_name(sc_idx) + " │ " + wm, pv_cols - 1) + r0 + c6 + "│" + r0;
     let mut y: Int = 0;
     while y < 16 {
         let r_row: Int = 3 + y;
-        out = out + "\x1b[" + r_row.to_string() + ";75H\x1b[1;36m│\x1b[0m" + ansi_render_row(pg, y) + "\x1b[1;36m│\x1b[0m";
+        out = out + tui_csi(r_row.to_string() + ";75H") + c6 + "│" + r0 + ansi_render_row(pg, y) + c6 + "│" + r0;
         y = y + 1;
     }
-    out = out + "\x1b[19;75H\x1b[1;36m│\x1b[0m\x1b[2m " + tui_fit_str("[←/→] Scene  [P] Term  [F] Full", pv_cols - 1) + "\x1b[0m\x1b[1;36m│\x1b[0m";
+    out = out + tui_csi("19;75H") + c6 + "│" + r0 + tui_csi("2m ") + tui_fit_str("[←/→] Scene  [P] Term  [F] Full", pv_cols - 1) + r0 + c6 + "│" + r0;
     let mut bot_bar: String = "└";
     let mut bi: Int = 0;
     while bi < pv_cols { bot_bar = bot_bar + "─"; bi = bi + 1; }
-    bot_bar = bot_bar + "┘\x1b[0m";
-    out = out + "\x1b[20;75H\x1b[1;36m" + bot_bar;
+    bot_bar = bot_bar + "┘" + r0;
+    out = out + tui_csi("20;75H") + c6 + bot_bar;
     return out;
 }
 
 fn tui_banner_input_box(m: TuiModel) -> String {
     let is_tf: Bool = m.focused == 3;
-    let tf_hdr: String = if is_tf { "\x1b[1;33m" } else { "\x1b[1m" };
-    let bdr: String = if is_tf { "\x1b[1;33m" } else { "\x1b[2m" };
-    let mut b: String = tf_hdr + "[3] Custom Banner Text:\x1b[0m \x1b[2m(Enter to edit, Esc/Enter to finish)\x1b[0m\x1b[K\r\n";
-    b = b + "  " + bdr + "┌──────────────────────────────────────────────────────────────┐\x1b[0m\x1b[K\r\n";
+    let r0: String = tui_csi("0m");
+    let eol: String = tui_csi("K\r\n");
+    let tf_hdr: String = if is_tf { tui_csi("1;33m") } else { tui_csi("1m") };
+    let bdr: String = if is_tf { tui_csi("1;33m") } else { tui_csi("2m") };
+    let mut b: String = tf_hdr + "[3] Custom Banner Text:" + r0 + " " + tui_csi("2m") + "(Enter to edit, Esc/Enter to finish)" + r0 + eol;
+    b = b + "  " + bdr + "┌──────────────────────────────────────────────────────────────┐" + r0 + eol;
     let cur_str: String = if m.editing_text { m.custom_text + "│" } else if m.custom_text == "" { "(Press Enter to type custom banner)" } else { m.custom_text };
-    b = b + "  " + bdr + "│\x1b[0m " + tui_fit_str(cur_str, 60) + " " + bdr + "│\x1b[0m\x1b[K\r\n";
-    b = b + "  " + bdr + "└──────────────────────────────────────────────────────────────┘\x1b[0m\x1b[K\r\n\x1b[K\r\n";
+    b = b + "  " + bdr + "│" + r0 + " " + tui_fit_str(cur_str, 60) + " " + bdr + "│" + r0 + eol;
+    b = b + "  " + bdr + "└──────────────────────────────────────────────────────────────┘" + r0 + eol + eol;
     return b;
 }
 
 pub fn tui_frame(m: TuiModel, tick: Int) -> String {
-    let mut b: String = "\x1b[?2026h\x1b[H";
-    b = b + "\x1b[1;36m┌──────────────────────────────────────────────────────────────────────┐\x1b[0m\x1b[K\r\n";
-    b = b + "\x1b[1;36m│           IdleScreen Settings — 16-Bit Arcade Screensaver            │\x1b[0m\x1b[K\r\n";
-    b = b + "\x1b[1;36m└──────────────────────────────────────────────────────────────────────┘\x1b[0m\x1b[K\r\n";
-    let d_col: String = if m.daemon_active { "\x1b[1;32mActive (Monitoring Idle)\x1b[0m" } else { "\x1b[1;33mStandby (Stay-Awake ON)\x1b[0m" };
-    b = b + "  Daemon: " + d_col + " │ Inhibitors: \x1b[1m" + m.inhibitor_desc + "\x1b[0m \x1b[2m([T] Standby)\x1b[0m\x1b[K\r\n\x1b[K\r\n";
-    let s_hdr: String = if m.focused == 0 { "\x1b[1;33m" } else { "\x1b[1m" };
-    b = b + s_hdr + "[1] Active Screensaver / Arcade Scene (" + (m.selected_saver + 1).to_string() + "/56):\x1b[0m\x1b[K\r\n";
+    let r0: String = tui_csi("0m");
+    let c6: String = tui_csi("1;36m");
+    let c2: String = tui_csi("2m");
+    let eol: String = tui_csi("K\r\n");
+    let mut b: String = tui_csi("?2026h") + tui_csi("H");
+    b = b + c6 + "┌──────────────────────────────────────────────────────────────────────┐" + r0 + eol;
+    b = b + c6 + "│           IdleScreen Settings — 16-Bit Arcade Screensaver            │" + r0 + eol;
+    b = b + c6 + "└──────────────────────────────────────────────────────────────────────┘" + r0 + eol;
+    let d_col: String = if m.daemon_active { tui_csi("1;32m") + "Active (Monitoring Idle)" + r0 } else { tui_csi("1;33m") + "Standby (Stay-Awake ON)" + r0 };
+    b = b + "  Daemon: " + d_col + " │ Inhibitors: " + tui_csi("1m") + m.inhibitor_desc + r0 + " " + c2 + "([T] Standby)" + r0 + eol + eol;
+    let s_hdr: String = if m.focused == 0 { tui_csi("1;33m") } else { tui_csi("1m") };
+    b = b + s_hdr + "[1] Active Screensaver / Arcade Scene (" + (m.selected_saver + 1).to_string() + "/56):" + r0 + eol;
     let s_disp: String = tui_fit_str(tui_saver_display(m.selected_saver), 44);
-    if m.focused == 0 { b = b + "   \x1b[7;1;36m [ ◄  " + s_disp + "  ► ] \x1b[0m  \x1b[2m(←/→ or [/])\x1b[0m\x1b[K\r\n\x1b[K\r\n"; }
-    else { b = b + "    [ ◄  \x1b[1;36m" + s_disp + "\x1b[0m  ► ]   \x1b[2m(←/→ or [/])\x1b[0m\x1b[K\r\n\x1b[K\r\n"; }
-    b = b + "\x1b[1m[2] Banner Text Mode (Space/Enter or 1-2 to select):\x1b[0m\x1b[K\r\n";
+    if m.focused == 0 { b = b + "   " + tui_csi("7;1;36m") + " [ ◄  " + s_disp + "  ► ] " + r0 + "  " + c2 + "(←/→ or [/])" + r0 + eol + eol; }
+    else { b = b + "    [ ◄  " + c6 + s_disp + r0 + "  ► ]   " + c2 + "(←/→ or [/])" + r0 + eol + eol; }
+    b = b + tui_csi("1m") + "[2] Banner Text Mode (Space/Enter or 1-2 to select):" + r0 + eol;
     let r1: String = if m.use_os_brand { "(●)" } else { "( )" };
     let r2: String = if !m.use_os_brand { "(●)" } else { "( )" };
-    let p1: String = if m.focused == 1 { " \x1b[1;33m▸\x1b[0m" } else { "  " };
-    let p2: String = if m.focused == 2 { " \x1b[1;33m▸\x1b[0m" } else { "  " };
-    b = b + p1 + " " + r1 + " " + tui_fit_str("Host OS Name (Auto)", 24) + " [" + tui_fit_str(m.detected_os, 26) + "]\x1b[K\r\n";
+    let p1: String = if m.focused == 1 { " " + tui_csi("1;33m") + "▸" + r0 } else { "  " };
+    let p2: String = if m.focused == 2 { " " + tui_csi("1;33m") + "▸" + r0 } else { "  " };
+    b = b + p1 + " " + r1 + " " + tui_fit_str("Host OS Name (Auto)", 24) + " [" + tui_fit_str(m.detected_os, 26) + "]" + eol;
     let cust_disp: String = if m.custom_text == "" { "(Custom text below)" } else { m.custom_text };
-    b = b + p2 + " " + r2 + " " + tui_fit_str("Custom Banner Text", 24) + " [" + tui_fit_str(cust_disp, 26) + "]\x1b[K\r\n\x1b[K\r\n";
+    b = b + p2 + " " + r2 + " " + tui_fit_str("Custom Banner Text", 24) + " [" + tui_fit_str(cust_disp, 26) + "]" + eol + eol;
     b = b + tui_banner_input_box(m);
     let is_s: String = m.idle_timeout_s.to_string() + " s (" + (m.idle_timeout_s / 60).to_string() + "m " + (if m.idle_timeout_s % 60 < 10 { "0" } else { "" }) + (m.idle_timeout_s % 60).to_string() + "s)";
     b = b + tui_slider_row("[4] Idle Timeout:", is_s, "(←/→ ±30s, [/] ±5m)", m.focused == 4);
     b = b + tui_slider_row("[5] Scene Dwell:", m.dwell_s.to_string() + " s per scene", "(←/→ ±1s, [/] ±5s)", m.focused == 5);
-    b = b + tui_slider_row("[6] Frame Rate:", tui_format_fps(m.fps_val), "(←/→ Auto..144Hz)", m.focused == 6);
+    let fps_str: String = if m.fps_val <= 0 { "Auto (Monitor Hz)" } else { m.fps_val.to_string() + " FPS" };
+    b = b + tui_slider_row("[6] Frame Rate:", fps_str, "(←/→ Auto..144Hz)", m.focused == 6);
     b = b + tui_slider_row("[7] DPMS Power-Off:", tui_format_dpms(m.dpms_timeout_s), "(←/→ ±1m, [/] ±5m)", m.focused == 7);
-    b = b + "\x1b[K\r\n";
+    b = b + eol;
     b = b + tui_button_bar(m.focused);
-    let dirty_tag: String = if m.dirty { "\x1b[1;33m[Modified]\x1b[0m " } else { "" };
-    b = b + "  Status: " + dirty_tag + m.status_msg + " | " + tui_summary(m) + "\x1b[K\r\n";
-    b = b + "  \x1b[2mKeys: [↑↓/jk] Nav  [←→/hl] Adjust  [S] Save  [P] Term  [F] Fullscreen  [T] Standby  [Q] Quit\x1b[0m\x1b[K\r\n";
+    let dirty_tag: String = if m.dirty { tui_csi("1;33m") + "[Modified]" + r0 + " " } else { "" };
+    b = b + "  Status: " + dirty_tag + m.status_msg + " | " + tui_summary(m) + eol;
+    b = b + "  " + c2 + "Keys: [↑↓/jk] Nav  [←→/hl] Adjust  [S] Save  [P] Term  [F] Fullscreen  [T] Standby  [Q] Quit" + r0 + eol;
     b = b + tui_render_mini_preview(m, tick);
-    b = b + "\x1b[?2026l";
+    b = b + tui_csi("?2026l");
     return b;
 }

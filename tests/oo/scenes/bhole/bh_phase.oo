@@ -25,7 +25,6 @@ import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/geometry_fns.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
-import "tests/oo/engine/float_conv.oo";
 import "tests/oo/scenes/bhole/bh_parts.oo";
 
 pub fn bh_rotate(w: World, bh: List[Int]) -> World {

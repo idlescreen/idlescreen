@@ -18,7 +18,6 @@
 import "tests/oo/canvas_cells.oo";
 import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/kernel/engine_ops.oo";
-import "tests/oo/kernel/engine_core.oo";
 import "tests/oo/engapi/char_ops.oo";
 import "tests/oo/engapi/char_groups.oo";
 import "tests/oo/engine/easing_fns.oo";

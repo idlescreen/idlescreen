@@ -1,53 +1,127 @@
-// # Wordmark Font - 7x7 Bevel-Capable Block Letter Atlas
+// # Wordmark Font - 5x5, 3x3, 7x7, and SuperFedora Block Letter Atlases
 //
-// Logline: Seven-row block letterforms covering every glyph used by the four wordmark presets.
-// Setup: Pure data table. Each letterform is seven 7-column bitmap strings joined by a bar.
+// Logline: Block letterforms covering the 5x5 wide banner, 3x3 medium banner, 7x7 preset font, and 22-row SuperFedora art.
+// Setup: Pure data tables. Each letterform is bar-joined scanline strings.
 // Beats:
-//   1. Select the letterform string for the requested capital letter.
-//   2. Split the bar-joined bitmap into its seven scanline rows.
-//   3. Report the fixed glyph metrics used by the wordmark renderer.
+//   1. Resolve 5x5 and 3x3 block glyph patterns for A-Z, 0-9, and punctuation.
+//   2. Provide the 22-row SuperFedora website banner art.
+//   3. Retain the 7x7 font helpers for backward compatibility.
+
+pub fn font5_rows(ch: String) -> List[String] {
+    let c: String = to_uppercase(ch);
+    let mut raw: String = " ███ |█   █|█   █|█   █| ███ ";
+    if c == "A" { raw = " ███ |█   █|█████|█   █|█   █"; }
+    else if c == "B" { raw = "████ |█   █|████ |█   █|████ "; }
+    else if c == "C" { raw = " ████|█    |█    |█    | ████"; }
+    else if c == "D" { raw = "████ |█   █|█   █|█   █|████ "; }
+    else if c == "E" { raw = "█████|█    |████ |█    |█████"; }
+    else if c == "F" { raw = "█████|█    |████ |█    |█    "; }
+    else if c == "G" { raw = " ████|█    |█ ███|█   █| ████"; }
+    else if c == "H" { raw = "█   █|█   █|█████|█   █|█   █"; }
+    else if c == "I" { raw = "█████|  █  |  █  |  █  |█████"; }
+    else if c == "J" { raw = "    █|    █|    █|█   █| ███ "; }
+    else if c == "K" { raw = "█   █|█  █ |███  |█  █ |█   █"; }
+    else if c == "L" { raw = "█    |█    |█    |█    |█████"; }
+    else if c == "M" { raw = "█   █|██ ██|█ █ █|█   █|█   █"; }
+    else if c == "N" { raw = "█   █|██  █|█ █ █|█  ██|█   █"; }
+    else if c == "O" { raw = " ███ |█   █|█   █|█   █| ███ "; }
+    else if c == "P" { raw = "████ |█   █|████ |█    |█    "; }
+    else if c == "Q" { raw = " ███ |█   █|█ █ █|█  █ | ████"; }
+    else if c == "R" { raw = "████ |█   █|████ |█  █ |█   █"; }
+    else if c == "S" { raw = " ████|█    | ███ |    █|████ "; }
+    else if c == "T" { raw = "█████|  █  |  █  |  █  |  █  "; }
+    else if c == "U" { raw = "█   █|█   █|█   █|█   █| ███ "; }
+    else if c == "V" { raw = "█   █|█   █| █ █ | █ █ |  █  "; }
+    else if c == "W" { raw = "█   █|█   █|█ █ █|██ ██|█   █"; }
+    else if c == "X" { raw = "█   █| █ █ |  █  | █ █ |█   █"; }
+    else if c == "Y" { raw = "█   █| █ █ |  █  |  █  |  █  "; }
+    else if c == "Z" { raw = "█████|   █ |  █  | █   |█████"; }
+    else if c == "0" { raw = " ███ |█  ██|█ █ █|██  █| ███ "; }
+    else if c == "1" { raw = "  █  | ██  |  █  |  █  |█████"; }
+    else if c == "2" { raw = " ███ |█   █|   █ | █   |█████"; }
+    else if c == "3" { raw = "████ |    █| ███ |    █|████ "; }
+    else if c == "4" { raw = "█   █|█   █|█████|    █|    █"; }
+    else if c == "5" { raw = "█████|█    |████ |    █|████ "; }
+    else if c == "6" { raw = " ███ |█    |████ |█   █| ███ "; }
+    else if c == "7" { raw = "█████|    █|   █ |  █  |  █  "; }
+    else if c == "8" { raw = " ███ |█   █| ███ |█   █| ███ "; }
+    else if c == "9" { raw = " ███ |█   █| ████|    █| ███ "; }
+    else if c == "_" { raw = "     |     |     |     |█████"; }
+    else if c == "!" { raw = "  █  |  █  |  █  |     |  █  "; }
+    else if c == "?" { raw = " ███ |█   █|  ██ |     |  █  "; }
+    else if c == ":" { raw = "     |  █  |     |  █  |     "; }
+    else if c == "/" { raw = "    █|   █ |  █  | █   |█    "; }
+    else if c == "+" { raw = "     |  █  | ███ |  █  |     "; }
+    else if c == "." { raw = "     |     |     |     |  █  "; }
+    else if c == "-" { raw = "     |     | ███ |     |     "; }
+    else if c == " " { raw = "     |     |     |     |     "; }
+    return str_split(raw, "|");
+}
+
+pub fn font3_rows(ch: String) -> List[String] {
+    let c: String = to_uppercase(ch);
+    let mut raw: String = "█▀█|█ █|▀▀▀";
+    if c == "A" { raw = "█▀█|█▀█|▀ ▀"; }
+    else if c == "B" || c == "D" { raw = if c == "B" { "█▀▄|█▀▄|▀▀ " } else { "█▀▄|█ █|▀▀ " }; }
+    else if c == "C" || c == "G" { raw = if c == "C" { "█▀▀|█  |▀▀▀" } else { "█▀▀|█ █|▀▀▀" }; }
+    else if c == "E" || c == "F" { raw = if c == "E" { "█▀▀|█▀ |▀▀▀" } else { "█▀▀|█▀ |▀  " }; }
+    else if c == "H" || c == "K" { raw = if c == "H" { "█ █|█▀█|▀ ▀" } else { "█ █|██ |▀ ▀" }; }
+    else if c == "I" || c == "J" { raw = if c == "I" { "▀█▀| █ |▀▀▀" } else { "  █|  █|▀▀ " }; }
+    else if c == "L" || c == "P" { raw = if c == "L" { "█  |█  |▀▀▀" } else { "█▀█|█▀▀|▀  " }; }
+    else if c == "M" || c == "N" || c == "R" { raw = if c == "R" { "█▀█|█▀▄|▀ ▀" } else { "█▀█|█ █|▀ ▀" }; }
+    else if c == "O" || c == "Q" { raw = if c == "O" { "█▀█|█ █|▀▀▀" } else { "█▀█|█▄█|▀▀█" }; }
+    else if c == "S" || c == "5" { raw = "█▀▀|▀▀█|▀▀▀"; }
+    else if c == "T" || c == "1" { raw = if c == "T" { "▀█▀| █ | ▀ " } else { " █ | █ | ▀ " }; }
+    else if c == "U" || c == "0" { raw = "█ █|█ █|▀▀▀"; }
+    else if c == "V" || c == "Y" { raw = if c == "V" { "█ █|█ █| ▀ " } else { "█ █| █ | ▀ " }; }
+    else if c == "W" || c == "X" { raw = if c == "W" { "█ █|█▀█|▀ ▀" } else { "▀▄▀| █ |▀ ▀" }; }
+    else if c == "Z" || c == "2" { raw = if c == "Z" { "▀▀█| █ |█▀▀" } else { "▀▀█|█▀▀|▀▀▀" }; }
+    else if c == "3" || c == "4" { raw = if c == "3" { "▀▀█| ▀█|▀▀▀" } else { "█ █|▀▀█|  ▀" }; }
+    else if c == "6" || c == "8" { raw = if c == "6" { "█▀▀|█▀█|▀▀▀" } else { "█▀█|█▀█|▀▀▀" }; }
+    else if c == "7" || c == "9" { raw = if c == "7" { "▀▀█|  █|  ▀" } else { "█▀█|▀▀█|  ▀" }; }
+    else if c == "!" || c == "?" { raw = if c == "!" { " █ | █ | ▄ " } else { "▀█▀| ▄▀| ▄ " }; }
+    else if c == ":" || c == "/" || c == "+" { raw = if c == ":" { " ▄ |   | ▄ " } else if c == "/" { "  █| █ |█  " } else { " █ |███| █ " }; }
+    else if c == "_" || c == "." || c == "-" || c == " " { raw = if c == "_" { "   |   |▄▄▄" } else if c == "." { "   |   | ▄ " } else if c == "-" { "   | ▀ |   " } else { "   |   |   " }; }
+    return str_split(raw, "|");
+}
+
+pub fn font_sf_art() -> List[String] {
+    let mut r: String = "   █████ ██  ██ █████  ██████ █████|  ██     ██  ██ ██  ██ ██     ██  ██|  █████  ██  ██ ██████ █████  ██████|      ██ ██  ██ ██     ██     ██ ██|      ██ ██  ██ ██     ██     ██  ██|  █████   ████  ██     ██████ ██  ██||";
+    r = r + "████████████   ████████████   █████████         ████████      █████████           ████|";
+    r = r + "████████████   ████████████   ███████████      ██████████     ███████████       ████████|";
+    r = r + "████████████   ████████████   ████████████    ████████████    ███████████       ████████|";
+    r = r + "███            ███            ███      ███    ███      ███    ███     ███     █████  █████|";
+    r = r + "███            ███            ███      ███    ███      ███    ███     ███     ███      ███|";
+    r = r + "███            ███            ███      ███    ███      ███    ███████████     ███      ███|";
+    r = r + "█████████      █████████      ███      ███    ███      ███    █████████       ███      ███|";
+    r = r + "█████████      █████████      ███      ███    ███      ███    █████████       ████████████|";
+    r = r + "█████████      █████████      ███      ███    ███      ███    ███   ███       ████████████|";
+    r = r + "███            ███            ███      ███    ███      ███    ███     ███     ████████████|";
+    r = r + "███            ███            ███      ███    ███      ███    ███     ███     ███      ███|";
+    r = r + "███            ███            ███      ███    ███      ███    ███     ███     ███      ███|";
+    r = r + "███            ████████████   ████████████    ████████████    ███       ███   ███      ███|";
+    r = r + "███            ████████████   ███████████      ██████████     ███       ███   ███      ███|";
+    r = r + "███            ████████████   █████████         ████████      ███       ███   ███      ███";
+    return str_split(r, "|");
+}
 
 pub fn font7_raw(ch: String) -> String {
-    if ch == "O" { return ".#####.|#.....#|#.....#|#.....#|#.....#|#.....#|.#####."; }
-    if ch == "P" { return "######.|#.....#|#.....#|######.|#......|#......|#......"; }
-    if ch == "E" { return "#######|#......|#......|#####..|#......|#......|#######"; }
-    if ch == "N" { return "#.....#|##....#|#.#...#|#..#..#|#...#.#|#....##|#.....#"; }
-    if ch == "D" { return "#####..|#....#.|#.....#|#.....#|#.....#|#....#.|#####.."; }
-    if ch == "A" { return "..###..|.#...#.|#.....#|#######|#.....#|#.....#|#.....#"; }
-    if ch == "S" { return ".######|#......|#......|.#####.|......#|......#|######."; }
-    if ch == "U" { return "#.....#|#.....#|#.....#|#.....#|#.....#|#.....#|.#####."; }
-    if ch == "R" { return "######.|#.....#|#.....#|######.|#...#..|#....#.|#.....#"; }
-    if ch == "F" { return "#######|#......|#......|#####..|#......|#......|#......"; }
-    if ch == "C" { return ".######|#......|#......|#......|#......|#......|.######"; }
-    if ch == "H" { return "#.....#|#.....#|#.....#|#######|#.....#|#.....#|#.....#"; }
-    if ch == "I" { return "#######|...#...|...#...|...#...|...#...|...#...|#######"; }
-    if ch == "L" { return "#......|#......|#......|#......|#......|#......|#######"; }
-    if ch == "T" { return "#######|...#...|...#...|...#...|...#...|...#...|...#..."; }
-    if ch == " " { return ".......|.......|.......|.......|.......|.......|......."; }
-    return ".......|.#####.|.#...#.|....#..|...#...|.......|...#...";
+    let r5: List[String] = font5_rows(ch);
+    let raw: String = list_get(r5, 0) + "  |" + list_get(r5, 1) + "  |" + list_get(r5, 1) + "  |" + list_get(r5, 2) + "  |" + list_get(r5, 3) + "  |" + list_get(r5, 3) + "  |" + list_get(r5, 4) + "  ";
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < chars_len(raw) {
+        let c: String = char_at(raw, i);
+        out = out + (if c == "█" { "#" } else if c == "|" { "|" } else { "." });
+        i = i + 1;
+    }
+    return out;
 }
 
-pub fn font7_rows(ch: String) -> List[String] {
-    let raw: String = font7_raw(ch);
-    let rows: List[String] = str_split(raw, "|");
-    return rows;
-}
-
+pub fn font7_rows(ch: String) -> List[String] { return str_split(font7_raw(ch), "|"); }
 pub fn font7_width() -> Int { return 7; }
-
 pub fn font7_height() -> Int { return 7; }
-
-pub fn font7_at(rows: List[String], col: Int, row: Int) -> Bool {
-    if row < 0 || row >= list_len(rows) { return false; }
-    let line: String = list_get(rows, row);
-    if col < 0 || col >= chars_len(line) { return false; }
-    return char_at(line, col) == "#";
-}
-
 pub fn font7_char_at(ch: String, col: Int, row: Int) -> Bool {
     if col < 0 || col >= 7 || row < 0 || row >= 7 { return false; }
-    let raw: String = font7_raw(ch);
-    let idx: Int = row * 8 + col;
-    if idx < 0 || idx >= chars_len(raw) { return false; }
-    return char_at(raw, idx) == "#";
+    return char_at(font7_raw(ch), row * 8 + col) == "#";
 }

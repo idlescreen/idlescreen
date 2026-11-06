@@ -16,7 +16,7 @@ import "daemon/run.oo";
 import "tui/run.oo";
 
 fn cli_self_test() -> Int {
-    println("self-test: idlescreen 5.0.0");
+    println("self-test: idlescreen 5.0.1");
     println("PASS scene roster (53)");
     println("PASS wordmark presets (4)");
     println("PASS caps default-deny surface");
@@ -24,8 +24,15 @@ fn cli_self_test() -> Int {
     return 0;
 }
 
-fn dispatch_service_ctl(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, verb: String, rest: List[String]) -> Int {
-    if verb == "start" || verb == "stop" || verb == "sleep" || verb == "quit" {
+fn dispatch_service_ctl(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, ffi: &FfiCap, time: &TimeCap, verb: String, rest: List[String]) -> Int {
+    if verb == "start" {
+        if ooidle_notify(tcp, env, "idlescreen", "start") {
+            println("Daemon response: Activated screensaver");
+            return 0;
+        }
+        return cmd_preview(proc, env, ffi, time, rest);
+    }
+    if verb == "stop" || verb == "sleep" || verb == "quit" {
         return cmd_saver_ctl(tcp, env, verb);
     }
     if verb == "toggle" {
@@ -59,15 +66,15 @@ pub fn idlescreen_cli_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, bind:
     if verb == "--self-test" { return cli_self_test(); }
     if verb == "--json" { return cli_json("idlescreen"); }
     if verb == "list" { return cmd_list(rest); }
-    if verb == "text" { return cmd_text(ffi, rest); }
-    if verb == "preview" { return cmd_preview(ffi, time, rest); }
+    if verb == "text" { return cmd_text(proc, env, ffi, rest); }
+    if verb == "preview" { return cmd_preview(proc, env, ffi, time, rest); }
     if verb == "set" { return cmd_set(proc, env, tcp, rest); }
-    if verb == "tui" { return tui_run(proc, env, ffi, time, tcp); }
+    if verb == "tui" || verb == "ui" { return tui_run(proc, env, ffi, time, tcp); }
     if verb == "daemon" { return cmd_daemon(proc, bind, tcp, fs, fs_w, env); }
     if verb == "status" { return cmd_status(tcp, env); }
     if verb == "inhibitors" { return cmd_inhibitors(tcp, env); }
     if verb == "timeout" { return cmd_timeout(proc, env, tcp, rest); }
     if verb == "config" { return cmd_config(proc, env); }
     if verb == "doctor" { return cmd_doctor(env); }
-    return dispatch_service_ctl(proc, env, tcp, verb, rest);
+    return dispatch_service_ctl(proc, env, tcp, ffi, time, verb, rest);
 }

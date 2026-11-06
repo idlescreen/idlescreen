@@ -5,7 +5,7 @@ OO_LIST_AMBIENT_QUOTA ?= 8589934592
 BIN := bin/idlescreen
 TESTBIN := bin/test_idlescreen
 REPO_NAME := idlescreen
-VER := 5.0.0
+VER := 5.0.1
 SRC := main.oo anchor.oo $(wildcard core/*.oo raster/*.oo ascii/*.oo ascii/*/*.oo ascii/*/*/*.oo wayland/*.oo daemon/*.oo tui/*.oo cli/*.oo)
 ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_NO_JAIL=1 OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER)
 

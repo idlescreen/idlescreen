@@ -1,11 +1,11 @@
-// # Starfield - Twinkling Deterministic Star Backdrop
+// # Starfield - 3-Layer 16-Bit Parallax Starfield Backdrop
 //
-// Logline: Seeds a field of drifting stars behind the scene, twinkling by coordinate hash and tick.
+// Logline: Seeds a 3-layer field of drifting subcell stars behind the scene, twinkling by coordinate hash and tick.
 // Setup: Pure draw over CellGrid. Star positions derive from hash constants, not randomness.
 // Beats:
-//   1. Hash each cell to decide whether it holds a star and its brightness class.
-//   2. Drift columns slowly leftward with tick for parallax depth.
-//   3. Twinkle star glyphs between dot, plus, and star runes.
+//   1. Hash each empty cell across 3 parallax layers to decide star class and brightness.
+//   2. Drift foreground, midground, and dust layers at distinct speeds for parallax depth.
+//   3. Twinkle star glyphs between subcell quadrant runes (▘/▝, ▗/▖, ░) with SNES sapphire/gold colours.
 
 import "core/cell.oo";
 import "core/grid.oo";
@@ -13,17 +13,31 @@ import "ascii/canvas.oo";
 
 pub fn starfield_seed(g: CellGrid, tick: Int, density_x1000: Int) -> CellGrid {
     let mut out: CellGrid = g;
+    let d1: Int = if density_x1000 > 4 { density_x1000 / 3 } else { 3 };
+    let d2: Int = if density_x1000 > 2 { density_x1000 * 2 / 3 } else { 6 };
+    let d3: Int = density_x1000;
     let mut y: Int = 0;
     while y < out.rows {
         let mut x: Int = 0;
         while x < out.cols {
             let cell: TerminalCell = grid_get(out, x, y);
-            let h: Int = cv_hash(x + tick / 6, y, 31);
-            if h % 1000 < density_x1000 && cell.ch == " " {
-                let tw: Int = (h / 1000 + tick / 3) % 3;
-                let ch: String = if tw == 0 { "·" } else if tw == 1 { "+" } else { "★" };
-                let bright: Int = 120 + (h % 120);
-                out = grid_set(out, x, y, cell_new(ch, rgb(bright, bright, bright + 30), cell.bg, false));
+            if cell.ch == " " {
+                let h1: Int = cv_hash(x + tick / 2, y, 31) % 1000;
+                let h2: Int = cv_hash(x + tick / 4, y + tick / 8, 67) % 1000;
+                let h3: Int = cv_hash(x + tick / 7, y, 131) % 1000;
+                if h1 < d1 {
+                    let phase1: Int = (h1 + tick / 6) % 2;
+                    let ch1: String = if phase1 == 0 { "▘" } else { "▝" };
+                    let fg1: Int = if h1 % 4 == 0 { rgb(255, 200, 60) } else { rgb(95, 220, 255) };
+                    out = grid_set(out, x, y, cell_new(ch1, fg1, cell.bg, true));
+                } else if h2 < d2 {
+                    let phase2: Int = (h2 + tick / 10) % 2;
+                    let ch2: String = if phase2 == 0 { "▗" } else { "▖" };
+                    let fg2: Int = if h2 % 2 == 0 { rgb(215, 85, 210) } else { rgb(130, 95, 255) };
+                    out = grid_set(out, x, y, cell_new(ch2, fg2, cell.bg, false));
+                } else if h3 < d3 {
+                    out = grid_set(out, x, y, cell_new("░", rgb(40, 78, 156), cell.bg, false));
+                }
             }
             x = x + 1;
         }

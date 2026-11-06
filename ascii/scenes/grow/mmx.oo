@@ -1,36 +1,82 @@
-// # Scene MMX - Register Lane Wave Demonstrator
+// # Scene MMX - 16-Bit SNES Mega Man X Level-3 Charge Shot Choreography
 //
-// Logline: Eight SIMD-style register lanes pulsing packed element waves like a multimedia instruction demo.
+// Logline: Five-act SNES Mega Man X pixel choreography: Teleport Beam, Level-3 X-Buster Charge, Spiral Crush Blast, and Teleport Out.
 // Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
 // Beats:
-//   1. Divide the grid into eight horizontal register lanes.
-//   2. Drive a phase-shifted intensity wave down each lane.
-//   3. Draw packed element cells as blocks with register-rail chrome.
+//   1. Render X teleporting in on a cyan vertical beam, then aiming his X-Buster on the left flank.
+//   2. Pulse concentric Level-3 Pink/Gold charge aura rings around the buster muzzle.
+//   3. Fire the giant Spiral Crush wave across the grid with Maverick explosion bursts.
 
 import "core/cell.oo";
 import "core/grid.oo";
 import "core/imath.oo";
 import "ascii/canvas.oo";
 
+fn mmx_draw_sprite(g: CellGrid, bx: Int, by: Int, pose: Int, charge: Int) -> CellGrid {
+    let mut out: CellGrid = g;
+    let body: Int = if charge == 2 { rgb(248, 80, 168) } else if charge == 1 { rgb(48, 232, 248) } else { rgb(0, 128, 248) };
+    let lite: Int = if charge == 2 { rgb(255, 240, 144) } else { rgb(120, 216, 240) };
+    let bg: Int = rgb(4, 6, 12);
+    if pose == 0 {
+        let mut ry: Int = 0;
+        while ry <= by { out = cv_put_b(out, bx + 1, ry, "█", rgb(192, 240, 248), bg, true); ry = ry + 1; }
+        return out;
+    }
+    out = cv_put_b(out, bx + 1, by - 3, "▄", lite, bg, true);
+    out = cv_put_b(out, bx + 2, by - 3, "█", rgb(240, 64, 16), bg, true);
+    out = cv_put_b(out, bx, by - 2, "▐", body, bg, true);
+    out = cv_put_b(out, bx + 1, by - 2, "█", lite, bg, true);
+    out = cv_put_b(out, bx + 2, by - 2, "█", rgb(248, 176, 128), bg, true);
+    out = cv_put_b(out, bx, by - 1, "█", body, bg, true);
+    out = cv_put_b(out, bx + 1, by - 1, "█", lite, bg, true);
+    out = cv_put_b(out, bx + 2, by - 1, "█", body, bg, true);
+    out = cv_put_b(out, bx + 3, by - 1, "▬", rgb(248, 192, 56), bg, true);
+    out = cv_put_b(out, bx, by, "▀", body, bg, true);
+    out = cv_put_b(out, bx + 2, by, "▀", body, bg, true);
+    return out;
+}
+
 pub fn scene_mmx(g: CellGrid, tick: Int) -> CellGrid {
-    let mut out: CellGrid = cv_fill(g, " ", rgb(40, 40, 50), rgb(4, 4, 10));
-    let lanes: Int = 8;
-    let lane_h: Int = if g.rows / lanes > 0 { g.rows / lanes } else { 1 };
-    let mut lane: Int = 0;
-    while lane < lanes {
-        let y0: Int = lane * lane_h;
-        let mut x: Int = 0;
-        while x < g.cols {
-            let v: Int = isin(x * 24 - tick * 21 + lane * 54) / 2 + 500;
-            let ramp: Int = v * 9 / 1000;
-            let c: Int = cv_mix(rgb(30, 20, 60), cv_hue(lane * 75), v * 255 / 1000);
-            out = cv_put(out, x, y0, cv_ramp(ramp), c, rgb(4, 4, 10));
-            if lane_h > 2 && y0 + 1 < g.rows {
-                out = cv_put(out, x, y0 + 1, "─", rgb(50, 50, 70), rgb(4, 4, 10));
+    let mut out: CellGrid = cv_fill(g, " ", rgb(40, 50, 80), rgb(4, 6, 12));
+    let bg: Int = rgb(4, 6, 12);
+    let cy: Int = g.rows / 2;
+    let bx: Int = if g.cols >= 40 { 4 } else { 1 };
+    let f: Int = tick % 84;
+    if f <= 10 {
+        return mmx_draw_sprite(out, bx, cy + 1, 0, 0);
+    }
+    let chg: Int = if f >= 24 && f <= 36 { (f % 3) } else { 0 };
+    out = mmx_draw_sprite(out, bx, cy + 1, 1, chg);
+    if f <= 36 {
+        let rad: Int = 1 + ((36 - f) % 4);
+        let mut dy: Int = 0 - rad;
+        while dy <= rad {
+            let mut dx: Int = 0 - rad;
+            while dx <= rad {
+                if iabs(dx) + iabs(dy) == rad {
+                    let c: Int = if f >= 26 { rgb(248, 80, 168) } else { rgb(48, 232, 248) };
+                    out = cv_put_b(out, bx + 4 + dx, cy - 1 + dy, "░", c, bg, true);
+                }
+                dx = dx + 1;
             }
-            x = x + 1;
+            dy = dy + 1;
         }
-        lane = lane + 1;
+        out = cv_put_b(out, bx + 4, cy - 1, "█", rgb(255, 240, 144), bg, true);
+        return out;
+    }
+    let sx: Int = bx + 5 + (f - 37) * (g.cols + 8) / 36;
+    let mut x: Int = bx + 4;
+    while x <= sx && x < g.cols {
+        let wave: Int = isin((x - sx) * 45 + f * 30) * 2 / 1000;
+        let wy: Int = cy - 1 + wave;
+        if x >= sx - 6 {
+            out = cv_put_b(out, x, wy, "█", rgb(255, 240, 144), bg, true);
+            out = cv_put_b(out, x, wy - 1, "▀", rgb(248, 80, 168), bg, true);
+            out = cv_put_b(out, x, wy + 1, "▄", rgb(48, 232, 248), bg, true);
+        } else if (x + f) % 3 == 0 {
+            out = cv_put(out, x, wy, "▒", rgb(248, 160, 216), bg);
+        }
+        x = x + 1;
     }
     return out;
 }

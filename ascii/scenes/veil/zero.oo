@@ -1,45 +1,76 @@
-// # Scene Zero - Binary Countdown Field
+// # Scene Zero - 16-Bit SNES Mega Man X Zero Z-Saber Crescent Choreography
 //
-// Logline: Walls of zeroes and ones counting down in a binary cascade with a pulsing zero hero.
-// Setup: Pure arithmetic over CellGrid. Zero ambient authority.
+// Logline: Five-act SNES Mega Man X Zero choreography: Crimson Teleport, Twin Z-Buster Combo, and Neon-Emerald Z-Saber Crescent Wave.
+// Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
 // Beats:
-//   1. Fill the field with hash-driven 0/1 cells.
-//   2. March a bright countdown window through the columns.
-//   3. Centre a giant pulsing ZERO glyph cluster.
+//   1. Render Zero teleporting in on a crimson beam with his golden ponytail and white pauldron enhancements.
+//   2. Fire twin crimson/gold Z-Buster shots, then ignite the neon-emerald Z-Saber overdrive aura.
+//   3. Sweep the giant emerald/magenta crescent slash wave across the banner.
 
 import "core/cell.oo";
 import "core/grid.oo";
 import "ascii/canvas.oo";
 
+fn zero_draw_sprite(g: CellGrid, bx: Int, by: Int, pose: Int, saber: Bool) -> CellGrid {
+    let mut out: CellGrid = g;
+    let bg: Int = rgb(4, 6, 12);
+    let red: Int = if saber { rgb(48, 248, 128) } else { rgb(232, 32, 56) };
+    let gold: Int = rgb(255, 216, 48);
+    let wht: Int = rgb(240, 240, 248);
+    if pose == 0 {
+        let mut ry: Int = 0;
+        while ry <= by { out = cv_put_b(out, bx + 1, ry, "█", rgb(255, 96, 128), bg, true); ry = ry + 1; }
+        return out;
+    }
+    out = cv_put_b(out, bx + 1, by - 3, "▄", red, bg, true);
+    out = cv_put_b(out, bx + 2, by - 3, "█", wht, bg, true);
+    out = cv_put_b(out, bx - 1, by - 2, "▒", gold, bg, true);
+    out = cv_put_b(out, bx, by - 2, "█", gold, bg, true);
+    out = cv_put_b(out, bx + 1, by - 2, "█", red, bg, true);
+    out = cv_put_b(out, bx + 2, by - 2, "█", wht, bg, true);
+    out = cv_put_b(out, bx, by - 1, "█", wht, bg, true);
+    out = cv_put_b(out, bx + 1, by - 1, "█", red, bg, true);
+    out = cv_put_b(out, bx + 2, by - 1, "█", rgb(32, 224, 128), bg, true);
+    out = cv_put_b(out, bx, by, "▀", red, bg, true);
+    out = cv_put_b(out, bx + 2, by, "▀", wht, bg, true);
+    if saber {
+        out = cv_put_b(out, bx + 3, by - 2, "╱", rgb(120, 255, 160), bg, true);
+        out = cv_put_b(out, bx + 4, by - 3, "█", rgb(40, 255, 120), bg, true);
+        out = cv_put_b(out, bx + 4, by - 1, "█", rgb(40, 255, 120), bg, true);
+    }
+    return out;
+}
+
 pub fn scene_zero(g: CellGrid, tick: Int) -> CellGrid {
-    let mut out: CellGrid = cv_fill(g, " ", rgb(30, 40, 30), rgb(2, 6, 2));
-    let mut y: Int = 0;
-    while y < g.rows {
-        let mut x: Int = 0;
-        while x < g.cols {
-            if (x + y + tick / 3) % 3 == 0 {
-                let bit: Int = cv_hash(x + tick / 2, y, 17) % 2;
-                let ch: String = if bit == 0 { "0" } else { "1" };
-                out = cv_put(out, x, y, ch, rgb(50, 150, 70), rgb(2, 6, 2));
-            }
-            x = x + 1;
-        }
-        y = y + 1;
+    let mut out: CellGrid = cv_fill(g, " ", rgb(40, 30, 50), rgb(4, 6, 12));
+    let bg: Int = rgb(4, 6, 12);
+    let cy: Int = g.rows / 2;
+    let bx: Int = if g.cols >= 40 { 4 } else { 1 };
+    let f: Int = tick % 96;
+    if f <= 10 {
+        return zero_draw_sprite(out, bx, cy + 1, 0, false);
     }
-    let win: Int = (tick * 2) % (g.cols + 10) - 5;
-    y = 0;
-    while y < g.rows {
-        let mut wx: Int = win - 2;
-        while wx <= win + 2 {
-            if wx >= 0 && wx < g.cols {
-                let h: Int = cv_hash(wx, y, tick / 2) % 2;
-                let c: TerminalCell = grid_get(out, wx, y);
-                out = grid_set(out, wx, y, cell_new(if h == 0 { "0" } else { "1" }, rgb(140, 255, 160), c.bg, true));
-            }
-            wx = wx + 1;
-        }
-        y = y + 1;
+    let saber: Bool = f >= 42 && f <= 84;
+    out = zero_draw_sprite(out, bx, cy + 1, 1, saber);
+    if f >= 18 && f < 42 {
+        let sx1: Int = bx + 4 + (f - 18) * (g.cols / 2) / 12;
+        out = cv_put_b(out, sx1, cy - 1, "█", rgb(255, 220, 80), bg, true);
+        out = cv_put_b(out, sx1 - 1, cy - 1, "▓", rgb(255, 70, 90), bg, true);
+        return out;
     }
-    out = cv_text(out, g.cols / 2 - 2, g.rows / 2, "ZERO", rgb(230, 255, 230), rgb(10, 30, 10));
+    if saber {
+        let wave_x: Int = bx + 5 + (f - 42) * (g.cols + 10) / 36;
+        let mut dy: Int = -4;
+        while dy <= 4 {
+            let curve: Int = wave_x - (dy * dy) / 2;
+            if curve >= 0 && curve < g.cols && cy + dy >= 0 && cy + dy < g.rows {
+                out = cv_put_b(out, curve, cy + dy, "█", rgb(80, 255, 150), bg, true);
+                if curve - 1 >= 0 {
+                    out = cv_put_b(out, curve - 1, cy + dy, "▓", rgb(230, 70, 210), bg, false);
+                }
+            }
+            dy = dy + 1;
+        }
+    }
     return out;
 }

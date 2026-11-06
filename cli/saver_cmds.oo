@@ -1,11 +1,11 @@
 // # Saver Commands - list, text, preview, set
 //
-// Logline: The scene-facing command verbs: roster listing, wordmark text, interactive preview, and scene selection.
-// Setup: Requires FfiCap for terminal emission and TimeCap for interactive frame pacing.
+// Logline: The scene-facing command verbs: roster listing, wordmark text configuration, interactive preview, and scene selection.
+// Setup: Requires ProcessCap and EnvCap for OS/config resolution, FfiCap for terminal emission, and TimeCap for interactive frame pacing.
 // Beats:
 //   1. List the 53-scene roster in text or JSON format.
-//   2. Render wordmark presets or batch preview frames.
-//   3. Run full-screen interactive preview with live scene switching and timeout.
+//   2. Render wordmark presets or configure/report ASCII banner text targets.
+//   3. Run full-screen interactive preview with live scene switching, OS/custom wordmark overlay, and timeout.
 
 import "ascii/effects.oo";
 import "ascii/engine.oo";
@@ -14,6 +14,8 @@ import "ascii/scenes/anchor.oo";
 import "ascii/draw/ansi.oo";
 import "core/cell.oo";
 import "core/grid.oo";
+import "daemon/config_file.oo";
+import "daemon/config.oo";
 
 fn arg_num(args: List[String], flag: String, dflt: Int) -> Int {
     let mut i: Int = 0;
@@ -30,6 +32,15 @@ fn arg_num(args: List[String], flag: String, dflt: Int) -> Int {
     return dflt;
 }
 
+fn arg_str(args: List[String], flag: String, dflt: String) -> String {
+    let mut i: Int = 0;
+    while i < list_len(args) - 1 {
+        if list_get(args, i) == flag { return list_get(args, i + 1); }
+        i = i + 1;
+    }
+    return dflt;
+}
+
 pub fn cmd_list(args: List[String]) -> Int {
     let mut json: Bool = false;
     let mut i: Int = 0;
@@ -39,10 +50,7 @@ pub fn cmd_list(args: List[String]) -> Int {
         let mut j: Int = 0;
         while j < 53 {
             if j > 0 { out = out + ","; }
-            let sn: String = effects_name(j);
-            out = out + "\"";
-            out = out + sn;
-            out = out + "\"";
+            out = out + "\"" + effects_name(j) + "\"";
             j = j + 1;
         }
         out = out + "]}";
@@ -51,54 +59,55 @@ pub fn cmd_list(args: List[String]) -> Int {
     }
     let mut k: Int = 0;
     while k < 53 {
-        let ns: String = (k + 1).to_string();
-        let sn2: String = effects_name(k);
-        let mut row: String = ns;
-        row = row + " ";
-        row = row + sn2;
-        println(row);
+        println((k + 1).to_string() + " " + effects_name(k));
         k = k + 1;
     }
     return 0;
 }
 
-pub fn cmd_text(ffi: &FfiCap, args: List[String]) -> Int {
-    let a0: String = if list_len(args) > 0 { list_get(args, 0) } else { "openooda" };
-    let name: String = to_lowercase(a0);
-    let frame: String = engine_wordmark_frame(60, 16, name, 4);
-    let wmt: String = wm_text(name);
-    let mut msg: String = frame;
-    msg = msg + "\npreset: ";
-    msg = msg + name;
-    msg = msg + " ";
-    msg = msg + wmt;
-    msg = msg + "\n";
+pub fn cmd_text(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, args: List[String]) -> Int {
+    let cur_wm: String = daemon_banner_text(proc, env);
+    let a0: String = if list_len(args) > 0 { str_trim(list_get(args, 0)) } else { "" };
+    if a0 == "" || to_lowercase(a0) == "status" {
+        let frame: String = engine_wordmark_frame(72, 12, cur_wm, 4);
+        let w: Result[String, String] = oo_tui_write(ffi, frame);
+        if w.is_err() { print(frame); }
+        println("\nIdleScreen ASCII Text Configuration:");
+        println("  Resolved brand word: [" + cur_wm + "]");
+        println("  preset: " + to_lowercase(cur_wm) + " " + cur_wm);
+        return 0;
+    }
+    let low: String = to_lowercase(a0);
+    let mut cfg: ConfigData = config_read_file(proc, env);
+    if low == "os" || low == "host" {
+        cfg.use_os_brand = true;
+    } else if !wm_known(low) {
+        cfg.use_os_brand = false;
+        cfg.custom_text = a0;
+    }
+    let _ = config_write_file(proc, env, cfg);
+    let disp_name: String = if low == "os" || low == "host" { daemon_banner_text(proc, env) } else { a0 };
+    let frame: String = engine_wordmark_frame(72, 12, disp_name, 4);
+    let wmt: String = wm_text(disp_name);
+    let msg: String = frame + "\npreset: " + low + " " + wmt + "\n";
     let w: Result[String, String] = oo_tui_write(ffi, msg);
     if w.is_err() { print(msg); }
     return 0;
 }
 
-fn preview_batch(ffi: &FfiCap, name: String, frames: Int, cols: Int, rows: Int) -> Int {
-    if wm_known(name) {
+fn preview_batch(ffi: &FfiCap, name: String, wm: String, frames: Int, cols: Int, rows: Int, tour: Bool) -> Int {
+    let is_wm: Bool = wm_known(name) && name != "superfedora";
+    if is_wm {
         let wmt: String = wm_text(name);
-        let mut pfx: String = "preset ";
-        pfx = pfx + name;
-        pfx = pfx + " ";
-        pfx = pfx + wmt;
-        println(pfx);
+        println("preset " + name + " " + wmt);
     }
     let fs_str: String = frames.to_string();
     let mut i: Int = 0;
     while i < frames {
-        let frame: String = if wm_known(name) { engine_wordmark_frame(cols, rows, name, i) } else { engine_preview_frame(cols, rows, name, i, false) };
+        let frame: String = if is_wm { engine_wordmark_frame(cols, rows, name, i) } else { engine_preview_wordmark(cols, rows, name, i, tour, wm) };
         let w: Result[String, String] = oo_tui_write(ffi, frame);
         if w.is_err() { print(frame); }
-        let is_str: String = i.to_string();
-        let mut lbl: String = "frame ";
-        lbl = lbl + is_str;
-        lbl = lbl + "/";
-        lbl = lbl + fs_str;
-        println(lbl);
+        println("frame " + i.to_string() + "/" + fs_str);
         i = i + 1;
     }
     return 0;
@@ -120,92 +129,67 @@ fn preview_poll_key(ffi: &FfiCap, sc: Int) -> Int {
     return -1;
 }
 
-fn preview_observe_dims(ffi: &FfiCap, last_pack: Int) -> Int {
-    let dims: String = match oo_tui_get_size(ffi) { Ok(s) => s, Err(_) => "24:80" };
-    let colon: Int = str_index_of(dims, ":");
-    let mut pack: Int = 24 * 10000 + 80;
-    if colon >= 0 {
-        let rstr: String = str_slice(dims, 0, colon);
-        let cstr: String = str_slice(dims, colon + 1, chars_len(dims));
-        let mut dim_args: List[String] = list_new();
-        dim_args = list_push(dim_args, "--r"); dim_args = list_push(dim_args, rstr);
-        dim_args = list_push(dim_args, "--c"); dim_args = list_push(dim_args, cstr);
-        let mut rows: Int = arg_num(dim_args, "--r", 24);
-        let mut cols: Int = arg_num(dim_args, "--c", 80);
-        if rows < 4 { rows = 24; }
-        if cols < 16 { cols = 80; }
-        pack = rows * 10000 + cols;
-    }
-    if pack != last_pack {
-        let mut b: List[Int] = bytes_new();
-        b = bytes_push(b, 27);
-        let mut clr: String = bytes_to_str(b);
-        clr = clr + "[2J";
-        let w_clr: Result[String, String] = oo_tui_write(ffi, clr);
-    }
-    return pack;
-}
-
-fn preview_interactive(ffi: &FfiCap, time: &TimeCap, name: String, timeout_s: Int, tour: Bool) -> Int {
+fn preview_interactive(ffi: &FfiCap, time: &TimeCap, name: String, wm: String, timeout_s: Int, tour: Bool) -> Int {
     if oo_tui_enable_raw(ffi, "").is_err() { return 1; }
-    let w_alt_in: Result[String, String] = oo_tui_alt_screen_enter(ffi);
-    let w_cur_off: Result[String, String] = oo_tui_show_cursor(ffi, 0);
+    let _ = oo_tui_alt_screen_enter(ffi);
+    let _ = oo_tui_show_cursor(ffi, 0);
     let mut sc: Int = if effects_index(name) >= 0 { effects_index(name) } else { 0 };
-    let is_wm: Bool = wm_known(name);
+    let is_wm: Bool = wm_known(name) && name != "superfedora";
     let end_ms: Int = if timeout_s > 0 { now_ms(time) + timeout_s * 1000 } else { 0 };
     let mut last_pack: Int = 0;
+    let mut eb: List[Int] = bytes_new(); eb = bytes_push(eb, 27);
+    let e0: String = bytes_to_str(eb);
     let mut tick: Int = 0;
     let mut running: Bool = true;
     while running && (end_ms == 0 || now_ms(time) < end_ms) {
-        // 1. OBSERVE & 2. ORIENT: terminal dimensions & resize clear
-        last_pack = preview_observe_dims(ffi, last_pack);
+        let dims: String = match oo_tui_get_size(ffi) { Ok(s) => s, Err(_) => "24:80" };
+        let colon: Int = str_index_of(dims, ":");
+        let mut rows: Int = if colon >= 0 { parse_int_digits(str_slice(dims, 0, colon)) } else { 24 };
+        let mut cols: Int = if colon >= 0 { parse_int_digits(str_slice(dims, colon + 1, chars_len(dims))) } else { 80 };
+        if rows < 4 { rows = 24; }
+        if cols < 16 { cols = 80; }
+        let pack: Int = rows * 10000 + cols;
+        if pack != last_pack { let _ = oo_tui_write(ffi, e0 + "[2J"); last_pack = pack; }
         let sc_name: String = if is_wm { name } else { effects_name(sc) };
-        // 3. DECIDE: synthesize next frame & footer
-        let frame: String = if is_wm { engine_wordmark_frame(last_pack % 10000, last_pack / 10000 - 1, name, tick) } else { engine_preview_frame(last_pack % 10000, last_pack / 10000 - 1, sc_name, tick, tour) };
-        let sc_str: String = (sc + 1).to_string();
-        let mut tit: String = if is_wm { "Preset: " } else { "Scene: " };
-        tit = tit + sc_name;
-        if !is_wm { tit = tit + " ("; tit = tit + sc_str; tit = tit + "/53)"; }
-        let mut eb: List[Int] = bytes_new(); eb = bytes_push(eb, 27);
-        let e0: String = bytes_to_str(eb);
-        let esc: String = ansi_home();
-        let mut out_line: String = esc;
-        out_line = out_line + frame; out_line = out_line + "\r\n"; out_line = out_line + e0;
-        out_line = out_line + "[1;36m["; out_line = out_line + tit; out_line = out_line + "] [←/→/n/p: Step  q/Esc/Space: Exit]";
-        out_line = out_line + e0; out_line = out_line + "[0m"; out_line = out_line + e0; out_line = out_line + "[K";
-        // 4. ACT: emit frame & poll input
-        let w_out: Result[String, String] = oo_tui_write(ffi, out_line);
+        let frame: String = if is_wm { engine_wordmark_frame(cols, rows - 1, name, tick) } else { engine_preview_wordmark(cols, rows - 1, sc_name, tick, tour, wm) };
+        let tit: String = if is_wm { "Preset: " + sc_name } else { "Scene: " + sc_name + " (" + (sc + 1).to_string() + "/53) │ Banner: " + wm };
+        let out_line: String = ansi_home() + frame + "\r\n" + e0 + "[1;36m[" + tit + "] [←/→/n/p: Step  q/Esc/Space: Exit]" + e0 + "[0m" + e0 + "[K";
+        let _ = oo_tui_write(ffi, out_line);
         let nsc: Int = preview_poll_key(ffi, sc);
         if nsc < 0 { running = false; } else { sc = nsc; }
-        if tour && (tick % 300 == 299) { sc = (sc + 1) % 53; }
+        if tour && (tick % 180 == 179) { sc = (sc + 1) % 53; }
         tick = tick + 1;
     }
-    let w_cur_on: Result[String, String] = oo_tui_show_cursor(ffi, 1);
-    let w_alt_out: Result[String, String] = oo_tui_alt_screen_leave(ffi);
-    let w_raw_off: Result[String, String] = oo_tui_disable_raw(ffi, "");
+    let _ = oo_tui_show_cursor(ffi, 1);
+    let _ = oo_tui_alt_screen_leave(ffi);
+    let _ = oo_tui_disable_raw(ffi, "");
     return 0;
 }
-pub fn cmd_preview(ffi: &FfiCap, time: &TimeCap, args: List[String]) -> Int {
-    let mut name: String = "plasma";
+
+pub fn cmd_preview(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, args: List[String]) -> Int {
+    let cfg: ConfigData = config_read_file(proc, env);
+    let mut name: String = if cfg.active != "" { cfg.active } else { "ascii" };
     let mut tour: Bool = false;
     let mut has_frames: Bool = false;
     let mut name_set: Bool = false;
     let mut i: Int = 0;
     while i < list_len(args) {
         let a: String = list_get(args, i);
-        if a == "--tour" { tour = true; }
+        if a == "--tour" || a == "--new" { tour = true; }
         else if a == "--frames" { has_frames = true; i = i + 1; }
-        else if a == "--cols" || a == "--rows" || a == "--timeout" { i = i + 1; }
-        else if !str_starts_with(a, "--") && !name_set { name = a; name_set = true; }
+        else if a == "--cols" || a == "--rows" || a == "--timeout" || a == "-t" || a == "--text" || a == "--mode" || a == "-m" || a == "--dwell" || a == "-d" { i = i + 1; }
+        else if !str_starts_with(a, "-") && !name_set { name = to_lowercase(a); name_set = true; }
         i = i + 1;
     }
-    if name == "tour" || name == "ascii" || name == "superfedora" { tour = true; }
+    if name == "tour" || name == "ascii" || name == "superfedora" || name == "new" { tour = true; }
+    let txt_flag: String = arg_str(args, "--text", "");
+    let wm: String = if txt_flag != "" { to_uppercase(txt_flag) } else if name == "superfedora" { "SUPERFEDORA" } else { daemon_banner_text(proc, env) };
     if has_frames {
         let frames: Int = arg_num(args, "--frames", 2);
-        let cols: Int = arg_num(args, "--cols", 40);
+        let cols: Int = arg_num(args, "--cols", 72);
         let rows: Int = arg_num(args, "--rows", 12);
-        return preview_batch(ffi, name, frames, cols, rows);
+        return preview_batch(ffi, name, wm, frames, cols, rows, tour);
     }
-    let timeout_s: Int = arg_num(args, "--timeout", 0);
-    return preview_interactive(ffi, time, name, timeout_s, tour);
+    let timeout_s: Int = arg_num(args, "--timeout", arg_num(args, "-t", 0));
+    return preview_interactive(ffi, time, name, wm, timeout_s, tour);
 }

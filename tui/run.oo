@@ -74,16 +74,19 @@ fn tui_save_model(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, m: TuiModel) ->
     return "Settings saved to config.toml";
 }
 
-fn tui_preview_run(ffi: &FfiCap, time: &TimeCap, m: TuiModel) -> TuiModel {
+fn tui_preview_run(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, m: TuiModel) -> TuiModel {
     let mut cur: TuiModel = m;
     let _ = oo_tui_show_cursor(ffi, 1);
     let _ = oo_tui_alt_screen_leave(ffi);
     let _ = oo_tui_disable_raw(ffi, "");
+    let wm: String = if cur.selected_saver == 2 { "SUPERFEDORA" } else if !cur.use_os_brand && str_trim(cur.custom_text) != "" { to_uppercase(str_trim(cur.custom_text)) } else { wm_clean_os(cur.detected_os) };
     let mut pargs: List[String] = list_new();
     pargs = list_push(pargs, tui_saver_name(cur.selected_saver));
+    pargs = list_push(pargs, "--text");
+    pargs = list_push(pargs, wm);
     pargs = list_push(pargs, "--timeout");
     pargs = list_push(pargs, "10");
-    let _ = cmd_preview(ffi, time, pargs);
+    let _ = cmd_preview(proc, env, ffi, time, pargs);
     let _ = oo_tui_enable_raw(ffi, "");
     let _ = oo_tui_alt_screen_enter(ffi);
     let _ = oo_tui_show_cursor(ffi, 0);
@@ -110,7 +113,7 @@ fn tui_apply_action(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCa
         if msg != "" { cur.dirty = false; cur.status_msg = msg; }
         else { cur.status_msg = "Error: Failed to save config.toml"; }
     } else if act == "preview" || act == "fullscreen" || (act == "enter" && (cur.focused == 9 || cur.focused == 10)) {
-        cur = tui_preview_run(ffi, time, cur);
+        cur = tui_preview_run(proc, env, ffi, time, cur);
     } else if act == "toggle_daemon" {
         let _ = ooidle_query(tcp, env, "idlescreen", "toggle");
         let active_now: Bool = tui_probe_daemon(tcp);
