@@ -1,6 +1,6 @@
 // # Scene Spotlights - Sweeping Stage Light Cones
 //
-// Logline: Twin spotlight cones sweeping the stage from overhead rigs and crossing mid-frame.
+// Logline: Twin searchlight cones sweeping the stage from overhead rigs and crossing mid-frame.
 // Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
 // Beats:
 //   1. Anchor two rig points at the top corners.
@@ -12,7 +12,7 @@ import "core/grid.oo";
 import "core/imath.oo";
 import "ascii/canvas.oo";
 
-pub fn scene_spotlights(g: CellGrid, tick: Int) -> CellGrid {
+pub fn scene_searchlights(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = cv_fill(g, " ", rgb(15, 12, 25), rgb(2, 2, 5));
     let mut rig: Int = 0;
     while rig < 2 {

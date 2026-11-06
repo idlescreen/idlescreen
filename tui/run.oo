@@ -68,7 +68,7 @@ fn tui_save_model(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, m: TuiModel) ->
         custom_text: m.custom_text,
         use_os_brand: m.use_os_brand
     };
-    if !config_write_file(proc, env, c) { return ""; }
+    if !config_save(proc, env, c) { return ""; }
     let live: Bool = ooidle_notify(tcp, env, "idlescreen", "set " + c.active);
     let _t: Bool = ooidle_notify(tcp, env, "idlescreen", "timeout " + c.idle_timeout_secs.to_string());
     if live { return "Settings saved to config.toml (daemon updated)"; }

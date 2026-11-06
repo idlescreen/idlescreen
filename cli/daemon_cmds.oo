@@ -29,7 +29,7 @@ pub fn cmd_set(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, args: List[String]
     if canonical == "" { println("unknown screensaver: " + raw); return 1; }
     let cfg: ConfigData = config_read_file(proc, env);
     let next: ConfigData = config_with(cfg, canonical, cfg.idle_timeout_secs);
-    if !config_write_file(proc, env, next) {
+    if !config_save(proc, env, next) {
         println("error: refusing to overwrite an unreadable config.toml — fix or remove it to continue");
         return 1;
     }
@@ -63,7 +63,7 @@ pub fn cmd_timeout(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, args: List[Str
         if secs > 7200 { secs = 7200; }
         let cfg: ConfigData = config_read_file(proc, env);
         let next: ConfigData = config_with(cfg, cfg.active, secs);
-        if !config_write_file(proc, env, next) {
+        if !config_save(proc, env, next) {
             println("error: refusing to overwrite an unreadable config.toml — fix or remove it to continue");
             return 1;
         }

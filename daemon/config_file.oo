@@ -146,7 +146,7 @@ pub fn config_read_file(proc: &ProcessCap, env: &EnvCap) -> ConfigData {
     return config_load_toml(content);
 }
 
-pub fn config_write_file(proc: &ProcessCap, env: &EnvCap, c: ConfigData) -> Bool {
+pub fn config_save(proc: &ProcessCap, env: &EnvCap, c: ConfigData) -> Bool {
     let dir: String = config_dir(proc, env);
     if dir == "" { return false; }
     // Refuse to persist over a config we could not parse: writing defaults

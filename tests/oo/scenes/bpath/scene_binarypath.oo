@@ -25,7 +25,7 @@ import "tests/oo/engapi/char_groups.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/float_conv.oo";
-import "tests/oo/scenes/bpath/bp_parts.oo";
+import "tests/oo/scenes/bpath/bp_state.oo";
 import "tests/digest_run.oo";
 
 fn bp_build(w: World, info: CanvasInfo) -> BRS {

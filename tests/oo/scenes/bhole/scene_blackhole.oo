@@ -23,7 +23,7 @@ import "tests/oo/engapi/input_arena.oo";
 import "tests/oo/engapi/char_ops.oo";
 import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
-import "tests/oo/scenes/bhole/bh_parts.oo";
+import "tests/oo/scenes/bhole/bh_state.oo";
 import "tests/oo/scenes/bhole/bh_build.oo";
 import "tests/oo/scenes/bhole/bh_phase.oo";
 import "tests/digest_run.oo";

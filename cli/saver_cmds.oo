@@ -86,7 +86,7 @@ pub fn cmd_text(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, args: List[String
         cfg.use_os_brand = false;
         cfg.custom_text = a0;
     }
-    let _ = config_write_file(proc, env, cfg);
+    let _ = config_save(proc, env, cfg);
     let disp_name: String = if low == "os" || low == "host" { daemon_banner_text(proc, env) } else { a0 };
     let frame: String = engine_wordmark_frame(72, 12, disp_name, 4);
     let wmt: String = wm_text(disp_name);
