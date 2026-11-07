@@ -1,0 +1,241 @@
+// # sm_alg — PrimsWeighted + BreadthFirst graph machinery
+//
+// Logline: Bit-exact ports of ttfx PrimsWeighted (random in-text
+// start, randint(0,99) weight per mask-7 char in (-row,col) order,
+// lowest-weight pending links with randrange tie-picks) and
+// BreadthFirst (layer-by-layer over id-sorted links) for smoke.
+// Setup: Links live in flat side tables: `linked` bitmap mirrors
+// "links.is_empty", edges pack as a*100000+b (a<b), pending weighted
+// links as (weight,a,b) triples in insertion order.
+// Beats:
+//   1. sm_nbs gathers unlinked in-text N,E,S,W neighbors.
+//   2. pw_new draws start + weights and seeds pending links.
+//   3. pw_step pops the lowest-weight live link and links it.
+//   4. bf_step advances one BFS layer over the linked edges.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/scenes/burn/bn_parts.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+
+pub type PwSt = struct {
+    pend: List[Int],
+    linked: List[Int],
+    weights: List[Int],
+    edges: List[Int],
+    done: Int,
+    rng: Rng
+};
+
+pub type BfSt = struct {
+    frontier: List[Int],
+    explored: List[Int],
+    last: List[Int],
+    done: Int
+};
+
+pub fn sm_nbs(w: World, info: CanvasInfo, grid: List[Int], linked: List[Int], id: Int) -> List[Int] {
+    let c: Int = list_get(w.chars, id).col0;
+    let r: Int = list_get(w.chars, id).row0;
+    let mut out: List[Int] = list_new();
+    let mut d: Int = 0;
+    while d < 4 {
+        let mut nc: Int = c;
+        let mut nr: Int = r;
+        if d == 0 { nr = r + 1; }
+        if d == 1 { nc = c + 1; }
+        if d == 2 { nr = r - 1; }
+        if d == 3 { nc = c - 1; }
+        if nc >= info.tl && nc <= info.tr && nr >= info.tb && nr <= info.tt {
+            let nid: Int = bn_at(grid, info, nc, nr);
+            if nid >= 0 && list_get(linked, nid) == 0 { out = list_push(out, nid); }
+        }
+        d = d + 1;
+    }
+    return out;
+}
+
+fn pw_add(w: World, info: CanvasInfo, grid: List[Int], st: PwSt, id: Int) -> PwSt {
+    let nbs: List[Int] = sm_nbs(w, info, grid, st.linked, id);
+    let mut pend: List[Int] = st.pend;
+    let mut m: Int = 0;
+    while m < list_len(nbs) {
+        let nb: Int = list_get(nbs, m);
+        pend = list_push(pend, list_get(st.weights, nb));
+        pend = list_push(pend, id);
+        pend = list_push(pend, nb);
+        m = m + 1;
+    }
+    let _r1 = PwSt { pend: pend, linked: st.linked, weights: st.weights,
+        edges: st.edges, done: st.done, rng: st.rng };
+    return _r1;
+}
+
+pub fn pw_new(w: World, info: CanvasInfo, grid: List[Int]) -> PwSt {
+    let dc: DR = rng_int(w.rng, info.tl, info.tr);
+    let dr: DR = rng_int(dc.r, info.tb, info.tt);
+    let start: Int = bn_at(grid, info, dc.v, dr.v);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 7), info.cols, info.rows, 0);
+    let mut weights: List[Int] = list_new();
+    let mut linked: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(w.chars) {
+        weights = list_push(weights, 0);
+        linked = list_push(linked, 0);
+        i = i + 1;
+    }
+    let mut r: Rng = dr.r;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let dw: DR = rng_int(r, 0, 99);
+        r = dw.r;
+        weights = list_set(weights, list_get(ids, k), dw.v);
+        k = k + 1;
+    }
+    let st0: PwSt = PwSt { pend: list_new(), linked: linked, weights: weights,
+        edges: list_new(), done: 0, rng: r };
+    let _r2 = pw_add(w, info, grid, st0, start);
+    return _r2;
+}
+
+fn pw_rm3(pend: List[Int], at: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(pend) {
+        if k < at || k >= at + 3 { out = list_push(out, list_get(pend, k)); }
+        k = k + 1;
+    }
+    return out;
+}
+
+pub fn pw_step(w: World, info: CanvasInfo, grid: List[Int], st: PwSt) -> PwSt {
+    let mut pend: List[Int] = st.pend;
+    let mut r: Rng = st.rng;
+    if list_len(pend) == 0 {
+        let _r3 = PwSt { pend: pend, linked: st.linked, weights: st.weights,
+            edges: st.edges, done: 1, rng: r };
+        return _r3;
+    }
+    let mut la: Int = 0 - 1;
+    let mut lb: Int = 0 - 1;
+    while list_len(pend) > 0 && la < 0 {
+        let mut minw: Int = list_get(pend, 0);
+        let mut p: Int = 0;
+        while p < list_len(pend) {
+            if list_get(pend, p) < minw { minw = list_get(pend, p); }
+            p = p + 3;
+        }
+        let mut cnt: Int = 0;
+        p = 0;
+        while p < list_len(pend) {
+            if list_get(pend, p) == minw { cnt = cnt + 1; }
+            p = p + 3;
+        }
+        let dp: DR = rng_range(r, 0, cnt);
+        r = dp.r;
+        let mut seen: Int = 0;
+        let mut at: Int = 0;
+        p = 0;
+        while p < list_len(pend) {
+            if list_get(pend, p) == minw {
+                if seen == dp.v { at = p; }
+                seen = seen + 1;
+            }
+            p = p + 3;
+        }
+        let ca: Int = list_get(pend, at + 1);
+        let cb: Int = list_get(pend, at + 2);
+        pend = pw_rm3(pend, at);
+        if list_get(st.linked, cb) == 0 { la = ca; lb = cb; }
+    }
+    if la < 0 {
+        let _r4 = PwSt { pend: pend, linked: st.linked, weights: st.weights,
+            edges: st.edges, done: 1, rng: r };
+        return _r4;
+    }
+    let mut linked: List[Int] = list_set(st.linked, la, 1);
+    linked = list_set(linked, lb, 1);
+    let mut lo: Int = la;
+    let mut hi: Int = lb;
+    if lb < la { lo = lb; hi = la; }
+    let st1: PwSt = PwSt { pend: pend, linked: linked, weights: st.weights,
+        edges: list_push(st.edges, lo * 100000 + hi), done: 0, rng: r };
+    let _r5 = pw_add(w, info, grid, st1, lb);
+    return _r5;
+}
+
+fn bf_has(xs: List[Int], v: Int) -> Int {
+    let mut k: Int = 0;
+    while k < list_len(xs) {
+        if list_get(xs, k) == v { return 1; }
+        k = k + 1;
+    }
+    return 0;
+}
+
+fn bf_links(edges: List[Int], id: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(edges) {
+        let e: Int = list_get(edges, k);
+        let a: Int = e / 100000;
+        let b: Int = e % 100000;
+        if a == id { out = list_push(out, b); }
+        if b == id { out = list_push(out, a); }
+        k = k + 1;
+    }
+    let mut srt: List[Int] = out;
+    let mut i: Int = 1;
+    while i < list_len(srt) {
+        let v: Int = list_get(srt, i);
+        let mut j: Int = i - 1;
+        while j >= 0 && list_get(srt, j) > v {
+            srt = list_set(srt, j + 1, list_get(srt, j));
+            j = j - 1;
+        }
+        srt = list_set(srt, j + 1, v);
+        i = i + 1;
+    }
+    return srt;
+}
+
+pub fn bf_new(nch: Int, start: Int) -> BfSt {
+    let mut ex: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < nch { ex = list_push(ex, 0); i = i + 1; }
+    ex = list_set(ex, start, 1);
+    let _r6 = BfSt { frontier: list_push(list_new(), start), explored: ex,
+        last: list_new(), done: 0 };
+    return _r6;
+}
+
+pub fn bf_step(edges: List[Int], st: BfSt) -> BfSt {
+    if list_len(st.frontier) == 0 {
+        let _r7 = BfSt { frontier: st.frontier, explored: st.explored,
+            last: list_new(), done: 1 };
+        return _r7;
+    }
+    let mut frontier: List[Int] = st.frontier;
+    let mut ex: List[Int] = st.explored;
+    let mut last: List[Int] = list_new();
+    let mut newe: List[Int] = list_new();
+    while list_len(frontier) > 0 {
+        let pos: Int = list_get(frontier, 0);
+        frontier = list_slice(frontier, 1, list_len(frontier));
+        let links: List[Int] = bf_links(edges, pos);
+        let mut m: Int = 0;
+        while m < list_len(links) {
+            let n: Int = list_get(links, m);
+            if list_get(ex, n) == 0 && bf_has(frontier, n) == 0 && bf_has(newe, n) == 0 {
+                ex = list_set(ex, n, 1);
+                last = list_push(last, n);
+                newe = list_push(newe, n);
+            }
+            m = m + 1;
+        }
+    }
+    let _r8 = BfSt { frontier: newe, explored: ex, last: last, done: 0 };
+    return _r8;
+}

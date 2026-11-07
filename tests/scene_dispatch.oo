@@ -35,6 +35,8 @@ import "tests/oo/scenes/colorshift/scene_colorshift.oo";
 import "tests/oo/scenes/highlight/scene_highlight.oo";
 import "tests/oo/scenes/spray/scene_spray.oo";
 import "tests/oo/scenes/overflow/scene_overflow.oo";
+import "tests/oo/scenes/bouncy/scene_bouncyballs.oo";
+import "tests/oo/scenes/smoke/scene_smoke.oo";
 
 pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> Result[DigestRun, String] {
     if name == "plasma" { return Ok(plasma_run(cells, info)); }
@@ -63,5 +65,7 @@ pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "highlight" { return Ok(highlight_run(cells, info, lines)); }
     if name == "spray" { return Ok(spray_run(cells, info, lines)); }
     if name == "overflow" { return Ok(overflow_run(cells, info, lines)); }
+    if name == "bouncyballs" { return Ok(bouncyballs_run(cells, info, lines)); }
+    if name == "smoke" { return Ok(smoke_run(cells, info, lines)); }
     return Err("ERR\tscene\tno parity port: " + name);
 }

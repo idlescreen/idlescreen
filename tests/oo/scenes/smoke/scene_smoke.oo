@@ -1,0 +1,104 @@
+// # scene_smoke — spanning-tree smoke reveal port
+//
+// Logline: Bit-exact port of Smoke::build/next_frame: a PrimsWeighted
+// tree links the text boundary, BreadthFirst explores it layer by
+// layer from a random in-text start, and each explored char plays
+// its smoke-symbol gradient scene then its paint scene.
+// Setup: All mask-7 chars (input + fills) are visible in gray from
+// frame 0. RNG order: tree start coord, 1920 weight randints, fill
+// start coord, then the tree's tie-pick randranges to completion.
+// Beats:
+//   1. sm_build seeds paint/smoke scenes on every mask-7 char.
+//   2. smoke_run BFS-steps, activating newly explored chars.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/scenes/burn/bn_parts.oo";
+import "tests/oo/scenes/smoke/sm_alg.oo";
+import "tests/digest_run.oo";
+
+pub type SmB = struct { w: World, edges: List[Int], start: Int };
+
+fn sm_ffg(cmap: List[Int], info: CanvasInfo, ch: Char) -> Int {
+    if ch.row0 < info.tb || ch.row0 > info.tt { return 0; }
+    if ch.col0 < info.tl || ch.col0 > info.tr { return 0; }
+    return list_get(cmap, ch.row0 - info.tb);
+}
+
+fn sm_build(w: World, info: CanvasInfo) -> SmB {
+    let grid: List[Int] = bn_grid(w, info);
+    let mut pw: PwSt = pw_new(w, info, grid);
+    let dc: DR = rng_int(pw.rng, info.tl, info.tr);
+    let dr: DR = rng_int(dc.r, info.tb, info.tt);
+    let start: Int = bn_at(grid, info, dc.v, dr.v);
+    pw = PwSt { pend: pw.pend, linked: pw.linked, weights: pw.weights,
+        edges: pw.edges, done: pw.done, rng: dr.r };
+    let fstops: List[Int] = list_push(list_push(list_push(list_new(), 9044106), 53759), 16777215);
+    let fspec: List[Int] = gradient_new(fstops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(fspec, info.tb, info.tt);
+    let sstops: List[Int] = list_push(list_push(list_push(list_push(list_push(
+        list_new(), 2368548), 16777215), 16777215), 53759), 9044106);
+    let sgrad: List[Int] = gradient_new(sstops, list_push(list_push(list_new(), 3), 4), 0);
+    let ssyms: List[Int] = list_push(list_push(list_push(list_push(list_push(
+        list_new(), 9617), 9618), 9619), 9618), 9617);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 7), info.cols, info.rows, 0);
+    let mut w2: World = w_rng(w, dr.r);
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ffg: Int = sm_ffg(cmap, info, ch);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "paint");
+        let pg: List[Int] = gradient_new(list_push(list_push(list_push(list_push(
+            list_new(), 9044106), 53759), 16777215), ffg), list_push(list_new(), 5), 0);
+        w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 5, pg, list_new());
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "smoke");
+        w2 = w_grad(w2, id, 1, ssyms, 3, sgrad, list_new());
+        w2 = w_reg(w2, id, 2, 0, "smoke", EvAct { kind: 1, sid: "paint", num: 0, carg: 0 });
+        w2 = w_appear(w2, id, ch.sym, 8033154, 0 - 1, 0);
+        w2 = w_set_vis(w2, id, 1);
+        k = k + 1;
+    }
+    while pw.done == 0 { pw = pw_step(w2, info, grid, pw); }
+    w2 = w_rng(w2, pw.rng);
+    w2 = w_aset(w2, start, 1);
+    w2 = w_active_add(w2, start);
+    let _r1 = SmB { w: w2, edges: pw.edges, start: start };
+    return _r1;
+}
+
+pub fn smoke_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let b: SmB = sm_build(w_input(info, lines, rng_seed(42)), info);
+    let mut w: World = b.w;
+    let mut bf: BfSt = bf_new(list_len(w.chars), b.start);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while bf.done == 0 || list_len(w.active) > 0 {
+        if bf.done == 0 {
+            bf = bf_step(b.edges, bf);
+            let mut m: Int = 0;
+            while m < list_len(bf.last) {
+                let id: Int = list_get(bf.last, m);
+                w = w_aset(w, id, 1);
+                w = w_active_add(w, id);
+                m = m + 1;
+            }
+        }
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}
