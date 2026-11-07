@@ -16,7 +16,9 @@ jobs:
   oo-gates:
     name: openOODA gates (verify, test, parity, det)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The full ladder builds the project three times (test, parity, det) with
+    # the LLVM backend; on a hosted runner that is well past 30 minutes.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
@@ -31,25 +33,43 @@ jobs:
             echo "::error::IDLESCREEN_PACKAGES_DISPATCH_TOKEN is not set — cannot clone the private openOODA-core toolchain"
             exit 1
           fi
-          mkdir -p "$RUNNER_TEMP/toolchain"
+          mkdir -p /tmp/ooda-toolchain
           for r in oodac oodar std; do
             git clone --depth 1 \
               "https://x-access-token:${TOOLCHAIN_TOKEN}@github.com/openOODA-core/${r}.git" \
-              "$RUNNER_TEMP/toolchain/$r"
+              "/tmp/ooda-toolchain/$r"
             # Drop the credential from the remote URL so it never lands in
             # .git/config of the checkout.
-            git -C "$RUNNER_TEMP/toolchain/$r" remote set-url origin "https://github.com/openOODA-core/${r}.git"
+            git -C "/tmp/ooda-toolchain/$r" remote set-url origin "https://github.com/openOODA-core/${r}.git"
           done
-          echo "OODA_HOME=$RUNNER_TEMP/toolchain" >> "$GITHUB_ENV"
+
+      - name: Stage the build tree under /tmp
+        run: |
+          # oodar's oo_child_filter_env() scrubs a child process's environment
+          # and replaces the inherited OODA_FS_READDIR/OODA_FS_WRITEDIR with a
+          # hardcoded "/Projects:/home/ubermetroid:/tmp" scope. `oodac build`
+          # spawns `oodac check` as a child, so that child cannot read a
+          # workspace outside those roots. /tmp is the one portable root in
+          # that list — oodar's fs layer treats it as always-allowed — so the
+          # whole build tree is staged there. The sandbox stays on, no
+          # toolchain revision is pinned, and upstream master keeps flowing.
+          mkdir -p /tmp/ooda-ws
+          rsync -a --exclude .git "$GITHUB_WORKSPACE/" /tmp/ooda-ws/
+          echo "OODA_HOME=/tmp/ooda-toolchain" >> "$GITHUB_ENV"
+          echo "WORKDIR=/tmp/ooda-ws" >> "$GITHUB_ENV"
 
       - name: Verify (portable, page rule, file law, academy, density, vocab, shape, oodac check)
+        working-directory: ${{ env.WORKDIR }}
         run: make verify
 
       - name: Test suite
+        working-directory: ${{ env.WORKDIR }}
         run: make test
 
       - name: Scene parity
+        working-directory: ${{ env.WORKDIR }}
         run: make parity
 
       - name: Deterministic build
+        working-directory: ${{ env.WORKDIR }}
         run: make det

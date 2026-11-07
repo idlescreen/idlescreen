@@ -19,6 +19,7 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     permissions:
       contents: write
       id-token: write
@@ -61,24 +62,46 @@ jobs:
             echo "::error::IDLESCREEN_PACKAGES_DISPATCH_TOKEN is not set — cannot clone the private openOODA-core toolchain"
             exit 1
           fi
-          mkdir -p "$RUNNER_TEMP/toolchain"
+          mkdir -p /tmp/ooda-toolchain
           for r in oodac oodar std; do
             git clone --depth 1 \
               "https://x-access-token:${TOOLCHAIN_TOKEN}@github.com/openOODA-core/${r}.git" \
-              "$RUNNER_TEMP/toolchain/$r"
+              "/tmp/ooda-toolchain/$r"
             # Drop the credential from the remote URL so it never lands in
             # .git/config of the checkout.
-            git -C "$RUNNER_TEMP/toolchain/$r" remote set-url origin "https://github.com/openOODA-core/${r}.git"
+            git -C "/tmp/ooda-toolchain/$r" remote set-url origin "https://github.com/openOODA-core/${r}.git"
           done
-          echo "OODA_HOME=$RUNNER_TEMP/toolchain" >> "$GITHUB_ENV"
+
+      - name: Stage the build tree under /tmp
+        if: steps.gate.outputs.build == 'yes'
+        run: |
+          # oodar's oo_child_filter_env() replaces the inherited jail scope of
+          # a child process with a hardcoded "/Projects:/home/ubermetroid:/tmp"
+          # list, so the `oodac check` child that `oodac build` spawns cannot
+          # read a workspace outside those roots. /tmp is the one portable
+          # root in that list (oodar's fs layer always allows it), so the build
+          # tree is staged there. The sandbox stays on and no toolchain
+          # revision is pinned.
+          mkdir -p /tmp/ooda-ws
+          rsync -a --exclude .git "$GITHUB_WORKSPACE/" /tmp/ooda-ws/
+          echo "OODA_HOME=/tmp/ooda-toolchain" >> "$GITHUB_ENV"
+          echo "WORKDIR=/tmp/ooda-ws" >> "$GITHUB_ENV"
 
       - name: Verify, test, parity, det
         if: steps.gate.outputs.build == 'yes'
+        working-directory: ${{ env.WORKDIR }}
         run: |
           make verify
           make test
           make parity
           make det
+
+      - name: Collect the release binary
+        if: steps.gate.outputs.build == 'yes'
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/bin"
+          cp /tmp/ooda-ws/bin/idlescreen "$GITHUB_WORKSPACE/bin/idlescreen"
+          chmod +x "$GITHUB_WORKSPACE/bin/idlescreen"
 
       - name: Install Cosign
         if: steps.gate.outputs.build == 'yes'

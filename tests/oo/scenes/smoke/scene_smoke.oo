@@ -67,7 +67,9 @@ fn sm_build(w: World, info: CanvasInfo) -> SmB {
         w2 = w_scene(w2, id, 0, 0, 0, ez(0), "smoke");
         w2 = w_grad(w2, id, 1, ssyms, 3, sgrad, list_new());
         w2 = w_reg(w2, id, 2, 0, "smoke", EvAct { kind: 1, sid: "paint", num: 0, carg: 0 });
-        w2 = w_appear(w2, id, ch.sym, 8033154, 0 - 1, 0);
+        // Rust SmokeConfig::default().starting_color = hex_color("7A7A7A")
+        // = 0x7A7A7A = 8026746 (R=G=B=122). Not 0x7A9382.
+        w2 = w_appear(w2, id, ch.sym, 8026746, 0 - 1, 0);
         w2 = w_set_vis(w2, id, 1);
         k = k + 1;
     }
