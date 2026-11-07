@@ -1,0 +1,187 @@
+// # scene_spotlights — searching beam illumination port
+//
+// Logline: Bit-exact port of Spotlights::build/next_frame: text sits
+// at 20% brightness while four seeker chars roam chained bezier
+// paths for 160 frames; chars inside any beam disc brighten (with
+// 0.3 falloff past 70% of range), then seekers converge to center
+// and one beam expands frame by frame until it covers the canvas.
+// Setup: Illumination is appearance-only: each frame recomputes the
+// in-disc set, restores leavers to dark, brightens members by
+// doubled-row distance. No RNG after make_spotlights.
+// Beats:
+//   1. lite_build colors chars dark and launches seeker path "0".
+//   2. lite_illuminate restores/repaints around the seekers.
+//   3. spotlights_run searches 160 frames, centers, then expands.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/color_ops.oo";
+import "tests/oo/engine/geometry_fns.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/scenes/burn/bn_parts.oo";
+import "tests/oo/scenes/fireworks/fw_parts.oo";
+import "tests/oo/scenes/spotlights/lite_parts.oo";
+import "tests/shade_float.oo";
+import "tests/digest_run.oo";
+
+pub type LiteS = struct { w: World, illum: List[Int] };
+
+fn lite_ffg(cmap: List[Int], info: CanvasInfo, ch: Char) -> Int {
+    if ch.row0 < info.tb || ch.row0 > info.tt { return 8421504; }
+    if ch.col0 < info.tl || ch.col0 > info.tr { return 8421504; }
+    return list_get(cmap, ch.row0 - info.tb);
+}
+
+fn lite_has(xs: List[Int], v: Int) -> Int {
+    let mut k: Int = 0;
+    while k < list_len(xs) {
+        if list_get(xs, k) == v { return 1; }
+        k = k + 1;
+    }
+    return 0;
+}
+
+fn lite_illuminate(w: World, info: CanvasInfo, grid: List[Int], spots: List[Int],
+    bright: List[Int], dark: List[Int], illum: List[Int], range_: Int) -> LiteS {
+    let mut inrange: List[Int] = list_new();
+    let mut s: Int = 0;
+    while s < list_len(spots) {
+        let sc: Char = list_get(w.chars, list_get(spots, s));
+        let disc: List[Int] = fw_disc(sc.cc, sc.cr, range_);
+        let mut d: Int = 0;
+        while d < list_len(disc) {
+            let c: Int = list_get(disc, d);
+            let r: Int = list_get(disc, d + 1);
+            if c >= 1 && c <= info.cols && r >= 1 && r <= info.rows {
+                let id: Int = bn_at(grid, info, c, r);
+                if id >= 0 && list_get(w.chars, id).sym != 32 && lite_has(inrange, id) == 0 {
+                    inrange = list_push(inrange, id);
+                }
+            }
+            d = d + 2;
+        }
+        s = s + 1;
+    }
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(illum) {
+        let id2: Int = list_get(illum, k);
+        if lite_has(inrange, id2) == 0 {
+            w2 = w_appear(w2, id2, 0 - 1, list_get(dark, id2), 0 - 1, 0);
+        }
+        k = k + 1;
+    }
+    let fstart: Float = int_to_f(range_) * (1.0 - 0.3);
+    let fspan: Float = int_to_f(range_) * 0.3;
+    let mut m: Int = 0;
+    while m < list_len(inrange) {
+        let id3: Int = list_get(inrange, m);
+        let ch: Char = list_get(w2.chars, id3);
+        let mut dist: Float = 1000000.0;
+        let mut s2: Int = 0;
+        while s2 < list_len(spots) {
+            let sc2: Char = list_get(w2.chars, list_get(spots, s2));
+            let dd: Float = len_line(sc2.cc, sc2.cr, ch.col0, ch.row0, 1);
+            if dd < dist { dist = dd; }
+            s2 = s2 + 1;
+        }
+        let mut fg: Int = list_get(bright, id3);
+        if dist > fstart {
+            let mut f: Float = 1.0 - (dist - fstart) / fspan;
+            if f < 0.2 { f = 0.2; }
+            fg = adjust_brightness(fg, f);
+        }
+        w2 = w_appear(w2, id3, 0 - 1, fg, 0 - 1, 0);
+        m = m + 1;
+    }
+    let _r1 = LiteS { w: w2, illum: inrange };
+    return _r1;
+}
+
+pub fn spotlights_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let w0: World = w_input(info, lines, rng_seed(42));
+    let grid: List[Int] = bn_grid(w0, info);
+    let mb: LiteB = lite_make(w0, info);
+    let mut w: World = mb.w;
+    let fstops: List[Int] = list_push(list_push(list_push(list_new(), 62932), 5350106), 16760331);
+    let fspec: List[Int] = gradient_new(fstops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(fspec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut bright: List[Int] = list_new();
+    let mut dark: List[Int] = list_new();
+    let mut z: Int = 0;
+    while z < list_len(w.chars) { bright = list_push(bright, 0 - 1); dark = list_push(dark, 0 - 1); z = z + 1; }
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w.chars, id);
+        let b: Int = lite_ffg(cmap, info, ch);
+        let d: Int = adjust_brightness(b, 0.2);
+        bright = list_set(bright, id, b);
+        dark = list_set(dark, id, d);
+        w = w_appear(w, id, ch.sym, d, 0 - 1, 0);
+        w = w_set_vis(w, id, 1);
+        k = k + 1;
+    }
+    let mut smallest: Int = info.right;
+    if info.top < smallest { smallest = info.top; }
+    let mut range_: Int = trunc_i(int_to_f(smallest) / 2.0);
+    if range_ > smallest { range_ = smallest; }
+    if range_ < 1 { range_ = 1; }
+    let mut spots: List[Int] = mb.spots;
+    let mut s3: Int = 0;
+    while s3 < list_len(spots) {
+        w = eng_act_path(w, list_get(spots, s3), 0);
+        w = w_active_add(w, list_get(spots, s3));
+        s3 = s3 + 1;
+    }
+    let mut illum: List[Int] = list_new();
+    let mut search: Int = 160;
+    let mut searching: Int = 1;
+    let mut complete: Int = 0;
+    let mut limit: Int = info.right;
+    if info.top > limit { limit = info.top; }
+    let limitf: Int = trunc_i(int_to_f(limit) / 1.5);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while complete == 0 {
+        let st: LiteS = lite_illuminate(w, info, grid, spots, bright, dark, illum, range_);
+        w = st.w;
+        illum = st.illum;
+        if searching == 1 {
+            search = search - 1;
+            if search == 0 {
+                let mut s4: Int = 0;
+                while s4 < list_len(spots) {
+                    w = eng_act_path(w, list_get(spots, s4), 11);
+                    s4 = s4 + 1;
+                }
+                searching = 0;
+            }
+        }
+        let mut any_active: Int = 0;
+        let mut s5: Int = 0;
+        while s5 < list_len(spots) {
+            if list_get(w.chars, list_get(spots, s5)).a_path != 0 - 1 { any_active = 1; }
+            s5 = s5 + 1;
+        }
+        if any_active == 0 {
+            while list_len(spots) > 1 { spots = list_slice(spots, 0, list_len(spots) - 1); }
+            range_ = range_ + 1;
+            if range_ > limitf { complete = 1; }
+        }
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}
