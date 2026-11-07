@@ -1,0 +1,26 @@
+name: Probe toolchain auth
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe dispatch token
+        env:
+          T: ${{ secrets.IDLESCREEN_PACKAGES_DISPATCH_TOKEN }}
+        run: |
+          mkdir -p /tmp/tc
+          if git clone --depth 1 "https://x-access-token:${T}@github.com/openOODA-core/oodac.git" /tmp/tc/oodac 2>&1; then
+            echo "RESULT=DISPATCH_TOKEN_WORKS"
+          else
+            echo "RESULT=DISPATCH_TOKEN_FAILS"
+          fi
+      - name: Probe default token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/openOODA-core/oodac.git" /tmp/tc/oodac2 2>&1; then
+            echo "RESULT=DEFAULT_TOKEN_WORKS"
+          else
+            echo "RESULT=DEFAULT_TOKEN_FAILS"
+          fi
