@@ -36,6 +36,8 @@ import "tests/oo/scenes/highlight/scene_highlight.oo";
 import "tests/oo/scenes/spray/scene_spray.oo";
 import "tests/oo/scenes/overflow/scene_overflow.oo";
 import "tests/oo/scenes/bouncy/scene_bouncyballs.oo";
+import "tests/oo/scenes/decrypt/scene_decrypt.oo";
+import "tests/oo/scenes/fireworks/scene_fireworks.oo";
 import "port_render.oo";
 
 pub type PortSession = struct {
@@ -61,7 +63,7 @@ pub fn port_has(name: String) -> Bool {
     if name == "metaballs" || name == "moire" || name == "cosmos" || name == "radar" { return true; }
     if name == "tunnel" || name == "mystify" || name == "expand" || name == "wipe" { return true; }
     if name == "sweep" || name == "slide" || name == "middleout" || name == "binarypath" { return true; }
-    return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" || name == "pour" || name == "slice" || name == "colorshift" || name == "highlight" || name == "spray" || name == "overflow" || name == "bouncyballs";
+    return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" || name == "pour" || name == "slice" || name == "colorshift" || name == "highlight" || name == "spray" || name == "overflow" || name == "bouncyballs" || name == "decrypt" || name == "fireworks";
 }
 
 fn port_settled_frame(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> List[PaintCell] {
@@ -82,6 +84,8 @@ fn port_settled_frame(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "spray" { return spray_run(cells, info, lines).last; }
     if name == "overflow" { return overflow_run(cells, info, lines).last; }
     if name == "bouncyballs" { return bouncyballs_run(cells, info, lines).last; }
+    if name == "decrypt" { return decrypt_run(cells, info, lines).last; }
+    if name == "fireworks" { return fireworks_run(cells, info, lines).last; }
     return list_new();
 }
 

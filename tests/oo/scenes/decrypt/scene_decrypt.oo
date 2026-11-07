@@ -1,0 +1,161 @@
+// # scene_decrypt — typing then decryption reveal port
+//
+// Logline: Bit-exact port of Decrypt::build/next_frame: chars type in
+// as block-glyph ciphertext (12/frame at 75% odds), then every char
+// runs 80 fast cipher frames, 1-15 slow ones at mixed durations, and
+// a white-to-final discovered gradient, chained by SceneComplete.
+// Setup: RNG mirrors Rust exactly: typing scenes draw 5 color picks
+// + 1 symbol pick per char first; decrypt scenes then draw 1 color,
+// 80 symbols, randint(1,15), and per slow frame a symbol, a
+// randint(0,100) gate, and a randrange duration.
+// Beats:
+//   1. dc_typing/dc_decrypt build the four scenes per char in order.
+//   2. decrypt_run types, transitions in-frame, then decrypts.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/digest_run.oo";
+
+fn dc_cipher(r: Rng) -> DR {
+    let d: DR = rng_pick(r, 3);
+    let mut c: Int = 32768;
+    if d.v == 1 { c = 51968; }
+    if d.v == 2 { c = 65280; }
+    let _r1 = DR { v: c, r: d.r };
+    return _r1;
+}
+
+fn dc_symtbl() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    let mut n: Int = 33;
+    while n < 127 { s = list_push(s, n); n = n + 1; }
+    n = 9608;
+    while n < 9632 { s = list_push(s, n); n = n + 1; }
+    n = 9472;
+    while n < 9599 { s = list_push(s, n); n = n + 1; }
+    n = 174;
+    while n < 452 { s = list_push(s, n); n = n + 1; }
+    return s;
+}
+
+fn dc_typing(w: World, ids: List[Int], tbl: List[Int]) -> World {
+    let blocks: List[Int] = list_push(list_push(list_push(list_push(list_new(), 9609), 9619), 9618), 9617);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "typing");
+        let mut b: Int = 0;
+        while b < 4 {
+            let dc: DR = dc_cipher(w2.rng);
+            w2 = w_rng(w2, dc.r);
+            w2 = w_frame(w2, id, 0, list_get(blocks, b), 2, dc.v, 0 - 1, 0 - 1);
+            b = b + 1;
+        }
+        let ds: DR = rng_pick(w2.rng, list_len(tbl));
+        w2 = w_rng(w2, ds.r);
+        let dc2: DR = dc_cipher(w2.rng);
+        w2 = w_rng(w2, dc2.r);
+        w2 = w_frame(w2, id, 0, list_get(tbl, ds.v), 1, dc2.v, 0 - 1, 0 - 1);
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn dc_decrypt(w: World, ids: List[Int], tbl: List[Int]) -> World {
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let dc: DR = dc_cipher(w2.rng);
+        w2 = w_rng(w2, dc.r);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "fast_decrypt");
+        let mut f: Int = 0;
+        while f < 80 {
+            let ds: DR = rng_pick(w2.rng, list_len(tbl));
+            w2 = w_rng(w2, ds.r);
+            w2 = w_frame(w2, id, 1, list_get(tbl, ds.v), 2, dc.v, 0 - 1, 0 - 1);
+            f = f + 1;
+        }
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "slow_decrypt");
+        let dn: DR = rng_int(w2.rng, 1, 15);
+        w2 = w_rng(w2, dn.r);
+        let mut s: Int = 0;
+        while s < dn.v {
+            let ds2: DR = rng_pick(w2.rng, list_len(tbl));
+            w2 = w_rng(w2, ds2.r);
+            let dg: DR = rng_int(w2.rng, 0, 100);
+            w2 = w_rng(w2, dg.r);
+            let dd: DR = if dg.v <= 30 { rng_range(w2.rng, 10, 20) } else { rng_range(w2.rng, 3, 6) };
+            w2 = w_rng(w2, dd.r);
+            w2 = w_frame(w2, id, 2, list_get(tbl, ds2.v), dd.v, dc.v, 0 - 1, 0 - 1);
+            s = s + 1;
+        }
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "discovered");
+        let g: List[Int] = gradient_new(list_push(list_push(list_new(), 16777215), 15572992), list_push(list_new(), 10), 0);
+        w2 = w_grad(w2, id, 3, list_push(list_new(), ch.sym), 5, g, list_new());
+        w2 = w_reg(w2, id, 2, 0, "fast_decrypt", EvAct { kind: 1, sid: "slow_decrypt", num: 0, carg: 0 });
+        w2 = w_reg(w2, id, 2, 0, "slow_decrypt", EvAct { kind: 1, sid: "discovered", num: 0, carg: 0 });
+        w2 = w_aset(w2, id, 1);
+        k = k + 1;
+    }
+    return w2;
+}
+
+pub fn decrypt_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let w0: World = w_input(info, lines, rng_seed(42));
+    let ids: List[Int] = sort_ids(w0, collect_ids(w0, 1), info.cols, info.rows, 0);
+    let tbl: List[Int] = dc_symtbl();
+    let mut w: World = dc_decrypt(dc_typing(w0, ids, tbl), ids, tbl);
+    let mut pend: List[Int] = list_slice(ids, 0, list_len(ids));
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(pend) > 0 || list_len(w.active) > 0 {
+        if list_len(pend) > 0 {
+            let dg: DR = rng_int(w.rng, 0, 100);
+            w = w_rng(w, dg.r);
+            if dg.v <= 75 {
+                let mut t: Int = 0;
+                while t < 12 {
+                    if list_len(pend) > 0 {
+                        let id: Int = list_get(pend, 0);
+                        pend = list_slice(pend, 1, list_len(pend));
+                        w = w_set_vis(w, id, 1);
+                        w = w_aset(w, id, 0);
+                        w = w_active_add(w, id);
+                    }
+                    t = t + 1;
+                }
+            }
+        }
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id2: Int = list_get(ids, k);
+        w = w_aset(w, id2, 1);
+        w = w_active_add(w, id2);
+        k = k + 1;
+    }
+    while list_len(w.active) > 0 {
+        w = eng_update(w);
+        let pcs2: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs2), pcs2);
+    }
+    return run;
+}
