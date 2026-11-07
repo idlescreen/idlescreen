@@ -1,6 +1,9 @@
 name: Probe toolchain auth
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [ooda]
+permissions:
+  contents: read
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -9,8 +12,8 @@ jobs:
         env:
           T: ${{ secrets.IDLESCREEN_PACKAGES_DISPATCH_TOKEN }}
         run: |
-          mkdir -p /tmp/tc
-          if git clone --depth 1 "https://x-access-token:${T}@github.com/openOODA-core/oodac.git" /tmp/tc/oodac 2>&1; then
+          if [ -z "$T" ]; then echo "RESULT=DISPATCH_TOKEN_UNSET"; exit 0; fi
+          if git clone --depth 1 "https://x-access-token:${T}@github.com/openOODA-core/oodac.git" /tmp/tc1 2>/dev/null; then
             echo "RESULT=DISPATCH_TOKEN_WORKS"
           else
             echo "RESULT=DISPATCH_TOKEN_FAILS"
@@ -19,7 +22,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/openOODA-core/oodac.git" /tmp/tc/oodac2 2>&1; then
+          if git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/openOODA-core/oodac.git" /tmp/tc2 2>/dev/null; then
             echo "RESULT=DEFAULT_TOKEN_WORKS"
           else
             echo "RESULT=DEFAULT_TOKEN_FAILS"
