@@ -32,6 +32,9 @@ import "tests/oo/scenes/scattered/scene_scattered.oo";
 import "tests/oo/scenes/pour/scene_pour.oo";
 import "tests/oo/scenes/slice/scene_slice.oo";
 import "tests/oo/scenes/colorshift/scene_colorshift.oo";
+import "tests/oo/scenes/highlight/scene_highlight.oo";
+import "tests/oo/scenes/spray/scene_spray.oo";
+import "tests/oo/scenes/overflow/scene_overflow.oo";
 import "port_render.oo";
 
 pub type PortSession = struct {
@@ -57,7 +60,7 @@ pub fn port_has(name: String) -> Bool {
     if name == "metaballs" || name == "moire" || name == "cosmos" || name == "radar" { return true; }
     if name == "tunnel" || name == "mystify" || name == "expand" || name == "wipe" { return true; }
     if name == "sweep" || name == "slide" || name == "middleout" || name == "binarypath" { return true; }
-    return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" || name == "pour" || name == "slice" || name == "colorshift";
+    return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" || name == "pour" || name == "slice" || name == "colorshift" || name == "highlight" || name == "spray" || name == "overflow";
 }
 
 fn port_settled_frame(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> List[PaintCell] {
@@ -74,6 +77,9 @@ fn port_settled_frame(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "pour" { return pour_run(cells, info, lines).last; }
     if name == "slice" { return slice_run(cells, info, lines).last; }
     if name == "colorshift" { return colorshift_run(cells, info, lines).last; }
+    if name == "highlight" { return highlight_run(cells, info, lines).last; }
+    if name == "spray" { return spray_run(cells, info, lines).last; }
+    if name == "overflow" { return overflow_run(cells, info, lines).last; }
     return list_new();
 }
 

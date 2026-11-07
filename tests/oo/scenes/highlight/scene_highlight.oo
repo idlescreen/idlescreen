@@ -1,0 +1,90 @@
+// # scene_highlight — eased diagonal brightness sweep port
+//
+// Logline: Bit-exact port of Highlight::build/next_frame: glyphs sit
+// visible in the vertical final gradient while a 100-step InOutCirc
+// SequenceEaser walks row+col diagonal groups, firing each char's
+// base->bright->base highlight scene (brightness 1.75, width 8).
+// Setup: No RNG. Removed windows never fire upstream (monotonic
+// easing) and are ignored exactly as Rust ignores them.
+// Beats:
+//   1. hl_build paints appearances and seeds highlight scenes.
+//   2. highlight_run steps the easer, activating added groups.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/seq_easer.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/color_ops.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/digest_run.oo";
+
+fn hl_build(w: World, info: CanvasInfo) -> World {
+    let stops: List[Int] = list_push(list_push(list_push(list_new(), 9044106), 53759), 16777215);
+    let spec: List[Int] = gradient_new(stops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let steps: List[Int] = list_push(list_push(list_push(list_new(), 3), 8), 3);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let base: Int = list_get(cmap, ch.row0 - info.tb);
+        let bright: Int = adjust_brightness(base, 1.75);
+        w2 = w_appear(w2, id, ch.sym, base, 0 - 1, 0);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "highlight");
+        let hg: List[Int] = gradient_new(list_push(list_push(list_push(list_push(list_new(), base), bright), bright), base), steps, 0);
+        let mut c: Int = 0;
+        while c < list_len(hg) {
+            w2 = w_frame(w2, id, 0, ch.sym, 2, list_get(hg, c), 0 - 1, 0 - 1);
+            c = c + 1;
+        }
+        w2 = w_set_vis(w2, id, 1);
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn hl_gidx(n: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < n { out = list_push(out, i); i = i + 1; }
+    return out;
+}
+
+pub fn highlight_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = hl_build(w_input(info, lines, rng_seed(42)), info);
+    let g: Groups = groups_of(w, collect_ids(w, 1), 2, 0, 0, 0);
+    let gseq: List[Int] = hl_gidx(list_len(g.keys));
+    let mut trk: Trk = trk_new(ez(21), 100);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(w.active) > 0 || trk_complete(trk) == 0 {
+        let st: SeqStep = seq_step(gseq, trk);
+        trk = st.trk;
+        let mut a: Int = 0;
+        while a < list_len(st.add) {
+            let win: List[Int] = grp_win(g, list_get(st.add, a));
+            let mut m: Int = 0;
+            while m < list_len(win) {
+                let id: Int = list_get(win, m);
+                w = w_aset(w, id, 0);
+                w = w_active_add(w, id);
+                m = m + 1;
+            }
+            a = a + 1;
+        }
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

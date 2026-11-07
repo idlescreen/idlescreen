@@ -1,0 +1,95 @@
+// # scene_spray — east-origin droplet spray port
+//
+// Logline: Bit-exact port of Spray::build/next_frame: every glyph
+// sprays from the east canvas origin (right-1, top/2) home along an
+// OutExpo path at uniform speed, wearing a 7-step gradient from a
+// random spectrum color to its vertical final color, 20 frames/step.
+// Setup: Pending order is the shuffled character list; volume =
+// max(int(n*0.02), 1) = 1 here, so each frame draws randint(1,1) and
+// pops one char off the back. RNG per char in build: speed uniform,
+// then spectrum choice; then the pending shuffle.
+// Beats:
+//   1. sp_build seeds paths, layer events, droplet scenes, shuffle.
+//   2. spray_run pops/releases until pending+active drain.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/digest_run.oo";
+
+pub type SpB = struct { w: World, pend: List[Int], vol: Int };
+
+fn sp_build(w: World, info: CanvasInfo) -> SpB {
+    let stops: List[Int] = list_push(list_push(list_push(list_new(), 9044106), 53759), 16777215);
+    let spec: List[Int] = gradient_new(stops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ffg: Int = list_get(cmap, ch.row0 - info.tb);
+        let sp: DRF = rng_unif(w2.rng, 1.0, 2.2);
+        w2 = w_rng(w2, sp.r);
+        w2 = w_pos(w2, id, info.right - 1, info.top / 2);
+        w2 = w_path(w2, id, sp.v, 1, ez(17), 0 - 1, 0, 0, "");
+        w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
+        w2 = w_reg(w2, id, 0, 1, "0", EvAct { kind: 5, sid: "", num: 1, carg: 0 });
+        w2 = w_reg(w2, id, 1, 1, "0", EvAct { kind: 5, sid: "", num: 0, carg: 0 });
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+        let dc: DR = rng_pick(w2.rng, list_len(spec));
+        w2 = w_rng(w2, dc.r);
+        let g: List[Int] = gradient_new(list_push(list_push(list_new(), list_get(spec, dc.v)), ffg), list_push(list_new(), 7), 0);
+        w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 20, g, list_new());
+        w2 = w_aset(w2, id, 0);
+        w2 = eng_act_path(w2, id, 0);
+        k = k + 1;
+    }
+    let sh: DRL = rng_shuf(w2.rng, ids);
+    w2 = w_rng(w2, sh.r);
+    let mut vol: Int = trunc_i(int_to_f(list_len(ids)) * 0.02);
+    if vol < 1 { vol = 1; }
+    let _r1 = SpB { w: w2, pend: sh.v, vol: vol };
+    return _r1;
+}
+
+pub fn spray_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let bs: SpB = sp_build(w_input(info, lines, rng_seed(42)), info);
+    let mut w: World = bs.w;
+    let mut pend: List[Int] = bs.pend;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(pend) > 0 || list_len(w.active) > 0 {
+        if list_len(pend) > 0 {
+            let dn: DR = rng_int(w.rng, 1, bs.vol);
+            w = w_rng(w, dn.r);
+            let mut t: Int = 0;
+            while t < dn.v {
+                if list_len(pend) > 0 {
+                    let id: Int = list_get(pend, list_len(pend) - 1);
+                    pend = list_slice(pend, 0, list_len(pend) - 1);
+                    w = w_set_vis(w, id, 1);
+                    w = w_active_add(w, id);
+                }
+                t = t + 1;
+            }
+        }
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

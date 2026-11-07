@@ -1,0 +1,201 @@
+// # scene_overflow — rising copied-row overflow port
+//
+// Logline: Bit-exact port of Overflow::build/next_frame: shuffled
+// copies of the text rows (2-4 cycles) then the real rows (input +
+// fill chars, top-to-bottom) enter at row 0 and rise one row per
+// release burst; non-final rows recolor from the overflow spectrum
+// by head row, final rows keep their vertical final-gradient color.
+// Setup: No paths/scenes ever tick — motion is set_coordinate only,
+// so eng_update is a no-op kept for upstream call shape. RNG: one
+// randint(2,4) for cycles, one shuffle per cycle, then per burst
+// randint(1,3) releases and a randint(0,3) delay.
+// Beats:
+//   1. ov_build copies rows, paints final rows, queues all rows.
+//   2. ov_burst moves active rows up and releases the next row.
+//   3. overflow_run drives bursts until the pending queue drains.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/digest_run.oo";
+
+pub type OvRow = struct { chars: List[Int], fin: Int };
+pub type OvB = struct { w: World, rows: List[OvRow] };
+pub type OvS = struct { w: World, pend: List[OvRow], act: List[OvRow], delay: Int };
+
+fn ov_color(cmap: List[Int], info: CanvasInfo, ch: Char) -> Int {
+    if ch.row0 < info.tb || ch.row0 > info.tt { return 0; }
+    if ch.col0 < info.tl || ch.col0 > info.tr { return 0; }
+    return list_get(cmap, ch.row0 - info.tb);
+}
+
+fn ov_copies(w: World, g: Groups) -> OvB {
+    let mut w2: World = w;
+    let mut rows: List[OvRow] = list_new();
+    let dc: DR = rng_int(w2.rng, 2, 4);
+    w2 = w_rng(w2, dc.r);
+    let mut idx: List[Int] = list_new();
+    let mut i0: Int = 0;
+    while i0 < list_len(g.keys) { idx = list_push(idx, i0); i0 = i0 + 1; }
+    let mut cyc: Int = 0;
+    while cyc < dc.v {
+        let sh: DRL = rng_shuf(w2.rng, idx);
+        w2 = w_rng(w2, sh.r);
+        idx = sh.v;
+        let mut r: Int = 0;
+        while r < list_len(idx) {
+            let win: List[Int] = grp_win(g, list_get(idx, r));
+            let mut cps: List[Int] = list_new();
+            let mut m: Int = 0;
+            while m < list_len(win) {
+                let src: Char = list_get(w2.chars, list_get(win, m));
+                w2 = w_add_char(w2, src.sym, src.col0, src.row0);
+                cps = list_push(cps, list_len(w2.chars) - 1);
+                m = m + 1;
+            }
+            rows = list_push(rows, OvRow { chars: cps, fin: 0 });
+            r = r + 1;
+        }
+        cyc = cyc + 1;
+    }
+    let _r1 = OvB { w: w2, rows: rows };
+    return _r1;
+}
+
+fn ov_build(w: World, info: CanvasInfo) -> OvB {
+    let fstops: List[Int] = list_push(list_push(list_push(list_new(), 9044106), 53759), 16777215);
+    let fspec: List[Int] = gradient_new(fstops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(fspec, info.tb, info.tt);
+    let g1: Groups = groups_of(w, collect_ids(w, 1), 1, 0, 0, 1);
+    let b: OvB = ov_copies(w, g1);
+    let mut w2: World = b.w;
+    let mut rows: List[OvRow] = b.rows;
+    let g2: Groups = groups_of(w2, collect_ids(w2, 7), 1, 0, 0, 1);
+    let mut gi: Int = 0;
+    while gi < list_len(g2.keys) {
+        let win: List[Int] = grp_win(g2, gi);
+        let mut m: Int = 0;
+        while m < list_len(win) {
+            let id: Int = list_get(win, m);
+            let ch: Char = list_get(w2.chars, id);
+            w2 = w_appear(w2, id, ch.sym, ov_color(cmap, info, ch), 0 - 1, 0);
+            m = m + 1;
+        }
+        rows = list_push(rows, OvRow { chars: win, fin: 1 });
+        gi = gi + 1;
+    }
+    let _r2 = OvB { w: w2, rows: rows };
+    return _r2;
+}
+
+fn ov_move_up(w: World, row: OvRow) -> World {
+    let mut w2: World = w;
+    let mut m: Int = 0;
+    while m < list_len(row.chars) {
+        let id: Int = list_get(row.chars, m);
+        let ch: Char = list_get(w2.chars, id);
+        w2 = w_pos(w2, id, ch.cc, ch.cr + 1);
+        m = m + 1;
+    }
+    return w2;
+}
+
+fn ov_paint(w: World, row: OvRow, fg: Int) -> World {
+    let mut w2: World = w;
+    let mut m: Int = 0;
+    while m < list_len(row.chars) {
+        w2 = w_appear(w2, list_get(row.chars, m), 0 - 1, fg, 0 - 1, 0);
+        m = m + 1;
+    }
+    return w2;
+}
+
+fn ov_burst(w: World, pend: List[OvRow], act: List[OvRow], spec: List[Int]) -> OvS {
+    let dn: DR = rng_int(w.rng, 1, 3);
+    let mut w2: World = w_rng(w, dn.r);
+    let mut p2: List[OvRow] = pend;
+    let mut a2: List[OvRow] = act;
+    let mut t: Int = 0;
+    while t < dn.v {
+        if list_len(p2) > 0 {
+            let mut r: Int = 0;
+            while r < list_len(a2) {
+                let row: OvRow = list_get(a2, r);
+                w2 = ov_move_up(w2, row);
+                if row.fin == 0 {
+                    let head: Int = list_get(w2.chars, list_get(row.chars, 0)).cr;
+                    let mut ix: Int = head;
+                    if ix < 0 { ix = 0; }
+                    if ix > list_len(spec) - 1 { ix = list_len(spec) - 1; }
+                    w2 = ov_paint(w2, row, list_get(spec, ix));
+                }
+                r = r + 1;
+            }
+            let nxt: OvRow = list_get(p2, 0);
+            p2 = list_slice(p2, 1, list_len(p2));
+            let mut m: Int = 0;
+            while m < list_len(nxt.chars) {
+                let id: Int = list_get(nxt.chars, m);
+                w2 = w_pos(w2, id, list_get(w2.chars, id).col0, 0);
+                m = m + 1;
+            }
+            w2 = ov_move_up(w2, nxt);
+            if nxt.fin == 0 { w2 = ov_paint(w2, nxt, list_get(spec, 0)); }
+            let mut m2: Int = 0;
+            while m2 < list_len(nxt.chars) {
+                w2 = w_set_vis(w2, list_get(nxt.chars, m2), 1);
+                m2 = m2 + 1;
+            }
+            a2 = list_push(a2, nxt);
+        }
+        t = t + 1;
+    }
+    let dd: DR = rng_int(w2.rng, 0, 3);
+    w2 = w_rng(w2, dd.r);
+    let _r3 = OvS { w: w2, pend: p2, act: a2, delay: dd.v };
+    return _r3;
+}
+
+pub fn overflow_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let b: OvB = ov_build(w_input(info, lines, rng_seed(42)), info);
+    let mut w: World = b.w;
+    let mut pend: List[OvRow] = b.rows;
+    let mut act: List[OvRow] = list_new();
+    let ostops: List[Int] = list_push(list_push(list_push(list_new(), 15920064), 9289651), 15920064);
+    let spec: List[Int] = gradient_new(ostops, list_push(list_new(), 12), 0);
+    let mut delay: Int = 0;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(pend) > 0 {
+        if delay == 0 {
+            let s: OvS = ov_burst(w, pend, act, spec);
+            w = s.w;
+            pend = s.pend;
+            act = s.act;
+            delay = s.delay;
+        } else {
+            delay = delay - 1;
+        }
+        let mut kept: List[OvRow] = list_new();
+        let mut r: Int = 0;
+        while r < list_len(act) {
+            let row: OvRow = list_get(act, r);
+            if list_get(w.chars, list_get(row.chars, 0)).cr <= info.top { kept = list_push(kept, row); }
+            r = r + 1;
+        }
+        act = kept;
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}
