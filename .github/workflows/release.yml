@@ -51,10 +51,24 @@ jobs:
 
       - name: Fetch openOODA toolchain (oodac, oodar, std)
         if: steps.gate.outputs.build == 'yes'
+        env:
+          # The toolchain repos are private in the openOODA-core org, so the
+          # default GITHUB_TOKEN cannot read them. A PAT with repo scope
+          # across that org is required to clone them here.
+          TOOLCHAIN_TOKEN: ${{ secrets.IDLESCREEN_PACKAGES_DISPATCH_TOKEN }}
         run: |
+          if [ -z "$TOOLCHAIN_TOKEN" ]; then
+            echo "::error::IDLESCREEN_PACKAGES_DISPATCH_TOKEN is not set — cannot clone the private openOODA-core toolchain"
+            exit 1
+          fi
           mkdir -p "$RUNNER_TEMP/toolchain"
           for r in oodac oodar std; do
-            git clone --depth 1 "https://git.clownhouse.io/openOODA-core/$r.git" "$RUNNER_TEMP/toolchain/$r"
+            git clone --depth 1 \
+              "https://x-access-token:${TOOLCHAIN_TOKEN}@github.com/openOODA-core/${r}.git" \
+              "$RUNNER_TEMP/toolchain/$r"
+            # Drop the credential from the remote URL so it never lands in
+            # .git/config of the checkout.
+            git -C "$RUNNER_TEMP/toolchain/$r" remote set-url origin "https://github.com/openOODA-core/${r}.git"
           done
           echo "OODA_HOME=$RUNNER_TEMP/toolchain" >> "$GITHUB_ENV"
 

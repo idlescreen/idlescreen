@@ -17,7 +17,6 @@ import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/kernel/engine_ops.oo";
 import "tests/oo/kernel/engine_tick.oo";
 import "tests/oo/kernel/engine_render.oo";
-import "tests/oo/kernel/engine_core.oo";
 import "tests/oo/engapi/input_arena.oo";
 import "tests/oo/engapi/char_ops.oo";
 import "tests/oo/engapi/char_groups.oo";
@@ -27,6 +26,7 @@ import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
 import "tests/oo/scenes/burn/bn_parts.oo";
 import "tests/oo/scenes/smoke/sm_alg.oo";
+import "tests/oo/scenes/smoke/sm_bfs.oo";
 import "tests/digest_run.oo";
 
 pub type SmB = struct { w: World, edges: List[Int], start: Int };

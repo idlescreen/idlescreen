@@ -1,0 +1,212 @@
+// # scene_crumble — fall, vacuum, reset port
+//
+// Logline: Bit-exact port of Crumble::build/step_scene: chars weaken
+// (65% -> 55% brightness gradient), bounce-fall to the bottom as
+// synced dust symbols, vacuum up a bezier to the top, then reset
+// home flashing white into the diagonal final gradient.
+// Setup: Pending and unvacuumed lists are shuffled at build end (in
+// that order). Falling releases randint groups on a shrinking delay
+// window; stage transitions check the drained active set in-frame.
+// Beats:
+//   1. cr_char seeds initial/weaken scenes, three paths, dust/flash.
+//   2. cr_fall/cr_vacuum replay the stage release logic + RNG.
+//   3. crumble_run drives stages until Complete's frame is emitted.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/color_ops.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/digest_run.oo";
+
+pub type CrB = struct { w: World, pend: List[Int], unvac: List[Int], ids: List[Int] };
+pub type CrS = struct { w: World, pend: List[Int], delay: Int, mn: Int, mx: Int, gmax: Int };
+pub type CrV = struct { w: World, unvac: List[Int] };
+
+fn cr_char(w: World, id: Int, ffg: Int, info: CanvasInfo) -> World {
+    let ch: Char = list_get(w.chars, id);
+    let weak: Int = adjust_brightness(ffg, 0.65);
+    let dust: Int = adjust_brightness(ffg, 0.55);
+    let mut w2: World = w_scene(w, id, 0, 0, 0, ez(0), "");
+    w2 = w_frame(w2, id, 0, ch.sym, 1, weak, 0 - 1, 0 - 1);
+    w2 = w_aset(w2, id, 0);
+    w2 = w_set_vis(w2, id, 1);
+    w2 = w_path(w2, id, 0.95, 1, ez(29), 0 - 1, 0, 0, "");
+    w2 = w_wp(w2, id, 0, ch.col0, info.bottom, list_new());
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "weaken");
+    let wg: List[Int] = gradient_new(list_push(list_push(list_new(), weak), dust), list_push(list_new(), 9), 0);
+    w2 = w_grad(w2, id, 1, list_push(list_new(), ch.sym), 4, wg, list_new());
+    w2 = w_path(w2, id, 1.0, 1, ez(14), 0 - 1, 0, 0, "top");
+    w2 = w_wp(w2, id, 1, ch.col0, info.top, list_push(list_push(list_new(), 40), 12));
+    w2 = w_path(w2, id, 1.6, 0, ez(0), 0 - 1, 0, 0, "input");
+    w2 = w_wp(w2, id, 2, ch.col0, ch.row0, list_new());
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    let fg1: List[Int] = gradient_new(list_push(list_push(list_new(), ffg), 16777215), list_push(list_new(), 6), 0);
+    w2 = w_grad(w2, id, 2, list_push(list_new(), ch.sym), 4, fg1, list_new());
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    let fg2: List[Int] = gradient_new(list_push(list_push(list_new(), 16777215), ffg), list_push(list_new(), 9), 0);
+    w2 = w_grad(w2, id, 3, list_push(list_new(), ch.sym), 4, fg2, list_new());
+    w2 = w_scene(w2, id, 0, 2, 0, ez(0), "");
+    let mut f: Int = 0;
+    while f < 5 {
+        let ds: DR = rng_pick(w2.rng, 3);
+        w2 = w_rng(w2, ds.r);
+        let mut sym: Int = 42;
+        if ds.v == 1 { sym = 46; }
+        if ds.v == 2 { sym = 44; }
+        w2 = w_frame(w2, id, 4, sym, 1, dust, 0 - 1, 0 - 1);
+        f = f + 1;
+    }
+    w2 = w_reg(w2, id, 2, 0, "weaken", EvAct { kind: 0, sid: "0", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 2, 0, "weaken", EvAct { kind: 5, sid: "", num: 1, carg: 0 });
+    w2 = w_reg(w2, id, 2, 0, "weaken", EvAct { kind: 1, sid: "4", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 1, 1, "input", EvAct { kind: 1, sid: "2", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 2, 0, "2", EvAct { kind: 1, sid: "3", num: 0, carg: 0 });
+    return w2;
+}
+
+fn cr_build(w: World, info: CanvasInfo) -> CrB {
+    let fstops: List[Int] = list_push(list_push(list_new(), 6087167), 16747520);
+    let fspec: List[Int] = gradient_new(fstops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_d(fspec, info.tb, info.tt, info.tl, info.tr);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut w2: World = w;
+    let mut pend: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ci: Int = (ch.row0 - info.tb) * (info.tr - info.tl + 1) + (ch.col0 - info.tl);
+        w2 = cr_char(w2, id, list_get(cmap, ci), info);
+        pend = list_push(pend, id);
+        k = k + 1;
+    }
+    let sh1: DRL = rng_shuf(w2.rng, pend);
+    w2 = w_rng(w2, sh1.r);
+    let sh2: DRL = rng_shuf(w2.rng, collect_ids(w2, 1));
+    w2 = w_rng(w2, sh2.r);
+    let _r1 = CrB { w: w2, pend: sh1.v, unvac: sh2.v, ids: ids };
+    return _r1;
+}
+
+fn cr_fall(w: World, pend: List[Int], delay: Int, mn: Int, mx: Int, gmax: Int) -> CrS {
+    let mut w2: World = w;
+    let mut p2: List[Int] = pend;
+    let mut d2: Int = delay;
+    let mut mn2: Int = mn;
+    let mut mx2: Int = mx;
+    let mut g2: Int = gmax;
+    if list_len(p2) > 0 {
+        if d2 == 0 {
+            let dg: DR = rng_int(w2.rng, 1, g2);
+            w2 = w_rng(w2, dg.r);
+            let mut t: Int = 0;
+            while t < dg.v {
+                if list_len(p2) > 0 {
+                    let id: Int = list_get(p2, 0);
+                    p2 = list_slice(p2, 1, list_len(p2));
+                    w2 = w_aset(w2, id, 1);
+                    w2 = w_active_add(w2, id);
+                }
+                t = t + 1;
+            }
+            let dd: DR = rng_int(w2.rng, mn2, mx2);
+            w2 = w_rng(w2, dd.r);
+            d2 = dd.v;
+            let dm: DR = rng_int(w2.rng, 1, 10);
+            w2 = w_rng(w2, dm.r);
+            if dm.v > 4 {
+                g2 = g2 + 1;
+                mn2 = mn2 - 1;
+                if mn2 < 0 { mn2 = 0; }
+                mx2 = mx2 - 1;
+                if mx2 < 0 { mx2 = 0; }
+            }
+        } else {
+            d2 = d2 - 1;
+        }
+    }
+    let _r2 = CrS { w: w2, pend: p2, delay: d2, mn: mn2, mx: mx2, gmax: g2 };
+    return _r2;
+}
+
+fn cr_vacuum(w: World, unvac: List[Int]) -> CrV {
+    let mut w2: World = w;
+    let mut u2: List[Int] = unvac;
+    if list_len(u2) > 0 {
+        let dn: DR = rng_int(w2.rng, 3, 10);
+        w2 = w_rng(w2, dn.r);
+        let mut t: Int = 0;
+        while t < dn.v {
+            if list_len(u2) > 0 {
+                let id: Int = list_get(u2, 0);
+                u2 = list_slice(u2, 1, list_len(u2));
+                w2 = eng_act_path(w2, id, 1);
+                w2 = w_active_add(w2, id);
+            }
+            t = t + 1;
+        }
+    }
+    let _r3 = CrV { w: w2, unvac: u2 };
+    return _r3;
+}
+
+pub fn crumble_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let b: CrB = cr_build(w_input(info, lines, rng_seed(42)), info);
+    let mut w: World = b.w;
+    let mut pend: List[Int] = b.pend;
+    let mut unvac: List[Int] = b.unvac;
+    let mut stage: Int = 0;
+    let mut delay: Int = 4;
+    let mut mn: Int = 2;
+    let mut mx: Int = 4;
+    let mut gmax: Int = 3;
+    let mut reset: Int = 0;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while stage != 3 {
+        if stage == 0 {
+            let s: CrS = cr_fall(w, pend, delay, mn, mx, gmax);
+            w = s.w;
+            pend = s.pend;
+            delay = s.delay;
+            mn = s.mn;
+            mx = s.mx;
+            gmax = s.gmax;
+            if list_len(pend) == 0 && list_len(w.active) == 0 { stage = 1; }
+        } else {
+            if stage == 1 {
+                let vac: CrV = cr_vacuum(w, unvac);
+                w = vac.w;
+                unvac = vac.unvac;
+                if list_len(w.active) == 0 { stage = 2; }
+            } else {
+                if reset == 0 {
+                    let mut k: Int = 0;
+                    while k < list_len(b.ids) {
+                        let id: Int = list_get(b.ids, k);
+                        w = eng_act_path(w, id, 2);
+                        w = w_active_add(w, id);
+                        k = k + 1;
+                    }
+                    reset = 1;
+                }
+                if list_len(w.active) == 0 { stage = 3; }
+            }
+        }
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

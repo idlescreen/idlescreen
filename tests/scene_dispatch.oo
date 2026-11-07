@@ -41,6 +41,7 @@ import "tests/oo/scenes/decrypt/scene_decrypt.oo";
 import "tests/oo/scenes/fireworks/scene_fireworks.oo";
 import "tests/oo/scenes/spotlights/scene_spotlights.oo";
 import "tests/oo/scenes/errorcorrect/scene_errorcorrect.oo";
+import "tests/oo/scenes/crumble/scene_crumble.oo";
 
 pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> Result[DigestRun, String] {
     if name == "plasma" { return Ok(plasma_run(cells, info)); }
@@ -75,5 +76,6 @@ pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "fireworks" { return Ok(fireworks_run(cells, info, lines)); }
     if name == "spotlights" { return Ok(spotlights_run(cells, info, lines)); }
     if name == "errorcorrect" { return Ok(errorcorrect_run(cells, info, lines)); }
+    if name == "crumble" { return Ok(crumble_run(cells, info, lines)); }
     return Err("ERR\tscene\tno parity port: " + name);
 }

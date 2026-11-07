@@ -1,0 +1,92 @@
+// # sm_bfs — BreadthFirst graph traversal machinery
+//
+// Logline: Bit-exact port of ttfx BreadthFirst: layer-by-layer expansion
+// over the id-sorted link edges, emitting the newly explored frontier
+// each step for the smoke reveal.
+// Setup: Edges pack as a*100000+b (a<b); the frontier is a FIFO of ids.
+// Beats:
+//   1. bf_has reports whether an id is already explored.
+//   2. bf_links returns the neighbours of an id in edge order.
+//   3. bf_new seeds the frontier with the start char.
+//   4. bf_step advances one BFS layer over the linked edges.
+
+pub type BfSt = struct {
+    frontier: List[Int],
+    explored: List[Int],
+    last: List[Int],
+    done: Int
+};
+
+fn bf_has(xs: List[Int], v: Int) -> Int {
+    let mut k: Int = 0;
+    while k < list_len(xs) {
+        if list_get(xs, k) == v { return 1; }
+        k = k + 1;
+    }
+    return 0;
+}
+
+fn bf_links(edges: List[Int], id: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(edges) {
+        let e: Int = list_get(edges, k);
+        let a: Int = e / 100000;
+        let b: Int = e % 100000;
+        if a == id { out = list_push(out, b); }
+        if b == id { out = list_push(out, a); }
+        k = k + 1;
+    }
+    let mut srt: List[Int] = out;
+    let mut i: Int = 1;
+    while i < list_len(srt) {
+        let v: Int = list_get(srt, i);
+        let mut j: Int = i - 1;
+        while j >= 0 && list_get(srt, j) > v {
+            srt = list_set(srt, j + 1, list_get(srt, j));
+            j = j - 1;
+        }
+        srt = list_set(srt, j + 1, v);
+        i = i + 1;
+    }
+    return srt;
+}
+
+pub fn bf_new(nch: Int, start: Int) -> BfSt {
+    let mut ex: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < nch { ex = list_push(ex, 0); i = i + 1; }
+    ex = list_set(ex, start, 1);
+    let _r6 = BfSt { frontier: list_push(list_new(), start), explored: ex,
+        last: list_new(), done: 0 };
+    return _r6;
+}
+
+pub fn bf_step(edges: List[Int], st: BfSt) -> BfSt {
+    if list_len(st.frontier) == 0 {
+        let _r7 = BfSt { frontier: st.frontier, explored: st.explored,
+            last: list_new(), done: 1 };
+        return _r7;
+    }
+    let mut frontier: List[Int] = st.frontier;
+    let mut ex: List[Int] = st.explored;
+    let mut last: List[Int] = list_new();
+    let mut newe: List[Int] = list_new();
+    while list_len(frontier) > 0 {
+        let pos: Int = list_get(frontier, 0);
+        frontier = list_slice(frontier, 1, list_len(frontier));
+        let links: List[Int] = bf_links(edges, pos);
+        let mut m: Int = 0;
+        while m < list_len(links) {
+            let n: Int = list_get(links, m);
+            if list_get(ex, n) == 0 && bf_has(frontier, n) == 0 && bf_has(newe, n) == 0 {
+                ex = list_set(ex, n, 1);
+                last = list_push(last, n);
+                newe = list_push(newe, n);
+            }
+            m = m + 1;
+        }
+    }
+    let _r8 = BfSt { frontier: newe, explored: ex, last: last, done: 0 };
+    return _r8;
+}

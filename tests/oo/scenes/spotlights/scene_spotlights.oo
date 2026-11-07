@@ -110,34 +110,12 @@ fn lite_illuminate(w: World, info: CanvasInfo, grid: List[Int], spots: List[Int]
 pub fn spotlights_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
     let w0: World = w_input(info, lines, rng_seed(42));
     let grid: List[Int] = bn_grid(w0, info);
-    let mb: LiteB = lite_make(w0, info);
-    let mut w: World = mb.w;
-    let fstops: List[Int] = list_push(list_push(list_push(list_new(), 62932), 5350106), 16760331);
-    let fspec: List[Int] = gradient_new(fstops, list_push(list_new(), 12), 0);
-    let cmap: List[Int] = cmap_v(fspec, info.tb, info.tt);
-    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
-    let mut bright: List[Int] = list_new();
-    let mut dark: List[Int] = list_new();
-    let mut z: Int = 0;
-    while z < list_len(w.chars) { bright = list_push(bright, 0 - 1); dark = list_push(dark, 0 - 1); z = z + 1; }
-    let mut k: Int = 0;
-    while k < list_len(ids) {
-        let id: Int = list_get(ids, k);
-        let ch: Char = list_get(w.chars, id);
-        let b: Int = lite_ffg(cmap, info, ch);
-        let d: Int = adjust_brightness(b, 0.2);
-        bright = list_set(bright, id, b);
-        dark = list_set(dark, id, d);
-        w = w_appear(w, id, ch.sym, d, 0 - 1, 0);
-        w = w_set_vis(w, id, 1);
-        k = k + 1;
-    }
-    let mut smallest: Int = info.right;
-    if info.top < smallest { smallest = info.top; }
-    let mut range_: Int = trunc_i(int_to_f(smallest) / 2.0);
-    if range_ > smallest { range_ = smallest; }
-    if range_ < 1 { range_ = 1; }
-    let mut spots: List[Int] = mb.spots;
+    let setup: LiteD = lite_setup(w0, info);
+    let mut w: World = setup.w;
+    let bright: List[Int] = setup.bright;
+    let dark: List[Int] = setup.dark;
+    let mut range_: Int = setup.range_;
+    let mut spots: List[Int] = setup.spots;
     let mut s3: Int = 0;
     while s3 < list_len(spots) {
         w = eng_act_path(w, list_get(spots, s3), 0);
@@ -184,4 +162,39 @@ pub fn spotlights_run(cells: List[CellGeom], info: CanvasInfo, lines: List[Strin
         run = run_push(run, digest_paint_cells(pcs), pcs);
     }
     return run;
+}
+
+pub type LiteD = struct { w: World, bright: List[Int], dark: List[Int],
+    range_: Int, spots: List[Int] };
+
+fn lite_setup(w0: World, info: CanvasInfo) -> LiteD {
+    let mb: LiteB = lite_make(w0, info);
+    let mut w: World = mb.w;
+    let fstops: List[Int] = list_push(list_push(list_push(list_new(), 62932), 5350106), 16760331);
+    let fspec: List[Int] = gradient_new(fstops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(fspec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut bright: List[Int] = list_new();
+    let mut dark: List[Int] = list_new();
+    let mut z: Int = 0;
+    while z < list_len(w.chars) { bright = list_push(bright, 0 - 1); dark = list_push(dark, 0 - 1); z = z + 1; }
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w.chars, id);
+        let b: Int = lite_ffg(cmap, info, ch);
+        let d: Int = adjust_brightness(b, 0.2);
+        bright = list_set(bright, id, b);
+        dark = list_set(dark, id, d);
+        w = w_appear(w, id, ch.sym, d, 0 - 1, 0);
+        w = w_set_vis(w, id, 1);
+        k = k + 1;
+    }
+    let mut smallest: Int = info.right;
+    if info.top < smallest { smallest = info.top; }
+    let mut range_: Int = trunc_i(int_to_f(smallest) / 2.0);
+    if range_ > smallest { range_ = smallest; }
+    if range_ < 1 { range_ = 1; }
+    let _r1 = LiteD { w: w, bright: bright, dark: dark, range_: range_, spots: mb.spots };
+    return _r1;
 }
