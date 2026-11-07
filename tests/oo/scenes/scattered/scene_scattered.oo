@@ -1,0 +1,77 @@
+// # scene_scattered — random-start gather port
+//
+// Logline: Bit-exact port of Scattered::build/next_frame: every glyph
+// starts at a random canvas coord, holds 25 frames, then travels home
+// on an InOutBack path while a distance-synced scene gradients from
+// the spectrum head to the vertical final-gradient color.
+// Setup: All chars activate at build; PathActivated sets layer 1 and
+// PathComplete restores layer 0. RNG draws mirror Rust: per char two
+// randints for the start coord (column then row), nothing else.
+// Beats:
+//   1. st_build seeds coords, paths, layer events, synced scenes.
+//   2. scattered_run emits 25 hold frames, then updates to drain.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/digest_run.oo";
+
+fn st_build(w: World, info: CanvasInfo) -> World {
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let stops: List[Int] = list_push(list_push(list_push(list_new(), 16748616), 11247103), 12451818);
+    let spec: List[Int] = gradient_new(stops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let head: Int = list_get(spec, 0);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ffg: Int = list_get(cmap, ch.row0 - info.tb);
+        let dcol: DR = rng_int(w2.rng, info.left, info.right);
+        let drow: DR = rng_int(dcol.r, info.bottom, info.top);
+        w2 = w_rng(w2, drow.r);
+        w2 = w_pos(w2, id, dcol.v, drow.v);
+        w2 = w_path(w2, id, 0.85, 1, ez(24), 0 - 1, 0, 0, "");
+        w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
+        w2 = w_reg(w2, id, 0, 1, "0", EvAct { kind: 5, sid: "", num: 1, carg: 0 });
+        w2 = w_reg(w2, id, 1, 1, "0", EvAct { kind: 5, sid: "", num: 0, carg: 0 });
+        w2 = eng_act_path(w2, id, 0);
+        w2 = w_set_vis(w2, id, 1);
+        w2 = w_scene(w2, id, 0, 2, 0, ez(0), "");
+        let g: List[Int] = gradient_new(list_push(list_push(list_new(), head), ffg), list_push(list_new(), 10), 0);
+        w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 3, g, list_new());
+        w2 = w_aset(w2, id, 0);
+        w2 = w_active_add(w2, id);
+        k = k + 1;
+    }
+    return w2;
+}
+
+pub fn scattered_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = st_build(w_input(info, lines, rng_seed(42)), info);
+    let mut hold: Int = 25;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(w.active) > 0 {
+        if hold != 0 {
+            hold = hold - 1;
+        } else {
+            w = eng_update(w);
+        }
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

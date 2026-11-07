@@ -1,0 +1,106 @@
+// # scene_pour — row-group pour-down port
+//
+// Logline: Bit-exact port of Pour::build/next_frame: glyphs pour from
+// the canvas top to their home coords in bottom-to-top row groups,
+// five released per frame, odd groups reversed, each playing a
+// white-to-final gradient scene while it falls InQuad.
+// Setup: Build iterates groups in row order; the only RNG draw is one
+// uniform speed per char in that group-major order. First group is
+// current at build end; gap config is 0 so release is unthrottled.
+// Beats:
+//   1. pr_build seeds paths/scenes in group order.
+//   2. pr_release pops up to pour_speed chars off the current group.
+//   3. pour_run drives until groups+current+active drain.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/digest_run.oo";
+
+pub type PrQ = struct { w: World, cur: List[Int] };
+
+fn pr_rev(xs: List[Int]) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = list_len(xs) - 1;
+    while i >= 0 { out = list_push(out, list_get(xs, i)); i = i - 1; }
+    return out;
+}
+
+fn pr_build(w: World, info: CanvasInfo, g: Groups) -> World {
+    let stops: List[Int] = list_push(list_push(list_push(list_new(), 9044106), 53759), 16777215);
+    let spec: List[Int] = gradient_new(stops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(g.members) {
+        let id: Int = list_get(g.members, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ffg: Int = list_get(cmap, ch.row0 - info.tb);
+        w2 = w_pos(w2, id, ch.col0, info.top);
+        let sp: DRF = rng_unif(w2.rng, 0.8, 1.2);
+        w2 = w_rng(w2, sp.r);
+        w2 = w_path(w2, id, sp.v, 1, ez(4), 0 - 1, 0, 0, "");
+        w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
+        w2 = eng_act_path(w2, id, 0);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+        let gr: List[Int] = gradient_new(list_push(list_push(list_new(), 16777215), ffg), list_push(list_new(), 12), 0);
+        w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 6, gr, list_new());
+        w2 = w_aset(w2, id, 0);
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn pr_release(w: World, cur: List[Int]) -> PrQ {
+    let mut w2: World = w;
+    let mut c2: List[Int] = cur;
+    let mut t: Int = 0;
+    while t < 5 {
+        if list_len(c2) > 0 {
+            let id: Int = list_get(c2, 0);
+            c2 = list_slice(c2, 1, list_len(c2));
+            w2 = w_set_vis(w2, id, 1);
+            w2 = w_active_add(w2, id);
+        }
+        t = t + 1;
+    }
+    let _r1 = PrQ { w: w2, cur: c2 };
+    return _r1;
+}
+
+pub fn pour_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let w0: World = w_input(info, lines, rng_seed(42));
+    let g: Groups = groups_of(w0, collect_ids(w0, 1), 1, 0, 0, 0);
+    let mut w: World = pr_build(w0, info, g);
+    let mut gi: Int = 1;
+    let mut cur: List[Int] = grp_win(g, 0);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while gi < list_len(g.keys) || list_len(cur) > 0 || list_len(w.active) > 0 {
+        if list_len(cur) == 0 && gi < list_len(g.keys) {
+            cur = grp_win(g, gi);
+            if gi % 2 == 1 { cur = pr_rev(cur); }
+            gi = gi + 1;
+        }
+        if list_len(cur) > 0 {
+            let q: PrQ = pr_release(w, cur);
+            w = q.w;
+            cur = q.cur;
+        }
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}
