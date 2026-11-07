@@ -1,0 +1,170 @@
+// # scene_errorcorrect — swapped-pair correction port
+//
+// Logline: Bit-exact port of ErrorCorrect::build/next_frame: 10% of
+// chars swap coords in random pairs, flash an error scene, block-
+// wipe, travel home under a distance-synced correcting gradient,
+// wipe down, and settle into the vertical final gradient. Unswapped
+// chars sit visible in final colors from frame 0.
+// Setup: Pair picks randrange over the arena-order input list with
+// removal. Scene chain per swapped char: error -> wipe-up ->
+// (correcting scene + input_coord path) -> wipe-down -> final, all
+// via SceneComplete/Path events; pairs release every swap_delay+1
+// frames, and the effect ends if the active set drains early.
+// Beats:
+//   1. ec_spawn paints every char's single-frame final scene.
+//   2. ec_configure builds the six swapped-char scenes + events.
+//   3. errorcorrect_run releases pairs and ticks while active.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/digest_run.oo";
+
+pub type EcB = struct { w: World, pairs: List[Int] };
+
+fn ec_configure(w: World, id: Int, ffg: Int, cgrad: List[Int]) -> World {
+    let ch: Char = list_get(w.chars, id);
+    let mut w2: World = w_scene(w, id, 0, 0, 0, ez(0), "");
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    let mut b: Int = 0;
+    while b < 8 {
+        w2 = w_frame(w2, id, 1, 9601 + b, 3, 15158332, 0 - 1, 0 - 1);
+        b = b + 1;
+    }
+    let mut b2: Int = 0;
+    while b2 < 7 {
+        w2 = w_frame(w2, id, 2, 9607 - b2, 3, 4570965, 0 - 1, 0 - 1);
+        b2 = b2 + 1;
+    }
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    w2 = w_frame(w2, id, 3, ch.sym, 1, 15158332, 0 - 1, 0 - 1);
+    w2 = w_aset(w2, id, 3);
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "error");
+    let mut e: Int = 0;
+    while e < 10 {
+        w2 = w_frame(w2, id, 4, 9619, 3, 15158332, 0 - 1, 0 - 1);
+        w2 = w_frame(w2, id, 4, ch.sym, 3, 16777215, 0 - 1, 0 - 1);
+        e = e + 1;
+    }
+    w2 = w_scene(w2, id, 0, 2, 0, ez(0), "");
+    w2 = w_grad(w2, id, 5, list_push(list_new(), 9608), 3, cgrad, list_new());
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    let fg2: List[Int] = gradient_new(list_push(list_push(list_new(), 4570965), ffg), list_push(list_new(), 10), 0);
+    w2 = w_grad(w2, id, 6, list_push(list_new(), ch.sym), 3, fg2, list_new());
+    w2 = w_reg(w2, id, 2, 0, "error", EvAct { kind: 1, sid: "1", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 2, 0, "1", EvAct { kind: 1, sid: "5", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 2, 0, "1", EvAct { kind: 0, sid: "input_coord", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 0, 1, "input_coord", EvAct { kind: 5, sid: "", num: 1, carg: 0 });
+    w2 = w_reg(w2, id, 1, 1, "input_coord", EvAct { kind: 5, sid: "", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 1, 1, "input_coord", EvAct { kind: 1, sid: "2", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 2, 0, "2", EvAct { kind: 1, sid: "6", num: 0, carg: 0 });
+    return w2;
+}
+
+fn ec_rm(xs: List[Int], i: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(xs) {
+        if k != i { out = list_push(out, list_get(xs, k)); }
+        k = k + 1;
+    }
+    return out;
+}
+
+fn ec_build(w: World, info: CanvasInfo) -> EcB {
+    let fstops: List[Int] = list_push(list_push(list_push(list_new(), 9044106), 53759), 16777215);
+    let fspec: List[Int] = gradient_new(fstops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(fspec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut fmap: List[Int] = list_new();
+    let mut z: Int = 0;
+    while z < list_len(w.chars) { fmap = list_push(fmap, 16777215); z = z + 1; }
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ffg: Int = list_get(cmap, ch.row0 - info.tb);
+        fmap = list_set(fmap, id, ffg);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+        w2 = w_frame(w2, id, 0, ch.sym, 1, ffg, 0 - 1, 0 - 1);
+        w2 = w_aset(w2, id, 0);
+        w2 = w_set_vis(w2, id, 1);
+        k = k + 1;
+    }
+    let mut all: List[Int] = collect_ids(w2, 1);
+    let cgrad: List[Int] = gradient_new(list_push(list_push(list_new(), 15158332), 4570965), list_push(list_new(), 10), 0);
+    let npairs: Int = trunc_i(0.1 * int_to_f(list_len(ids)));
+    let mut pairs: List[Int] = list_new();
+    let mut p: Int = 0;
+    while p < npairs {
+        if list_len(all) >= 2 {
+            let d1: DR = rng_range(w2.rng, 0, list_len(all));
+            w2 = w_rng(w2, d1.r);
+            let c1: Int = list_get(all, d1.v);
+            all = ec_rm(all, d1.v);
+            let d2: DR = rng_range(w2.rng, 0, list_len(all));
+            w2 = w_rng(w2, d2.r);
+            let c2: Int = list_get(all, d2.v);
+            all = ec_rm(all, d2.v);
+            let a1: Char = list_get(w2.chars, c1);
+            let a2: Char = list_get(w2.chars, c2);
+            w2 = w_pos(w2, c1, a2.col0, a2.row0);
+            w2 = w_path(w2, c1, 1.5, 0, ez(0), 0 - 1, 0, 0, "input_coord");
+            w2 = w_wp(w2, c1, 0, a1.col0, a1.row0, list_new());
+            w2 = w_pos(w2, c2, a1.col0, a1.row0);
+            w2 = w_path(w2, c2, 1.5, 0, ez(0), 0 - 1, 0, 0, "input_coord");
+            w2 = w_wp(w2, c2, 0, a2.col0, a2.row0, list_new());
+            pairs = list_push(list_push(pairs, c1), c2);
+            w2 = ec_configure(w2, c1, list_get(fmap, c1), cgrad);
+            w2 = ec_configure(w2, c2, list_get(fmap, c2), cgrad);
+        }
+        p = p + 1;
+    }
+    let _r1 = EcB { w: w2, pairs: pairs };
+    return _r1;
+}
+
+pub fn errorcorrect_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let b: EcB = ec_build(w_input(info, lines, rng_seed(42)), info);
+    let mut w: World = b.w;
+    let mut pairs: List[Int] = b.pairs;
+    let mut delay: Int = 0;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    let mut go: Int = 1;
+    while go == 1 {
+        if list_len(pairs) > 0 && delay == 0 {
+            let c1: Int = list_get(pairs, 0);
+            let c2: Int = list_get(pairs, 1);
+            pairs = list_slice(pairs, 2, list_len(pairs));
+            w = w_aset(w, c1, 4);
+            w = w_active_add(w, c1);
+            w = w_aset(w, c2, 4);
+            w = w_active_add(w, c2);
+            delay = 3;
+        } else {
+            if delay != 0 { delay = delay - 1; }
+        }
+        if list_len(w.active) > 0 {
+            w = eng_update(w);
+            let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+            run = run_push(run, digest_paint_cells(pcs), pcs);
+        } else {
+            go = 0;
+        }
+    }
+    return run;
+}
