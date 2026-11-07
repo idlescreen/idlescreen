@@ -1,26 +1,34 @@
 // # ooidle Persona - Idle Daemon Entrypoint
 //
-// Logline: The ooidle persona: foreground idle daemon with a status query path for the CLI verbs.
-// Setup: Requires BindCap, TcpCap, FsCap, FsWriteCap, FsReadCap, EnvCap, TimeCap, and RandCap.
+// Logline: The ooidle persona: foreground idle daemon with a control-socket query path for the CLI verbs.
+// Setup: Requires BindCap, FsCap, FsWriteCap, FsReadCap, ProcessCap, EnvCap, TimeCap, and RandCap.
 // Beats:
 //   1. Parse daemon verbs from the argument list.
-//   2. Run the blocking reactor for daemon/run verbs, or serve one-shot queries locally.
-//   3. Exit 0 on clean shutdown, 1 on bind failure.
+//   2. Run the blocking reactor for daemon/run verbs, or serve one-shot queries over the Unix control socket.
+//   3. Exit 0 on clean shutdown, 69 on bind failure.
 
-import "std/core/primitives/str.oo";
-import "config.oo";
+import "std/net/unix_socket.oo";
+import "core/environ.oo";
 import "reactor.oo";
 
-fn ctl_slot_of(raw: String) -> Int {
-    if !str_starts_with(raw, "fd:") { return -1; }
-    return parse_int_digits(str_slice(raw, 3, chars_len(raw)));
+// One request/response round trip over the Unix control socket.
+pub fn ctl_roundtrip(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap, prog: String, frame: String) -> Result[String, String] {
+    let path: String = ctl_socket_path(fs_r, proc, env, prog);
+    let c: Result[UnixConnection, String] = unix_socket_connect(fs, fw, path);
+    if c.is_err() { return Err("connect failed"); }
+    let conn: UnixConnection = match c { Ok(v) => v, Err(_) => UnixConnection { slot: -1, path: path, is_open: false } };
+    let _w: Int = unix_socket_write(fs, conn, frame + "\n");
+    let rd: Result[String, String] = unix_socket_read_timeout(fs, conn, 2000, 4096);
+    let _x: Int = unix_socket_close_connection(fs, fw, conn);
+    if rd.is_err() { return Err("no reply"); }
+    return Ok(match rd { Ok(s) => s, Err(_) => "" });
 }
 
-pub fn ooidle_query(tcp: &TcpCap, env: &EnvCap, prog: String, verb: String) -> Int {
-    let c: Result[String, String] = tcp_connect(tcp, "127.0.0.1", daemon_ctl_port(prog));
-    if c.is_err() {
+pub fn ooidle_query(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap, prog: String, verb: String) -> Int {
+    let r: Result[String, String] = ctl_roundtrip(fs_r, fs, fw, proc, env, prog, verb);
+    if r.is_err() {
         if verb == "status" {
-            println(prog + " inactive (no daemon listener at " + daemon_ctl_endpoint(prog) + ")");
+            println(prog + " inactive (no daemon listener at " + ctl_socket_path(fs_r, proc, env, prog) + ")");
             return 0;
         }
         if verb == "inhibitors" {
@@ -30,33 +38,37 @@ pub fn ooidle_query(tcp: &TcpCap, env: &EnvCap, prog: String, verb: String) -> I
         println(prog + " daemon not running");
         return 1;
     }
-    let conn: Int = ctl_slot_of(match c { Ok(s) => s, Err(_) => "" });
-    if conn < 0 { println(prog + " connect slot invalid"); return 1; }
-    let wverb: String = verb + "\n";
-    let _ = tcp_write(tcp, conn, wverb);
-    let rd: Result[String, String] = tcp_read(tcp, conn, 4096);
-    let reply: String = match rd { Ok(s) => s, Err(_) => "" };
-    let _ = tcp_close(tcp, conn);
+    let reply: String = match r { Ok(s) => s, Err(_) => "" };
     if reply == "" { println(prog + " no reply"); return 1; }
     print(reply);
     return 0;
 }
 
 // Send one control frame to the daemon without printing the reply.
-pub fn ooidle_notify(tcp: &TcpCap, env: &EnvCap, prog: String, frame: String) -> Bool {
-    let c: Result[String, String] = tcp_connect(tcp, "127.0.0.1", daemon_ctl_port(prog));
-    if c.is_err() { return false; }
-    let raw: String = match c { Ok(v) => v, Err(_) => "" };
-    if !str_starts_with(raw, "fd:") { return false; }
-    let conn: Int = ctl_slot_of(raw);
-    if conn < 0 { return false; }
-    let wframe: String = frame + "\n";
-    let _ = tcp_write(tcp, conn, wframe);
-    let rd: Result[String, String] = tcp_read(tcp, conn, 4096);
-    let _ = tcp_close(tcp, conn);
-    let reply: String = match rd { Ok(v) => str_trim(v), Err(_) => "" };
-    if reply == "" { return false; }
-    return !str_starts_with(reply, "ERR");
+pub fn ooidle_notify(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap, prog: String, frame: String) -> Bool {
+    return ooidle_ask(fs_r, fs, fw, proc, env, prog, frame) != "";
+}
+
+// Send one control frame and return the trimmed reply, or "" on any failure.
+pub fn ooidle_ask(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap, prog: String, frame: String) -> String {
+    let r: Result[String, String] = ctl_roundtrip(fs_r, fs, fw, proc, env, prog, frame);
+    if r.is_err() { return ""; }
+    let reply: String = str_trim(match r { Ok(s) => s, Err(_) => "" });
+    if reply == "" || str_starts_with(reply, "ERR") { return ""; }
+    return reply;
+}
+
+// Wake-up ticker: the reactor blocks in accept, so a sibling process sends
+// a "tick" frame every second to let it poll the Wayland idle socket.
+// Exits after three consecutive failed rounds (daemon gone).
+pub fn ctl_tick_loop(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap, time: &TimeCap, prog: String) -> Int {
+    let mut fails: Int = 0;
+    while fails < 3 {
+        let ok: Bool = ooidle_notify(fs_r, fs, fw, proc, env, prog, "tick");
+        if ok { fails = 0; } else { fails = fails + 1; }
+        if fails < 3 { sleep_ms(time, 1000); }
+    }
+    return 0;
 }
 
 pub fn ooidle_persona_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, proc: &ProcessCap, bind: &BindCap, tcp: &TcpCap, env: &EnvCap, time: &TimeCap, rand: &RandCap, args: List[String]) -> Int {
@@ -74,9 +86,9 @@ pub fn ooidle_persona_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, proc:
         return 0;
     }
     if verb == "daemon" || verb == "run" || verb == "serve" || verb == "start-daemon" {
-        return daemon_reactor(proc, bind, tcp, fs, fs_w, env, "ooidle");
+        return daemon_reactor(fs_r, proc, bind, fs, fs_w, env, time, "ooidle");
     }
     let arg2: String = if list_len(args) > 1 { list_get(args, 1) } else { "" };
     let frame: String = if arg2 != "" { verb + " " + arg2 } else { verb };
-    return ooidle_query(tcp, env, "ooidle", frame);
+    return ooidle_query(fs_r, fs, fs_w, proc, env, "ooidle", frame);
 }

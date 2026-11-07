@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [ooda, master, main]
   pull_request:
 
 concurrency:
@@ -12,32 +12,30 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: "0"
-
 jobs:
-  check:
-    name: Format, Clippy & Test
+  oo-gates:
+    name: openOODA gates (verify, test, parity, det)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Install Rust toolchain
+
+      - name: Fetch openOODA toolchain (oodac, oodar, std)
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none --component rustfmt,clippy
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-      - name: Validate page-score.json
-        run: qa/page_score_check.sh
-      - name: Validate the product-removal list
-        # The removal list lives in three repos' worth of scripts and is
-        # kept in sync by comment — which is not a mechanism. This pins the
-        # idlescreen-side list so a package cannot quietly stop being
-        # removable.
-        run: qa/removal_stack_check.sh
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-      - name: Run Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Run tests
-        run: cargo test --workspace --all-targets
+          mkdir -p "$RUNNER_TEMP/toolchain"
+          for r in oodac oodar std; do
+            git clone --depth 1 "https://git.clownhouse.io/openOODA-core/$r.git" "$RUNNER_TEMP/toolchain/$r"
+          done
+          echo "OODA_HOME=$RUNNER_TEMP/toolchain" >> "$GITHUB_ENV"
+
+      - name: Verify (portable, page rule, file law, academy, density, vocab, shape, oodac check)
+        run: make verify
+
+      - name: Test suite
+        run: make test
+
+      - name: Scene parity
+        run: make parity
+
+      - name: Deterministic build
+        run: make det

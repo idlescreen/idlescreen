@@ -15,10 +15,6 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: "0"
-
 jobs:
   release:
     name: Create GitHub Release
@@ -53,123 +49,38 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref_name }}
 
-      - name: Skip if already in packages pool
-        id: plan
+      - name: Fetch openOODA toolchain (oodac, oodar, std)
         if: steps.gate.outputs.build == 'yes'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # The packages pool is the source of truth for "already
-          # distributed" — rebuilding an unchanged version produces
-          # byte-different files that trip the importer's no-clobber guard.
-          v=$(grep -m1 '^version' crates/idlescreen/Cargo.toml | cut -d'"' -f2)
-          if gh api "repos/idlescreen/packages/contents/rpm/pool/idlescreen-${v}-1.x86_64.rpm" --jq .name >/dev/null 2>&1 \
-            || gh api "repos/idlescreen/packages/contents/apt/pool/main/idlescreen_${v}-1_amd64.deb" --jq .name >/dev/null 2>&1; then
-            echo "build=skip" >> "$GITHUB_OUTPUT"
-          else
-            echo "build=yes" >> "$GITHUB_OUTPUT"
-          fi
-          cat "$GITHUB_OUTPUT"
-
-      - name: Install Rust (from rust-toolchain.toml)
-        if: steps.plan.outputs.build == 'yes'
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-            sh -s -- -y --profile minimal --default-toolchain none
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          rustup show
-          rustc --version
-
-      - name: Install cargo-binstall
-        if: steps.plan.outputs.build == 'yes'
-        run: |
-          curl -L --proto '=https' --tlsv1.2 -sSf \
-            https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Install cargo-deb and cargo-generate-rpm
-        if: steps.plan.outputs.build == 'yes'
-        run: cargo binstall -y cargo-deb cargo-generate-rpm
-
-      - name: Build release binary
-        if: steps.plan.outputs.build == 'yes'
-        run: cargo build --release
-
-      - name: Package
-        if: steps.plan.outputs.build == 'yes'
-        run: |
-          cargo deb --no-build -p idlescreen
-          (cd crates/idlescreen && cargo generate-rpm --target-dir ../../target)
-
-      - name: Verify package payloads
-        if: steps.plan.outputs.build == 'yes'
-        run: |
-          set -euo pipefail
-          # A release that publishes a mislabelled or empty package is worse
-          # than a failed release: users get a package that does not match
-          # the version they were told about. Assert the payload here, before
-          # anything is signed or published.
-          sudo apt-get update
-          sudo apt-get install -y rpm
-          version=$(grep -m1 '^version' crates/idlescreen/Cargo.toml | cut -d'"' -f2)
-          [ -n "$version" ] || { echo "::error::could not read the crate version"; exit 1; }
-          shopt -s nullglob
-          debs=(target/debian/*.deb)
-          rpms=(target/generate-rpm/*.rpm)
-          [ "${#debs[@]}" -eq 1 ] || { echo "::error::expected exactly 1 .deb, found ${#debs[@]}"; exit 1; }
-          [ "${#rpms[@]}" -eq 1 ] || { echo "::error::expected exactly 1 .rpm, found ${#rpms[@]}"; exit 1; }
-          deb_name=$(basename "${debs[0]}")
-          rpm_name=$(basename "${rpms[0]}")
-          case "$deb_name" in
-            idlescreen_${version}-*_amd64.deb) ;;
-            *) echo "::error::$deb_name does not match crate version $version"; exit 1 ;;
-          esac
-          case "$rpm_name" in
-            idlescreen-${version}-*.x86_64.rpm) ;;
-            *) echo "::error::$rpm_name does not match crate version $version"; exit 1 ;;
-          esac
-          stage=$(mktemp -d)
-          dpkg-deb --fsys-tarfile "${debs[0]}" | tar -x -C "$stage"
-          for want in \
-            ./usr/bin/idlescreen \
-            ./usr/lib/systemd/user/idlescreen.service \
-            ./usr/share/idlescreen/services/idlescreen.openrc \
-            ./usr/share/idlescreen/services/idlescreen.runit \
-            ./usr/share/idlescreen/services/idlescreen.dinit \
-            ./usr/share/idlescreen/services/idlescreen.s6-run
-          do
-            [ -e "$stage/$want" ] || { echo "::error::deb payload is missing $want"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/toolchain"
+          for r in oodac oodar std; do
+            git clone --depth 1 "https://git.clownhouse.io/openOODA-core/$r.git" "$RUNNER_TEMP/toolchain/$r"
           done
-          # cargo-deb compresses the man page, so accept either spelling.
-          if [ ! -e "$stage/usr/share/man/man1/idlescreen.1" ] \
-            && [ ! -e "$stage/usr/share/man/man1/idlescreen.1.gz" ]; then
-            echo "::error::deb payload is missing the idlescreen.1 man page"
-            exit 1
-          fi
-          rm -rf "$stage"
-          rpm -qlp "${rpms[0]}" | grep -qx '/usr/bin/idlescreen' \
-            || { echo "::error::rpm payload is missing /usr/bin/idlescreen"; exit 1; }
-          rpm -qlp "${rpms[0]}" | grep -qx '/usr/share/idlescreen/services/idlescreen.openrc' \
-            || { echo "::error::rpm payload is missing the OpenRC service template"; exit 1; }
-          echo "package payloads verified for version $version"
+          echo "OODA_HOME=$RUNNER_TEMP/toolchain" >> "$GITHUB_ENV"
+
+      - name: Verify, test, parity, det
+        if: steps.gate.outputs.build == 'yes'
+        run: |
+          make verify
+          make test
+          make parity
+          make det
 
       - name: Install Cosign
-        if: steps.plan.outputs.build == 'yes'
+        if: steps.gate.outputs.build == 'yes'
         run: |
           curl -Lo cosign https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64
           chmod +x cosign
           sudo mv cosign /usr/local/bin/
 
-      - name: Sign packages with Cosign
-        if: steps.plan.outputs.build == 'yes'
+      - name: Sign release binary with Cosign
+        if: steps.gate.outputs.build == 'yes'
         run: |
-          shopt -s nullglob
-          for file in target/debian/*.deb target/generate-rpm/*.rpm; do
-            cosign sign-blob --yes --output-signature "${file}.sig" --output-certificate "${file}.pem" "$file"
-          done
+          sha256sum bin/idlescreen > bin/idlescreen.sha256
+          cosign sign-blob --yes --output-signature bin/idlescreen.sig --output-certificate bin/idlescreen.pem bin/idlescreen
 
       - name: Create Release
-        if: steps.plan.outputs.build == 'yes'
+        if: steps.gate.outputs.build == 'yes'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -179,15 +90,13 @@ jobs:
             ""|*[!A-Za-z0-9._-]*) echo "ERROR: invalid release tag '$RELEASE_TAG'" >&2; exit 1 ;;
           esac
           [ "${#RELEASE_TAG}" -le 64 ] || { echo "ERROR: tag too long" >&2; exit 1; }
-          shopt -s nullglob
           gh release create "$RELEASE_TAG" \
             --title "$RELEASE_TAG" \
             --notes "Release $RELEASE_TAG" \
-            target/debian/*.deb target/debian/*.sig target/debian/*.pem \
-            target/generate-rpm/*.rpm target/generate-rpm/*.sig target/generate-rpm/*.pem
+            bin/idlescreen bin/idlescreen.sha256 bin/idlescreen.sig bin/idlescreen.pem
 
       - name: Trigger Packages Repository Update
-        if: steps.plan.outputs.build == 'yes'
+        if: steps.gate.outputs.build == 'yes'
         env:
           GH_TOKEN: ${{ secrets.IDLESCREEN_PACKAGES_DISPATCH_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}

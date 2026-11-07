@@ -41,7 +41,7 @@ pub fn wayland_tty_present(ffi: &FfiCap, time: &TimeCap, cols: Int, rows: Int, s
         let w: Result[String, String] = oo_tui_write(ffi, frame);
         if w.is_err() { return sent; }
         sent = sent + 1;
-        if fps_ms > 0 { let _ = sleep_ms(time, fps_ms); }
+        if fps_ms > 0 { sleep_ms(time, fps_ms); }
         i = i + 1;
     }
     return sent;

@@ -251,6 +251,11 @@ StandardOutput=journal
 StandardError=journal
 ExecStartPre=-/usr/bin/mkdir -p ${CFG_DIR}
 ExecStart=${TARGET_BIN} daemon
+Environment=OODA_FS_READDIR=%h:/etc:/run/user/%U
+Environment=OODA_FS_WRITEDIR=%h/.config/idlescreen:/run/user/%U
+Environment=OO_HOME=%h
+Environment=OO_XDG_CONFIG_HOME=%h/.config
+Environment=OO_XDG_RUNTIME_DIR=/run/user/%U
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=10
@@ -260,7 +265,6 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ReadWritePaths=%t -%h/.config -%h/.config/idlescreen -%h/.config/idle -%h/.local/state -%h/.local/state/idlescreen -%h/.cache -%h/.cache/idlescreen
 PrivateTmp=true
-ProtectHome=read-only
 MemoryDenyWriteExecute=true
 RestrictAddressFamilies=AF_UNIX AF_INET
 IPAddressAllow=localhost 127.0.0.1

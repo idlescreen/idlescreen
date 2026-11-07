@@ -1,4 +1,4 @@
-# idlescreen: House Laws & Agent Engineering Standards (v1)
+# idlescreen: House Laws & Agent Engineering Standards (v2)
 
 This document is the **single canonical source of truth** for all code, architecture, and system integration standards across the `idlescreen` organization. Every human contributor and AI agent must strictly follow these rules without exception.
 
@@ -8,95 +8,89 @@ This document is the **single canonical source of truth** for all code, architec
 
 ## 1. The Page Rule (Code Layout & Sizing)
 
-A **page** is one committed Rust file. Every page holds one idea, fits in one head, and carries its own weight. This rule is enforced by automated integration checks: red pages fail the build.
+A **page** is one committed openOODA (`.oo`) file. Every page holds one idea, fits in one head, and carries its own weight. This rule is enforced by automated integration checks: red pages fail the build.
 
 ### Hard Sizing Invariants
-- **16–256 Lines**: Every committed `.rs` file must be between **16 and 256 lines**, counted as `content.lines().count()` (blank lines and comments count).
-- **Shim Exemption (Floor Only)**: A file is a shim when every code line is a module declaration or re-export: after dropping blank lines, comments (`//`, `//!`, `///`), and attributes (`#[...]`), each remaining line must start with `mod `, `use `, or `pub` (covers `pub mod` / `pub use`). Shims skip the 16-line floor. The 256-line ceiling still strictly applies.
-- **Directory Density (≤ 8 files)**: At most **8 `.rs` files per directory**, tests included. Crowded directories must split into functional subdirectories grouped by area.
+- **16–256 Lines**: Every committed `.oo` file must be between **16 and 256 lines**, counted as `content.lines().count()` (blank lines and comments count).
+- **Shim Exemption (Floor Only)**: A file is a shim when every code line is a module re-export: after dropping blank lines and comments (`//`), each remaining line must start with `import `. Shims skip the 16-line floor. The 256-line ceiling still strictly applies.
+- **Directory Density (≤ 8 files)**: At most **8 `.oo` files per directory**, tests included. Crowded directories must split into functional subdirectories grouped by area.
 - **Banned File Names (Name the function, not the drawer)**:
-  `util.rs`, `utils.rs`, `helper.rs`, `helpers.rs`, `common.rs`, `misc.rs`, `shared.rs`, `base.rs`, `core.rs`.
+  `util.oo`, `utils.oo`, `helper.oo`, `helpers.oo`, `common.oo`, `misc.oo`, `shared.oo`, `base.oo`, `core.oo`.
 
 ### Splitting, Folding, and Naming
-- **Over 256 lines**: Split along functional boundaries into a new subdirectory with a shim `mod.rs`. One page = one verb or one wholly owned noun.
+- **Over 256 lines**: Split along functional boundaries into a new subdirectory with a shim `anchor.oo`. One page = one verb or one wholly owned noun.
 - **Under 16 lines (and not a shim)**: Fold into its closest sibling or absorb into its single caller/callee. Never pad lines to reach 16.
-- **Blobs Out**: Test fixtures and static data must live in dedicated files loaded via `include_str!` or `include_bytes!`, never inline literals.
+- **Blobs Out**: Test fixtures and static data (golden scene frames, wordmark tables) must live in dedicated files under `qa/golden/`, never inline literals.
+- **Academy Headers**: Every `.oo` page opens with the four-line header (`// # Title`, `// Logline:`, `// Setup:`, `// Beats:`), enforced by `make academy`.
 - **Systems & Trust Naming**:
-  - The tree mirrors the running system: paths read as subsystems (`daemon/`, `presenter/`, `runner/`, `plugin/`, `upscaler/`).
-  - Action pages lead with a verb: `verify_peer.rs`, `admit_request.rs`, `render_frame.rs`.
-  - State pages name what they own: `session_state.rs`, `inhibitor_table.rs`.
+  - The tree mirrors the running system: paths read as subsystems (`daemon/`, `wayland/`, `ascii/`, `tui/`, `cli/`).
+  - Action pages lead with a verb: `admit_request.oo`, `render_frame.oo`.
+  - State pages name what they own: `daemon_state.oo`, `inhibitor_table.oo`.
   - Boundary pages speak trust verbs: `verify`, `admit`, `attest`, `seal`, `enforce`, `audit`.
 
 ---
 
-## 2. Performance Engineering & The Automated Page Scorecard
+## 2. Performance Engineering & The Automated Gates
 
 Performance in `idlescreen` refers directly to the code itself. We constantly strive for **faster, better, lighter, simpler, easier, and deeper** code:
 
 - **Faster**: Minimal CPU cycles, low-latency event dispatch, fast frame rendering (<5ms).
-- **Better**: Crash-resilient, deterministic, fails closed, verified by tests, zero panics.
+- **Better**: Crash-resilient, deterministic, fails closed, verified by tests, no silent `|| true` failure swallowing.
 - **Lighter**: $O(1)$ allocations in steady state, zero memory leaks, minimal binary weight, lean dependencies.
-- **Simpler**: Low cognitive complexity ($\le 15$), nesting depth $\le 3$, strict 16–256 line boundaries.
-- **Easier**: Explicit domain error types (`thiserror`), clean naming, decoupled blast radius (`reach`).
+- **Simpler**: Low cognitive complexity, nesting depth $\le 3$, strict 16–256 line boundaries.
+- **Easier**: Explicit domain error types (`Result[T, E]`), clean naming, decoupled blast radius.
 - **Deeper**: Deep modules with high value-to-surface ratio (small, clean APIs hiding robust, optimized implementations).
 
-### The Automated Scorecard (`page-score.json`)
-Rather than polluting source files with inline comments or artificial labels, **each page maintains its score** in an automated, machine-readable scorecard (`page-score.json`) generated by `qa/page_score.sh`:
-- **`lines`**: Source lines (exact, must be 16–256).
-- **`bin_bytes`**: Shipped binary machine code bytes attributed to the page from workspace rlibs (`nm` + debuginfo). Shims carry zero bytes.
-- **`heat_pct`**: Share of CPU execution samples under QA workloads (sampler + debuginfo).
-- **`reach`**: Count of other pages referencing this page (blast radius, qualified by ancestor directory to prevent stem clashes).
+### The Automated Gates (`Makefile`)
+Rather than polluting source files with inline annotations, every invariant is machine-checked:
+- **`make portable`**: No author-machine absolutes (`/Projects/...`), no hashed codegen names, no patching the generated runtime to disable the FS jail.
+- **`make line-cap` / `file-law` / `academy` / `density` / `vocab` / `shape`**: The §1 Page Rule, file-type law, academy headers, directory density, banned vocabulary, and function shape (≤ 8 functions per page, ≤ 64 lines per function).
+- **`make check`**: `oodac check` passes on every `.oo` file.
+- **`make parity`**: Every scene with a parity port under `tests/oo/scenes/` is bit-exact against its `qa/golden/` frame.
+- **`make det`**: Two consecutive builds are byte-identical.
 
-### The Performance Invariant
-> **A change may not grow a page's binary weight (`bin_bytes`) or CPU heat (`heat_pct`) without a written justification in the commit message.**
-
-### Pre-Release Scorecard Validation
-Validate scorecard integrity with `qa/page_score_check.sh` before shipping:
-1. **Full coverage**: Every non-test page has an entry in `page-score.json`.
-2. **Zero shim bytes**: Re-export/shim pages do not carry compiled binary weight.
-3. **Anomaly detection**: Catches foreign code or macro bloat exceeding 50 KB/line.
-4. **Schema sanity**: Validates strictly typed schema on every entry.
+### The Determinism Invariant
+> **A change may not break scene parity (`make parity`) or deterministic builds (`make det`) without a written justification in the commit message.**
 
 ---
 
-## 3. Pure Rust & Crash-Resilience Standards
+## 3. Capability Discipline & Crash-Resilience Standards
 
-### The Zero-Panic Invariant
-- **No Bare `.unwrap()` or `.expect()` in Production Code**: Long-running daemons must never panic on malformed inputs, socket disconnects, or unexpected Wayland/D-Bus events.
-- Always propagate errors via domain-typed `Result<T, E>` using `thiserror` (for libraries and crates) or structured errors.
-- `.unwrap()` and `.expect()` are permitted **only** inside `#[cfg(test)]` modules.
+### The Fail-Closed Invariant
+- **No silent failure swallowing in production paths**: Shell probes that must distinguish success from failure end in `&& echo <marker>` and test the marker — never `|| true` on a load-bearing command.
+- **Fail closed on unknown input**: Unknown CLI verbs, control frames, and scene names produce `ERR` replies and non-zero exits. Control-plane parsing never panics, never blocks unboundedly (bounded `*_timeout` reads only).
 
-### The `unsafe` Discipline
-- **`#![deny(unsafe_code)]` by default** across all crate roots.
-- When raw syscalls, shared memory, or Wayland FFI are strictly required (e.g. `rustix`, `libc`, `memfd`), `#![allow(unsafe_code)]` is permitted **only on that specific page**.
-- **Mandatory `// SAFETY:` Comment**: Every `unsafe { ... }` block must be immediately preceded by a comment documenting the exact pointer validity, lifetime invariant, and kernel/Wayland error contract.
+### The Jail Discipline
+- **`OODA_NO_JAIL` is never set by the build or the shipped units.** The FS jail (`OODA_FS_READDIR` / `OODA_FS_WRITEDIR`) is always on; pages that need host files must work through declared read/write scopes.
+- **Environment reads go through `core/environ.oo`**, never raw `getenv` of undeclared keys: the runtime only exposes `OODA_*`/`OO_*` keys, so host values resolve via the launch environment block with shell fallbacks.
+- **Atomic writes**: Persistent state (config, artefacts) is written via temp-file + rename, and never clobbers a file the parser cannot read.
 
 ### Async & Event-Loop Protection
-- **Zero Blocking Locks Across Yield Boundaries**: Never hold a `std::sync::Mutex` or `std::sync::RwLock` across event processing or `.await` boundaries.
-- **Cancellation Safety**: Background threads and event loops selecting on channels or timeouts must be clean and cancellation-safe. Resource cleanup must be encapsulated in **RAII `Drop` guards**, not manual cleanup calls.
+- **Zero Blocking Accept Without Timeout on Control Paths**: Client-facing reads use bounded timeouts; the reactor never parks forever on one peer.
+- **Bounded Frames**: Control frames are size-bounded (4 KiB); overlong input fails closed.
+- **Resource cleanup is deterministic**: Socket files are unlinked on clean shutdown so a crashed predecessor never wedges startup (stale paths are also unlinked before bind).
 
-### Pure Rust Dependencies
-- Rely strictly on pure Rust crates: `zbus` (D-Bus), `wayland-client` (Wayland protocol bindings), and `rustix` (Linux syscalls) where possible.
+### Pure openOODA Dependencies
+- Rely strictly on the `std` capability libraries (`std/fs`, `std/net`) plus the `oodar` host runtime. No shell-out for logic the language can express; shells are for host probing only, with every argument passed through `shell_quote`.
 
 ---
 
 ## 4. Native systemd Citizenship
 
-`idlescreen` daemons run as first-class systemd user/system services. They must adhere to native systemd lifecycle and security primitives:
+`idlescreen` daemons run as first-class systemd user services. They must adhere to native systemd lifecycle and security primitives:
 
-### Socket Activation & Descriptors (`$LISTEN_FDS`)
-- Inspect inherited file descriptors if passed via systemd. Native binding is strictly a local debug fallback.
+### Socket Layout
+- The control plane is a per-user Unix socket at `$XDG_RUNTIME_DIR/<persona>/control.sock`, created mode `0600` by the runtime. No TCP listeners, no other-host reachability.
 
-### Lifecycle & Heartbeat Notifications (`sd_notify`)
-- **Accurate `READY=1`**: Never emit `READY=1` until all sockets, Wayland globals, and channels are fully initialized and ready.
-- **Dynamic `WATCHDOG=1`**: When watchdog is enabled, heartbeats must be gated on internal healthchecks, never a blind background loop.
-- **Immediate `STOPPING=1`**: Emit `STOPPING=1` as the very first action upon intercepting `SIGTERM` or `SIGINT`.
+### Lifecycle
+- **Accurate status**: `status` reports the live reactor state; `service` verbs verify backend results and return non-zero when activation fails.
+- **Immediate shutdown**: `quit`/`shutdown` frames unwind the reactor, close the listener, and unlink the socket file.
 
 ### Standardized Exit Codes (`sysexits.h`)
 - On fatal termination, return standard systemd exit codes:
   - `78` (`EX_CONFIG`): Configuration or policy validation failure. Systemd marks the unit failed permanently without crash-looping.
   - `69` (`EX_UNAVAILABLE`): Missing required Wayland compositor or display.
-  - `0` (`EX_OK`): Clean shutdown on signal.
+  - `0` (`EX_OK`): Clean shutdown on signal or `quit`.
 
 ---
 
@@ -106,35 +100,30 @@ Validate scorecard integrity with `qa/page_score_check.sh` before shipping:
 
 ### The "Zero-Wakeup" Idle Invariant
 - When user activity is ongoing and no screensaver is active, `idlescreen daemon` must consume near-zero CPU.
-- **Zero Polling in Steady State**: All idle monitoring must be kernel-interrupt-driven via `epoll` on the Wayland socket (`ext-idle-notify-v1`) or UPower/D-Bus signals. No periodic `sleep()` loops in background monitoring threads.
+- **Zero Polling in Steady State**: All idle monitoring must be event-driven (Wayland `ext-idle-notify-v1` events multiplexed with control-socket wakeups). No periodic `sleep()` loops in background monitoring threads.
 
-### Steady-State Zero Allocation & Native-Grid Scaling
+### Steady-State Allocation & Frame Budget
 - In screensavers running at 60 FPS, the frame deadline is 16.6ms.
-- **Zero Heap Allocations ($O(1)$ Memory Rate)**: All frame buffers, particle arrays, and pixel grids must be pre-allocated during initialization or display resize. `render_frame()` must perform zero dynamic heap allocations.
-- **Compositor Viewport Scaling (`wp_viewporter`)**: Shared-memory (`wl_shm`) buffers must be allocated at 1× native glyph-grid resolution (e.g. `120×36` cells = `960×576` pixels) and scaled to output dimensions via `wp_viewporter` (`SurfaceViewport`) whenever supported by the compositor.
+- **Bounded Per-Frame Allocation**: Frame buffers are arena-scoped per frame (`frame_arena_open` / `leave` / `close`); steady state holds no growth across frames.
 
 ### Power-Adaptive Scaling
 - On battery power, savers must conserve laptop energy by either automatically blanking, capping frame rates (e.g. 30 FPS), or disabling expensive multi-pass shaders.
 
-### Unblocked Wayland Event Loop
-- The Wayland event thread must never perform blocking file I/O, IPC locks, or heavy rendering. Computation must be offloaded to worker threads communicating via non-blocking, bounded channels.
-
-### Strict Plugin Sandboxing
-- Untrusted or third-party saver plugins must execute within a strict Landlock + seccomp sandbox:
-  - Zero network access (`AF_INET`/`AF_INET6` prohibited).
-  - Read-only access restricted strictly to declared asset directories.
-  - Write access restricted strictly to shared memory framebuffers (`memfd`).
+### Honest Diagnostics
+- `doctor` reports only measured state: the control endpoint path, the real inhibitor registry answer, the real config path. Unknown states print as unknown — never as healthy. The nominal verdict requires the daemon to be actually running.
 
 ---
 
 ## 6. Verification Ladder & QA Gate
 
 Before any change is committed or marked complete, every step of the Verification Ladder must pass in order:
-1. **Formatting**: `cargo fmt --all -- --check` must pass with zero diff.
-2. **Clippy & Zero-Panic Quality**: `cargo clippy --workspace --all-targets -- -D warnings` (with zero non-test `.unwrap()` or `.expect()`) must pass with zero warnings.
-3. **Test Suite**: `cargo test --workspace --all-targets` must pass completely.
-4. **Page Scorecard Gate**: `qa/page_score_check.sh` must pass after regenerating `page-score.json` via `qa/page_score.sh`.
-5. **Structured Tracing**: No bare `println!` or `eprintln!` in daemons; all daemon logging must use structured logging macros.
+1. **Portability**: `make portable` must pass with zero violations.
+2. **Page Laws**: `make line-cap file-law academy density vocab shape` must pass with zero violations.
+3. **Typecheck**: `make check` (`oodac check` on every `.oo` file) must pass with zero errors.
+4. **Test Suite**: `make test` must pass completely.
+5. **Scene Parity**: `make parity` must pass — every ported scene bit-exact against its golden.
+6. **Determinism**: `make det` must pass — two consecutive builds byte-identical.
+7. **Dogfood Proof**: The rebuilt binary must answer `list`, `status`, `config`, `doctor`, and one `preview --frames` run from a clean shell.
 
 ---
 

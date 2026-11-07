@@ -9,6 +9,7 @@
 
 import "ascii/effects.oo";
 import "ascii/engine.oo";
+import "ascii/port_session.oo";
 import "ascii/layout/wordmark.oo";
 import "ascii/scenes/anchor.oo";
 import "ascii/draw/ansi.oo";
@@ -66,8 +67,8 @@ pub fn cmd_list(args: List[String]) -> Int {
     return 0;
 }
 
-pub fn cmd_text(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, args: List[String]) -> Int {
-    let cur_wm: String = daemon_banner_text(proc, env);
+pub fn cmd_text(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, args: List[String]) -> Int {
+    let cur_wm: String = daemon_banner_text(fs_r, proc, env);
     let a0: String = if list_len(args) > 0 { str_trim(list_get(args, 0)) } else { "" };
     if a0 == "" || to_lowercase(a0) == "status" {
         let frame: String = engine_wordmark_frame(72, 12, cur_wm, 4);
@@ -79,15 +80,15 @@ pub fn cmd_text(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, args: List[String
         return 0;
     }
     let low: String = to_lowercase(a0);
-    let mut cfg: ConfigData = config_read_file(proc, env);
+    let mut cfg: ConfigData = config_read_file(fs_r, proc, env);
     if low == "os" || low == "host" {
         cfg.use_os_brand = true;
     } else if !wm_known(low) {
         cfg.use_os_brand = false;
         cfg.custom_text = a0;
     }
-    let _ = config_write_file(proc, env, cfg);
-    let disp_name: String = if low == "os" || low == "host" { daemon_banner_text(proc, env) } else { a0 };
+    let _ = config_write_file(fs_r, proc, env, cfg);
+    let disp_name: String = if low == "os" || low == "host" { daemon_banner_text(fs_r, proc, env) } else { a0 };
     let frame: String = engine_wordmark_frame(72, 12, disp_name, 4);
     let wmt: String = wm_text(disp_name);
     let msg: String = frame + "\npreset: " + low + " " + wmt + "\n";
@@ -104,10 +105,14 @@ fn preview_batch(ffi: &FfiCap, ar: &ArenaCap, name: String, wm: String, frames: 
     }
     let fs_str: String = frames.to_string();
     let aid: Int = frame_arena_open(ar);
+    let use_port: Bool = !is_wm && port_has(name);
+    let mut ps: PortSession = port_session_new(name, cols, rows, wm);
     let mut i: Int = 0;
     while i < frames {
+        let mut port_frame_str: String = "";
+        if use_port { ps = port_session_next(ps); port_frame_str = port_session_frame(ps); }
         let _e: Int = frame_arena_enter(ar, aid);
-        let frame: String = if is_wm { engine_wordmark_frame(cols, rows, name, i) } else { engine_preview_wordmark(cols, rows, name, i, tour, wm) };
+        let frame: String = if is_wm { engine_wordmark_frame(cols, rows, name, i) } else if use_port { port_frame_str } else { engine_preview_wordmark(cols, rows, name, i, tour, wm) };
         let w: Result[String, String] = oo_tui_write(ffi, frame);
         if w.is_err() { print(frame); }
         println("frame " + i.to_string() + "/" + fs_str);
@@ -145,10 +150,11 @@ fn preview_interactive(ffi: &FfiCap, time: &TimeCap, ar: &ArenaCap, name: String
     let mut eb: List[Int] = bytes_new(); eb = bytes_push(eb, 27);
     let e0: String = bytes_to_str(eb);
     let aid: Int = frame_arena_open(ar);
+    let mut ps: PortSession = port_session_new("plasma", 80, 24, wm);
+    let mut ps_key: String = "";
     let mut tick: Int = 0;
     let mut running: Bool = true;
     while running && (end_ms == 0 || now_ms(time) < end_ms) {
-        let _e: Int = frame_arena_enter(ar, aid);
         let dims: String = match oo_tui_get_size(ffi) { Ok(s) => s, Err(_) => "24:80" };
         let colon: Int = str_index_of(dims, ":");
         let mut rows: Int = if colon >= 0 { parse_int_digits(str_slice(dims, 0, colon)) } else { 24 };
@@ -158,7 +164,15 @@ fn preview_interactive(ffi: &FfiCap, time: &TimeCap, ar: &ArenaCap, name: String
         let pack: Int = rows * 10000 + cols;
         if pack != last_pack { let _ = oo_tui_write(ffi, e0 + "[2J"); last_pack = pack; }
         let sc_name: String = if is_wm { name } else { effects_name(sc) };
-        let frame: String = if is_wm { engine_wordmark_frame(cols, rows - 1, name, tick) } else { engine_preview_wordmark(cols, rows - 1, sc_name, tick, tour, wm) };
+        let use_port: Bool = !is_wm && port_has(sc_name);
+        if use_port {
+            let key: String = sc_name + ":" + cols.to_string() + "x" + (rows - 1).to_string();
+            if key != ps_key { ps = port_session_new(sc_name, cols, rows - 1, wm); ps_key = key; }
+            ps = port_session_next(ps);
+        }
+        let port_frame_str: String = if use_port { port_session_frame(ps) } else { "" };
+        let _e: Int = frame_arena_enter(ar, aid);
+        let frame: String = if is_wm { engine_wordmark_frame(cols, rows - 1, name, tick) } else if use_port { port_frame_str } else { engine_preview_wordmark(cols, rows - 1, sc_name, tick, tour, wm) };
         let tit: String = if is_wm { "Preset: " + sc_name } else { "Scene: " + sc_name + " (" + (sc + 1).to_string() + "/53) │ Banner: " + wm };
         let out_line: String = ansi_home() + frame + "\r\n" + e0 + "[1;36m[" + tit + "] [←/→/n/p: Step  q/Esc/Space: Exit]" + e0 + "[0m" + e0 + "[K";
         let _ = oo_tui_write(ffi, out_line);
@@ -175,8 +189,8 @@ fn preview_interactive(ffi: &FfiCap, time: &TimeCap, ar: &ArenaCap, name: String
     return 0;
 }
 
-pub fn cmd_preview(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, ar: &ArenaCap, args: List[String]) -> Int {
-    let cfg: ConfigData = config_read_file(proc, env);
+pub fn cmd_preview(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, ar: &ArenaCap, args: List[String]) -> Int {
+    let cfg: ConfigData = config_read_file(fs_r, proc, env);
     let mut name: String = if cfg.active != "" { cfg.active } else { "ascii" };
     let mut tour: Bool = false;
     let mut has_frames: Bool = false;
@@ -192,7 +206,7 @@ pub fn cmd_preview(proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap
     }
     if name == "tour" || name == "ascii" || name == "superfedora" || name == "new" { tour = true; }
     let txt_flag: String = arg_str(args, "--text", "");
-    let wm: String = if txt_flag != "" { to_uppercase(txt_flag) } else if name == "superfedora" { "SUPERFEDORA" } else { daemon_banner_text(proc, env) };
+    let wm: String = if txt_flag != "" { to_uppercase(txt_flag) } else if name == "superfedora" { "SUPERFEDORA" } else { daemon_banner_text(fs_r, proc, env) };
     if has_frames {
         let frames: Int = arg_num(args, "--frames", 2);
         let cols: Int = arg_num(args, "--cols", 72);

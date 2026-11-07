@@ -1,64 +1,120 @@
-// # Daemon Reactor - Blocking Event Loop on the Loopback Control Socket
+// # Daemon Reactor - Event Loop on the Unix Control Socket
 //
-// Logline: The zero-wakeup event loop: block in tcp_accept, read one bounded frame, dispatch, reply, close, repeat.
-// Setup: Requires BindCap for tcp_bind on 127.0.0.1 and TcpCap for accept/read/write/close; EnvCap resolves the port.
+// Logline: The event loop: block in unix accept, dispatch one frame, fold Wayland idle events, start/stop the presenter.
+// Setup: Requires BindCap with FsWriteCap to bind the control socket, FsCap for socket IO, ProcessCap for the ticker and presenter, TimeCap for backoff.
 // Beats:
-//   1. Bind the loopback control socket and hold the listen slot.
-//   2. Block in tcp_accept between events so the daemon holds 0.00% CPU while idle.
-//   3. Serve one frame per connection and unwind cleanly on quit.
+//   1. Create the runtime dir and bind $XDG_RUNTIME_DIR/<prog>/control.sock (runtime chmods it 0600).
+//   2. Arm ext-idle-notify-v1 and spawn the tick process that wakes accept so idle events fold in.
+//   3. On idled (enabled, uninhibited) raise the saver and present; on resumed/stop/quit tear it down.
 
-import "std/core/primitives/str.oo";
+import "std/fs/os/fs.oo";
+import "std/net/unix_socket.oo";
+import "core/environ.oo";
+import "core/shell.oo";
 import "state.oo";
 import "control.oo";
 import "config.oo";
+import "config_file.oo";
+import "wayland/idle_notify.oo";
 
-fn ctl_slot_of(raw: String) -> Int {
-    if !str_starts_with(raw, "fd:") { return -1; }
-    return parse_int_digits(str_slice(raw, 3, chars_len(raw)));
-}
-
-pub fn daemon_serve_conn(tcp: &TcpCap, d: DaemonState, inh: List[String], listener: Int, prog: String) -> CtlReply {
-    let acc: Result[String, String] = tcp_accept(tcp, listener);
+pub fn daemon_serve_conn(fs: &FsCap, fw: &FsWriteCap, d: DaemonState, inh: List[String], listener: UnixSocketHandle, prog: String) -> CtlReply {
+    let acc: Result[UnixConnection, String] = unix_socket_accept(fs, listener);
     if acc.is_err() {
         return CtlReply { text: "accept failed", state: d, inhibitors: inh, quit: false };
     }
-    let conn: Int = ctl_slot_of(match acc { Ok(s) => s, Err(_) => "" });
-    if conn < 0 {
-        return CtlReply { text: "accept slot invalid", state: d, inhibitors: inh, quit: false };
-    }
-    let rd: Result[String, String] = tcp_read(tcp, conn, 4096);
+    let conn: UnixConnection = match acc { Ok(c) => c, Err(_) => UnixConnection { slot: -1, path: "", is_open: false } };
+    let rd: Result[String, String] = unix_socket_read_timeout(fs, conn, 2000, 4096);
     let frame: String = match rd { Ok(s) => s, Err(_) => "" };
     let reply: CtlReply = ctl_dispatch(d, inh, frame, prog);
-    let body: String = reply.text + "\n";
-    let _ = tcp_write(tcp, conn, body);
-    let _ = tcp_close(tcp, conn);
+    let _w: Int = unix_socket_write(fs, conn, reply.text + "\n");
+    let _c: Int = unix_socket_close_connection(fs, fw, conn);
     return reply;
 }
 
-pub fn daemon_reactor(proc: &ProcessCap, bind: &BindCap, tcp: &TcpCap, fs: &FsCap, fw: &FsWriteCap, env: &EnvCap, prog: String) -> Int {
-    let port: Int = daemon_ctl_port(prog);
-    let lis: Result[String, String] = tcp_bind(bind, port);
+fn presenter_start(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap, prog: String, scene: String) -> Int {
+    let rtd: String = runtime_dir(fs_r, proc, env);
+    let mut wl: String = host_env_fs(fs_r, proc, env, "WAYLAND_DISPLAY");
+    if wl == "" { wl = shell_out(proc, "for s in " + shell_quote(rtd) + "/wayland-*; do [ -S \"$s\" ] && basename \"$s\" && break; done"); }
+    let xd: String = host_env_fs(fs_r, proc, env, "DISPLAY");
+    if wl == "" && xd == "" { return -1; }
+    let dbus: String = host_env_fs(fs_r, proc, env, "DBUS_SESSION_BUS_ADDRESS");
+    let self_path: String = sys_argv0(proc);
+    if self_path == "" { return -1; }
+    let inner: String = shell_quote(self_path) + " preview " + shell_quote(scene);
+    let pre: String = "export XDG_RUNTIME_DIR=" + shell_quote(rtd) + " WAYLAND_DISPLAY=" + shell_quote(wl) + " DISPLAY=" + shell_quote(xd) + " DBUS_SESSION_BUS_ADDRESS=" + shell_quote(dbus) + "; ";
+    let mut spawn: String = "if command -v cosmic-term >/dev/null 2>&1; then cosmic-term -e sh -c " + shell_quote(inner);
+    spawn = spawn + "; elif command -v kgx >/dev/null 2>&1; then kgx -- sh -c " + shell_quote(inner);
+    spawn = spawn + "; elif command -v alacritty >/dev/null 2>&1; then alacritty -e sh -c " + shell_quote(inner);
+    spawn = spawn + "; elif command -v kitty >/dev/null 2>&1; then kitty sh -c " + shell_quote(inner);
+    spawn = spawn + "; elif command -v xterm >/dev/null 2>&1; then xterm -e sh -c " + shell_quote(inner);
+    spawn = spawn + "; else exit 127; fi";
+    let pid_s: String = shell_out(proc, pre + "setsid sh -c " + shell_quote(spawn) + " </dev/null >/dev/null 2>&1 & echo $!");
+    let pid: Int = parse_int_digits(pid_s);
+    if pid <= 0 { return -1; }
+    println(prog + ": presenter pid " + pid.to_string() + " scene " + scene);
+    return pid;
+}
+
+fn presenter_stop(proc: &ProcessCap, pid: Int, prog: String) -> Int {
+    if pid > 0 {
+        let _k: String = shell_out(proc, "kill " + pid.to_string() + " 2>/dev/null || true");
+        println(prog + ": presenter stopped (pid " + pid.to_string() + ")");
+    }
+    return -1;
+}
+
+pub fn daemon_reactor(fs_r: &FsReadCap, proc: &ProcessCap, bind: &BindCap, fs: &FsCap, fw: &FsWriteCap, env: &EnvCap, time: &TimeCap, prog: String) -> Int {
+    let path: String = ctl_socket_path(fs_r, proc, env, prog);
+    let dir: String = runtime_dir(fs_r, proc, env) + "/" + prog;
+    let _m: Result[Void, String] = fs_mkdir_p(fw, dir);
+    let lis: Result[UnixSocketHandle, String] = unix_socket_bind(bind, fw, path);
     if lis.is_err() {
-        println(prog + ": bind failed on " + daemon_ctl_endpoint(prog));
-        return 1;
+        println(prog + ": bind failed on " + path);
+        return 69;
     }
-    let listener: Int = ctl_slot_of(match lis { Ok(s) => s, Err(_) => "" });
-    if listener < 0 {
-        println(prog + ": listen slot invalid on " + daemon_ctl_endpoint(prog));
-        return 1;
+    let listener: UnixSocketHandle = match lis { Ok(h) => h, Err(_) => UnixSocketHandle { slot: -1, path: path, is_open: false } };
+    println(prog + ": reactor up on " + path);
+    let cfg: ConfigData = config_read_file(fs_r, proc, env);
+    let mut d: DaemonState = daemon_state_new(daemon_timeout_s(fs_r, proc, env), daemon_scene(fs_r, proc, env), daemon_saver_name(fs_r, proc, env));
+    let mut wire: IdleWire = wl_idle_dead(d.timeout_s);
+    if cfg.idle_enabled {
+        wire = wl_idle_arm(fs_r, fs, fw, proc, env, d.timeout_s);
+        if wire.armed {
+            println(prog + ": ext-idle-notify-v1 armed timeout=" + d.timeout_s.to_string() + "s");
+            let self_path: String = sys_argv0(proc);
+            if self_path != "" {
+                let _t: String = shell_out(proc, "setsid -f " + shell_quote(self_path) + " __tick </dev/null >/dev/null 2>&1; echo ok");
+            }
+        } else {
+            println(prog + ": idle-notify unavailable (no compositor support), control-only mode");
+        }
     }
-    println(prog + ": reactor up on " + daemon_ctl_endpoint(prog));
-    let mut d: DaemonState = daemon_state_new(daemon_timeout_s(proc, env), daemon_scene(proc, env), daemon_saver_name(proc, env));
     let mut inh: List[String] = list_new();
     let mut quit: Bool = false;
-    let mut guard: Int = 0;
-    while !quit && guard < 100000 {
-        let reply: CtlReply = daemon_serve_conn(tcp, d, inh, listener, prog);
+    let mut pid: Int = -1;
+    while !quit {
+        let was_on: Bool = d.saver_on;
+        let reply: CtlReply = daemon_serve_conn(fs, fw, d, inh, listener, prog);
         d = reply.state;
         inh = reply.inhibitors;
         quit = reply.quit;
-        guard = guard + 1;
+        if wire.armed {
+            if wire.notify.timeout_ms / 1000 != d.timeout_s { wire = wl_idle_rearm(fs, wire, d.timeout_s); }
+            let was_idle: Bool = wire.notify.is_idle;
+            wire = wl_idle_poll(fs, wire);
+            if wire.notify.is_idle && !was_idle {
+                d = daemon_state_set(d, true, d.saver_on, d.sleep_req, d.scene_idx, d.timeout_s, d.inhibitors, d.uptime_ticks);
+                if cfg.idle_enabled && list_len(inh) == 0 {
+                    d = daemon_state_set(d, true, true, d.sleep_req, d.scene_idx, d.timeout_s, d.inhibitors, d.uptime_ticks);
+                }
+            }
+            if !wire.notify.is_idle && was_idle {
+                d = daemon_state_set(d, false, false, d.sleep_req, d.scene_idx, d.timeout_s, d.inhibitors, d.uptime_ticks);
+            }
+        }
+        if d.saver_on && !was_on && pid < 0 { pid = presenter_start(fs_r, proc, env, prog, d.saver_name); }
+        if (!d.saver_on && was_on) || quit { pid = presenter_stop(proc, pid, prog); }
     }
-    let _ = tcp_close(tcp, listener);
+    let _x: Int = unix_socket_close_listener(fs, fw, listener);
     return 0;
 }

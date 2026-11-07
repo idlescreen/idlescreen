@@ -1,17 +1,31 @@
-// # Idle Notify - ext-idle-notify-v1 Notification State
+// # Idle Notify - ext-idle-notify-v1 Wire Client
 //
-// Logline: Models the ext_idle_notification_v1 contract: the compositor emits idled and resumed events on the seat timeout.
-// Setup: Pure state record. Operates with zero ambient authority.
+// Logline: Arms an ext_idle_notification_v1 on the compositor and folds idled/resumed wire events into state.
+// Setup: Requires FsCap and FsWriteCap for the display socket, plus FsReadCap, ProcessCap, and EnvCap to resolve it.
 // Beats:
-//   1. Register the idle timeout the compositor notifies on.
-//   2. Fold idled events into the idle flag and count.
-//   3. Fold resumed events back to the active state.
+//   1. Connect to the display, scan the registry for wl_seat and ext_idle_notifier_v1, bind both.
+//   2. Create the idle notification for the configured timeout.
+//   3. Poll the socket without blocking and fold idled/resumed events; rearm on timeout changes.
+
+import "std/net/unix_socket.oo";
+import "protocol.oo";
 
 pub type IdleNotify = struct {
     timeout_ms: Int,
     is_idle: Bool,
     idle_count: Int,
     resume_count: Int
+};
+
+pub type IdleWire = struct {
+    notify: IdleNotify,
+    conn: UnixConnection,
+    buf: String,
+    notif_id: Int,
+    seat_id: Int,
+    notifier_id: Int,
+    next_id: Int,
+    armed: Bool
 };
 
 pub fn idle_notify_new(timeout_s: Int) -> IdleNotify {
@@ -26,6 +40,85 @@ pub fn idle_notify_on_resumed(n: IdleNotify) -> IdleNotify {
     return IdleNotify { timeout_ms: n.timeout_ms, is_idle: false, idle_count: n.idle_count, resume_count: n.resume_count + 1 };
 }
 
-pub fn idle_notify_interface() -> String { return "ext_idle_notification_v1"; }
+pub fn wl_idle_dead(timeout_s: Int) -> IdleWire {
+    return IdleWire { notify: idle_notify_new(timeout_s), conn: UnixConnection { slot: -1, path: "", is_open: false }, buf: "", notif_id: 0, seat_id: 0, notifier_id: 0, next_id: 7, armed: false };
+}
 
-pub fn idle_notify_timeout(n: IdleNotify) -> Int { return n.timeout_ms / 1000; }
+pub fn wl_idle_arm(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap, timeout_s: Int) -> IdleWire {
+    let path: String = wl_socket_path(fs_r, proc, env);
+    if path == "" { return wl_idle_dead(timeout_s); }
+    let c: Result[UnixConnection, String] = unix_socket_connect(fs, fw, path);
+    if c.is_err() { return wl_idle_dead(timeout_s); }
+    let conn: UnixConnection = match c { Ok(v) => v, Err(_) => UnixConnection { slot: -1, path: path, is_open: false } };
+    let mut b: List[Int] = bytes_new();
+    b = wl_put_header(b, 1, 1, 12); b = wl_put_u32(b, 2);
+    b = wl_put_header(b, 1, 0, 12); b = wl_put_u32(b, 3);
+    let _w0: Int = unix_socket_write(fs, conn, bytes_to_str(b));
+    let mut buf: String = "";
+    let mut seat_name: Int = -1;
+    let mut seat_ver: Int = 1;
+    let mut notif_name: Int = -1;
+    let mut done: Bool = false;
+    let mut tries: Int = 0;
+    while !done && tries < 50 {
+        let rd: Result[String, String] = unix_socket_read_timeout(fs, conn, 100, 8192);
+        if rd.is_ok() { buf = buf + (match rd { Ok(s) => s, Err(_) => "" }); }
+        let mut off: Int = 0;
+        let mut m: WlMsg = wl_next_msg(buf, off);
+        while m.ok {
+            if m.object_id == 2 && m.opcode == 0 {
+                let gname: Int = wl_get_u32(buf, off + 8);
+                let iface: String = wl_get_string(buf, off + 12);
+                let slen: Int = wl_get_u32(buf, off + 12);
+                let ver: Int = wl_get_u32(buf, off + 16 + (slen + 3) / 4 * 4);
+                if iface == "wl_seat" { seat_name = gname; seat_ver = ver; }
+                if iface == "ext_idle_notifier_v1" { notif_name = gname; }
+            }
+            if m.object_id == 3 && m.opcode == 0 { done = true; }
+            if m.object_id == 1 && m.opcode == 0 { return wl_idle_dead(timeout_s); }
+            off = off + m.size;
+            m = wl_next_msg(buf, off);
+        }
+        buf = str_slice(buf, off, bytes_len(buf));
+        tries = tries + 1;
+    }
+    if seat_name < 0 || notif_name < 0 { return wl_idle_dead(timeout_s); }
+    let seat_f: Int = 4 + (bytes_len("wl_seat") + 1 + 3) / 4 * 4;
+    let notf_f: Int = 4 + (bytes_len("ext_idle_notifier_v1") + 1 + 3) / 4 * 4;
+    let mut b2: List[Int] = bytes_new();
+    b2 = wl_put_header(b2, 2, 0, 8 + 4 + seat_f + 4 + 4); b2 = wl_put_u32(b2, seat_name); b2 = wl_put_string(b2, "wl_seat"); b2 = wl_put_u32(b2, seat_ver); b2 = wl_put_u32(b2, 4);
+    b2 = wl_put_header(b2, 2, 0, 8 + 4 + notf_f + 4 + 4); b2 = wl_put_u32(b2, notif_name); b2 = wl_put_string(b2, "ext_idle_notifier_v1"); b2 = wl_put_u32(b2, 1); b2 = wl_put_u32(b2, 5);
+    b2 = wl_put_header(b2, 5, 1, 20); b2 = wl_put_u32(b2, 6); b2 = wl_put_u32(b2, timeout_s * 1000); b2 = wl_put_u32(b2, 4);
+    let _w1: Int = unix_socket_write(fs, conn, bytes_to_str(b2));
+    return IdleWire { notify: idle_notify_new(timeout_s), conn: conn, buf: buf, notif_id: 6, seat_id: 4, notifier_id: 5, next_id: 7, armed: true };
+}
+
+pub fn wl_idle_poll(fs: &FsCap, w: IdleWire) -> IdleWire {
+    if !w.armed { return w; }
+    let rd: Result[String, String] = unix_socket_read_timeout(fs, w.conn, 0, 8192);
+    let mut buf: String = w.buf;
+    if rd.is_ok() { buf = buf + (match rd { Ok(s) => s, Err(_) => "" }); }
+    let mut n: IdleNotify = w.notify;
+    let mut armed: Bool = true;
+    let mut off: Int = 0;
+    let mut m: WlMsg = wl_next_msg(buf, off);
+    while m.ok {
+        if m.object_id == w.notif_id && m.opcode == 0 { n = idle_notify_on_idled(n); }
+        if m.object_id == w.notif_id && m.opcode == 1 { n = idle_notify_on_resumed(n); }
+        if m.object_id == 1 && m.opcode == 0 { armed = false; }
+        off = off + m.size;
+        m = wl_next_msg(buf, off);
+    }
+    return IdleWire { notify: n, conn: w.conn, buf: str_slice(buf, off, bytes_len(buf)), notif_id: w.notif_id, seat_id: w.seat_id, notifier_id: w.notifier_id, next_id: w.next_id, armed: armed };
+}
+
+pub fn wl_idle_rearm(fs: &FsCap, w: IdleWire, timeout_s: Int) -> IdleWire {
+    if !w.armed { return w; }
+    let nid: Int = w.next_id;
+    let mut b: List[Int] = bytes_new();
+    b = wl_put_header(b, w.notif_id, 0, 8);
+    b = wl_put_header(b, w.notifier_id, 1, 20); b = wl_put_u32(b, nid); b = wl_put_u32(b, timeout_s * 1000); b = wl_put_u32(b, w.seat_id);
+    let _wr: Int = unix_socket_write(fs, w.conn, bytes_to_str(b));
+    let n: IdleNotify = IdleNotify { timeout_ms: timeout_s * 1000, is_idle: w.notify.is_idle, idle_count: w.notify.idle_count, resume_count: w.notify.resume_count };
+    return IdleWire { notify: n, conn: w.conn, buf: w.buf, notif_id: nid, seat_id: w.seat_id, notifier_id: w.notifier_id, next_id: nid + 1, armed: true };
+}

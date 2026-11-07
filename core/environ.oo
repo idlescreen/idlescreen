@@ -1,0 +1,68 @@
+// # Self Environment - Jail-Safe Environment Reads
+//
+// Logline: Reads launch environment variables from /proc/self/environ, which the FS jail always allows.
+// Setup: Requires FsReadCap for /proc/self/environ; falls back to the shell-based host_env probe.
+// Beats:
+//   1. Read the NUL-separated environment block of this process.
+//   2. Return the value of the first entry matching the requested key.
+//   3. Fall back to host_env when the key is absent from the block.
+
+import "std/fs/os/fs.oo";
+import "shell.oo";
+
+// Value of key in this process's own environment block, or "" when absent.
+// env_get only serves OO_/OODA_ keys and spawned shells get a scrubbed
+// environment, so neither can see HOME/XDG_RUNTIME_DIR/WAYLAND_DISPLAY;
+// /proc/self/environ holds the environment the binary was launched with.
+pub fn self_env(fs_r: &FsReadCap, key: String) -> String {
+    let content: String = match fs_read_file(fs_r, "/proc/self/environ") { Ok(v) => v, Err(_) => "" };
+    if content == "" { return ""; }
+    let want: String = key + "=";
+    let wn: Int = bytes_len(want);
+    let n: Int = bytes_len(content);
+    let mut start: Int = 0;
+    let mut i: Int = 0;
+    while i <= n {
+        if i == n || byte_at(content, i) == 0 {
+            if i - start > wn {
+                let entry: String = str_slice(content, start, i);
+                if str_starts_with(entry, want) {
+                    return str_slice(entry, wn, chars_len(entry));
+                }
+            }
+            start = i + 1;
+        }
+        i = i + 1;
+    }
+    return "";
+}
+
+// host_env with the jail-safe self-environ read tried first.
+pub fn host_env_fs(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap, key: String) -> String {
+    let v: String = str_trim(self_env(fs_r, key));
+    if v != "" { return v; }
+    return host_env(proc, env, key);
+}
+
+// The per-user runtime dir. The shell prelude in shell_out restores
+// XDG_RUNTIME_DIR (default /run/user/<uid>) for child shells, so the echo
+// fallback resolves even when no OO_ mirror exists in the launch env.
+pub fn runtime_dir(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> String {
+    let v: String = host_env_fs(fs_r, proc, env, "XDG_RUNTIME_DIR");
+    if v != "" { return v; }
+    let sh: String = shell_out(proc, "echo \"$XDG_RUNTIME_DIR\"");
+    if sh != "" { return sh; }
+    let uid: String = shell_out(proc, "id -u");
+    if uid != "" { return "/run/user/" + uid; }
+    return "/tmp";
+}
+
+// Control socket path under a resolved runtime dir (pure; unit-tested).
+pub fn ctl_socket_from(rtd: String, prog: String) -> String {
+    return rtd + "/" + prog + "/control.sock";
+}
+
+// Control socket path for one persona: $XDG_RUNTIME_DIR/<prog>/control.sock.
+pub fn ctl_socket_path(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap, prog: String) -> String {
+    return ctl_socket_from(runtime_dir(fs_r, proc, env), prog);
+}

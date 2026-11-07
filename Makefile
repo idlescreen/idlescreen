@@ -1,15 +1,27 @@
-OODA_COMPILER ?= $(shell command -v oodac 2>/dev/null || echo /Projects/openOODA-core/oodac/bin/oodac)
-OODA_READDIR ?= /Projects
+# Toolchain: oodac + oodar + std, either an openOODA-core checkout
+# (~/Projects/openOODA-core) or an openOODA install (~/.openooda).
+# Override with OODA_HOME=/path/to/toolchain or OODA_COMPILER=/path/to/oodac.
+OODA_HOME ?= $(shell if [ -x "$$HOME/.openooda/bin/oodac" ]; then echo "$$HOME/.openooda"; elif [ -d "$$HOME/Projects/openOODA-core/oodac" ]; then echo "$$HOME/Projects/openOODA-core"; elif [ -d /Projects/openOODA-core/oodac ]; then echo /Projects/openOODA-core; else echo "$(abspath $(CURDIR)/../../openOODA-core)"; fi)
+OODA_COMPILER ?= $(shell command -v oodac 2>/dev/null || echo $(OODA_HOME)/oodac/bin/oodac)
+OODA_READDIR ?= $(CURDIR):$(OODA_HOME)
 OODA_WRITEDIR ?= $(CURDIR):/tmp
 OO_LIST_AMBIENT_QUOTA ?= 8589934592
+# oodar static libs: checkout layout builds core+net; an openOODA install
+# ships one umbrella archive.
+ifeq ($(wildcard $(OODA_HOME)/oodar/scripts/Makefile),)
+OODAR_LIBS := $(OODA_HOME)/bin/liboodar.a
+else
+OODAR_LIBS := $(OODA_HOME)/oodar/scripts/lib/liboodar-core.a $(OODA_HOME)/oodar/scripts/lib/liboodar-net.a
+endif
+OODAR_INCDIR := $(if $(wildcard $(OODA_HOME)/oodar/oodar.h),$(OODA_HOME)/oodar,$(OODA_HOME))
 BIN := bin/idlescreen
 TESTBIN := bin/test_idlescreen
 REPO_NAME := idlescreen
 VER := 5.0.3
 SRC := main.oo anchor.oo $(wildcard core/*.oo raster/*.oo ascii/*.oo ascii/*/*.oo ascii/*/*/*.oo wayland/*.oo daemon/*.oo tui/*.oo cli/*.oo)
-ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_NO_JAIL=1 OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER)
+ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER)
 
-.PHONY: all build verify test det check line-cap file-law academy density vocab shape clean parity
+.PHONY: all build verify test det check line-cap file-law academy density vocab shape clean parity std-link portable
 
 all: build verify test det parity
 
@@ -17,6 +29,7 @@ PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel 
 
 parity:
 	@mkdir -p .ooda-cache bin
+	@$(MAKE) --no-print-directory std-link
 	$(ENV) $(OODA_COMPILER) build tests/oo/scene_emit.oo -o bin/scene_emit > /dev/null
 	@fail=0; \
 	for s in $(PARITY_SCENES); do \
@@ -30,15 +43,36 @@ parity:
 	if [ $$fail -ne 0 ]; then exit 1; fi; \
 	echo "PASS: scene parity ($(words $(PARITY_SCENES)) scenes bit-exact)"
 
+# The compiler resolves std/... imports by walking up from the source tree,
+# so expose the toolchain's std repo as ./std (untracked, see .gitignore).
+std-link:
+	@test -d "$(OODA_HOME)/std" || { echo "FAIL: no std repo under OODA_HOME=$(OODA_HOME) — clone openOODA-core/std there or set OODA_HOME"; exit 1; }
+	@ln -sfn "$(OODA_HOME)/std" std
+
+# In a checkout layout, build the oodar archives first; an installed
+# toolchain already ships them.
+oodar-libs:
+	@if [ -f $(OODA_HOME)/oodar/scripts/Makefile ]; then $(MAKE) -C $(OODA_HOME)/oodar/scripts core net; fi
+
 build: $(BIN)
 
 $(BIN): $(SRC)
 	@mkdir -p bin .ooda-cache
+	@$(MAKE) --no-print-directory std-link oodar-libs
 	$(ENV) $(OODA_COMPILER) build main.oo -o $(BIN)
-	@sed -i 's/const char \*off = getenv("OODA_NO_JAIL");/const char *off = "1";/' .ooda-cache/ooda-tmp/oodac_host_rt.c
-	@clang --no-default-config -Os -g0 -fno-ident -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -Wno-override-module -I/Projects/openOODA-core/oodar .ooda-cache/ooda-tmp/oodac_host_rt.c .ooda-cache/ooda-tmp/all_0a6ffe08ea20f06e.ll /Projects/openOODA-core/oodar/scripts/lib/liboodar-core.a /Projects/openOODA-core/oodar/scripts/lib/liboodar-net.a -Wl,-u,oo_blackbox_trap_cap -frandom-seed=0 -Wl,--build-id=none -Wl,--gc-sections -Wl,-z,noseparate-code -Wl,--strip-debug -lm -ldl -lpthread -o $(BIN)
+	@ll=$$(ls .ooda-cache/ooda-tmp/all_*.ll | head -n 1); \
+	test -n "$$ll" || { echo "FAIL: no emitted .ll under .ooda-cache/ooda-tmp"; exit 1; }; \
+	clang --no-default-config -Os -g0 -fno-ident -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -Wno-override-module -I$(OODAR_INCDIR) .ooda-cache/ooda-tmp/oodac_host_rt.c $$ll $(OODAR_LIBS) -Wl,-u,oo_blackbox_trap_cap -frandom-seed=0 -Wl,--build-id=none -Wl,--gc-sections -Wl,-z,noseparate-code -Wl,--strip-debug -lm -ldl -lpthread -o $(BIN)
 	@chmod +x $(BIN)
 	@echo "built $(BIN)"
+
+# Regression gate: the build must stay portable — no author-machine absolutes,
+# no hashed module name, no patching the generated runtime to disable the jail.
+portable:
+	@if grep -nE 's[e]d -i .*host_rt|all_[0-9a-f]{16}|^-I/' Makefile; then \
+		echo "FAIL: Makefile hard-codes a machine-specific build step"; exit 1; \
+	fi
+	@echo "PASS: portable build (no hashed .ll, absolute -I, or jail patch)"
 
 line-cap:
 	@violations=0; \
@@ -131,12 +165,13 @@ shape:
 	echo "PASS: function count (<= 8 per page) and length (<= 64 lines) hold"
 
 check:
-	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./tests/oo/*" -not -path "./tests/scene_dispatch.oo"); do \
+	@$(MAKE) --no-print-directory std-link
+	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./tests/oo/*" -not -path "./tests/scene_dispatch.oo" -not -path "./std/*"); do \
 		$(ENV) $(OODA_COMPILER) check "$$f" > /dev/null || { echo "VIOLATION: oodac check fails on $$f"; exit 1; } \
 	done; \
 	echo "PASS: oodac check holds on all .oo files"
 
-verify: line-cap file-law academy density vocab shape check
+verify: portable line-cap file-law academy density vocab shape check
 
 test: $(BIN)
 	@mkdir -p .ooda-cache
@@ -154,15 +189,16 @@ test: $(BIN)
 	@./$(BIN) preview matrix --frames 2 --cols 40 --rows 12 | grep -q "frame" && echo "PASS: preview matrix"
 	@./$(BIN) preview plasma --frames 2 | grep -q "frame" && echo "PASS: preview plasma flag parsing"
 	@./$(BIN) preview openooda --frames 1 | grep -q "OPENOODA" && echo "PASS: preview openooda wordmark"
-	@./$(BIN) status | grep -qi "inactive\|active\|daemon" && echo "PASS: status"
+	@./$(BIN) status | grep -qi "inactive\|active\|daemon\|armed\|saver" && echo "PASS: status"
 	@./$(BIN) inhibitors | grep -q "\[" && echo "PASS: inhibitors"
 	@./$(BIN) config | grep -qi "idlescreen" && echo "PASS: config"
 	@./$(BIN) doctor | grep -qi "Diagnostics complete\|PASS\|OK" && echo "PASS: doctor"
 	@./$(BIN) timeout | grep -qi "timeout" && echo "PASS: timeout query"
 	@./$(BIN) service | grep -qi "idlescreen service" && echo "PASS: service query"
-	@./$(BIN) service status | grep -qi "inactive\|active\|daemon" && echo "PASS: service status"
+	@./$(BIN) service status | grep -qi "inactive\|active\|daemon\|armed\|saver" && echo "PASS: service status"
 	@./$(BIN) set bogus-saver 2>&1 | grep -qi "unknown" && echo "PASS: set rejects unknown saver"
 	@./$(BIN) config | grep -qi "config.toml" && echo "PASS: config path"
+	@OODA_FS_READDIR="$$HOME:/etc:/run/user/$$(id -u)" ./$(BIN) config | grep -q "$$HOME/.config/idlescreen" && echo "PASS: config resolves home under FS scope"
 	@./$(BIN) --persona ooidle --version | grep -q "ooidle $(VER)" && echo "PASS: --persona ooidle --version"
 	@./$(BIN) --persona ooidle status | grep -qi "ooidle" && echo "PASS: --persona ooidle status"
 	@./$(BIN) --self-test | grep -q "PASS" && echo "PASS: --self-test"

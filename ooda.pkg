@@ -1,12 +1,12 @@
 name=idlescreen
-version=5.0.0
+version=5.0.3
 layer=de
 category=UI
 tags=screensaver,idle,wayland,layer-shell,dpms,ascii,demoscene,multicall
 upstream=idlescreen
 status=shipped
 description=Capability-secured 53-scene 16-bit ASCII screensaver and idle management suite with wlr-layer-shell presenter and zero-wakeup daemon
-caps=Process,FsRead,FsWrite,Fs,Bind,Tcp,Env,Time,Rand,Ffi
+caps=Process,FsRead,FsWrite,Fs,Bind,Tcp,Env,Time,Rand,Ffi,Alloc,Arena
 deps=
 entry=main.oo
 payload=main.oo

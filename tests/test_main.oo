@@ -22,6 +22,7 @@ import "daemon/inhibit.oo";
 import "daemon/control.oo";
 import "daemon/config_file.oo";
 import "core/shell.oo";
+import "core/environ.oo";
 
 fn probe(name: String, ok: Bool) -> Int {
     if ok { println("PASS " + name); return 0; }
@@ -51,6 +52,8 @@ fn test_ctl_and_config() -> Int {
     let cfg3: ConfigData = config_with(cfg, "plasma", 300);
     fails = fails + probe("config with saver", cfg3.active == "plasma" && cfg3.idle_timeout_secs == 300 && cfg3.fps == cfg.fps && cfg3.custom_text == cfg.custom_text);
     fails = fails + probe("config parses persisted saver", config_load_toml(config_to_toml(cfg3)).active == "plasma");
+    fails = fails + probe("ctl socket path", ctl_socket_from("/run/user/1000", "idlescreen") == "/run/user/1000/idlescreen/control.sock");
+    fails = fails + probe("ctl tick", ctl_dispatch(st, list_new(), "tick", "idlescreen").text == "tock");
     fails = fails + probe("shell quote neutralises quotes", shell_quote("a'b") == "'a'\\''b'");
     fails = fails + probe("shell quote keeps newlines", shell_quote("a\nb") == "'a\nb'");
     fails = fails + probe("wm clean os", wm_clean_os("Fedora Linux 45 (Server Edition)") == "FEDORA" && wm_clean_os("SuperFedora 45") == "SUPERFEDORA");

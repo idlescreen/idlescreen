@@ -1,11 +1,13 @@
-// # Wayland Protocol - Display Discovery and Session Handle
+// # Wayland Protocol - Display Socket and Wire Encoding
 //
-// Logline: Resolves the Wayland display socket from the environment and holds the session handshake state.
-// Setup: Requires EnvCap for XDG_RUNTIME_DIR and WAYLAND_DISPLAY. The session connects over the runtime's AF_UNIX transport when available.
+// Logline: Resolves the Wayland display socket and encodes/decodes the little-endian wire format.
+// Setup: Requires FsReadCap, ProcessCap, and EnvCap to resolve XDG_RUNTIME_DIR and WAYLAND_DISPLAY under the FS jail.
 // Beats:
-//   1. Read XDG_RUNTIME_DIR and WAYLAND_DISPLAY, defaulting the display name to wayland-0.
-//   2. Join them into the display socket path.
-//   3. Report whether the session negotiated a live display connection.
+//   1. Resolve the display socket path from the launch environment.
+//   2. Encode u32 and string arguments into message byte lists.
+//   3. Decode message headers and string arguments from received buffers.
+
+import "core/environ.oo";
 
 pub type WlSession = struct {
     runtime_dir: String,
@@ -15,35 +17,75 @@ pub type WlSession = struct {
     slot: Int
 };
 
-pub fn wl_socket_path(env: &EnvCap) -> String {
-    let rd: String = match env_get(env, "XDG_RUNTIME_DIR") { Ok(v) => v, Err(_) => "" };
-    let dp: String = match env_get(env, "WAYLAND_DISPLAY") { Ok(v) => v, Err(_) => "wayland-0" };
-    if rd == "" { return ""; }
+pub type WlMsg = struct {
+    object_id: Int,
+    opcode: Int,
+    size: Int,
+    ok: Bool
+};
+
+pub fn wl_socket_path(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> String {
+    let rd: String = runtime_dir(fs_r, proc, env);
+    let mut dp: String = host_env_fs(fs_r, proc, env, "WAYLAND_DISPLAY");
+    if dp == "" {
+        dp = shell_out(proc, "for s in " + shell_quote(rd) + "/wayland-*; do [ -S \"$s\" ] && basename \"$s\" && break; done");
+    }
+    if dp == "" { return ""; }
+    if str_starts_with(dp, "/") { return dp; }
     return rd + "/" + dp;
 }
 
 pub fn wl_session_open(env: &EnvCap, fs: &FsReadCap) -> WlSession {
-    let path: String = wl_socket_path(env);
-    if path == "" {
-        return WlSession { runtime_dir: "", display: "", socket_path: "", connected: false, slot: -1 };
-    }
-    let rd: String = match env_get(env, "XDG_RUNTIME_DIR") { Ok(v) => v, Err(_) => "" };
-    let dp: String = match env_get(env, "WAYLAND_DISPLAY") { Ok(v) => v, Err(_) => "wayland-0" };
-    if !path_exists(fs, path) {
-        return WlSession { runtime_dir: rd, display: dp, socket_path: path, connected: false, slot: -1 };
-    }
-    return WlSession { runtime_dir: rd, display: dp, socket_path: path, connected: false, slot: -1 };
+    let dp: String = match env_get(env, "OO_WAYLAND_DISPLAY") { Ok(v) => v, Err(_) => "" };
+    return WlSession { runtime_dir: "", display: dp, socket_path: "", connected: false, slot: -1 };
 }
 
-pub fn wl_globals() -> List[String] {
-    let mut out: List[String] = list_new();
-    out = list_push(out, "wl_compositor");
-    out = list_push(out, "wl_shm");
-    out = list_push(out, "zwlr_layer_shell_v1");
-    out = list_push(out, "ext_idle_notifier_v1");
-    out = list_push(out, "zwlr_output_power_manager_v1");
-    out = list_push(out, "wl_seat");
+pub fn wl_put_u32(b: List[Int], v: Int) -> List[Int] {
+    let mut out: List[Int] = b;
+    out = bytes_push(out, v % 256);
+    out = bytes_push(out, (v / 256) % 256);
+    out = bytes_push(out, (v / 65536) % 256);
+    out = bytes_push(out, (v / 16777216) % 256);
     return out;
 }
 
-pub fn wl_has_compositor() -> Int { return 1; }
+pub fn wl_put_header(b: List[Int], object_id: Int, opcode: Int, size: Int) -> List[Int] {
+    let mut out: List[Int] = wl_put_u32(b, object_id);
+    out = bytes_push(out, opcode % 256);
+    out = bytes_push(out, (opcode / 256) % 256);
+    out = bytes_push(out, size % 256);
+    out = bytes_push(out, (size / 256) % 256);
+    return out;
+}
+
+pub fn wl_put_string(b: List[Int], s: String) -> List[Int] {
+    let n: Int = bytes_len(s);
+    let total: Int = n + 1;
+    let padded: Int = (total + 3) / 4 * 4;
+    let mut out: List[Int] = wl_put_u32(b, total);
+    let mut i: Int = 0;
+    while i < n { out = bytes_push(out, byte_at(s, i)); i = i + 1; }
+    let mut p: Int = n;
+    while p < padded { out = bytes_push(out, 0); p = p + 1; }
+    return out;
+}
+
+pub fn wl_get_u32(s: String, off: Int) -> Int {
+    if off < 0 || off + 4 > bytes_len(s) { return -1; }
+    return byte_at(s, off) + byte_at(s, off + 1) * 256 + byte_at(s, off + 2) * 65536 + byte_at(s, off + 3) * 16777216;
+}
+
+pub fn wl_get_string(s: String, off: Int) -> String {
+    let n: Int = wl_get_u32(s, off);
+    if n <= 0 || off + 4 + n > bytes_len(s) { return ""; }
+    return str_slice(s, off + 4, off + 4 + n - 1);
+}
+
+pub fn wl_next_msg(s: String, off: Int) -> WlMsg {
+    if off < 0 || off + 8 > bytes_len(s) { return WlMsg { object_id: 0, opcode: 0, size: 0, ok: false }; }
+    let oid: Int = wl_get_u32(s, off);
+    let op: Int = byte_at(s, off + 4) + byte_at(s, off + 5) * 256;
+    let sz: Int = byte_at(s, off + 6) + byte_at(s, off + 7) * 256;
+    if sz < 8 || off + sz > bytes_len(s) { return WlMsg { object_id: oid, opcode: op, size: sz, ok: false }; }
+    return WlMsg { object_id: oid, opcode: op, size: sz, ok: true };
+}

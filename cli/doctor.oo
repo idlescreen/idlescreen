@@ -1,7 +1,7 @@
 // # Doctor Command - System Diagnostics & Self-Repair
 //
 // Logline: Inspects the Wayland session, runtime environment, daemon status, active saver, config file, and IPC/shm health, with concise, verbose, JSON, and --fix modes.
-// Setup: Requires ProcessCap, EnvCap, and TcpCap for system inspection and service activation.
+// Setup: Requires ProcessCap, EnvCap, FsCap, and FsWriteCap for system inspection and service activation.
 // Beats:
 //   1. Collect live diagnostics for Wayland, runtime environment, daemon/systemd, config.toml, /dev/shm, and D-Bus.
 //   2. Format concise, verbose (-v/--verbose/--all), or JSON (--json) diagnostic views.
@@ -9,6 +9,7 @@
 
 import "std/core/primitives/str.oo";
 import "core/shell.oo";
+import "core/environ.oo";
 import "daemon/run.oo";
 import "daemon/config.oo";
 import "daemon/config_file.oo";
@@ -31,11 +32,13 @@ pub type DoctorReport = struct {
     config_path: String,
     config_exists: Bool,
     shm_writable: Bool,
-    session_bus_connected: Bool
+    session_bus_connected: Bool,
+    ctl_endpoint: String,
+    inhibited: Bool
 };
 
-fn detect_runtime_env(proc: &ProcessCap, env: &EnvCap) -> String {
-    let cage: String = host_env(proc, env, "COSMIC_CAGE");
+fn detect_runtime_env(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> String {
+    let cage: String = host_env_fs(fs_r, proc, env, "COSMIC_CAGE");
     if cage != "" { return "CosmicCage"; }
     let podman: String = shell_out(proc, "test -f /run/.containerenv 2>/dev/null && echo yes");
     if podman == "yes" { return "PodmanContainer"; }
@@ -44,40 +47,47 @@ fn detect_runtime_env(proc: &ProcessCap, env: &EnvCap) -> String {
     return "Host";
 }
 
-pub fn doctor_collect(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap) -> DoctorReport {
-    let xdg0: String = host_env(proc, env, "XDG_RUNTIME_DIR");
-    let xdg: String = if xdg0 != "" { xdg0 } else { shell_out(proc, "echo \"$XDG_RUNTIME_DIR\"") };
-    let rt_ok: Bool = xdg != "" && shell_out(proc, "test -d " + shell_quote(xdg) + " -a -w " + shell_quote(xdg) + " 2>/dev/null && echo yes") == "yes";
-    let mut wl: String = host_env(proc, env, "WAYLAND_DISPLAY");
+pub fn doctor_collect(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap) -> DoctorReport {
+    let xdg: String = runtime_dir(fs_r, proc, env);
+    let mut rt_ok: Bool = false;
+    if xdg != "" {
+        rt_ok = shell_out(proc, "test -d " + shell_quote(xdg) + " -a -w " + shell_quote(xdg) + " 2>/dev/null && echo yes") == "yes";
+    }
+    let mut wl: String = host_env_fs(fs_r, proc, env, "WAYLAND_DISPLAY");
     if wl == "" && xdg != "" {
         wl = shell_out(proc, "for s in " + shell_quote(xdg) + "/wayland-*; do [ -S \"$s\" ] && basename \"$s\" && break; done");
     }
-    let de0: String = host_env(proc, env, "XDG_CURRENT_DESKTOP");
-    let de1: String = host_env(proc, env, "DESKTOP_SESSION");
+    let de0: String = host_env_fs(fs_r, proc, env, "XDG_CURRENT_DESKTOP");
+    let de1: String = host_env_fs(fs_r, proc, env, "DESKTOP_SESSION");
     let de_cosmic: String = shell_out(proc, "pgrep -x cosmic-comp >/dev/null 2>&1 && echo COSMIC");
     let de: String = if de0 != "" { de0 } else if de1 != "" { de1 } else if de_cosmic != "" { "COSMIC" } else { "Desktop" };
-    let ctl_ok: Bool = ooidle_notify(tcp, env, "idlescreen", "ping");
+    let ctl_ok: Bool = ooidle_notify(fs_r, fs, fw, proc, env, "idlescreen", "ping");
+    let mut inhibited: Bool = false;
+    if ctl_ok {
+        let inh_rep: String = ooidle_ask(fs_r, fs, fw, proc, env, "idlescreen", "inhibitors");
+        if inh_rep != "" && inh_rep != "[]" { inhibited = true; }
+    }
     let sys_act: String = shell_out(proc, "systemctl --user is-active idlescreen.service 2>/dev/null");
     let sys_en: String = shell_out(proc, "systemctl --user is-enabled idlescreen.service 2>/dev/null");
     let sys_ok: Bool = sys_act == "active";
     let sys_desc: String = if sys_ok {
         if sys_en != "" { "idlescreen.service (active + " + sys_en + ")" } else { "idlescreen.service (active)" }
     } else { "inactive" };
-    let cfg_path: String = config_dir(proc, env) + "/config.toml";
+    let cfg_path: String = config_dir(fs_r, proc, env) + "/config.toml";
     let cfg_ex: Bool = shell_out(proc, "test -f " + shell_quote(cfg_path) + " 2>/dev/null && echo yes") == "yes";
-    let cfg: ConfigData = config_read_file(proc, env);
-    let saver: String = daemon_saver_name(proc, env);
-    let t_secs: Int = daemon_timeout_s(proc, env);
-    let m_desc: String = if cfg.use_os_brand { "OS brand (" + daemon_banner_text(proc, env) + ")" } else { "Custom text" };
+    let cfg: ConfigData = config_read_file(fs_r, proc, env);
+    let saver: String = daemon_saver_name(fs_r, proc, env);
+    let t_secs: Int = daemon_timeout_s(fs_r, proc, env);
+    let m_desc: String = if cfg.use_os_brand { "OS brand (" + daemon_banner_text(fs_r, proc, env) + ")" } else { "Custom text" };
     let shm_ok: Bool = shell_out(proc, "test -d /dev/shm -a -w /dev/shm 2>/dev/null && echo yes") == "yes";
-    let bus_env: String = host_env(proc, env, "DBUS_SESSION_BUS_ADDRESS");
+    let bus_env: String = host_env_fs(fs_r, proc, env, "DBUS_SESSION_BUS_ADDRESS");
     let bus_ok: Bool = bus_env != "" || (xdg != "" && shell_out(proc, "test -S " + shell_quote(xdg + "/bus") + " 2>/dev/null && echo yes") == "yes");
     return DoctorReport {
         wayland_display: wl,
         desktop_env: de,
         xdg_runtime_dir: xdg,
         runtime_dir_ok: rt_ok,
-        runtime_env: detect_runtime_env(proc, env),
+        runtime_env: detect_runtime_env(fs_r, proc, env),
         daemon_running: ctl_ok || sys_ok,
         control_sock_active: ctl_ok,
         systemd_active: sys_ok,
@@ -89,7 +99,9 @@ pub fn doctor_collect(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap) -> DoctorRe
         config_path: cfg_path,
         config_exists: cfg_ex,
         shm_writable: shm_ok,
-        session_bus_connected: bus_ok
+        session_bus_connected: bus_ok,
+        ctl_endpoint: ctl_socket_path(fs_r, proc, env, "idlescreen"),
+        inhibited: inhibited
     };
 }
 
@@ -111,15 +123,16 @@ fn doctor_print_concise(r: DoctorReport) -> Int {
     } else {
         println("  [-] Daemon Status   : inactive (not running)");
     }
-    println("  [✓] Active Saver    : " + r.active_saver + " (timeout: " + (r.timeout_secs / 60).to_string() + "m, dwell: " + r.dwell_secs.to_string() + ".0s)");
+    println("  [✓] Active Saver    : " + r.active_saver + " (timeout: " + r.timeout_secs.to_string() + "s, dwell: " + r.dwell_secs.to_string() + ".0s)");
     let cfg_str: String = if r.config_exists { r.config_path + " (TOML active)" } else { "Default built-in configuration" };
     println("  [✓] Configuration   : " + cfg_str);
     println("  [✓] Savers Engine   : built-in 16-bit arcade engine (53 scenes)");
     println("  [✓] Capabilities    : Process FsRead FsWrite Fs Bind Tcp Env Time Rand Ffi Alloc Arena");
     let shm_str: String = if r.shm_writable { "/dev/shm writable" } else { "/dev/shm unwritable" };
-    let ipc_str: String = if r.daemon_running { "control socket connected, uninhibited" } else if r.session_bus_connected { "D-Bus session bus available" } else { "D-Bus unavailable" };
+    let sock_str: String = if r.inhibited { "control socket connected, inhibited" } else { "control socket connected, uninhibited" };
+    let ipc_str: String = if r.control_sock_active { sock_str } else if r.daemon_running { "daemon active (control socket unreachable), inhibit state unknown" } else if r.session_bus_connected { "D-Bus session bus available" } else { "D-Bus unavailable" };
     println("  [✓] System & IPC    : " + shm_str + ", " + ipc_str + "\n");
-    if r.wayland_display != "" && r.runtime_dir_ok && r.shm_writable {
+    if r.wayland_display != "" && r.runtime_dir_ok && r.shm_writable && r.daemon_running {
         println("Diagnostics complete. All core systems nominal.");
     } else {
         println("Diagnostics complete.");
@@ -145,7 +158,9 @@ fn doctor_print_verbose(r: DoctorReport) -> Int {
     println("  [" + dm + "] Process Status: " + ds);
     let cm: String = if r.control_sock_active { "✓" } else { "-" };
     let cs: String = if r.control_sock_active { "active" } else { "inactive" };
-    println("  [" + cm + "] Control Socket: " + daemon_ctl_endpoint("idlescreen") + " (" + cs + ")");
+    println("  [" + cm + "] Control Socket: " + r.ctl_endpoint + " (" + cs + ")");
+    let is_: String = if !r.control_sock_active { "unknown (socket unreachable)" } else if r.inhibited { "inhibited" } else { "uninhibited" };
+    println("  [" + cm + "] Inhibitors: " + is_);
     let sm: String = if r.systemd_active { "✓" } else { "-" };
     println("  [" + sm + "] Systemd Service: " + r.systemd_desc);
     println("\nConfiguration & Savers:");
@@ -171,28 +186,28 @@ fn doctor_print_json(r: DoctorReport) -> Int {
     let s_act: String = if r.systemd_active { "true" } else { "false" };
     let sh_ok: String = if r.shm_writable { "true" } else { "false" };
     let bs_ok: String = if r.session_bus_connected { "true" } else { "false" };
-    println("{\"nominal\":" + nom + ",\"session\":{\"wayland_display\":\"" + r.wayland_display + "\",\"desktop\":\"" + r.desktop_env + "\",\"runtime_dir_ok\":" + r_ok + ",\"runtime_env\":\"" + r.runtime_env + "\"},\"presenter\":{\"ok\":true,\"debounce_ms\":250},\"daemon\":{\"running\":" + d_run + ",\"control_active\":" + c_act + ",\"systemd_active\":" + s_act + ",\"inhibited\":false},\"config\":{\"path\":\"" + r.config_path + "\",\"is_toml\":true,\"active_saver\":\"" + r.active_saver + "\",\"timeout_secs\":" + r.timeout_secs.to_string() + ",\"dwell_secs\":" + r.dwell_secs.to_string() + ".0},\"savers\":{\"builtin_ascii\":true,\"scenes\":53},\"system\":{\"shm_writable\":" + sh_ok + ",\"session_bus_connected\":" + bs_ok + ",\"caps\":\"Process FsRead FsWrite Fs Bind Tcp Env Time Rand Ffi Alloc Arena\"}}");
+    let inh_ok: String = if r.inhibited { "true" } else { "false" };
+    println("{\"nominal\":" + nom + ",\"session\":{\"wayland_display\":\"" + r.wayland_display + "\",\"desktop\":\"" + r.desktop_env + "\",\"runtime_dir_ok\":" + r_ok + ",\"runtime_env\":\"" + r.runtime_env + "\"},\"presenter\":{\"ok\":true,\"debounce_ms\":250},\"daemon\":{\"running\":" + d_run + ",\"control_active\":" + c_act + ",\"systemd_active\":" + s_act + ",\"inhibited\":" + inh_ok + "},\"config\":{\"path\":\"" + r.config_path + "\",\"is_toml\":true,\"active_saver\":\"" + r.active_saver + "\",\"timeout_secs\":" + r.timeout_secs.to_string() + ",\"dwell_secs\":" + r.dwell_secs.to_string() + ".0},\"savers\":{\"builtin_ascii\":true,\"scenes\":53},\"system\":{\"shm_writable\":" + sh_ok + ",\"session_bus_connected\":" + bs_ok + ",\"caps\":\"Process FsRead FsWrite Fs Bind Tcp Env Time Rand Ffi Alloc Arena\"}}");
     return 0;
 }
 
-fn doctor_fix(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap) -> Int {
+fn doctor_fix(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap) -> Int {
     println("=== IdleScreen Doctor Repair (--fix) ===\n");
-    let cfg: ConfigData = config_read_file(proc, env);
-    let _ = config_write_file(proc, env, cfg);
-    let path: String = config_dir(proc, env) + "/config.toml";
+    let cfg: ConfigData = config_read_file(fs_r, proc, env);
+    let _ = config_write_file(fs_r, proc, env, cfg);
+    let path: String = config_dir(fs_r, proc, env) + "/config.toml";
     println("  [✓] Configuration   : Verified and persisted " + path);
-    let xdg0: String = host_env(proc, env, "XDG_RUNTIME_DIR");
-    let xdg: String = if xdg0 != "" { xdg0 } else { shell_out(proc, "echo \"$XDG_RUNTIME_DIR\"") };
+    let xdg: String = runtime_dir(fs_r, proc, env);
     let rt_dir: String = if xdg != "" { xdg + "/idlescreen" } else { "/tmp/idlescreen-runtime" };
     let _m: String = shell_out(proc, "mkdir -p -m 0700 " + shell_quote(rt_dir) + " 2>/dev/null || true");
     println("  [✓] Runtime Dir     : Verified " + rt_dir + " (mode 0700)");
-    if !ooidle_notify(tcp, env, "idlescreen", "ping") {
-        let mut wl: String = host_env(proc, env, "WAYLAND_DISPLAY");
+    if !ooidle_notify(fs_r, fs, fw, proc, env, "idlescreen", "ping") {
+        let mut wl: String = host_env_fs(fs_r, proc, env, "WAYLAND_DISPLAY");
         if wl == "" && xdg != "" {
             wl = shell_out(proc, "for s in " + shell_quote(xdg) + "/wayland-*; do [ -S \"$s\" ] && basename \"$s\" && break; done");
         }
         if wl != "" {
-            let _e: Int = service_enable(proc, env);
+            let _e: Int = service_enable(fs_r, proc, env);
             println("  [✓] Daemon Service  : Requested user service activation");
         }
     }
@@ -200,7 +215,7 @@ fn doctor_fix(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap) -> Int {
     return 0;
 }
 
-pub fn cmd_doctor(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, args: List[String]) -> Int {
+pub fn cmd_doctor(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap, args: List[String]) -> Int {
     let mut i: Int = 0;
     let mut verbose: Bool = false;
     let mut json: Bool = false;
@@ -210,12 +225,12 @@ pub fn cmd_doctor(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, args: List[Stri
             println("Usage: idlescreen doctor [options]\n\nOptions:\n  -v, --verbose, --all   Detailed itemized diagnostic breakdown\n  --json                 Machine-readable JSON diagnostic output\n  --fix                  Repair configuration, runtime permissions, and stale locks\n  -h, --help             Show this help message");
             return 0;
         }
-        if a == "--fix" { return doctor_fix(proc, env, tcp); }
+        if a == "--fix" { return doctor_fix(fs_r, fs, fw, proc, env); }
         if a == "--json" { json = true; }
         if a == "-v" || a == "--verbose" || a == "--all" { verbose = true; }
         i = i + 1;
     }
-    let r: DoctorReport = doctor_collect(proc, env, tcp);
+    let r: DoctorReport = doctor_collect(fs_r, fs, fw, proc, env);
     if json { return doctor_print_json(r); }
     if verbose { return doctor_print_verbose(r); }
     return doctor_print_concise(r);

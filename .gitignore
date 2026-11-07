@@ -4,3 +4,5 @@ bin/
 .ooda-cache/
 **/.ooda-cache/
 .blackbox/
+# Toolchain std repo symlink created by `make std-link` (see Makefile).
+/std

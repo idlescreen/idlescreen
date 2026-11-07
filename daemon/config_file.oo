@@ -8,7 +8,9 @@
 //   3. Resolve the config dir (XDG_CONFIG_HOME, then HOME, then /etc) and read or atomically write config.toml.
 
 import "std/core/primitives/str.oo";
+import "std/fs/os/fs.oo";
 import "core/shell.oo";
+import "core/environ.oo";
 
 pub type ConfigData = struct {
     idle_enabled: Bool,
@@ -113,10 +115,10 @@ pub fn config_to_toml(c: ConfigData) -> String {
 }
 
 // Config dir resolution: XDG_CONFIG_HOME, then $HOME/.config, then /etc.
-pub fn config_dir(proc: &ProcessCap, env: &EnvCap) -> String {
-    let xdg: String = host_env(proc, env, "XDG_CONFIG_HOME");
+pub fn config_dir(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> String {
+    let xdg: String = host_env_fs(fs_r, proc, env, "XDG_CONFIG_HOME");
     if xdg != "" { return xdg + "/idlescreen"; }
-    let home: String = host_env(proc, env, "HOME");
+    let home: String = host_env_fs(fs_r, proc, env, "HOME");
     if home != "" { return home + "/.config/idlescreen"; }
     let pw_home: String = shell_out(proc, "echo \"$HOME\"");
     if pw_home != "" { return pw_home + "/.config/idlescreen"; }
@@ -137,17 +139,20 @@ pub fn config_with(c: ConfigData, active: String, timeout_s: Int) -> ConfigData 
     };
 }
 
-pub fn config_read_file(proc: &ProcessCap, env: &EnvCap) -> ConfigData {
-    let dir: String = config_dir(proc, env);
+pub fn config_read_file(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> ConfigData {
+    let dir: String = config_dir(fs_r, proc, env);
     if dir == "" { return config_default(); }
     let path: String = dir + "/config.toml";
-    let content: String = shell_out(proc, "cat " + shell_quote(path) + " 2>/dev/null");
+    let mut content: String = match fs_read_file(fs_r, path) { Ok(v) => v, Err(_) => "" };
+    if content == "" {
+        content = shell_out(proc, "cat " + shell_quote(path) + " 2>/dev/null");
+    }
     if content == "" { return config_default(); }
     return config_load_toml(content);
 }
 
-pub fn config_write_file(proc: &ProcessCap, env: &EnvCap, c: ConfigData) -> Bool {
-    let dir: String = config_dir(proc, env);
+pub fn config_write_file(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap, c: ConfigData) -> Bool {
+    let dir: String = config_dir(fs_r, proc, env);
     if dir == "" { return false; }
     // Refuse to persist over a config we could not parse: writing defaults
     // would silently discard the user's settings.

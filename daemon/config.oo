@@ -5,57 +5,50 @@
 // Beats:
 //   1. Read the persistent config.toml from the resolved config dir.
 //   2. Resolve the active OS or custom banner wordmark from env, config.toml, and /etc/os-release.
-//   3. Report the resolved values and the loopback control endpoint.
+//   3. Report the resolved values and the Unix control socket path.
 
 import "std/core/primitives/str.oo";
 import "core/shell.oo";
+import "core/environ.oo";
 import "ascii/effects.oo";
 import "ascii/layout/wordmark.oo";
 import "config_file.oo";
 
-pub fn daemon_ctl_port(prog: String) -> Int {
-    if prog == "ooidle" { return 49318; }
-    return 49317;
-}
-
-pub fn daemon_ctl_endpoint(prog: String) -> String {
-    return "127.0.0.1:" + daemon_ctl_port(prog).to_string();
-}
 
 // Idle timeout in seconds: the environment override wins, then config.toml.
-pub fn daemon_timeout_s(proc: &ProcessCap, env: &EnvCap) -> Int {
+pub fn daemon_timeout_s(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> Int {
     let v: String = match env_get(env, "IDLESCREEN_TIMEOUT_S") { Ok(x) => x, Err(_) => "" };
     let acc: Int = parse_int_digits(v);
     if acc > 0 { return acc; }
-    let cfg: ConfigData = config_read_file(proc, env);
+    let cfg: ConfigData = config_read_file(fs_r, proc, env);
     return cfg.idle_timeout_secs;
 }
 
 // Active scene index: the environment override wins, then config.toml.
-pub fn daemon_scene(proc: &ProcessCap, env: &EnvCap) -> Int {
+pub fn daemon_scene(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> Int {
     let v: String = match env_get(env, "IDLESCREEN_SCENE") { Ok(x) => x, Err(_) => "" };
     let idx: Int = effects_index(v);
     if idx >= 0 { return idx; }
-    let cfg: ConfigData = config_read_file(proc, env);
+    let cfg: ConfigData = config_read_file(fs_r, proc, env);
     let cidx: Int = effects_index(cfg.active);
     if cidx >= 0 { return cidx; }
     return 0;
 }
 
 // Active saver name as persisted in config.toml.
-pub fn daemon_saver_name(proc: &ProcessCap, env: &EnvCap) -> String {
+pub fn daemon_saver_name(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> String {
     let v: String = match env_get(env, "IDLESCREEN_SCENE") { Ok(x) => str_trim(x), Err(_) => "" };
     if v != "" { return to_lowercase(v); }
-    let cfg: ConfigData = config_read_file(proc, env);
+    let cfg: ConfigData = config_read_file(fs_r, proc, env);
     return cfg.active;
 }
 
-pub fn daemon_banner_text(proc: &ProcessCap, env: &EnvCap) -> String {
+pub fn daemon_banner_text(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> String {
     let sf_env: String = match env_get(env, "SUPERFEDORA") { Ok(x) => str_trim(x), Err(_) => "" };
     if sf_env == "1" || to_lowercase(sf_env) == "true" { return "SUPERFEDORA"; }
     let os_env: String = match env_get(env, "IDLE_OS_NAME") { Ok(x) => str_trim(x), Err(_) => "" };
     if os_env != "" { return wm_clean_os(os_env); }
-    let cfg: ConfigData = config_read_file(proc, env);
+    let cfg: ConfigData = config_read_file(fs_r, proc, env);
     if cfg.active == "superfedora" { return "SUPERFEDORA"; }
     if !cfg.use_os_brand && str_trim(cfg.custom_text) != "" {
         return to_uppercase(str_trim(cfg.custom_text));
@@ -75,6 +68,6 @@ pub fn daemon_format(env: &EnvCap) -> String {
     return "argb8888";
 }
 
-pub fn daemon_config_summary(proc: &ProcessCap, env: &EnvCap, prog: String) -> String {
-    return prog + " ctl=" + daemon_ctl_endpoint(prog) + " timeout=" + daemon_timeout_s(proc, env).to_string() + "s saver=" + daemon_saver_name(proc, env) + " scene=" + effects_name(daemon_scene(proc, env)) + " banner=" + daemon_banner_text(proc, env) + " format=" + daemon_format(env) + " config=" + config_dir(proc, env);
+pub fn daemon_config_summary(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap, prog: String) -> String {
+    return prog + " ctl=" + ctl_socket_path(fs_r, proc, env, prog) + " timeout=" + daemon_timeout_s(fs_r, proc, env).to_string() + "s saver=" + daemon_saver_name(fs_r, proc, env) + " scene=" + effects_name(daemon_scene(fs_r, proc, env)) + " banner=" + daemon_banner_text(fs_r, proc, env) + " format=" + daemon_format(env) + " config=" + config_dir(fs_r, proc, env);
 }

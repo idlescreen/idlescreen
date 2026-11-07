@@ -1,7 +1,7 @@
 // # Daemon Commands - daemon, status, inhibitors, timeout, config, doctor
 //
 // Logline: The daemon-facing verbs: foreground reactor, socket status query, inhibitor list, timeout, config, and self-check.
-// Setup: Requires BindCap, TcpCap, FsCap, FsWriteCap, EnvCap, ProcessCap, and FsReadCap.
+// Setup: Requires BindCap, FsCap, FsWriteCap, EnvCap, ProcessCap, TimeCap, and FsReadCap.
 // Beats:
 //   1. Run the foreground reactor or forward one-shot verbs over the control socket.
 //   2. Persist and apply the idle timeout, and report the resolved configuration file.
@@ -22,18 +22,18 @@ fn saver_canonical(name: String) -> String {
     return "";
 }
 
-pub fn cmd_set(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, args: List[String]) -> Int {
+pub fn cmd_set(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap, args: List[String]) -> Int {
     let raw: String = if list_len(args) > 0 { str_trim(list_get(args, 0)) } else { "" };
     if raw == "" { println("usage: idlescreen set <saver_name>"); return 1; }
     let canonical: String = saver_canonical(to_lowercase(raw));
     if canonical == "" { println("unknown screensaver: " + raw); return 1; }
-    let cfg: ConfigData = config_read_file(proc, env);
+    let cfg: ConfigData = config_read_file(fs_r, proc, env);
     let next: ConfigData = config_with(cfg, canonical, cfg.idle_timeout_secs);
-    if !config_write_file(proc, env, next) {
+    if !config_write_file(fs_r, proc, env, next) {
         println("error: refusing to overwrite an unreadable config.toml — fix or remove it to continue");
         return 1;
     }
-    if ooidle_notify(tcp, env, "idlescreen", "set " + canonical) {
+    if ooidle_notify(fs_r, fs, fw, proc, env, "idlescreen", "set " + canonical) {
         println("Active screensaver set to '" + canonical + "' (via control socket)");
         return 0;
     }
@@ -41,46 +41,45 @@ pub fn cmd_set(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, args: List[String]
     return 0;
 }
 
-pub fn cmd_daemon(proc: &ProcessCap, bind: &BindCap, tcp: &TcpCap, fs: &FsCap, fw: &FsWriteCap, env: &EnvCap) -> Int {
-    return daemon_reactor(proc, bind, tcp, fs, fw, env, "idlescreen");
+pub fn cmd_daemon(fs_r: &FsReadCap, proc: &ProcessCap, bind: &BindCap, fs: &FsCap, fw: &FsWriteCap, env: &EnvCap, time: &TimeCap) -> Int {
+    return daemon_reactor(fs_r, proc, bind, fs, fw, env, time, "idlescreen");
 }
 
-pub fn cmd_status(tcp: &TcpCap, env: &EnvCap) -> Int {
-    return ooidle_query(tcp, env, "idlescreen", "status");
+pub fn cmd_status(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap) -> Int {
+    return ooidle_query(fs_r, fs, fw, proc, env, "idlescreen", "status");
 }
 
-pub fn cmd_inhibitors(tcp: &TcpCap, env: &EnvCap) -> Int {
-    return ooidle_query(tcp, env, "idlescreen", "inhibitors");
+pub fn cmd_inhibitors(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap) -> Int {
+    return ooidle_query(fs_r, fs, fw, proc, env, "idlescreen", "inhibitors");
 }
 
-// "timeout <minutes>" — persist the threshold, then retune the live daemon.
-pub fn cmd_timeout(proc: &ProcessCap, env: &EnvCap, tcp: &TcpCap, args: List[String]) -> Int {
+// "timeout <seconds>" — persist the threshold, then retune the live daemon.
+pub fn cmd_timeout(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap, args: List[String]) -> Int {
     if list_len(args) > 0 {
-        let mins: Int = parse_int_digits(list_get(args, 0));
-        if mins <= 0 { println("Invalid number of minutes for timeout"); return 1; }
-        let mut secs: Int = mins * 60;
+        let mut secs: Int = parse_int_digits(list_get(args, 0));
+        if secs <= 0 { println("Invalid number of seconds for timeout"); return 1; }
         if secs < 30 { secs = 30; }
         if secs > 7200 { secs = 7200; }
-        let cfg: ConfigData = config_read_file(proc, env);
+        let cfg: ConfigData = config_read_file(fs_r, proc, env);
         let next: ConfigData = config_with(cfg, cfg.active, secs);
-        if !config_write_file(proc, env, next) {
+        if !config_write_file(fs_r, proc, env, next) {
             println("error: refusing to overwrite an unreadable config.toml — fix or remove it to continue");
             return 1;
         }
-        let _ = ooidle_notify(tcp, env, "idlescreen", "timeout " + secs.to_string());
-        println("Idle timeout set to " + mins.to_string() + " minute(s) (" + secs.to_string() + "s).");
+        let _ = ooidle_notify(fs_r, fs, fw, proc, env, "idlescreen", "timeout " + secs.to_string());
+        println("Idle timeout set to " + secs.to_string() + "s.");
         return 0;
     }
-    println("timeout " + daemon_timeout_s(proc, env).to_string() + "s");
+    println("timeout " + daemon_timeout_s(fs_r, proc, env).to_string() + "s");
     return 0;
 }
 
-pub fn cmd_config(proc: &ProcessCap, env: &EnvCap) -> Int {
-    let path: String = config_dir(proc, env) + "/config.toml";
+pub fn cmd_config(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> Int {
+    let path: String = config_dir(fs_r, proc, env) + "/config.toml";
     println("Config file: " + path);
     let body: String = shell_out(proc, "cat " + shell_quote(path) + " 2>/dev/null");
     if body == "" { println("(No active config.toml on disk; using defaults)"); }
     else { print(body); }
-    println(daemon_config_summary(proc, env, "idlescreen"));
+    println(daemon_config_summary(fs_r, proc, env, "idlescreen"));
     return 0;
 }

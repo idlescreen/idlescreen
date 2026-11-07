@@ -1,0 +1,93 @@
+// # Port Render - Rust-Parity PaintCell Terminal Renderer
+//
+// Logline: Serialises bit-exact port frames (PaintCell grids) to ANSI truecolor terminal output.
+// Setup: Pure string composition. Operates with zero ambient authority.
+// Beats:
+//   1. Encode block-glyph ordinals (U+2580-U+259F) and ASCII as UTF-8.
+//   2. Walk the grid top-down, emitting SGR colour runs only on change.
+//   3. Frame the result with cursor-home and a final reset.
+
+import "tests/oo/grid_cells.oo";
+import "ascii/layout/render.oo";
+
+pub fn port_glyph(ord_v: Int) -> String {
+    let mut b: List[Int] = bytes_new();
+    if ord_v >= 9600 && ord_v <= 9631 {
+        b = bytes_push(b, 226);
+        b = bytes_push(b, 150);
+        b = bytes_push(b, 128 + (ord_v - 9600));
+        return bytes_to_str(b);
+    }
+    if ord_v > 32 && ord_v < 127 {
+        b = bytes_push(b, ord_v);
+        return bytes_to_str(b);
+    }
+    return " ";
+}
+
+fn port_esc(suffix: String) -> String {
+    let mut b: List[Int] = bytes_new();
+    b = bytes_push(b, 27);
+    b = bytes_push(b, 91);
+    return bytes_to_str(b) + suffix;
+}
+
+fn port_ascii_line(line: String) -> String {
+    let mut out: String = "";
+    let n: Int = chars_len(line);
+    let mut i: Int = 0;
+    while i < n {
+        let ch: String = char_at(line, i);
+        let mut chs: String = "X";
+        if ch == " " { chs = " "; }
+        out = out + chs;
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn port_lines(wordmark: String, cols: Int, rows: Int) -> List[String] {
+    let wm: String = if wordmark == "" { "IDLESCREEN" } else { wordmark };
+    let lines: List[String] = wm_banner_lines(wm, cols, rows);
+    let mut out: List[String] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(lines) {
+        out = list_push(out, port_ascii_line(list_get(lines, i)));
+        i = i + 1;
+    }
+    if list_len(out) > 0 { return out; }
+    out = list_push(out, wm);
+    return out;
+}
+
+pub fn port_render(pcs: List[PaintCell], cols: Int, rows: Int) -> String {
+    let mut out: String = port_esc("H");
+    let mut lfr: Int = -1;
+    let mut lfg: Int = -1;
+    let mut lfb: Int = -1;
+    let mut lbold: Int = -1;
+    let mut r: Int = 1;
+    while r <= rows {
+        let gy: Int = rows - r;
+        let mut gx: Int = 0;
+        while gx < cols {
+            let idx: Int = gy * cols + gx;
+            if idx < list_len(pcs) {
+                let c: PaintCell = list_get(pcs, idx);
+                if c.fr != lfr || c.fg != lfg || c.fb != lfb || c.bold != lbold {
+                    out = out + port_esc("0m");
+                    if c.bold == 1 { out = out + port_esc("1m"); }
+                    out = out + port_esc("38;2;" + c.fr.to_string() + ";" + c.fg.to_string() + ";" + c.fb.to_string() + "m");
+                    lfr = c.fr; lfg = c.fg; lfb = c.fb; lbold = c.bold;
+                }
+                out = out + port_glyph(c.ord);
+            } else {
+                out = out + " ";
+            }
+            gx = gx + 1;
+        }
+        if r < rows { out = out + "\r\n"; }
+        r = r + 1;
+    }
+    return out + port_esc("0m");
+}

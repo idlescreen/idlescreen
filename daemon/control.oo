@@ -59,6 +59,7 @@ pub fn ctl_dispatch(d: DaemonState, inh: List[String], frame: String, prog: Stri
     let arg: String = ctl_arg(f);
     if verb == "status" { return CtlReply { text: daemon_status_line(d, prog), state: d, inhibitors: inh, quit: false }; }
     if verb == "ping" { return CtlReply { text: "PONG", state: d, inhibitors: inh, quit: false }; }
+    if verb == "tick" { return CtlReply { text: "tock", state: d, inhibitors: inh, quit: false }; }
     if verb == "inhibitors" { return CtlReply { text: inhibit_json(inh), state: d, inhibitors: inh, quit: false }; }
     if verb == "inhibit" && arg != "" {
         let ni: List[String] = inhibit_add(inh, arg);

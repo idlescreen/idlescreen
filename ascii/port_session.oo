@@ -1,0 +1,107 @@
+// # Port Session - Stateful Rust-Parity Scene Driver
+//
+// Logline: Holds one ported scene's state across preview frames so intro animation and settle match the Rust lifecycle.
+// Setup: Pure state threading over the tests/oo bit-exact scene ports. Operates with zero ambient authority.
+// Beats:
+//   1. Build canvas geometry for the terminal size and construct every ported scene state.
+//   2. Advance the active scene one frame per call; run-only ports settle immediately to their final frame.
+//   3. Render the latest frame through the PaintCell ANSI renderer.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/scenes/wave/scene_plasma.oo";
+import "tests/oo/scenes/wave/scene_ripple.oo";
+import "tests/oo/scenes/wave/scene_moire.oo";
+import "tests/oo/scenes/wave/scene_tunnel.oo";
+import "tests/oo/scenes/veil/scene_aurora.oo";
+import "tests/oo/scenes/veil/scene_chaos.oo";
+import "tests/oo/scenes/orbit/scene_metaballs.oo";
+import "tests/oo/scenes/deep/scene_radar.oo";
+import "tests/oo/scenes/deep/scene_cosmos.oo";
+import "tests/oo/scenes/deep/scene_mystify.oo";
+import "tests/oo/scenes/text/scene_expand.oo";
+import "tests/oo/scenes/wipe/scene_wipe.oo";
+import "tests/oo/scenes/wipe/scene_sweep.oo";
+import "tests/oo/scenes/wipe/scene_slide.oo";
+import "tests/oo/scenes/wipe/scene_middleout.oo";
+import "tests/oo/scenes/bpath/scene_binarypath.oo";
+import "tests/oo/scenes/burn/scene_burn.oo";
+import "tests/oo/scenes/bhole/scene_blackhole.oo";
+import "port_render.oo";
+
+pub type PortSession = struct {
+    name: String,
+    cols: Int,
+    rows: Int,
+    last: List[PaintCell],
+    settled: Bool,
+    plasma: Plasma,
+    ripple: Ripple,
+    aurora: Aurora,
+    chaos: Chaos,
+    metaballs: Metaballs,
+    moire: Moire,
+    cosmos: Cosmos,
+    radar: Radar,
+    tunnel: Tunnel,
+    mystify: Mystify
+};
+
+pub fn port_has(name: String) -> Bool {
+    if name == "plasma" || name == "ripple" || name == "aurora" || name == "chaos" { return true; }
+    if name == "metaballs" || name == "moire" || name == "cosmos" || name == "radar" { return true; }
+    if name == "tunnel" || name == "mystify" || name == "expand" || name == "wipe" { return true; }
+    if name == "sweep" || name == "slide" || name == "middleout" || name == "binarypath" { return true; }
+    return name == "burn" || name == "blackhole";
+}
+
+fn port_settled_frame(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> List[PaintCell] {
+    if name == "expand" { return expand_run(cells, info, lines).last; }
+    if name == "wipe" { return wipe_run(cells, info, lines).last; }
+    if name == "sweep" { return sweep_run(cells, info, lines).last; }
+    if name == "slide" { return slide_run(cells, info, lines).last; }
+    if name == "middleout" { return middleout_run(cells, info, lines).last; }
+    if name == "binarypath" { return binarypath_run(cells, info, lines).last; }
+    if name == "burn" { return burn_run(cells, info, lines).last; }
+    if name == "blackhole" { return blackhole_run(cells, info, lines).last; }
+    return list_new();
+}
+
+pub fn port_session_new(name: String, cols: Int, rows: Int, wordmark: String) -> PortSession {
+    let lines: List[String] = port_lines(wordmark, cols, rows);
+    let info: CanvasInfo = art_block(lines, canvas_info(cols, rows));
+    let cells: List[CellGeom] = canvas_cells(info, lines);
+    let settled_last: List[PaintCell] = port_settled_frame(name, cells, info, lines);
+    return PortSession {
+        name: name, cols: cols, rows: rows,
+        last: settled_last, settled: list_len(settled_last) > 0,
+        plasma: plasma_new(cells, info), ripple: ripple_new(cells, info),
+        aurora: aurora_new(cells, info), chaos: chaos_new(cells, info),
+        metaballs: metaballs_new(cells, info), moire: moire_new(cells, info),
+        cosmos: cosmos_new(cells, info), radar: radar_new(cells, info),
+        tunnel: tunnel_new(cells, info), mystify: mystify_new(cells, info)
+    };
+}
+
+pub fn port_session_next(s: PortSession) -> PortSession {
+    if s.settled { return s; }
+    let mut out: PortSession = s;
+    let mut pcs: List[PaintCell] = list_new();
+    if s.name == "plasma" { pcs = plasma_next(s.plasma); out.plasma = plasma_advance(s.plasma); }
+    else if s.name == "ripple" { pcs = ripple_next(s.ripple); out.ripple = ripple_advance(s.ripple); }
+    else if s.name == "aurora" { pcs = aurora_next(s.aurora); out.aurora = aurora_advance(s.aurora); }
+    else if s.name == "chaos" { pcs = chaos_next(s.chaos); out.chaos = chaos_advance(s.chaos); }
+    else if s.name == "metaballs" { pcs = metaballs_next(s.metaballs); out.metaballs = metaballs_advance(s.metaballs); }
+    else if s.name == "moire" { pcs = moire_next(s.moire); out.moire = moire_advance(s.moire); }
+    else if s.name == "cosmos" { pcs = cosmos_next(s.cosmos); out.cosmos = cosmos_advance(s.cosmos); }
+    else if s.name == "radar" { pcs = radar_next(s.radar); out.radar = radar_advance(s.radar); }
+    else if s.name == "tunnel" { pcs = tunnel_next(s.tunnel); out.tunnel = tunnel_advance(s.tunnel); }
+    else if s.name == "mystify" { pcs = mystify_next(s.mystify); out.mystify = mystify_advance(s.mystify); }
+    if list_len(pcs) == 0 { out.settled = true; return out; }
+    out.last = pcs;
+    return out;
+}
+
+pub fn port_session_frame(s: PortSession) -> String {
+    return port_render(s.last, s.cols, s.rows);
+}
