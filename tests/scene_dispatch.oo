@@ -30,6 +30,8 @@ import "tests/oo/scenes/bhole/scene_blackhole.oo";
 import "tests/oo/scenes/rain/scene_rain.oo";
 import "tests/oo/scenes/scattered/scene_scattered.oo";
 import "tests/oo/scenes/pour/scene_pour.oo";
+import "tests/oo/scenes/slice/scene_slice.oo";
+import "tests/oo/scenes/colorshift/scene_colorshift.oo";
 
 pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> Result[DigestRun, String] {
     if name == "plasma" { return Ok(plasma_run(cells, info)); }
@@ -53,5 +55,7 @@ pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "rain" { return Ok(rain_run(cells, info, lines)); }
     if name == "scattered" { return Ok(scattered_run(cells, info, lines)); }
     if name == "pour" { return Ok(pour_run(cells, info, lines)); }
+    if name == "slice" { return Ok(slice_run(cells, info, lines)); }
+    if name == "colorshift" { return Ok(colorshift_run(cells, info, lines)); }
     return Err("ERR\tscene\tno parity port: " + name);
 }

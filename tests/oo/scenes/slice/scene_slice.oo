@@ -1,0 +1,88 @@
+// # scene_slice — vertical slice convergence port
+//
+// Logline: Bit-exact port of Slice::build/next_frame (vertical): the
+// left half of each row drops from above the canvas while the right
+// half of the mirrored row rises from below, all InOutExpo at 0.25,
+// glyphs pre-painted in the diagonal final gradient. No RNG, no
+// scenes: set_appearance pins the final color before paths activate.
+// Setup: Rows group bottom-to-top; row i's left half pairs with row
+// (n-1-i)'s right half around text_center_column = tl + (tr-tl)/2.
+// Beats:
+//   1. sz_build paints appearances, then sends each half-row home.
+//   2. slice_run updates until the active set drains.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/digest_run.oo";
+
+fn sz_send(w: World, id: Int, orow: Int) -> World {
+    let ch: Char = list_get(w.chars, id);
+    let mut w2: World = w_pos(w, id, ch.col0, orow);
+    w2 = w_path(w2, id, 0.25, 1, ez(18), 0 - 1, 0, 0, "");
+    w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
+    w2 = eng_act_path(w2, id, 0);
+    w2 = w_active_add(w2, id);
+    w2 = w_set_vis(w2, id, 1);
+    return w2;
+}
+
+fn sz_build(w: World, info: CanvasInfo) -> World {
+    let stops: List[Int] = list_push(list_push(list_push(list_new(), 9044106), 53759), 16777215);
+    let spec: List[Int] = gradient_new(stops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_d(spec, info.tb, info.tt, info.tl, info.tr);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ci: Int = (ch.row0 - info.tb) * (info.tr - info.tl + 1) + (ch.col0 - info.tl);
+        w2 = w_appear(w2, id, ch.sym, list_get(cmap, ci), 0 - 1, 0);
+        k = k + 1;
+    }
+    let g: Groups = groups_of(w2, collect_ids(w2, 1), 1, 0, 0, 0);
+    let center: Int = info.tl + (info.tr - info.tl) / 2;
+    let n: Int = list_len(g.keys);
+    let mut ri: Int = 0;
+    while ri < n {
+        let left: List[Int] = grp_win(g, ri);
+        let mut m: Int = 0;
+        while m < list_len(left) {
+            let id2: Int = list_get(left, m);
+            if list_get(w2.chars, id2).col0 <= center { w2 = sz_send(w2, id2, info.top + 1); }
+            m = m + 1;
+        }
+        let opp: List[Int] = grp_win(g, n - 1 - ri);
+        let mut m2: Int = 0;
+        while m2 < list_len(opp) {
+            let id3: Int = list_get(opp, m2);
+            if list_get(w2.chars, id3).col0 > center { w2 = sz_send(w2, id3, info.bottom - 1); }
+            m2 = m2 + 1;
+        }
+        ri = ri + 1;
+    }
+    return w2;
+}
+
+pub fn slice_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = sz_build(w_input(info, lines, rng_seed(42)), info);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(w.active) > 0 {
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

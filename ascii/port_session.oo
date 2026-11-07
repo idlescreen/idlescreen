@@ -30,6 +30,8 @@ import "tests/oo/scenes/bhole/scene_blackhole.oo";
 import "tests/oo/scenes/rain/scene_rain.oo";
 import "tests/oo/scenes/scattered/scene_scattered.oo";
 import "tests/oo/scenes/pour/scene_pour.oo";
+import "tests/oo/scenes/slice/scene_slice.oo";
+import "tests/oo/scenes/colorshift/scene_colorshift.oo";
 import "port_render.oo";
 
 pub type PortSession = struct {
@@ -55,7 +57,7 @@ pub fn port_has(name: String) -> Bool {
     if name == "metaballs" || name == "moire" || name == "cosmos" || name == "radar" { return true; }
     if name == "tunnel" || name == "mystify" || name == "expand" || name == "wipe" { return true; }
     if name == "sweep" || name == "slide" || name == "middleout" || name == "binarypath" { return true; }
-    return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" || name == "pour";
+    return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" || name == "pour" || name == "slice" || name == "colorshift";
 }
 
 fn port_settled_frame(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> List[PaintCell] {
@@ -70,6 +72,8 @@ fn port_settled_frame(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "rain" { return rain_run(cells, info, lines).last; }
     if name == "scattered" { return scattered_run(cells, info, lines).last; }
     if name == "pour" { return pour_run(cells, info, lines).last; }
+    if name == "slice" { return slice_run(cells, info, lines).last; }
+    if name == "colorshift" { return colorshift_run(cells, info, lines).last; }
     return list_new();
 }
 
