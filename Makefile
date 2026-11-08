@@ -5,7 +5,18 @@
 # this project — see the std-check target below.
 OODA_HOME ?= $(shell if [ -x "$$HOME/.openooda/bin/oodac" ]; then echo "$$HOME/.openooda"; elif [ -d "$$HOME/Projects/openOODA-core/oodac" ]; then echo "$$HOME/Projects/openOODA-core"; elif [ -d /Projects/openOODA-core/oodac ]; then echo /Projects/openOODA-core; else echo "$(abspath $(CURDIR)/../../openOODA-core)"; fi)
 OODA_COMPILER ?= $(shell command -v oodac 2>/dev/null || echo $(OODA_HOME)/oodac/bin/oodac)
-OODA_READDIR ?= $(CURDIR):$(OODA_HOME)
+# The compiler resolves oostd/... imports by walking up from the source tree
+# (ast/load_import_parse.oo: probe_parent_walk). The std repo must therefore
+# be a directory named `oostd` in an ancestor of this project — it is checked
+# out under that name, not linked into the tree.
+#
+# Defined here, above OODA_READDIR and ENV, because ENV is simply expanded:
+# the std tree must already be known when the read scope is assembled.
+OODA_STD_DIR ?= $(shell d=$(CURDIR); while [ "$$d" != "/" ]; do if [ -d "$$d/oostd" ]; then echo "$$d/oostd"; break; fi; d=$$(dirname $$d); done)
+# The std tree is read during the build, so it must be inside the compiler's
+# FS read scope — otherwise every `oostd/...` import fails to resolve with
+# "ERR import not found".
+OODA_READDIR ?= $(CURDIR):$(OODA_HOME)$(if $(OODA_STD_DIR),:$(OODA_STD_DIR))
 OODA_WRITEDIR ?= $(CURDIR):/tmp
 OO_LIST_AMBIENT_QUOTA ?= 8589934592
 # oodar static libs: checkout layout builds core+net; an openOODA install
@@ -44,12 +55,6 @@ parity:
 	done; \
 	if [ $$fail -ne 0 ]; then exit 1; fi; \
 	echo "PASS: scene parity ($(words $(PARITY_SCENES)) scenes bit-exact)"
-
-# The compiler resolves oostd/... imports by walking up from the source tree
-# (ast/load_import_parse.oo: probe_parent_walk). The std repo must therefore
-# be a directory named `oostd` in an ancestor of this project — it is checked
-# out under that name, not linked into the tree.
-OODA_STD_DIR ?= $(shell d=$(CURDIR); while [ "$$d" != "/" ]; do if [ -d "$$d/oostd" ]; then echo "$$d/oostd"; break; fi; d=$$(dirname $$d); done)
 
 std-check:
 	@test -n "$(OODA_STD_DIR)" || { echo "FAIL: no std repo named oostd in any ancestor of $(CURDIR)"; \
