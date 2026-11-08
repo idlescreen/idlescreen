@@ -23,7 +23,7 @@ VER := 5.0.3
 SRC := main.oo anchor.oo $(wildcard core/*.oo raster/*.oo ascii/*.oo ascii/*/*.oo ascii/*/*/*.oo wayland/*.oo daemon/*.oo tui/*.oo cli/*.oo)
 ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER)
 
-.PHONY: all build verify test det check line-cap file-law academy density vocab shape clean parity std-check portable
+.PHONY: all build verify test det check line-cap file-law academy density vocab shape clean parity std-check portable ll-declares
 
 all: build verify test det parity
 
@@ -66,12 +66,40 @@ build: $(BIN)
 $(BIN): $(SRC)
 	@mkdir -p bin .ooda-cache
 	@$(MAKE) --no-print-directory std-check oodar-libs
-	$(ENV) $(OODA_COMPILER) build main.oo -o $(BIN)
+	@if $(ENV) $(OODA_COMPILER) build main.oo -o $(BIN) > .ooda-cache/build_out.txt 2>&1; then \
+		cat .ooda-cache/build_out.txt; \
+	else \
+		echo "--- toolchain capability diagnosis ---"; \
+		$(MAKE) --no-print-directory ll-declares; \
+		echo "FAIL: oodac build failed — compiler output follows"; \
+		cat .ooda-cache/build_out.txt; \
+		exit 1; \
+	fi; \
+	$(MAKE) --no-print-directory ll-declares
 	@ll=$$(ls .ooda-cache/ooda-tmp/all_*.ll | head -n 1); \
 	test -n "$$ll" || { echo "FAIL: no emitted .ll under .ooda-cache/ooda-tmp"; exit 1; }; \
 	clang --no-default-config -Os -g0 -fno-ident -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -Wno-override-module -I$(OODAR_INCDIR) .ooda-cache/ooda-tmp/oodac_host_rt.c $$ll $(OODAR_LIBS) -Wl,-u,oo_blackbox_trap_cap -frandom-seed=0 -Wl,--build-id=none -Wl,--gc-sections -Wl,-z,noseparate-code -Wl,--strip-debug -lm -ldl -lpthread -o $(BIN)
 	@chmod +x $(BIN)
 	@echo "built $(BIN)"
+
+# Toolchain capability gate: the emitted LLVM must declare (or define) every
+# symbol it calls. A stale upstream bin/oodac emits calls to @oo_unix_* without
+# ever declaring them, which otherwise surfaces as an opaque clang error
+# ("use of undefined value '@oo_unix_accept'") at the end of a long build.
+ll-declares:
+	@mkdir -p .ooda-cache
+	@ll=$$(ls -t .ooda-cache/ooda-tmp/all_*.ll 2>/dev/null | head -n 1); \
+	test -n "$$ll" || { echo "FAIL: no emitted .ll under .ooda-cache/ooda-tmp"; exit 1; }; \
+	grep -oE 'call [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*' | grep -v '^@llvm\.' | sort -u > .ooda-cache/ll_called.txt; \
+	{ grep -oE '^declare [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*'; \
+	  grep -oE '^define [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*'; } | sort -u > .ooda-cache/ll_declared.txt; \
+	comm -23 .ooda-cache/ll_called.txt .ooda-cache/ll_declared.txt > .ooda-cache/ll_undeclared.txt; \
+	if [ -s .ooda-cache/ll_undeclared.txt ]; then \
+		echo "FAIL: emitted LLVM calls symbols it never declares:"; sed 's/^/  /' .ooda-cache/ll_undeclared.txt; \
+		echo "      the toolchain compiler is stale — rebuild openOODA-core/oodac bin/oodac from master source"; \
+		exit 1; \
+	fi; \
+	echo "PASS: emitted LLVM declares every symbol it calls"
 
 # Regression gate: the build must stay portable — no author-machine absolutes,
 # no hashed module name, no patching the generated runtime to disable the jail.
