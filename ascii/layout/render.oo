@@ -50,14 +50,20 @@ fn wm_build_5x5_scaled(word: String, scale: Int) -> List[String] {
             while k < chars_len(base) {
                 let ch: String = if char_at(base, k) == " " { " " } else { "█" };
                 let mut s: Int = 0;
-                while s < scale { line = line + ch; s = s + 1; }
+                while s < scale {
+                    line = line + ch;
+                    s = s + 1;
+                }
                 k = k + 1;
             }
             if ci + 1 < n { line = line + sp; }
             ci = ci + 1;
         }
         let mut sr: Int = 0;
-        while sr < scale { out = list_push(out, line); sr = sr + 1; }
+        while sr < scale {
+            out = list_push(out, line);
+            sr = sr + 1;
+        }
         r = r + 1;
     }
     return out;
@@ -120,7 +126,15 @@ fn wm_stamp_line(g: CellGrid, line: String, ox: Int, y: Int, min_y: Int, max_y: 
             if ch != " " {
                 let diag: Int = x + y * 2;
                 let dist: Int = if diag - gleam_pos < 0 { gleam_pos - diag } else { diag - gleam_pos };
-                let fg: Int = if dist == 0 { rgb(245, 255, 255) } else if dist == 1 { rgb(255, 225, 110) } else if dist == 2 { rgb(130, 235, 255) } else { base_fg };
+                let fg: Int = if dist == 0 {
+                    rgb(245, 255, 255)
+                } else if dist == 1 {
+                    rgb(255, 225, 110)
+                } else if dist == 2 {
+                    rgb(130, 235, 255)
+                } else {
+                    base_fg
+                };
                 out = grid_set(out, x, y, cell_new(ch, fg, cur.bg, true));
                 if x + 1 < out.cols && y + 1 < out.rows {
                     let sc: TerminalCell = grid_get(out, x + 1, y + 1);

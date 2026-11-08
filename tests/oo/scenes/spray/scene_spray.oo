@@ -28,6 +28,7 @@ import "tests/oo/engine/float_conv.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
 import "tests/digest_run.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 pub type SpB = struct { w: World, pend: List[Int], vol: Int };
 
@@ -45,14 +46,18 @@ fn sp_build(w: World, info: CanvasInfo) -> SpB {
         let sp: DRF = rng_unif(w2.rng, 1.0, 2.2);
         w2 = w_rng(w2, sp.r);
         w2 = w_pos(w2, id, info.right - 1, info.top / 2);
-        w2 = w_path(w2, id, sp.v, 1, ez(17), 0 - 1, 0, 0, "");
+        w2 = w_path(w2, id, wp_cfg(sp.v, 1, ez(17), 0 - 1, 0, 0), "");
         w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
         w2 = w_reg(w2, id, 0, 1, "0", EvAct { kind: 5, sid: "", num: 1, carg: 0 });
         w2 = w_reg(w2, id, 1, 1, "0", EvAct { kind: 5, sid: "", num: 0, carg: 0 });
         w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
         let dc: DR = rng_pick(w2.rng, list_len(spec));
         w2 = w_rng(w2, dc.r);
-        let g: List[Int] = gradient_new(list_push(list_push(list_new(), list_get(spec, dc.v)), ffg), list_push(list_new(), 7), 0);
+        let g: List[Int]= gradient_new(
+            list_push(list_push(list_new(), list_get(spec, dc.v)), ffg),
+            list_push(list_new(), 7),
+            0
+        );
         w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 20, g, list_new());
         w2 = w_aset(w2, id, 0);
         w2 = eng_act_path(w2, id, 0);

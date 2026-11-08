@@ -123,7 +123,13 @@ pub fn draw_preview_hud(g: CellGrid, scene_name: String, idx: Int, total: Int, t
     let mut cx: Int = start_x + 1;
     let mut i: Int = 0;
     while i < chars_len(line) {
-        let fg: Int = if i < chars_len(tag) { rgb(110, 210, 255) } else if i < chars_len(tag) + 8 { rgb(255, 225, 85) } else { rgb(175, 195, 225) };
+        let fg: Int = if i < chars_len(tag) {
+            rgb(110, 210, 255)
+        } else if i < chars_len(tag)+ 8 {
+            rgb(255, 225, 85)
+        } else {
+            rgb(175, 195, 225)
+        };
         let ch: String = char_at(line, i);
         out = grid_put(out, cx, rows - 1, ch, fg, pill, true);
         cx = cx + 1;

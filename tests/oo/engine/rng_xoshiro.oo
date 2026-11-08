@@ -49,7 +49,10 @@ pub fn rng_next(r: Rng) -> DR {
 pub fn rng_below(r: Rng, n: Int) -> DR {
     let mut bits: Int = 0;
     let mut m: Int = n - 1;
-    while m > 0 { m = lshr(m, 1); bits = bits + 1; }
+    while m > 0 {
+        m = lshr(m, 1);
+        bits = bits + 1;
+    }
     if bits < 1 { bits = 1; }
     let sh: Int = 64 - bits;
     let mut st: Rng = r;

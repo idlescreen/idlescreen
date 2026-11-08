@@ -27,7 +27,16 @@ fn ctl_arg(frame: String) -> String {
 
 fn ctl_toggle(d: DaemonState, inh: List[String], verb: String) -> CtlReply {
     let on: Bool = if verb == "stop" { false } else if verb == "toggle" { !d.saver_on } else { true };
-    let nd: DaemonState = daemon_state_set(d, d.idle, on, d.sleep_req, d.scene_idx, d.timeout_s, d.inhibitors, d.uptime_ticks + 1);
+    let nd: DaemonState = daemon_state_set(
+        d,
+        d.idle,
+        on,
+        d.sleep_req,
+        d.scene_idx,
+        d.timeout_s,
+        d.inhibitors,
+        d.uptime_ticks + 1
+    );
     return CtlReply { text: if on { "saver on" } else { "saver off" }, state: nd, inhibitors: inh, quit: false };
 }
 
@@ -48,8 +57,21 @@ fn ctl_set(d: DaemonState, inh: List[String], arg: String) -> CtlReply {
 fn ctl_timeout(d: DaemonState, inh: List[String], arg: String) -> CtlReply {
     let secs: Int = parse_int_digits(arg);
     if secs <= 0 { return CtlReply { text: "ERR timeout requires seconds", state: d, inhibitors: inh, quit: false }; }
-    let nd: DaemonState = daemon_state_set(d, d.idle, d.saver_on, d.sleep_req, d.scene_idx, secs, d.inhibitors, d.uptime_ticks + 1);
+    let nd: DaemonState = daemon_state_set(
+        d,
+        d.idle,
+        d.saver_on,
+        d.sleep_req,
+        d.scene_idx,
+        secs,
+        d.inhibitors,
+        d.uptime_ticks + 1
+    );
     return CtlReply { text: "timeout " + secs.to_string() + "s", state: nd, inhibitors: inh, quit: false };
+}
+
+fn ctl_next(d: DaemonState, saver_on: Bool, sleep_req: Bool, scene_idx: Int, inhibitors: Int) -> DaemonState {
+    return daemon_state_set(d, d.idle, saver_on, sleep_req, scene_idx, d.timeout_s, inhibitors, d.uptime_ticks + 1);
 }
 
 pub fn ctl_dispatch(d: DaemonState, inh: List[String], frame: String, prog: String) -> CtlReply {
@@ -63,12 +85,12 @@ pub fn ctl_dispatch(d: DaemonState, inh: List[String], frame: String, prog: Stri
     if verb == "inhibitors" { return CtlReply { text: inhibit_json(inh), state: d, inhibitors: inh, quit: false }; }
     if verb == "inhibit" && arg != "" {
         let ni: List[String] = inhibit_add(inh, arg);
-        let nd: DaemonState = daemon_state_set(d, d.idle, false, d.sleep_req, d.scene_idx, d.timeout_s, list_len(ni), d.uptime_ticks + 1);
+        let nd: DaemonState = ctl_next(d, false, d.sleep_req, d.scene_idx, list_len(ni));
         return CtlReply { text: "inhibited " + arg, state: nd, inhibitors: ni, quit: false };
     }
     if verb == "uninhibit" && arg != "" {
         let ni: List[String] = inhibit_remove(inh, arg);
-        let nd: DaemonState = daemon_state_set(d, d.idle, d.saver_on, d.sleep_req, d.scene_idx, d.timeout_s, list_len(ni), d.uptime_ticks + 1);
+        let nd: DaemonState = ctl_next(d, d.saver_on, d.sleep_req, d.scene_idx, list_len(ni));
         return CtlReply { text: "uninhibited " + arg, state: nd, inhibitors: ni, quit: false };
     }
     if verb == "start" || verb == "toggle" || verb == "stop" { return ctl_toggle(d, inh, verb); }
@@ -77,14 +99,14 @@ pub fn ctl_dispatch(d: DaemonState, inh: List[String], frame: String, prog: Stri
     if verb == "scene" && arg != "" {
         let idx: Int = effects_index(arg);
         if idx >= 0 {
-            let nd: DaemonState = daemon_state_set(d, d.idle, d.saver_on, d.sleep_req, idx, d.timeout_s, d.inhibitors, d.uptime_ticks + 1);
+            let nd: DaemonState = ctl_next(d, d.saver_on, d.sleep_req, idx, d.inhibitors);
             return CtlReply { text: "scene " + arg, state: nd, inhibitors: inh, quit: false };
         }
         return CtlReply { text: "ERR unknown scene " + arg, state: d, inhibitors: inh, quit: false };
     }
     if verb == "quit" || verb == "shutdown" { return CtlReply { text: "bye", state: daemon_state_stop(d), inhibitors: inh, quit: true }; }
     if verb == "sleep" {
-        let nd: DaemonState = daemon_state_set(d, d.idle, d.saver_on, true, d.scene_idx, d.timeout_s, d.inhibitors, d.uptime_ticks + 1);
+        let nd: DaemonState = ctl_next(d, d.saver_on, true, d.scene_idx, d.inhibitors);
         return CtlReply { text: "sleep requested", state: nd, inhibitors: inh, quit: false };
     }
     return CtlReply { text: "ERR unknown verb " + verb, state: d, inhibitors: inh, quit: false };

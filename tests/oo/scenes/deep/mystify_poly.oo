@@ -17,7 +17,10 @@ pub type PolyStep = struct { v: List[Float], h: List[Float] };
 fn drop_snap(l: List[Float]) -> List[Float] {
     let mut out: List[Float] = list_new();
     let mut i: Int = 8;
-    while i < list_len(l) { out = list_push(out, list_get(l, i)); i = i + 1; }
+    while i < list_len(l) {
+        out = list_push(out, list_get(l, i));
+        i = i + 1;
+    }
     return out;
 }
 
@@ -29,15 +32,24 @@ pub fn poly_step(verts: List[Float], hist: List[Float]) -> PolyStep {
         let mut y: Float = list_get(v, i * 4 + 1) + list_get(v, i * 4 + 3);
         let mut vx: Float = list_get(v, i * 4 + 2);
         let mut vy: Float = list_get(v, i * 4 + 3);
-        if x <= 0.0 - 1.25 || x >= 1.25 { vx = 0.0 - vx; x = clamp_f(x, 0.0 - 1.25, 1.25); }
-        if y <= 0.0 - 0.92 || y >= 0.92 { vy = 0.0 - vy; y = clamp_f(y, 0.0 - 0.92, 0.92); }
+        if x <= 0.0 - 1.25 || x >= 1.25 {
+            vx = 0.0 - vx;
+            x = clamp_f(x, 0.0 - 1.25, 1.25);
+        }
+        if y <= 0.0 - 0.92 || y >= 0.92 {
+            vy = 0.0 - vy;
+            y = clamp_f(y, 0.0 - 0.92, 0.92);
+        }
         v = list_set(list_set(list_set(list_set(v, i * 4, x), i * 4 + 1, y), i * 4 + 2, vx), i * 4 + 3, vy);
         i = i + 1;
     }
     let mut h: List[Float] = hist;
     if list_len(h) >= 32 { h = drop_snap(h); }
     let mut k: Int = 0;
-    while k < 8 { h = list_push(h, list_get(v, k / 2 * 4 + k % 2)); k = k + 1; }
+    while k < 8 {
+        h = list_push(h, list_get(v, k / 2 * 4 + k % 2));
+        k = k + 1;
+    }
     let _r1 = PolyStep { v: v, h: h };
     return _r1;
 }

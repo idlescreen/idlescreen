@@ -16,7 +16,7 @@
 import "tests/oo/canvas_cells.oo";
 import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/engapi/char_groups.oo";
-import "tests/oo/scenes/burn/bn_parts.oo";
+import "tests/oo/scenes/burn/bn_prims.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
 
@@ -142,7 +142,10 @@ pub fn pw_step(w: World, info: CanvasInfo, grid: List[Int], st: PwSt) -> PwSt {
         let ca: Int = list_get(pend, at + 1);
         let cb: Int = list_get(pend, at + 2);
         pend = pw_rm3(pend, at);
-        if list_get(st.linked, cb) == 0 { la = ca; lb = cb; }
+        if list_get(st.linked, cb) == 0 {
+            la = ca;
+            lb = cb;
+        }
     }
     if la < 0 {
         let _r4 = PwSt { pend: pend, linked: st.linked, weights: st.weights,
@@ -153,7 +156,10 @@ pub fn pw_step(w: World, info: CanvasInfo, grid: List[Int], st: PwSt) -> PwSt {
     linked = list_set(linked, lb, 1);
     let mut lo: Int = la;
     let mut hi: Int = lb;
-    if lb < la { lo = lb; hi = la; }
+    if lb < la {
+        lo = lb;
+        hi = la;
+    }
     let st1: PwSt = PwSt { pend: pend, linked: linked, weights: st.weights,
         edges: list_push(st.edges, lo * 100000 + hi), done: 0, rng: r };
     let _r5 = pw_add(w, info, grid, st1, lb);

@@ -62,7 +62,10 @@ pub fn coord_on_bez(sc: Int, sr: Int, ctl: List[Int], ec: Int, er: Int, t: Float
     return _r5; }
     let mut cf: List[Float] = list_new();
     let mut i: Int = 0;
-    while i < list_len(ctl) { cf = list_push(cf, int_to_f(list_get(ctl, i))); i = i + 1; }
+    while i < list_len(ctl) {
+        cf = list_push(cf, int_to_f(list_get(ctl, i)));
+        i = i + 1;
+    }
     let p: List[Float] = bez_point(int_to_f(sc), int_to_f(sr), cf, int_to_f(ec), int_to_f(er), t);
     let _r6 = list_push(list_push(list_new(), round_he(list_get(p, 0))), round_he(list_get(p, 1)));
     return _r6;

@@ -15,7 +15,10 @@ pub fn scene_breakout(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = cv_fill(g, " ", rgb(30, 30, 40), rgb(4, 4, 8));
     let mut y: Int = 0;
     while y < 4 && y < g.rows {
-        let band: List[Int] = list_push(list_push(list_push(list_push(list_new(), rgb(255, 90, 90)), rgb(255, 190, 80)), rgb(120, 230, 120)), rgb(90, 160, 255));
+        let band: List[Int]= list_push(
+            list_push(list_push(list_push(list_new(), rgb(255, 90, 90)), rgb(255, 190, 80)), rgb(120, 230, 120)),
+            rgb(90, 160, 255)
+        );
         let mut x: Int = 1;
         while x < g.cols - 1 {
             if x % 4 != 0 && cv_hash(x, y, tick / 60) % 9 != 0 {

@@ -59,7 +59,10 @@ fn sw_syms() -> List[Int] {
 fn sw_gidx(n: Int) -> List[Int] {
     let mut out: List[Int] = list_new();
     let mut i: Int = 0;
-    while i < n { out = list_push(out, i); i = i + 1; }
+    while i < n {
+        out = list_push(out, i);
+        i = i + 1;
+    }
     return out;
 }
 
@@ -107,7 +110,10 @@ fn sw_add(w: World, g: Groups, gi: Int, phase: Int) -> World {
         m = m + 1;
     }
     let mut m2: Int = 0;
-    while m2 < list_len(win) { w2 = w_active_add(w2, list_get(win, m2)); m2 = m2 + 1; }
+    while m2 < list_len(win) {
+        w2 = w_active_add(w2, list_get(win, m2));
+        m2 = m2 + 1;
+    }
     return w2;
 }
 

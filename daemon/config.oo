@@ -16,39 +16,39 @@ import "config_file.oo";
 
 
 // Idle timeout in seconds: the environment override wins, then config.toml.
-pub fn daemon_timeout_s(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> Int {
-    let v: String = match env_get(env, "IDLESCREEN_TIMEOUT_S") { Ok(x) => x, Err(_) => "" };
+pub fn daemon_timeout_s(fs_r: &FsReadCap, proc: &ProcessCap) -> Int {
+    let v: String = self_env(fs_r, "IDLESCREEN_TIMEOUT_S");
     let acc: Int = parse_int_digits(v);
     if acc > 0 { return acc; }
-    let cfg: ConfigData = config_read_file(fs_r, proc, env);
+    let cfg: ConfigData = config_read_file(fs_r, proc);
     return cfg.idle_timeout_secs;
 }
 
 // Active scene index: the environment override wins, then config.toml.
-pub fn daemon_scene(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> Int {
-    let v: String = match env_get(env, "IDLESCREEN_SCENE") { Ok(x) => x, Err(_) => "" };
+pub fn daemon_scene(fs_r: &FsReadCap, proc: &ProcessCap) -> Int {
+    let v: String = self_env(fs_r, "IDLESCREEN_SCENE");
     let idx: Int = effects_index(v);
     if idx >= 0 { return idx; }
-    let cfg: ConfigData = config_read_file(fs_r, proc, env);
+    let cfg: ConfigData = config_read_file(fs_r, proc);
     let cidx: Int = effects_index(cfg.active);
     if cidx >= 0 { return cidx; }
     return 0;
 }
 
 // Active saver name as persisted in config.toml.
-pub fn daemon_saver_name(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> String {
-    let v: String = match env_get(env, "IDLESCREEN_SCENE") { Ok(x) => str_trim(x), Err(_) => "" };
+pub fn daemon_saver_name(fs_r: &FsReadCap, proc: &ProcessCap) -> String {
+    let v: String = str_trim(self_env(fs_r, "IDLESCREEN_SCENE"));
     if v != "" { return to_lowercase(v); }
-    let cfg: ConfigData = config_read_file(fs_r, proc, env);
+    let cfg: ConfigData = config_read_file(fs_r, proc);
     return cfg.active;
 }
 
-pub fn daemon_banner_text(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> String {
-    let sf_env: String = match env_get(env, "SUPERFEDORA") { Ok(x) => str_trim(x), Err(_) => "" };
+pub fn daemon_banner_text(fs_r: &FsReadCap, proc: &ProcessCap) -> String {
+    let sf_env: String = str_trim(self_env(fs_r, "SUPERFEDORA"));
     if sf_env == "1" || to_lowercase(sf_env) == "true" { return "SUPERFEDORA"; }
-    let os_env: String = match env_get(env, "IDLE_OS_NAME") { Ok(x) => str_trim(x), Err(_) => "" };
+    let os_env: String = str_trim(self_env(fs_r, "IDLE_OS_NAME"));
     if os_env != "" { return wm_clean_os(os_env); }
-    let cfg: ConfigData = config_read_file(fs_r, proc, env);
+    let cfg: ConfigData = config_read_file(fs_r, proc);
     if cfg.active == "superfedora" { return "SUPERFEDORA"; }
     if !cfg.use_os_brand && str_trim(cfg.custom_text) != "" {
         return to_uppercase(str_trim(cfg.custom_text));
@@ -62,12 +62,17 @@ pub fn daemon_banner_text(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> 
     return "FEDORA";
 }
 
-pub fn daemon_format(env: &EnvCap) -> String {
-    let v: String = match env_get(env, "IDLESCREEN_FORMAT") { Ok(x) => x, Err(_) => "" };
+pub fn daemon_format(fs_r: &FsReadCap) -> String {
+    let v: String = self_env(fs_r, "IDLESCREEN_FORMAT");
     if v == "argb2101010" { return v; }
     return "argb8888";
 }
 
-pub fn daemon_config_summary(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap, prog: String) -> String {
-    return prog + " ctl=" + ctl_socket_path(fs_r, proc, env, prog) + " timeout=" + daemon_timeout_s(fs_r, proc, env).to_string() + "s saver=" + daemon_saver_name(fs_r, proc, env) + " scene=" + effects_name(daemon_scene(fs_r, proc, env)) + " banner=" + daemon_banner_text(fs_r, proc, env) + " format=" + daemon_format(env) + " config=" + config_dir(fs_r, proc, env);
+pub fn daemon_config_summary(fs_r: &FsReadCap, proc: &ProcessCap, prog: String) -> String {
+    return prog + " ctl=" + ctl_socket_path(fs_r, proc, prog) +
+        " timeout=" + daemon_timeout_s(fs_r, proc).to_string() + "s saver=" +
+        daemon_saver_name(fs_r, proc) + " scene=" +
+        effects_name(daemon_scene(fs_r, proc)) + " banner=" +
+        daemon_banner_text(fs_r, proc) + " format=" + daemon_format(fs_r) +
+        " config=" + config_dir(fs_r, proc);
 }

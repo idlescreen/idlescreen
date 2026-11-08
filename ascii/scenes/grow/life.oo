@@ -21,7 +21,11 @@ pub fn scene_life(g: CellGrid, tick: Int) -> CellGrid {
             let h: Int = cv_hash(x + gen % 3, y + gen / 5, gen);
             let alive: Bool = (h % 100) < 34;
             if alive {
-                let n: Int = (cv_hash(x - 1, y, gen) % 2) + (cv_hash(x + 1, y, gen) % 2) + (cv_hash(x, y - 1, gen) % 2) + (cv_hash(x, y + 1, gen) % 2);
+                let n: Int =(cv_hash(
+                    x - 1,
+                    y,
+                    gen
+                )% 2)+(cv_hash(x + 1, y, gen)% 2)+(cv_hash(x, y - 1, gen)% 2)+(cv_hash(x, y + 1, gen)% 2);
                 let c: Int = if n >= 3 { rgb(120, 255, 140) } else if n == 2 { rgb(60, 190, 80) } else { rgb(20, 110, 40) };
                 let ch: String = if n >= 3 { "█" } else if n == 2 { "▓" } else { "▒" };
                 out = cv_put(out, x, y, ch, c, rgb(0, 4, 0));

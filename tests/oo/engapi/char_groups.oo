@@ -36,7 +36,10 @@ pub fn collect_ids(w: World, mask: Int) -> List[Int] {
 fn rev_ids(ids: List[Int]) -> List[Int] {
     let mut out: List[Int] = list_new();
     let mut i: Int = list_len(ids) - 1;
-    while i >= 0 { out = list_push(out, list_get(ids, i)); i = i - 1; }
+    while i >= 0 {
+        out = list_push(out, list_get(ids, i));
+        i = i - 1;
+    }
     return out;
 }
 
@@ -77,8 +80,14 @@ pub fn sort_ids(w: World, ids: List[Int], cols: Int, rows: Int, skind: Int) -> L
         let mut b: Int = list_len(out) - 1;
         let mut front: Int = 1;
         while f <= b {
-            if front == 1 { mid = list_push(mid, list_get(out, f)); f = f + 1; }
-            else { mid = list_push(mid, list_get(out, b)); b = b - 1; }
+            if front == 1 {
+                mid = list_push(mid, list_get(out, f));
+                f = f + 1;
+            }
+            else {
+                mid = list_push(mid, list_get(out, b));
+                b = b - 1;
+            }
             front = 1 - front;
         }
         out = mid;
@@ -114,9 +123,15 @@ fn uniq_keys(w: World, sids: List[Int], gkind: Int, tcx: Int, tcy: Int) -> List[
             if list_get(keys, j) != k {
                 let mut nk: List[Int] = list_new();
                 let mut t: Int = 0;
-                while t < j { nk = list_push(nk, list_get(keys, t)); t = t + 1; }
+                while t < j {
+                    nk = list_push(nk, list_get(keys, t));
+                    t = t + 1;
+                }
                 nk = list_push(nk, k);
-                while t < list_len(keys) { nk = list_push(nk, list_get(keys, t)); t = t + 1; }
+                while t < list_len(keys) {
+                    nk = list_push(nk, list_get(keys, t));
+                    t = t + 1;
+                }
                 keys = nk;
             }
         }
@@ -154,7 +169,10 @@ pub fn groups_of(w: World, ids: List[Int], gkind: Int, tcx: Int, tcy: Int, rev: 
 pub fn grp_win(g: Groups, gi: Int) -> List[Int] {
     let mut off: Int = 0;
     let mut j: Int = 0;
-    while j < gi { off = off + list_get(g.bounds, j); j = j + 1; }
+    while j < gi {
+        off = off + list_get(g.bounds, j);
+        j = j + 1;
+    }
     let _r9 = list_slice(g.members, off, off + list_get(g.bounds, gi));
     return _r9;
 }

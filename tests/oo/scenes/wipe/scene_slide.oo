@@ -26,6 +26,7 @@ import "tests/oo/engine/easing_fns.oo";
 import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/digest_run.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 fn sl_stops() -> List[Int] {
     let mut s: List[Int] = list_new();
@@ -38,7 +39,10 @@ fn sl_stops() -> List[Int] {
 fn sl_goff(g: Groups, gi: Int) -> Int {
     let mut off: Int = 0;
     let mut j: Int = 0;
-    while j < gi { off = off + list_get(g.bounds, j); j = j + 1; }
+    while j < gi {
+        off = off + list_get(g.bounds, j);
+        j = j + 1;
+    }
     return off;
 }
 
@@ -48,7 +52,10 @@ fn grp_rev(g: Groups) -> Groups {
     while gi < list_len(g.keys) {
         let win: List[Int] = grp_win(g, gi);
         let mut j: Int = list_len(win) - 1;
-        while j >= 0 { m = list_push(m, list_get(win, j)); j = j - 1; }
+        while j >= 0 {
+            m = list_push(m, list_get(win, j));
+            j = j - 1;
+        }
         gi = gi + 1;
     }
     let _r1 = Groups { keys: g.keys, bounds: g.bounds, members: m };
@@ -65,7 +72,7 @@ fn sl_build(w: World, info: CanvasInfo) -> World {
         let id: Int = list_get(ids, k);
         let ch: Char = list_get(w2.chars, id);
         let ffg: Int = list_get(cmap, ch.row0 - info.tb);
-        w2 = w_path(w2, id, 0.8, 1, ez(6), 0 - 1, 0, 0, "input_path");
+        w2 = w_path(w2, id, wp_cfg(0.8, 1, ez(6), 0 - 1, 0, 0), "input_path");
         w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
         w2 = w_pos(w2, id, info.left - 1, ch.row0);
         w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");

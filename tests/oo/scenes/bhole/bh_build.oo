@@ -25,16 +25,16 @@ import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/geometry_fns.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
-import "tests/oo/engine/float_conv.oo";
-import "tests/oo/scenes/bhole/bh_parts.oo";
+import "tests/oo/scenes/bhole/bh_state.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 fn bh_ring1(w: World, id: Int, i: Int, ring: List[Int]) -> World {
-    let mut w2: World = w_path(w, id, 0.7, 1, ez(3), 0 - 1, 0, 0, "blackhole");
+    let mut w2: World = w_path(w, id, wp_cfg(0.7, 1, ez(3), 0 - 1, 0, 0), "blackhole");
     w2 = w_wp(w2, id, 0, list_get(ring, i * 2), list_get(ring, i * 2 + 1), list_new());
     w2 = w_scene(w2, id, 0, 0, 0, ez(0), "blackhole");
     w2 = w_frame(w2, id, 0, 42, 1, 16777215, 0 - 1, 0);
     w2 = w_reg(w2, id, 0, 1, "blackhole", EvAct { kind: 5, sid: "", num: 1, carg: 0 });
-    w2 = w_path(w2, id, 0.45, 0, ez(0), 0 - 1, 0, 1, "blackhole_rotation");
+    w2 = w_path(w2, id, wp_cfg(0.45, 0, ez(0), 0 - 1, 0, 1), "blackhole_rotation");
     let n: Int = list_len(ring) / 2;
     let mut j: Int = i;
     while j < n {
@@ -56,7 +56,7 @@ fn bh_dive(w: World, id: Int, sym: Int, ci: Int, sf: List[Int], info: CanvasInfo
     let sp: DRF = rng_unif(dr.r, 0.17, 0.30);
     w2 = w_rng(w2, sp.r);
     w2 = w_pos(w2, id, dc.v, dr.v);
-    w2 = w_path(w2, id, sp.v, 1, ez(16), 0 - 1, 0, 0, "singularity");
+    w2 = w_path(w2, id, wp_cfg(sp.v, 1, ez(16), 0 - 1, 0, 0), "singularity");
     w2 = w_wp(w2, id, 0, cc, cr, list_new());
     let ch: Char = list_get(w2.chars, id);
     let csid: String = w_auto_id(ch.sids);

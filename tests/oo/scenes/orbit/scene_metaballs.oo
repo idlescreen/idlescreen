@@ -55,13 +55,24 @@ pub fn metaballs_new(cells: List[CellGeom], info: CanvasInfo) -> Metaballs {
     return _r1;
 }
 
-fn metaballs_cell(m: Metaballs, c: CellGeom, b0x: Float, b0y: Float, b1x: Float, b1y: Float, b2x: Float, b2y: Float, b3x: Float, b3y: Float, fill_fade: Float, reveal_r: Float) -> PaintCell {
+type MbBalls = struct {
+    b0x: Float,
+    b0y: Float,
+    b1x: Float,
+    b1y: Float,
+    b2x: Float,
+    b2y: Float,
+    b3x: Float,
+    b3y: Float
+};
+
+fn metaballs_cell(m: Metaballs, c: CellGeom, balls: MbBalls, fill_fade: Float, reveal_r: Float) -> PaintCell {
     let mut locked: Int = 0;
     if c.fill == 0 && c.dist <= reveal_r { locked = 1; }
-    let d02: Float = (c.dx - b0x) * (c.dx - b0x) + (c.dy - b0y) * (c.dy - b0y) + 0.035;
-    let d12: Float = (c.dx - b1x) * (c.dx - b1x) + (c.dy - b1y) * (c.dy - b1y) + 0.035;
-    let d22: Float = (c.dx - b2x) * (c.dx - b2x) + (c.dy - b2y) * (c.dy - b2y) + 0.035;
-    let d32: Float = (c.dx - b3x) * (c.dx - b3x) + (c.dy - b3y) * (c.dy - b3y) + 0.035;
+    let d02: Float = (c.dx - balls.b0x) * (c.dx - balls.b0x) + (c.dy - balls.b0y) * (c.dy - balls.b0y) + 0.035;
+    let d12: Float = (c.dx - balls.b1x) * (c.dx - balls.b1x) + (c.dy - balls.b1y) * (c.dy - balls.b1y) + 0.035;
+    let d22: Float = (c.dx - balls.b2x) * (c.dx - balls.b2x) + (c.dy - balls.b2y) * (c.dy - balls.b2y) + 0.035;
+    let d32: Float = (c.dx - balls.b3x) * (c.dx - balls.b3x) + (c.dy - balls.b3y) * (c.dy - balls.b3y) + 0.035;
     let sum: Float = 0.22 / d02 + 0.24 / d12 + 0.20 / d22 + 0.21 / d32;
     let intensity: Float = clamp_f((sum - 0.85) / 2.4, 0.0, 1.0);
     let _r2 = math_paint_cell(c, m.info, m.palette, m.final_spec, intensity, locked, fill_fade);
@@ -96,9 +107,15 @@ pub fn metaballs_next(m: Metaballs) -> List[PaintCell] {
     let mut fill_fade: Float = 1.0;
     if progress > 0.72 { fill_fade = clamp_f((1.0 - progress) / 0.28, 0.0, 1.0); }
     let reveal_r: Float = progress * 1.85;
+    let balls: MbBalls = MbBalls {
+        b0x: b0x, b0y: b0y, b1x: b1x, b1y: b1y, b2x: b2x, b2y: b2y, b3x: b3x, b3y: b3y
+    };
     let mut j: Int = 0;
     while j < n {
-        out = list_push(out, metaballs_cell(m, list_get(m.cells, j), b0x, b0y, b1x, b1y, b2x, b2y, b3x, b3y, fill_fade, reveal_r));
+        out = list_push(
+            out,
+            metaballs_cell(m, list_get(m.cells, j), balls, fill_fade, reveal_r)
+        );
         j = j + 1;
     }
     return out;

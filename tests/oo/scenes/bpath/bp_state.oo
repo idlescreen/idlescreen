@@ -1,4 +1,4 @@
-// # bp_parts — binarypath representation state and build helpers
+// # bp_state — binarypath representation state and build helpers
 //
 // Logline: Shared types and pure build helpers for the BinaryPath port:
 // the BRep record (source id, eight binary char ids, pending list, home
@@ -25,6 +25,7 @@ import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/color_ops.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 pub type BRep = struct {
     cid: Int,
@@ -64,9 +65,18 @@ pub fn bp_coords(w: World, icol: Int, irow: Int, info: CanvasInfo) -> CPR {
     let d5: DR = rng_pick(d4.r, 4);
     let mut sc: Int = d1.v;
     let mut sr: Int = info.top + 1;
-    if d5.v == 1 { sc = d2.v; sr = info.bottom - 1; }
-    if d5.v == 2 { sc = info.left - 1; sr = d3.v; }
-    if d5.v == 3 { sc = info.right + 1; sr = d4.v; }
+    if d5.v == 1 {
+        sc = d2.v;
+        sr = info.bottom - 1;
+    }
+    if d5.v == 2 {
+        sc = info.left - 1;
+        sr = d3.v;
+    }
+    if d5.v == 3 {
+        sc = info.right + 1;
+        sr = d4.v;
+    }
     let mut pts: List[Int] = list_push(list_new(), sc * 1000 + sr);
     let d6: DR = rng_pick(d5.r, 2);
     let mut seg: BSeg = BSeg { nc: sc, nr: sr, lo: d6.v, r: d6.r };
@@ -116,7 +126,7 @@ pub fn bp_provision(w: World, rep: BRep, pts: List[Int]) -> World {
     while k < list_len(rep.bins) {
         let bid: Int = list_get(rep.bins, k);
         w2 = w_pos(w2, bid, list_get(pts, 0) / 1000, list_get(pts, 0) % 1000);
-        w2 = w_path(w2, bid, 2.0, 0, ez(0), 0 - 1, 0, 0, "");
+        w2 = w_path(w2, bid, wp_cfg(2.0, 0, ez(0), 0 - 1, 0, 0), "");
         let mut j: Int = 0;
         while j < list_len(pts) {
             w2 = w_wp(w2, bid, 0, list_get(pts, j) / 1000, list_get(pts, j) % 1000, list_new());
@@ -167,7 +177,10 @@ pub fn bp_travel(w: World, rep: BRep) -> ST {
     let mut rep3: BRep = rep;
     if done == 1 {
         let mut j: Int = 0;
-        while j < list_len(rep.bins) { w3 = w_set_vis(w3, list_get(rep.bins, j), 0); j = j + 1; }
+        while j < list_len(rep.bins) {
+            w3 = w_set_vis(w3, list_get(rep.bins, j), 0);
+            j = j + 1;
+        }
         rep3 = BRep { cid: rep.cid, bins: rep.bins, pb: rep.pb, icol: rep.icol, irow: rep.irow, act: 0 };
         w3 = w_set_vis(w3, rep.cid, 1);
         w3 = w_aset(w3, rep.cid, 0);

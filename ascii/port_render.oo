@@ -60,12 +60,34 @@ pub fn port_lines(wordmark: String, cols: Int, rows: Int) -> List[String] {
     return out;
 }
 
-pub fn port_render(pcs: List[PaintCell], cols: Int, rows: Int) -> String {
+type PortInk = struct {
+    fr: Int,
+    fg: Int,
+    fb: Int,
+    bold: Int
+};
+
+type PortEmit = struct {
+    text: String,
+    ink: PortInk
+};
+
+fn port_emit_cell(c: PaintCell, ink: PortInk) -> PortEmit {
+    let mut t: String = "";
+    let mut nk: PortInk = ink;
+    if c.fr != ink.fr || c.fg != ink.fg || c.fb != ink.fb || c.bold != ink.bold {
+        t = t + port_esc("0m");
+        if c.bold == 1 { t = t + port_esc("1m"); }
+        t = t + port_esc("38;2;" + c.fr.to_string() + ";" + c.fg.to_string() + ";" + c.fb.to_string() + "m");
+        nk = PortInk { fr: c.fr, fg: c.fg, fb: c.fb, bold: c.bold };
+    }
+    t = t + port_glyph(c.ord);
+    return PortEmit { text: t, ink: nk };
+}
+
+pub fn port_render(pcs: &List[PaintCell], cols: Int, rows: Int) -> String {
     let mut out: String = port_esc("H");
-    let mut lfr: Int = -1;
-    let mut lfg: Int = -1;
-    let mut lfb: Int = -1;
-    let mut lbold: Int = -1;
+    let mut ink: PortInk = PortInk { fr: -1, fg: -1, fb: -1, bold: -1 };
     let mut r: Int = 1;
     while r <= rows {
         let gy: Int = rows - r;
@@ -74,13 +96,9 @@ pub fn port_render(pcs: List[PaintCell], cols: Int, rows: Int) -> String {
             let idx: Int = gy * cols + gx;
             if idx < list_len(pcs) {
                 let c: PaintCell = list_get(pcs, idx);
-                if c.fr != lfr || c.fg != lfg || c.fb != lfb || c.bold != lbold {
-                    out = out + port_esc("0m");
-                    if c.bold == 1 { out = out + port_esc("1m"); }
-                    out = out + port_esc("38;2;" + c.fr.to_string() + ";" + c.fg.to_string() + ";" + c.fb.to_string() + "m");
-                    lfr = c.fr; lfg = c.fg; lfb = c.fb; lbold = c.bold;
-                }
-                out = out + port_glyph(c.ord);
+                let em: PortEmit = port_emit_cell(c, ink);
+                out = out + em.text;
+                ink = em.ink;
             } else {
                 out = out + " ";
             }

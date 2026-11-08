@@ -1,19 +1,18 @@
 // # Self Environment - Jail-Safe Environment Reads
 //
 // Logline: Reads launch environment variables from /proc/self/environ, which the FS jail always allows.
-// Setup: Requires FsReadCap for /proc/self/environ; falls back to the shell-based host_env probe.
+// Setup: Requires FsReadCap for /proc/self/environ and ProcessCap for the parent-environ shell probe.
 // Beats:
 //   1. Read the NUL-separated environment block of this process.
 //   2. Return the value of the first entry matching the requested key.
-//   3. Fall back to host_env when the key is absent from the block.
+//   3. Fall back to the OO_-mirrored key, then the parent environ block.
 
 import "oostd/fs/os/fs.oo";
 import "shell.oo";
 
 // Value of key in this process's own environment block, or "" when absent.
-// env_get only serves OO_/OODA_ keys and spawned shells get a scrubbed
-// environment, so neither can see HOME/XDG_RUNTIME_DIR/WAYLAND_DISPLAY;
-// /proc/self/environ holds the environment the binary was launched with.
+// /proc/self/environ holds the environment the binary was launched with,
+// which covers HOME/XDG_RUNTIME_DIR/WAYLAND_DISPLAY that env_get cannot see.
 pub fn self_env(fs_r: &FsReadCap, key: String) -> String {
     let content: String = match fs_read_file(fs_r, "/proc/self/environ") { Ok(v) => v, Err(_) => "" };
     if content == "" { return ""; }
@@ -37,18 +36,30 @@ pub fn self_env(fs_r: &FsReadCap, key: String) -> String {
     return "";
 }
 
+// Read an environment variable without an EnvCap: this process's environ block
+// first, then the OO_-mirrored key, then the parent environ block via shell.
+pub fn host_env(fs_r: &FsReadCap, proc: &ProcessCap, key: String) -> String {
+    let v0: String = str_trim(self_env(fs_r, key));
+    if v0 != "" { return v0; }
+    let v1: String = str_trim(self_env(fs_r, "OO_" + key));
+    if v1 != "" { return v1; }
+    let qk: String = shell_quote(key + "=");
+    let cmd: String = "tr '\\0' '\\n' < /proc/$PPID/environ 2>/dev/null | grep -m1 ^" + qk + " | cut -d= -f2-";
+    return shell_out(proc, cmd);
+}
+
 // host_env with the jail-safe self-environ read tried first.
-pub fn host_env_fs(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap, key: String) -> String {
+pub fn host_env_fs(fs_r: &FsReadCap, proc: &ProcessCap, key: String) -> String {
     let v: String = str_trim(self_env(fs_r, key));
     if v != "" { return v; }
-    return host_env(proc, env, key);
+    return host_env(fs_r, proc, key);
 }
 
 // The per-user runtime dir. The shell prelude in shell_out restores
 // XDG_RUNTIME_DIR (default /run/user/<uid>) for child shells, so the echo
 // fallback resolves even when no OO_ mirror exists in the launch env.
-pub fn runtime_dir(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> String {
-    let v: String = host_env_fs(fs_r, proc, env, "XDG_RUNTIME_DIR");
+pub fn runtime_dir(fs_r: &FsReadCap, proc: &ProcessCap) -> String {
+    let v: String = host_env_fs(fs_r, proc, "XDG_RUNTIME_DIR");
     if v != "" { return v; }
     let sh: String = shell_out(proc, "echo \"$XDG_RUNTIME_DIR\"");
     if sh != "" { return sh; }
@@ -63,6 +74,6 @@ pub fn ctl_socket_from(rtd: String, prog: String) -> String {
 }
 
 // Control socket path for one persona: $XDG_RUNTIME_DIR/<prog>/control.sock.
-pub fn ctl_socket_path(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap, prog: String) -> String {
-    return ctl_socket_from(runtime_dir(fs_r, proc, env), prog);
+pub fn ctl_socket_path(fs_r: &FsReadCap, proc: &ProcessCap, prog: String) -> String {
+    return ctl_socket_from(runtime_dir(fs_r, proc), prog);
 }

@@ -33,6 +33,8 @@ pub fn cli_help(prog: String) -> Int {
     println("  start|stop|toggle    control the saver via the daemon socket");
     println("  enable|disable|restart|service|uninstall   service management verbs");
     println("misc:");
+    println("  about                 print the five-field identity and theme card");
+    println("  --theme NAME          select the ootheme preset (1982, ooda-dark, ...)");
     println("  --self-test          run the internal self-check");
     println("  --json               emit the machine descriptor");
     println("  --version            print the version line");

@@ -44,7 +44,10 @@ fn block_rows(ch: String, style: String) -> List[Int] {
         let mut out: List[Int] = rows_pack(0, 0, 0, 0, 0, 0, 0, 0);
         let m: List[Int] = rows_pack(255, 255, 255, 255, 255, 255, 255, 255);
         let mut i: Int = 0;
-        while i < 8 { out = list_push(out, list_get(m, i)); i = i + 1; }
+        while i < 8 {
+            out = list_push(out, list_get(m, i));
+            i = i + 1;
+        }
         return out;
     }
     if ch == "▌" { return rows_rep(240); }

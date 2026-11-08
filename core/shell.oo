@@ -27,17 +27,6 @@ pub fn shell_out(proc: &ProcessCap, cmd: String) -> String {
     return str_trim(match res { Ok(v) => v, Err(_) => "" });
 }
 
-// Read an environment variable from the parent process (/proc/$PPID/environ) or EnvCap.
-pub fn host_env(proc: &ProcessCap, env: &EnvCap, key: String) -> String {
-    let v0: String = match env_get(env, key) { Ok(s) => str_trim(s), Err(_) => "" };
-    if v0 != "" { return v0; }
-    let v1: String = match env_get(env, "OO_" + key) { Ok(s) => str_trim(s), Err(_) => "" };
-    if v1 != "" { return v1; }
-    let qk: String = shell_quote(key + "=");
-    let cmd: String = "tr '\\0' '\\n' < /proc/$PPID/environ 2>/dev/null | grep -m1 ^" + qk + " | cut -d= -f2-";
-    return shell_out(proc, cmd);
-}
-
 pub fn frame_arena_open(ar: &ArenaCap) -> Int {
     let res: Result[String, String] = arena_create(ar, 67108864);
     if res.is_err() { return -1; }

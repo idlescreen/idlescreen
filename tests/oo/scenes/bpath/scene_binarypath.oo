@@ -25,7 +25,7 @@ import "tests/oo/engapi/char_groups.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/float_conv.oo";
-import "tests/oo/scenes/bpath/bp_parts.oo";
+import "tests/oo/scenes/bpath/bp_state.oo";
 import "tests/digest_run.oo";
 
 fn bp_build(w: World, info: CanvasInfo) -> BRS {
@@ -85,11 +85,15 @@ fn bp_wipe2(w: World, g: Groups, q: List[Int]) -> WQ {
 
 pub fn binarypath_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
     let bs: BRS = bp_build(w_input(info, lines, rng_seed(42)), info);
+    let bs_max: Int = bs.max;
     let mut w: World = bs.w;
     let g: Groups = groups_of(w, collect_ids(w, 1), 2, 0, 0, 1);
     let mut wq: List[Int] = list_new();
     let mut gi: Int = 0;
-    while gi < list_len(g.keys) { wq = list_push(wq, gi); gi = gi + 1; }
+    while gi < list_len(g.keys) {
+        wq = list_push(wq, gi);
+        gi = gi + 1;
+    }
     let mut pend: List[BRep] = bs.pend;
     let mut areps: List[BRep] = list_new();
     let mut phase: Int = 0;
@@ -98,7 +102,7 @@ pub fn binarypath_run(cells: List[CellGeom], info: CanvasInfo, lines: List[Strin
     let _ = cells;
     while done == 0 || list_len(w.active) > 0 {
         if phase == 0 {
-            let t: BTA = bp_travel_all(w, pend, areps, bs.max);
+            let t: BTA = bp_travel_all(w, pend, areps, bs_max);
             w = t.w;
             pend = t.pend;
             areps = t.areps;

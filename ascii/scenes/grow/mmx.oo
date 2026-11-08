@@ -19,7 +19,10 @@ fn mmx_draw_sprite(g: CellGrid, bx: Int, by: Int, pose: Int, charge: Int) -> Cel
     let bg: Int = rgb(4, 6, 12);
     if pose == 0 {
         let mut ry: Int = 0;
-        while ry <= by { out = cv_put_b(out, bx + 1, ry, "█", rgb(192, 240, 248), bg, true); ry = ry + 1; }
+        while ry <= by {
+            out = cv_put_b(out, bx + 1, ry, "█", rgb(192, 240, 248), bg, true);
+            ry = ry + 1;
+        }
         return out;
     }
     out = cv_put_b(out, bx + 1, by - 3, "▄", lite, bg, true);
@@ -36,6 +39,23 @@ fn mmx_draw_sprite(g: CellGrid, bx: Int, by: Int, pose: Int, charge: Int) -> Cel
     return out;
 }
 
+fn mmx_diamond(out: CellGrid, bx: Int, cy: Int, rad: Int, f: Int, bg: Int) -> CellGrid {
+    let mut o: CellGrid = out;
+    let mut dy: Int = 0 - rad;
+    while dy <= rad {
+        let mut dx: Int = 0 - rad;
+        while dx <= rad {
+            if iabs(dx) + iabs(dy) == rad {
+                let c: Int = if f >= 26 { rgb(248, 80, 168) } else { rgb(48, 232, 248) };
+                o = cv_put_b(o, bx + 4 + dx, cy - 1 + dy, "░", c, bg, true);
+            }
+            dx = dx + 1;
+        }
+        dy = dy + 1;
+    }
+    return o;
+}
+
 pub fn scene_mmx(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = cv_fill(g, " ", rgb(40, 50, 80), rgb(4, 6, 12));
     let bg: Int = rgb(4, 6, 12);
@@ -49,18 +69,7 @@ pub fn scene_mmx(g: CellGrid, tick: Int) -> CellGrid {
     out = mmx_draw_sprite(out, bx, cy + 1, 1, chg);
     if f <= 36 {
         let rad: Int = 1 + ((36 - f) % 4);
-        let mut dy: Int = 0 - rad;
-        while dy <= rad {
-            let mut dx: Int = 0 - rad;
-            while dx <= rad {
-                if iabs(dx) + iabs(dy) == rad {
-                    let c: Int = if f >= 26 { rgb(248, 80, 168) } else { rgb(48, 232, 248) };
-                    out = cv_put_b(out, bx + 4 + dx, cy - 1 + dy, "░", c, bg, true);
-                }
-                dx = dx + 1;
-            }
-            dy = dy + 1;
-        }
+        out = mmx_diamond(out, bx, cy, rad, f, bg);
         out = cv_put_b(out, bx + 4, cy - 1, "█", rgb(255, 240, 144), bg, true);
         return out;
     }

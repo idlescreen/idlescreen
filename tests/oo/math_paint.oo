@@ -14,7 +14,8 @@ import "tests/oo/bevel_band.oo";
 import "tests/shade_float.oo";
 import "tests/oo/pixel_glyph.oo";
 
-pub fn math_paint_cell(c: CellGeom, info: CanvasInfo, palette: List[Int], final_spec: List[Int], intensity: Float, locked: Int, fill_fade: Float) -> PaintCell {
+pub fn math_paint_cell(c: CellGeom, info: CanvasInfo, palette: List[Int], final_spec: List[Int], intensity: Float,
+    locked: Int, fill_fade: Float)-> PaintCell {
     let gx: Int = c.col - 1;
     let gy: Int = info.rows - c.row;
     if c.fill == 0 && locked == 1 {

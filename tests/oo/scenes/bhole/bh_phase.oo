@@ -25,7 +25,8 @@ import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/geometry_fns.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
-import "tests/oo/scenes/bhole/bh_parts.oo";
+import "tests/oo/scenes/bhole/bh_state.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 pub fn bh_rotate(w: World, bh: List[Int]) -> World {
     let mut w2: World = w;
@@ -67,9 +68,9 @@ fn bh_coll1(w: World, id: Int, nc: Int, nr: Int, cc: Int, cr: Int, first: Int) -
     let ep: String = w_auto_id(ch.pids);
     let cp: String = w_auto_id(list_push(ch.pids, ep));
     let epi: Int = list_len(ch.pids);
-    let mut w2: World = w_path(w, id, 0.2, 1, ez(16), 0 - 1, 0, 0, "");
+    let mut w2: World = w_path(w, id, wp_cfg(0.2, 1, ez(16), 0 - 1, 0, 0), "");
     w2 = w_wp(w2, id, epi, nc, nr, list_new());
-    w2 = w_path(w2, id, 0.3, 1, ez(16), 0 - 1, 0, 0, "");
+    w2 = w_path(w2, id, wp_cfg(0.3, 1, ez(16), 0 - 1, 0, 0), "");
     w2 = w_wp(w2, id, epi + 1, cc, cr, list_new());
     w2 = w_reg(w2, id, 1, 1, ep, EvAct { kind: 0, sid: cp, num: 0, carg: 0 });
     if first == 1 { w2 = bh_point(w2, id, cp); }
@@ -102,11 +103,11 @@ fn bh_expl1(w: World, id: Int, fmap: List[Int], info: CanvasInfo) -> World {
     let npi: Int = list_len(ch.pids);
     let d2: DR = rng_int(w2.rng, 6, 9);
     w2 = w_rng(w2, d2.r);
-    w2 = w_path(w2, id, int_to_f(d2.v) / 10.0, 1, ez(17), 0 - 1, 0, 0, "");
+    w2 = w_path(w2, id, wp_cfg(int_to_f(d2.v) / 10.0, 1, ez(17), 0 - 1, 0, 0), "");
     w2 = w_wp(w2, id, npi, list_get(circ, d1.v * 2), list_get(circ, d1.v * 2 + 1), list_new());
     let d3: DR = rng_int(w2.rng, 10, 16);
     w2 = w_rng(w2, d3.r);
-    w2 = w_path(w2, id, int_to_f(d3.v) / 100.0, 1, ez(7), 0 - 1, 0, 0, "");
+    w2 = w_path(w2, id, wp_cfg(int_to_f(d3.v) / 100.0, 1, ez(7), 0 - 1, 0, 0), "");
     w2 = w_wp(w2, id, npi + 1, ch.col0, ch.row0, list_new());
     let d4: DR = rng_pick(w2.rng, 6);
     w2 = w_rng(w2, d4.r);

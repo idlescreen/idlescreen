@@ -8,6 +8,7 @@
 //   3. Hand the resolved persona and its stripped arguments to the persona host.
 
 import "cli/dispatch.oo";
+import "cli/daemon_cmds.oo";
 import "daemon/run.oo";
 import "oostd/fs/process/process.oo";
 
@@ -23,21 +24,20 @@ pub fn idlescreen_persona_resolve(prog: String) -> String {
 fn strip_persona_args(args: List[String]) -> List[String] {
     let mut out: List[String] = list_new();
     let mut i: Int = 2;
-    while i < list_len(args) { out = list_push(out, list_get(args, i)); i = i + 1; }
+    while i < list_len(args) {
+        out = list_push(out, list_get(args, i));
+        i = i + 1;
+    }
     return out;
 }
 
 pub fn main(
     fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap,
-    bind: &BindCap, tcp: &TcpCap, env: &EnvCap,
-    proc: &ProcessCap, time: &TimeCap, rand: &RandCap,
-    ffi: &FfiCap, alloc: &AllocCap, ar: &ArenaCap, args: List[String]
+    bind: &BindCap,
+    proc: &ProcessCap, time: &TimeCap,
+    ffi: &FfiCap, ar: &ArenaCap
 ) -> Result[Int, String] {
-    let mut qi: Int = 0;
-    while qi < 8 {
-        let _q: Int = alloc_bytes(alloc, 1073741824);
-        qi = qi + 1;
-    }
+    let args: List[String] = process_args(proc);
     let prog: String = sys_argv0(proc);
     let mut persona: String = idlescreen_persona_resolve(prog);
     let mut args2: List[String] = args;
@@ -51,7 +51,10 @@ pub fn main(
         args2 = strip_persona_args(args2);
     }
     if persona == "ooidle" {
-        return Ok(ooidle_persona_run(fs_r, fs_w, fs, proc, bind, tcp, env, time, rand, args2));
+        return Ok(ooidle_persona_run(fs_r, fs_w, fs, proc, bind, time, args2));
     }
-    return Ok(idlescreen_cli_run(fs_r, fs_w, fs, bind, tcp, env, proc, time, rand, ffi, ar, args2));
+    if list_len(args2) > 0 && to_lowercase(str_trim(list_get(args2, 0))) == "daemon" {
+        return Ok(cmd_daemon(fs_r, proc, bind, fs, fs_w, time));
+    }
+    return Ok(idlescreen_cli_run(fs_r, fs_w, fs, proc, time, ffi, ar, args2));
 }

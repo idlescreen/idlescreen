@@ -55,6 +55,29 @@ pub fn post_vignette(g: CellGrid, k: Int) -> CellGrid {
     return out;
 }
 
+fn post_smear_dx(out: CellGrid, hot_x: Int, y: Int, hc: TerminalCell) -> CellGrid {
+    let mut o: CellGrid = out;
+    let mut dx: Int = 1;
+    while dx <= 5 {
+        let sch: String = if dx <= 2 { "▓" } else if dx <= 3 { "▒" } else { "░" };
+        let sfg: Int = if dx <= 2 {
+            rgb(230, 252, 255)
+        } else if dx <= 3 {
+            rgb(95, 225, 255)
+        } else {
+            rgb(42, 110, 210)
+        };
+        if hot_x - dx >= 0 && grid_get(o, hot_x - dx, y).ch == " " {
+            o = grid_set(o, hot_x - dx, y, cell_new(sch, sfg, hc.bg, dx <= 2));
+        }
+        if hot_x + dx < o.cols && grid_get(o, hot_x + dx, y).ch == " " {
+            o = grid_set(o, hot_x + dx, y, cell_new(sch, sfg, hc.bg, dx <= 2));
+        }
+        dx = dx + 1;
+    }
+    return o;
+}
+
 pub fn post_apply(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = g;
     let span: Int = if out.cols + out.rows * 2 + 28 > 0 { out.cols + out.rows * 2 + 28 } else { 1 };
@@ -65,18 +88,7 @@ pub fn post_apply(g: CellGrid, tick: Int) -> CellGrid {
         if hot_x >= 0 && hot_x < out.cols {
             let hc: TerminalCell = grid_get(out, hot_x, y);
             if hc.ch == "█" || hc.ch == "▀" || hc.ch == "▄" {
-                let mut dx: Int = 1;
-                while dx <= 5 {
-                    let sch: String = if dx <= 2 { "▓" } else if dx <= 3 { "▒" } else { "░" };
-                    let sfg: Int = if dx <= 2 { rgb(230, 252, 255) } else if dx <= 3 { rgb(95, 225, 255) } else { rgb(42, 110, 210) };
-                    if hot_x - dx >= 0 && grid_get(out, hot_x - dx, y).ch == " " {
-                        out = grid_set(out, hot_x - dx, y, cell_new(sch, sfg, hc.bg, dx <= 2));
-                    }
-                    if hot_x + dx < out.cols && grid_get(out, hot_x + dx, y).ch == " " {
-                        out = grid_set(out, hot_x + dx, y, cell_new(sch, sfg, hc.bg, dx <= 2));
-                    }
-                    dx = dx + 1;
-                }
+                out = post_smear_dx(out, hot_x, y, hc);
             }
         }
         y = y + 1;

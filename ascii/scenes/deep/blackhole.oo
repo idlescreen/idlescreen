@@ -12,6 +12,18 @@ import "core/grid.oo";
 import "core/imath.oo";
 import "ascii/canvas.oo";
 
+fn bh_arm_pixel(out: CellGrid, x: Int, y: Int, d: Int, cy: Int, tick: Int, dy: Int) -> CellGrid {
+    let mut o: CellGrid = out;
+    let arm: Int = isin(d * 90 - tick * 18 + dy * 40 / (d + 10));
+    if arm > 550 && d < cy {
+        let heat: Int = 255 - d * 18;
+        let mut hh: Int = heat;
+        if hh < 40 { hh = 40; }
+        o = cv_put(o, x, y, "░", rgb(hh, hh * 2 / 3, 60), rgb(2, 1, 6));
+    }
+    return o;
+}
+
 pub fn scene_blackhole(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = cv_fill(g, " ", rgb(20, 15, 35), rgb(2, 1, 6));
     let cx: Int = g.cols / 2;
@@ -28,13 +40,7 @@ pub fn scene_blackhole(g: CellGrid, tick: Int) -> CellGrid {
             } else if d < 3 {
                 out = cv_put(out, x, y, "▓", rgb(255, 230, 160), rgb(10, 5, 2));
             } else {
-                let arm: Int = isin(d * 90 - tick * 18 + dy * 40 / (d + 10));
-                if arm > 550 && d < cy {
-                    let heat: Int = 255 - d * 18;
-                    let mut hh: Int = heat;
-                    if hh < 40 { hh = 40; }
-                    out = cv_put(out, x, y, "░", rgb(hh, hh * 2 / 3, 60), rgb(2, 1, 6));
-                }
+                out = bh_arm_pixel(out, x, y, d, cy, tick, dy);
             }
             x = x + 1;
         }

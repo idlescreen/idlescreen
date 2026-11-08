@@ -22,25 +22,34 @@ pub type Chaos = struct {
 
 fn chaos_stops() -> List[Int] {
     let mut s: List[Int] = list_new();
-    s = list_push(s, 2361404); s = list_push(s, 8069026);
-    s = list_push(s, 15022389); s = list_push(s, 16757504);
+    s = list_push(s, 2361404);
+    s = list_push(s, 8069026);
+    s = list_push(s, 15022389);
+    s = list_push(s, 16757504);
     let _r1 = list_push(s, 16775393);
     return _r1;
 }
 
 fn step_lorenz(c: Chaos) -> Chaos {
-    let mut sx: Float = c.sx; let mut sy: Float = c.sy; let mut sz: Float = c.sz;
-    let mut tx: List[Float] = c.tx; let mut ty: List[Float] = c.ty;
-    let dt: Float = 0.0085; let beta: Float = 8.0 / 3.0;
+    let mut sx: Float = c.sx;
+    let mut sy: Float = c.sy;
+    let mut sz: Float = c.sz;
+    let mut tx: List[Float] = c.tx;
+    let mut ty: List[Float] = c.ty;
+    let dt: Float = 0.0085;
+    let beta: Float = 8.0 / 3.0;
     let mut step: Int = 0;
     while step < 4 {
         let dx: Float = 10.0 * (sy - sx);
         let dy: Float = sx * (28.0 - sz) - sy;
         let dz: Float = sx * sy - beta * sz;
-        sx = sx + dx * dt; sy = sy + dy * dt; sz = sz + dz * dt;
+        sx = sx + dx * dt;
+        sy = sy + dy * dt;
+        sz = sz + dz * dt;
         let px: Float = clamp_f(sx / 22.0, 0.0 - 1.4, 1.4);
         let py: Float = clamp_f((sz - 25.0) / 22.0, 0.0 - 1.0, 1.0);
-        let mut ntx: List[Float] = list_new(); let mut nty: List[Float] = list_new();
+        let mut ntx: List[Float] = list_new();
+        let mut nty: List[Float] = list_new();
         let n: Int = list_len(tx);
         let mut i: Int = if n >= 48 { 1 } else { 0 };
         while i < n {
@@ -48,7 +57,8 @@ fn step_lorenz(c: Chaos) -> Chaos {
             nty = list_push(nty, list_get(ty, i));
             i = i + 1;
         }
-        tx = list_push(ntx, px); ty = list_push(nty, py);
+        tx = list_push(ntx, px);
+        ty = list_push(nty, py);
         step = step + 1;
     }
     let _r2 = Chaos {
@@ -72,7 +82,10 @@ pub fn chaos_new(cells: List[CellGeom], info: CanvasInfo) -> Chaos {
         tx: list_new(), ty: list_new(), info: info
     };
     let mut init_i: Int = 0;
-    while init_i < 13 { c = step_lorenz(c); init_i = init_i + 1; }
+    while init_i < 13 {
+        c = step_lorenz(c);
+        init_i = init_i + 1;
+    }
     return c;
 }
 
@@ -82,7 +95,10 @@ fn chaos_cell(c: Chaos, g: CellGeom, n_trail: Float, fill_fade: Float, reveal_ra
     let n: Int = list_len(c.tx);
     let mut i: Int = 0;
     while i < n {
-        let d2: Float = (g.dx - list_get(c.tx, i)) * (g.dx - list_get(c.tx, i)) + (g.dy - list_get(c.ty, i)) * (g.dy - list_get(c.ty, i));
+        let d2: Float =(g.dx - list_get(
+            c.tx,
+            i
+        ))*(g.dx - list_get(c.tx, i))+(g.dy - list_get(c.ty, i))*(g.dy - list_get(c.ty, i));
         if d2 < 0.18 {
             let glow: Float = exp(0.0 - d2 * 22.0) * (0.35 + 0.65 * (int_to_f(i + 1) / n_trail));
             if glow > best { best = glow; }
@@ -104,7 +120,10 @@ pub fn chaos_next(c: Chaos) -> List[PaintCell] {
     let n: Int = list_len(c.cells);
     if c.frame + 1 == 64 {
         let mut i: Int = 0;
-        while i < n { out = list_push(out, settle_paint_cell(list_get(c.cells, i), c.info)); i = i + 1; }
+        while i < n {
+            out = list_push(out, settle_paint_cell(list_get(c.cells, i), c.info));
+            i = i + 1;
+        }
         return out;
     }
     let progress: Float = (c.frame_f + 1.0) / 64.0;

@@ -11,6 +11,27 @@ import "core/cell.oo";
 import "core/grid.oo";
 import "ascii/canvas.oo";
 
+fn starfield_cell(out: CellGrid, x: Int, y: Int, bg: Int, tick: Int, d1: Int, d2: Int, d3: Int) -> CellGrid {
+    let h1: Int = cv_hash(x + tick / 2, y, 31) % 1000;
+    let h2: Int = cv_hash(x + tick / 4, y + tick / 8, 67) % 1000;
+    let h3: Int = cv_hash(x + tick / 7, y, 131) % 1000;
+    let mut o: CellGrid = out;
+    if h1 < d1 {
+        let phase1: Int = (h1 + tick / 6) % 2;
+        let ch1: String = if phase1 == 0 { "▘" } else { "▝" };
+        let fg1: Int = if h1 % 4 == 0 { rgb(255, 200, 60) } else { rgb(95, 220, 255) };
+        o = grid_set(o, x, y, cell_new(ch1, fg1, bg, true));
+    } else if h2 < d2 {
+        let phase2: Int = (h2 + tick / 10) % 2;
+        let ch2: String = if phase2 == 0 { "▗" } else { "▖" };
+        let fg2: Int = if h2 % 2 == 0 { rgb(215, 85, 210) } else { rgb(130, 95, 255) };
+        o = grid_set(o, x, y, cell_new(ch2, fg2, bg, false));
+    } else if h3 < d3 {
+        o = grid_set(o, x, y, cell_new("░", rgb(40, 78, 156), bg, false));
+    }
+    return o;
+}
+
 pub fn starfield_seed(g: CellGrid, tick: Int, density_x1000: Int) -> CellGrid {
     let mut out: CellGrid = g;
     let d1: Int = if density_x1000 > 4 { density_x1000 / 3 } else { 3 };
@@ -22,22 +43,7 @@ pub fn starfield_seed(g: CellGrid, tick: Int, density_x1000: Int) -> CellGrid {
         while x < out.cols {
             let cell: TerminalCell = grid_get(out, x, y);
             if cell.ch == " " {
-                let h1: Int = cv_hash(x + tick / 2, y, 31) % 1000;
-                let h2: Int = cv_hash(x + tick / 4, y + tick / 8, 67) % 1000;
-                let h3: Int = cv_hash(x + tick / 7, y, 131) % 1000;
-                if h1 < d1 {
-                    let phase1: Int = (h1 + tick / 6) % 2;
-                    let ch1: String = if phase1 == 0 { "▘" } else { "▝" };
-                    let fg1: Int = if h1 % 4 == 0 { rgb(255, 200, 60) } else { rgb(95, 220, 255) };
-                    out = grid_set(out, x, y, cell_new(ch1, fg1, cell.bg, true));
-                } else if h2 < d2 {
-                    let phase2: Int = (h2 + tick / 10) % 2;
-                    let ch2: String = if phase2 == 0 { "▗" } else { "▖" };
-                    let fg2: Int = if h2 % 2 == 0 { rgb(215, 85, 210) } else { rgb(130, 95, 255) };
-                    out = grid_set(out, x, y, cell_new(ch2, fg2, cell.bg, false));
-                } else if h3 < d3 {
-                    out = grid_set(out, x, y, cell_new("░", rgb(40, 78, 156), cell.bg, false));
-                }
+                out = starfield_cell(out, x, y, cell.bg, tick, d1, d2, d3);
             }
             x = x + 1;
         }

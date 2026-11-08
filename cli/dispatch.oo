@@ -9,11 +9,14 @@
 
 import "help.oo";
 import "saver_cmds.oo";
+import "preview/cmds.oo";
 import "daemon_cmds.oo";
 import "service_cmds.oo";
 import "doctor.oo";
 import "daemon/run.oo";
 import "tui/run.oo";
+import "about/theme.oo";
+import "about/card.oo";
 
 fn cli_self_test() -> Int {
     println("self-test: idlescreen 5.0.3");
@@ -24,58 +27,76 @@ fn cli_self_test() -> Int {
     return 0;
 }
 
-fn dispatch_service_ctl(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, env: &EnvCap, ffi: &FfiCap, time: &TimeCap, ar: &ArenaCap, verb: String, rest: List[String]) -> Int {
+type SvcReq = struct {
+    verb: String,
+    rest: List[String]
+};
+
+fn dispatch_service_ctl(fs_r:&FsReadCap, fs:&FsCap, fw:&FsWriteCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap,
+    ar:&ArenaCap, req: SvcReq)-> Int {
+    let verb: String = req.verb;
+    let rest: List[String] = req.rest;
     if verb == "start" {
-        if ooidle_notify(fs_r, fs, fw, proc, env, "idlescreen", "start") {
+        if ooidle_notify(fs_r, fs, fw, proc, "idlescreen", "start") {
             println("Daemon response: Activated screensaver");
             return 0;
         }
-        return cmd_preview(fs_r, proc, env, ffi, time, ar, rest);
+        return cmd_preview(fs_r, proc, ffi, time, ar, rest);
     }
     if verb == "stop" || verb == "sleep" || verb == "quit" {
-        return cmd_saver_ctl(fs_r, fs, fw, proc, env, verb);
+        return cmd_saver_ctl(fs_r, fs, fw, proc, verb);
     }
     if verb == "toggle" {
-        let res: Int = cmd_saver_ctl(fs_r, fs, fw, proc, env, "toggle");
+        let res: Int = cmd_saver_ctl(fs_r, fs, fw, proc, "toggle");
         if res == 0 { return 0; }
-        return cmd_service(fs_r, fs, fw, proc, env, "toggle");
+        return cmd_service(fs_r, fs, fw, proc, "toggle");
     }
     if verb == "enable" || verb == "disable" || verb == "restart" || verb == "reload" || verb == "install" || verb == "uninstall" {
-        return cmd_service(fs_r, fs, fw, proc, env, verb);
+        return cmd_service(fs_r, fs, fw, proc, verb);
     }
     if verb == "service" {
         let sub: String = if list_len(rest) > 0 { list_get(rest, 0) } else { "service" };
-        return cmd_service(fs_r, fs, fw, proc, env, sub);
+        return cmd_service(fs_r, fs, fw, proc, sub);
     }
     if verb == "inhibit" || verb == "uninhibit" || verb == "scene" {
         let arg: String = if list_len(rest) > 0 { list_get(rest, 0) } else { "" };
-        return cmd_saver_ctl(fs_r, fs, fw, proc, env, verb + " " + arg);
+        return cmd_saver_ctl(fs_r, fs, fw, proc, verb + " " + arg);
     }
     println("unknown command: " + verb + " — try `idlescreen help`");
     return 1;
 }
 
-pub fn idlescreen_cli_run(fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, bind: &BindCap, tcp: &TcpCap, env: &EnvCap, proc: &ProcessCap, time: &TimeCap, rand: &RandCap, ffi: &FfiCap, ar: &ArenaCap, args: List[String]) -> Int {
-    if list_len(args) == 0 { return cli_help("idlescreen"); }
-    let verb: String = to_lowercase(str_trim(list_get(args, 0)));
+pub fn idlescreen_cli_run(fs_r:&FsReadCap, fs_w:&FsWriteCap, fs:&FsCap,
+    proc:&ProcessCap, time:&TimeCap, ffi:&FfiCap, ar:&ArenaCap, args: List[String])-> Int {
+    let link: OothemeLink = idlescreen_ootheme_extract(args);
+    let cargs: List[String] = link.args;
+    let theme: String = link.theme;
+    if list_len(cargs) == 0 { return cli_help("idlescreen"); }
+    let verb: String = to_lowercase(str_trim(list_get(cargs, 0)));
     let mut rest: List[String] = list_new();
     let mut i: Int = 1;
-    while i < list_len(args) { rest = list_push(rest, list_get(args, i)); i = i + 1; }
-    if verb == "--version" || verb == "version" || verb == "-V" { println(cli_version_line("idlescreen")); return 0; }
+    while i < list_len(cargs) {
+        rest = list_push(rest, list_get(cargs, i));
+        i = i + 1;
+    }
+    if verb == "--version" || verb == "version" || verb == "-V" {
+        println(cli_version_line("idlescreen"));
+        return 0;
+    }
     if verb == "--help" || verb == "help" || verb == "-h" { return cli_help("idlescreen"); }
     if verb == "--self-test" { return cli_self_test(); }
     if verb == "--json" { return cli_json("idlescreen"); }
     if verb == "list" { return cmd_list(rest); }
-    if verb == "text" { return cmd_text(fs_r, proc, env, ffi, rest); }
-    if verb == "preview" { return cmd_preview(fs_r, proc, env, ffi, time, ar, rest); }
-    if verb == "set" { return cmd_set(fs_r, fs, fs_w, proc, env, rest); }
-    if verb == "tui" || verb == "ui" { return tui_run(fs_r, fs, fs_w, proc, env, ffi, time, ar); }
-    if verb == "daemon" { return cmd_daemon(fs_r, proc, bind, fs, fs_w, env, time); }
-    if verb == "__tick" { return ctl_tick_loop(fs_r, fs, fs_w, proc, env, time, "idlescreen"); }
-    if verb == "status" { return cmd_status(fs_r, fs, fs_w, proc, env); }
-    if verb == "inhibitors" { return cmd_inhibitors(fs_r, fs, fs_w, proc, env); }
-    if verb == "timeout" { return cmd_timeout(fs_r, fs, fs_w, proc, env, rest); }
-    if verb == "config" { return cmd_config(fs_r, proc, env); }
-    if verb == "doctor" { return cmd_doctor(fs_r, fs, fs_w, proc, env, rest); }
-    return dispatch_service_ctl(fs_r, fs, fs_w, proc, env, ffi, time, ar, verb, rest);
+    if verb == "text" { return cmd_text(fs_r, proc, ffi, rest); }
+    if verb == "preview" { return cmd_preview(fs_r, proc, ffi, time, ar, rest); }
+    if verb == "set" { return cmd_set(fs_r, fs, fs_w, proc, rest); }
+    if verb == "tui" || verb == "ui" { return tui_run(fs_r, fs, fs_w, proc, ffi, time, ar); }
+    if verb == "__tick" { return ctl_tick_loop(fs_r, fs, fs_w, proc, time, "idlescreen"); }
+    if verb == "status" { return cmd_status(fs_r, fs, fs_w, proc); }
+    if verb == "inhibitors" { return cmd_inhibitors(fs_r, fs, fs_w, proc); }
+    if verb == "timeout" { return cmd_timeout(fs_r, fs, fs_w, proc, rest); }
+    if verb == "config" { return cmd_config(fs_r, proc); }
+    if verb == "doctor" { return cmd_doctor(fs_r, fs, fs_w, proc, rest); }
+    if verb == "about" { return idlescreen_about(fs_r, proc, theme); }
+    return dispatch_service_ctl(fs_r, fs, fs_w, proc, ffi, time, ar, SvcReq { verb: verb, rest: rest });
 }

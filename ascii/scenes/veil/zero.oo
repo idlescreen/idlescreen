@@ -19,7 +19,10 @@ fn zero_draw_sprite(g: CellGrid, bx: Int, by: Int, pose: Int, saber: Bool) -> Ce
     let wht: Int = rgb(240, 240, 248);
     if pose == 0 {
         let mut ry: Int = 0;
-        while ry <= by { out = cv_put_b(out, bx + 1, ry, "█", rgb(255, 96, 128), bg, true); ry = ry + 1; }
+        while ry <= by {
+            out = cv_put_b(out, bx + 1, ry, "█", rgb(255, 96, 128), bg, true);
+            ry = ry + 1;
+        }
         return out;
     }
     out = cv_put_b(out, bx + 1, by - 3, "▄", red, bg, true);

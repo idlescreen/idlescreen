@@ -45,7 +45,10 @@ fn ov_copies(w: World, g: Groups) -> OvB {
     w2 = w_rng(w2, dc.r);
     let mut idx: List[Int] = list_new();
     let mut i0: Int = 0;
-    while i0 < list_len(g.keys) { idx = list_push(idx, i0); i0 = i0 + 1; }
+    while i0 < list_len(g.keys) {
+        idx = list_push(idx, i0);
+        i0 = i0 + 1;
+    }
     let mut cyc: Int = 0;
     while cyc < dc.v {
         let sh: DRL = rng_shuf(w2.rng, idx);
@@ -119,6 +122,14 @@ fn ov_paint(w: World, row: OvRow, fg: Int) -> World {
     return w2;
 }
 
+fn ov_row_paint(w2: World, row: OvRow, spec: List[Int]) -> World {
+    let head: Int = list_get(w2.chars, list_get(row.chars, 0)).cr;
+    let mut ix: Int = head;
+    if ix < 0 { ix = 0; }
+    if ix > list_len(spec) - 1 { ix = list_len(spec) - 1; }
+    return ov_paint(w2, row, list_get(spec, ix));
+}
+
 fn ov_burst(w: World, pend: List[OvRow], act: List[OvRow], spec: List[Int]) -> OvS {
     let dn: DR = rng_int(w.rng, 1, 3);
     let mut w2: World = w_rng(w, dn.r);
@@ -132,11 +143,7 @@ fn ov_burst(w: World, pend: List[OvRow], act: List[OvRow], spec: List[Int]) -> O
                 let row: OvRow = list_get(a2, r);
                 w2 = ov_move_up(w2, row);
                 if row.fin == 0 {
-                    let head: Int = list_get(w2.chars, list_get(row.chars, 0)).cr;
-                    let mut ix: Int = head;
-                    if ix < 0 { ix = 0; }
-                    if ix > list_len(spec) - 1 { ix = list_len(spec) - 1; }
-                    w2 = ov_paint(w2, row, list_get(spec, ix));
+                    w2 = ov_row_paint(w2, row, spec);
                 }
                 r = r + 1;
             }

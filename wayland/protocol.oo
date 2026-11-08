@@ -24,9 +24,9 @@ pub type WlMsg = struct {
     ok: Bool
 };
 
-pub fn wl_socket_path(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> String {
-    let rd: String = runtime_dir(fs_r, proc, env);
-    let mut dp: String = host_env_fs(fs_r, proc, env, "WAYLAND_DISPLAY");
+pub fn wl_socket_path(fs_r: &FsReadCap, proc: &ProcessCap) -> String {
+    let rd: String = runtime_dir(fs_r, proc);
+    let mut dp: String = host_env_fs(fs_r, proc, "WAYLAND_DISPLAY");
     if dp == "" {
         dp = shell_out(proc, "for s in " + shell_quote(rd) + "/wayland-*; do [ -S \"$s\" ] && basename \"$s\" && break; done");
     }
@@ -35,8 +35,8 @@ pub fn wl_socket_path(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> Stri
     return rd + "/" + dp;
 }
 
-pub fn wl_session_open(env: &EnvCap, fs: &FsReadCap) -> WlSession {
-    let dp: String = match env_get(env, "OO_WAYLAND_DISPLAY") { Ok(v) => v, Err(_) => "" };
+pub fn wl_session_open(fs: &FsReadCap) -> WlSession {
+    let dp: String = self_env(fs, "OO_WAYLAND_DISPLAY");
     return WlSession { runtime_dir: "", display: dp, socket_path: "", connected: false, slot: -1 };
 }
 
@@ -64,9 +64,15 @@ pub fn wl_put_string(b: List[Int], s: String) -> List[Int] {
     let padded: Int = (total + 3) / 4 * 4;
     let mut out: List[Int] = wl_put_u32(b, total);
     let mut i: Int = 0;
-    while i < n { out = bytes_push(out, byte_at(s, i)); i = i + 1; }
+    while i < n {
+        out = bytes_push(out, byte_at(s, i));
+        i = i + 1;
+    }
     let mut p: Int = n;
-    while p < padded { out = bytes_push(out, 0); p = p + 1; }
+    while p < padded {
+        out = bytes_push(out, 0);
+        p = p + 1;
+    }
     return out;
 }
 

@@ -12,6 +12,28 @@ import "core/grid.oo";
 import "core/imath.oo";
 import "ascii/canvas.oo";
 
+fn sg_pixel(out: CellGrid, x: Int, y: Int, cx: Int, horizon: Int, rows: Int, tick: Int) -> CellGrid {
+    let mut o: CellGrid = out;
+    if y < horizon {
+        let d: Int = idist((x - cx) * 55, (y - horizon + 6) * 100) / 100;
+        if d <= 7 {
+            let band: Bool = d >= 6;
+            let k: Int = if band { 120 } else { 60 + d * 30 };
+            o = cv_put(o, x, y, if band { "▒" } else { "█" }, cv_mix(rgb(120, 20, 80), rgb(255, 160, 60), k), rgb(8, 2, 18));
+        }
+    } else {
+        let depth: Int = (y - horizon) * 100 / (if rows - horizon > 0 { rows - horizon } else { 1 }) + 1;
+        let lane: Int = iabs((x - cx) * 60 / depth) % 6;
+        let scroll: Int = ((100 / depth) + tick / 2) % 4;
+        if lane == 0 && x != cx {
+            o = cv_put(o, x, y, "│", rgb(60, 220, 255), rgb(8, 2, 18));
+        } else if scroll == 0 && y % 2 == 0 {
+            o = cv_put(o, x, y, "─", rgb(200, 60, 180), rgb(8, 2, 18));
+        }
+    }
+    return o;
+}
+
 pub fn scene_synthgrid(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = cv_fill(g, " ", rgb(20, 10, 40), rgb(8, 2, 18));
     let horizon: Int = g.rows / 3;
@@ -20,23 +42,7 @@ pub fn scene_synthgrid(g: CellGrid, tick: Int) -> CellGrid {
     while y < g.rows {
         let mut x: Int = 0;
         while x < g.cols {
-            if y < horizon {
-                let d: Int = idist((x - cx) * 55, (y - horizon + 6) * 100) / 100;
-                if d <= 7 {
-                    let band: Bool = d >= 6;
-                    let k: Int = if band { 120 } else { 60 + d * 30 };
-                    out = cv_put(out, x, y, if band { "▒" } else { "█" }, cv_mix(rgb(120, 20, 80), rgb(255, 160, 60), k), rgb(8, 2, 18));
-                }
-            } else {
-                let depth: Int = (y - horizon) * 100 / (if g.rows - horizon > 0 { g.rows - horizon } else { 1 }) + 1;
-                let lane: Int = iabs((x - cx) * 60 / depth) % 6;
-                let scroll: Int = ((100 / depth) + tick / 2) % 4;
-                if lane == 0 && x != cx {
-                    out = cv_put(out, x, y, "│", rgb(60, 220, 255), rgb(8, 2, 18));
-                } else if scroll == 0 && y % 2 == 0 {
-                    out = cv_put(out, x, y, "─", rgb(200, 60, 180), rgb(8, 2, 18));
-                }
-            }
+            out = sg_pixel(out, x, y, cx, horizon, g.rows, tick);
             x = x + 1;
         }
         y = y + 1;

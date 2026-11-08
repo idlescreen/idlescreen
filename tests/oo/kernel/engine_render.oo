@@ -19,7 +19,10 @@ fn wins_for(w: World, cols: Int, rows: Int) -> List[Int] {
     let mut wins: List[Int] = list_new();
     let total: Int = cols * rows;
     let mut k: Int = 0;
-    while k < total { wins = list_push(wins, 0 - 1); k = k + 1; }
+    while k < total {
+        wins = list_push(wins, 0 - 1);
+        k = k + 1;
+    }
     let mut i: Int = 0;
     while i < list_len(w.chars) {
         let ch: Char = list_get(w.chars, i);

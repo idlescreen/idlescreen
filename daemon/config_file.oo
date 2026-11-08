@@ -61,11 +61,26 @@ pub fn config_load_toml(content: String) -> ConfigData {
     while i < list_len(lines) {
         let l: String = str_trim(list_get(lines, i));
         if str_starts_with(l, "idle_enabled") { c.idle_enabled = str_index_of(l, "true") >= 0; }
-        if str_starts_with(l, "idle_timeout_secs") { let v: Int = parse_int_digits(config_parse_str(l)); if v > 0 { c.idle_timeout_secs = v; } }
+        if str_starts_with(l, "idle_timeout_secs") {
+            let v: Int = parse_int_digits(config_parse_str(l));
+            if v > 0 {
+                c.idle_timeout_secs = v;
+            }
+        }
         if str_starts_with(l, "dpms_timeout_secs") { c.dpms_timeout_secs = parse_int_digits(config_parse_str(l)); }
-        if str_starts_with(l, "dwell_secs") { let v: Int = parse_int_digits(config_parse_str(l)); if v > 0 { c.dwell_secs = v; } }
+        if str_starts_with(l, "dwell_secs") {
+            let v: Int = parse_int_digits(config_parse_str(l));
+            if v > 0 {
+                c.dwell_secs = v;
+            }
+        }
         if str_starts_with(l, "fps") { c.fps = parse_int_digits(config_parse_str(l)); }
-        if str_starts_with(l, "active") { let s: String = config_parse_str(l); if s != "" { c.active = s; } }
+        if str_starts_with(l, "active") {
+            let s: String = config_parse_str(l);
+            if s != "" {
+                c.active = s;
+            }
+        }
         if str_starts_with(l, "custom_text") { c.custom_text = config_parse_str(l); }
         if str_starts_with(l, "use_os_brand") { c.use_os_brand = str_index_of(l, "true") >= 0; }
         if str_starts_with(l, "mode") {
@@ -115,10 +130,10 @@ pub fn config_to_toml(c: ConfigData) -> String {
 }
 
 // Config dir resolution: XDG_CONFIG_HOME, then $HOME/.config, then /etc.
-pub fn config_dir(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> String {
-    let xdg: String = host_env_fs(fs_r, proc, env, "XDG_CONFIG_HOME");
+pub fn config_dir(fs_r: &FsReadCap, proc: &ProcessCap) -> String {
+    let xdg: String = host_env_fs(fs_r, proc, "XDG_CONFIG_HOME");
     if xdg != "" { return xdg + "/idlescreen"; }
-    let home: String = host_env_fs(fs_r, proc, env, "HOME");
+    let home: String = host_env_fs(fs_r, proc, "HOME");
     if home != "" { return home + "/.config/idlescreen"; }
     let pw_home: String = shell_out(proc, "echo \"$HOME\"");
     if pw_home != "" { return pw_home + "/.config/idlescreen"; }
@@ -139,8 +154,8 @@ pub fn config_with(c: ConfigData, active: String, timeout_s: Int) -> ConfigData 
     };
 }
 
-pub fn config_read_file(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> ConfigData {
-    let dir: String = config_dir(fs_r, proc, env);
+pub fn config_read_file(fs_r: &FsReadCap, proc: &ProcessCap) -> ConfigData {
+    let dir: String = config_dir(fs_r, proc);
     if dir == "" { return config_default(); }
     let path: String = dir + "/config.toml";
     let mut content: String = match fs_read_file(fs_r, path) { Ok(v) => v, Err(_) => "" };
@@ -151,8 +166,8 @@ pub fn config_read_file(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap) -> Co
     return config_load_toml(content);
 }
 
-pub fn config_write_file(fs_r: &FsReadCap, proc: &ProcessCap, env: &EnvCap, c: ConfigData) -> Bool {
-    let dir: String = config_dir(fs_r, proc, env);
+pub fn config_commit(fs_r: &FsReadCap, proc: &ProcessCap, c: ConfigData) -> Bool {
+    let dir: String = config_dir(fs_r, proc);
     if dir == "" { return false; }
     // Refuse to persist over a config we could not parse: writing defaults
     // would silently discard the user's settings.

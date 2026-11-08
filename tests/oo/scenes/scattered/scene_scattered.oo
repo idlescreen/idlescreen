@@ -26,6 +26,7 @@ import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
 import "tests/digest_run.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 fn st_build(w: World, info: CanvasInfo) -> World {
     let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
@@ -43,7 +44,7 @@ fn st_build(w: World, info: CanvasInfo) -> World {
         let drow: DR = rng_int(dcol.r, info.bottom, info.top);
         w2 = w_rng(w2, drow.r);
         w2 = w_pos(w2, id, dcol.v, drow.v);
-        w2 = w_path(w2, id, 0.85, 1, ez(24), 0 - 1, 0, 0, "");
+        w2 = w_path(w2, id, wp_cfg(0.85, 1, ez(24), 0 - 1, 0, 0), "");
         w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
         w2 = w_reg(w2, id, 0, 1, "0", EvAct { kind: 5, sid: "", num: 1, carg: 0 });
         w2 = w_reg(w2, id, 1, 1, "0", EvAct { kind: 5, sid: "", num: 0, carg: 0 });

@@ -36,7 +36,10 @@ pub fn banner_title(g: CellGrid, title: String, fg: Int, bg: Int) -> CellGrid {
     let mut line: String = "";
     let pad_l: Int = if (g.cols - chars_len(t)) / 2 > 0 { (g.cols - chars_len(t)) / 2 } else { 0 };
     let mut i: Int = 0;
-    while i < pad_l { line = line + "─"; i = i + 1; }
+    while i < pad_l {
+        line = line + "─";
+        i = i + 1;
+    }
     line = line + t;
     while chars_len(line) < g.cols { line = line + "─"; }
     let mut out: CellGrid = g;

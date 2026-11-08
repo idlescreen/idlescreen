@@ -18,7 +18,6 @@ import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/kernel/engine_ops.oo";
 import "tests/oo/kernel/engine_tick.oo";
 import "tests/oo/kernel/engine_render.oo";
-import "tests/oo/kernel/engine_core.oo";
 import "tests/oo/engapi/input_arena.oo";
 import "tests/oo/engapi/char_ops.oo";
 import "tests/oo/engapi/char_groups.oo";
@@ -103,7 +102,10 @@ pub fn colorshift_run(cells: List[CellGeom], info: CanvasInfo, lines: List[Strin
     let mut w: World = cs_build(w_input(info, lines, rng_seed(42)), info);
     let mut counts: List[Int] = list_new();
     let mut z: Int = 0;
-    while z < list_len(w.chars) { counts = list_push(counts, 0); z = z + 1; }
+    while z < list_len(w.chars) {
+        counts = list_push(counts, 0);
+        z = z + 1;
+    }
     let mut run: DigestRun = digest_run_new();
     let _ = cells;
     while list_len(w.active) > 0 {

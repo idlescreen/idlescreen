@@ -35,8 +35,13 @@ fn step_coord(p: Path, i: Int, dt: Float) -> List[Int] {
         if p.ease_on == 0 && t > 1.0 { t = 1.0; }
     }
     let we: Wp = list_get(p.wps, seg.e);
-    let sc: Int = if seg.s == 0 - 1 { p.oc } else { let ws: Wp = list_get(p.wps, seg.s); ws.c };
-    let sr: Int = if seg.s == 0 - 1 { p.orow } else { let ws: Wp = list_get(p.wps, seg.s); ws.r };
+    let mut sc: Int = p.oc;
+    let mut sr: Int = p.orow;
+    if seg.s != 0 - 1 {
+        let ws: Wp = list_get(p.wps, seg.s);
+        sc = ws.c;
+        sr = ws.r;
+    }
     if list_len(we.bez) > 0 { let _r2 = coord_on_bez(sc, sr, we.bez, we.c, we.r, t);
     return _r2; }
     let _r3 = coord_on_line(sc, sr, we.c, we.r, t);
@@ -55,7 +60,8 @@ pub fn path_step(ch: Char, pi: Int) -> PStep {
     let ratio: Float = int_to_f(cur) / int_to_f(p.msteps);
     let factor: Float = if p.ease_on == 1 { ease_val(p.ease, ratio) } else { ratio };
     let dist: Float = factor * p.total;
-    let p2: Path = path_put(p, p.segs, p.total, cur, p.msteps, p.hrem, dist, p.oc, p.orow, p.has_org);
+    let p2: Path = path_put(p, p.segs, PathCur { total: p.total, cur: cur, msteps: p.msteps, hrem: p.hrem,
+        ldist: dist, oc: p.oc, orow: p.orow, has_org: p.has_org });
     let mut dt: Float = dist;
     let mut i: Int = 0;
     while i < list_len(p2.segs) {
@@ -107,12 +113,14 @@ pub fn motion_move(ch: Char) -> MStep {
     let p: Path = list_get(c.paths, pi);
     if p.cur == p.msteps {
         if p.hold != 0 && p.hrem == p.hold {
-            let p2: Path = path_put(p, p.segs, p.total, p.cur, p.msteps, p.hrem - 1, p.ldist, p.oc, p.orow, p.has_org);
+            let p2: Path = path_put(p, p.segs, PathCur { total: p.total, cur: p.cur, msteps: p.msteps,
+                hrem: p.hrem - 1, ldist: p.ldist, oc: p.oc, orow: p.orow, has_org: p.has_org });
             let _r10 = MStep { ch: ch_paths(c, list_set(c.paths, pi, p2)), fired: 0, pid: "" };
             return _r10;
         }
         if p.hrem != 0 {
-            let p3: Path = path_put(p, p.segs, p.total, p.cur, p.msteps, p.hrem - 1, p.ldist, p.oc, p.orow, p.has_org);
+            let p3: Path = path_put(p, p.segs, PathCur { total: p.total, cur: p.cur, msteps: p.msteps,
+                hrem: p.hrem - 1, ldist: p.ldist, oc: p.oc, orow: p.orow, has_org: p.has_org });
             let _r11 = MStep { ch: ch_paths(c, list_set(c.paths, pi, p3)), fired: 0, pid: "" };
             return _r11;
         }

@@ -9,3 +9,4 @@ import "saver_cmds.oo";
 import "daemon_cmds.oo";
 import "service_cmds.oo";
 import "dispatch.oo";
+import "about/anchor.oo";

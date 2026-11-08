@@ -12,6 +12,22 @@ import "core/grid.oo";
 import "core/imath.oo";
 import "ascii/canvas.oo";
 
+fn beam_pixel(out: CellGrid, x: Int, y: Int, cx: Int, cy: Int, bx: Int, by: Int, b: Int) -> CellGrid {
+    let mut o: CellGrid = out;
+    let dx: Int = (x - cx) * 500;
+    let dy: Int = (y - cy) * 1000;
+    let along: Int = (dx * bx + dy * by) / 1000;
+    let side: Int = iabs((dx * by - dy * bx) / 1000);
+    if along > 0 && side < 1600 {
+        let k: Int = 255 - side * 120 / 1000 - along / 6000;
+        if k > 30 {
+            let col: Int = cv_mix(rgb(20, 20, 40), cv_hue(b * 150), k);
+            o = cv_put(o, x, y, if side < 600 { "█" } else { "▓" }, col, rgb(3, 3, 8));
+        }
+    }
+    return o;
+}
+
 pub fn scene_beams(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = cv_fill(g, " ", rgb(20, 20, 30), rgb(3, 3, 8));
     let cx: Int = g.cols / 2;
@@ -25,17 +41,7 @@ pub fn scene_beams(g: CellGrid, tick: Int) -> CellGrid {
         while y < g.rows {
             let mut x: Int = 0;
             while x < g.cols {
-                let dx: Int = (x - cx) * 500;
-                let dy: Int = (y - cy) * 1000;
-                let along: Int = (dx * bx + dy * by) / 1000;
-                let side: Int = iabs((dx * by - dy * bx) / 1000);
-                if along > 0 && side < 1600 {
-                    let k: Int = 255 - side * 120 / 1000 - along / 6000;
-                    if k > 30 {
-                        let col: Int = cv_mix(rgb(20, 20, 40), cv_hue(b * 150), k);
-                        out = cv_put(out, x, y, if side < 600 { "█" } else { "▓" }, col, rgb(3, 3, 8));
-                    }
-                }
+                out = beam_pixel(out, x, y, cx, cy, bx, by, b);
                 x = x + 1;
             }
             y = y + 1;

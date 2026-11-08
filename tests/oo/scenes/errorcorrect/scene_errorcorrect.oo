@@ -21,7 +21,6 @@ import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/kernel/engine_ops.oo";
 import "tests/oo/kernel/engine_tick.oo";
 import "tests/oo/kernel/engine_render.oo";
-import "tests/oo/kernel/engine_core.oo";
 import "tests/oo/engapi/input_arena.oo";
 import "tests/oo/engapi/char_ops.oo";
 import "tests/oo/engapi/char_groups.oo";
@@ -31,6 +30,7 @@ import "tests/oo/engine/float_conv.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
 import "tests/digest_run.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 pub type EcB = struct { w: World, pairs: List[Int] };
 
@@ -90,7 +90,10 @@ fn ec_build(w: World, info: CanvasInfo) -> EcB {
     let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
     let mut fmap: List[Int] = list_new();
     let mut z: Int = 0;
-    while z < list_len(w.chars) { fmap = list_push(fmap, 16777215); z = z + 1; }
+    while z < list_len(w.chars) {
+        fmap = list_push(fmap, 16777215);
+        z = z + 1;
+    }
     let mut w2: World = w;
     let mut k: Int = 0;
     while k < list_len(ids) {
@@ -122,10 +125,10 @@ fn ec_build(w: World, info: CanvasInfo) -> EcB {
             let a1: Char = list_get(w2.chars, c1);
             let a2: Char = list_get(w2.chars, c2);
             w2 = w_pos(w2, c1, a2.col0, a2.row0);
-            w2 = w_path(w2, c1, 1.5, 0, ez(0), 0 - 1, 0, 0, "input_coord");
+            w2 = w_path(w2, c1, wp_cfg(1.5, 0, ez(0), 0 - 1, 0, 0), "input_coord");
             w2 = w_wp(w2, c1, 0, a1.col0, a1.row0, list_new());
             w2 = w_pos(w2, c2, a1.col0, a1.row0);
-            w2 = w_path(w2, c2, 1.5, 0, ez(0), 0 - 1, 0, 0, "input_coord");
+            w2 = w_path(w2, c2, wp_cfg(1.5, 0, ez(0), 0 - 1, 0, 0), "input_coord");
             w2 = w_wp(w2, c2, 0, a2.col0, a2.row0, list_new());
             pairs = list_push(list_push(pairs, c1), c2);
             w2 = ec_configure(w2, c1, list_get(fmap, c1), cgrad);

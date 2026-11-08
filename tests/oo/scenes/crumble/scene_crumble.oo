@@ -28,6 +28,7 @@ import "tests/oo/engine/color_ops.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
 import "tests/digest_run.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 pub type CrB = struct { w: World, pend: List[Int], unvac: List[Int], ids: List[Int] };
 pub type CrS = struct { w: World, pend: List[Int], delay: Int, mn: Int, mx: Int, gmax: Int };
@@ -41,14 +42,14 @@ fn cr_char(w: World, id: Int, ffg: Int, info: CanvasInfo) -> World {
     w2 = w_frame(w2, id, 0, ch.sym, 1, weak, 0 - 1, 0 - 1);
     w2 = w_aset(w2, id, 0);
     w2 = w_set_vis(w2, id, 1);
-    w2 = w_path(w2, id, 0.95, 1, ez(29), 0 - 1, 0, 0, "");
+    w2 = w_path(w2, id, wp_cfg(0.95, 1, ez(29), 0 - 1, 0, 0), "");
     w2 = w_wp(w2, id, 0, ch.col0, info.bottom, list_new());
     w2 = w_scene(w2, id, 0, 0, 0, ez(0), "weaken");
     let wg: List[Int] = gradient_new(list_push(list_push(list_new(), weak), dust), list_push(list_new(), 9), 0);
     w2 = w_grad(w2, id, 1, list_push(list_new(), ch.sym), 4, wg, list_new());
-    w2 = w_path(w2, id, 1.0, 1, ez(14), 0 - 1, 0, 0, "top");
+    w2 = w_path(w2, id, wp_cfg(1.0, 1, ez(14), 0 - 1, 0, 0), "top");
     w2 = w_wp(w2, id, 1, ch.col0, info.top, list_push(list_push(list_new(), 40), 12));
-    w2 = w_path(w2, id, 1.6, 0, ez(0), 0 - 1, 0, 0, "input");
+    w2 = w_path(w2, id, wp_cfg(1.6, 0, ez(0), 0 - 1, 0, 0), "input");
     w2 = w_wp(w2, id, 2, ch.col0, ch.row0, list_new());
     w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
     let fg1: List[Int] = gradient_new(list_push(list_push(list_new(), ffg), 16777215), list_push(list_new(), 6), 0);
@@ -161,6 +162,18 @@ fn cr_vacuum(w: World, unvac: List[Int]) -> CrV {
     return _r3;
 }
 
+fn cr_reset_pass(w: World, ids: List[Int]) -> World {
+    let mut o: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        o = eng_act_path(o, id, 2);
+        o = w_active_add(o, id);
+        k = k + 1;
+    }
+    return o;
+}
+
 pub fn crumble_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
     let b: CrB = cr_build(w_input(info, lines, rng_seed(42)), info);
     let mut w: World = b.w;
@@ -192,13 +205,7 @@ pub fn crumble_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String])
                 if list_len(w.active) == 0 { stage = 2; }
             } else {
                 if reset == 0 {
-                    let mut k: Int = 0;
-                    while k < list_len(b.ids) {
-                        let id: Int = list_get(b.ids, k);
-                        w = eng_act_path(w, id, 2);
-                        w = w_active_add(w, id);
-                        k = k + 1;
-                    }
+                    w = cr_reset_pass(w, b.ids);
                     reset = 1;
                 }
                 if list_len(w.active) == 0 { stage = 3; }

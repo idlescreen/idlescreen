@@ -18,7 +18,6 @@ import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/kernel/engine_ops.oo";
 import "tests/oo/kernel/engine_tick.oo";
 import "tests/oo/kernel/engine_render.oo";
-import "tests/oo/kernel/engine_core.oo";
 import "tests/oo/engapi/input_arena.oo";
 import "tests/oo/engapi/char_ops.oo";
 import "tests/oo/engapi/char_groups.oo";
@@ -40,13 +39,25 @@ fn dc_cipher(r: Rng) -> DR {
 fn dc_symtbl() -> List[Int] {
     let mut s: List[Int] = list_new();
     let mut n: Int = 33;
-    while n < 127 { s = list_push(s, n); n = n + 1; }
+    while n < 127 {
+        s = list_push(s, n);
+        n = n + 1;
+    }
     n = 9608;
-    while n < 9632 { s = list_push(s, n); n = n + 1; }
+    while n < 9632 {
+        s = list_push(s, n);
+        n = n + 1;
+    }
     n = 9472;
-    while n < 9599 { s = list_push(s, n); n = n + 1; }
+    while n < 9599 {
+        s = list_push(s, n);
+        n = n + 1;
+    }
     n = 174;
-    while n < 452 { s = list_push(s, n); n = n + 1; }
+    while n < 452 {
+        s = list_push(s, n);
+        n = n + 1;
+    }
     return s;
 }
 
@@ -115,6 +126,28 @@ fn dc_decrypt(w: World, ids: List[Int], tbl: List[Int]) -> World {
     return w2;
 }
 
+type DcWave = struct {
+    w: World,
+    queue: List[Int]
+};
+
+fn dc_spawn_wave(w: World, pend: List[Int]) -> DcWave {
+    let mut o: World = w;
+    let mut p: List[Int] = pend;
+    let mut t: Int = 0;
+    while t < 12 {
+        if list_len(p) > 0 {
+            let id: Int = list_get(p, 0);
+            p = list_slice(p, 1, list_len(p));
+            o = w_set_vis(o, id, 1);
+            o = w_aset(o, id, 0);
+            o = w_active_add(o, id);
+        }
+        t = t + 1;
+    }
+    return DcWave { w: o, queue: p };
+}
+
 pub fn decrypt_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
     let w0: World = w_input(info, lines, rng_seed(42));
     let ids: List[Int] = sort_ids(w0, collect_ids(w0, 1), info.cols, info.rows, 0);
@@ -128,17 +161,9 @@ pub fn decrypt_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String])
             let dg: DR = rng_int(w.rng, 0, 100);
             w = w_rng(w, dg.r);
             if dg.v <= 75 {
-                let mut t: Int = 0;
-                while t < 12 {
-                    if list_len(pend) > 0 {
-                        let id: Int = list_get(pend, 0);
-                        pend = list_slice(pend, 1, list_len(pend));
-                        w = w_set_vis(w, id, 1);
-                        w = w_aset(w, id, 0);
-                        w = w_active_add(w, id);
-                    }
-                    t = t + 1;
-                }
+                let sw: DcWave = dc_spawn_wave(w, pend);
+                w = sw.w;
+                pend = sw.queue;
             }
         }
         w = eng_update(w);

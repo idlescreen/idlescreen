@@ -48,14 +48,22 @@ fn mstep(m: Mystify, s: PolyStep, frame: Int) -> Mystify {
 
 fn mystify_verts() -> List[Float] {
     let mut v: List[Float] = list_new();
-    v = list_push(v, 0.0 - 0.85); v = list_push(v, 0.0 - 0.55);
-    v = list_push(v, 0.062); v = list_push(v, 0.048);
-    v = list_push(v, 0.75); v = list_push(v, 0.0 - 0.65);
-    v = list_push(v, 0.0 - 0.054); v = list_push(v, 0.058);
-    v = list_push(v, 0.82); v = list_push(v, 0.62);
-    v = list_push(v, 0.0 - 0.060); v = list_push(v, 0.0 - 0.045);
-    v = list_push(v, 0.0 - 0.72); v = list_push(v, 0.68);
-    v = list_push(v, 0.051); v = list_push(v, 0.0 - 0.056);
+    v = list_push(v, 0.0 - 0.85);
+    v = list_push(v, 0.0 - 0.55);
+    v = list_push(v, 0.062);
+    v = list_push(v, 0.048);
+    v = list_push(v, 0.75);
+    v = list_push(v, 0.0 - 0.65);
+    v = list_push(v, 0.0 - 0.054);
+    v = list_push(v, 0.058);
+    v = list_push(v, 0.82);
+    v = list_push(v, 0.62);
+    v = list_push(v, 0.0 - 0.060);
+    v = list_push(v, 0.0 - 0.045);
+    v = list_push(v, 0.0 - 0.72);
+    v = list_push(v, 0.68);
+    v = list_push(v, 0.051);
+    v = list_push(v, 0.0 - 0.056);
     return v;
 }
 
@@ -67,7 +75,10 @@ pub fn mystify_new(cells: List[CellGeom], info: CanvasInfo) -> Mystify {
         verts: mystify_verts(), hist: list_new(), frame: 0, info: info
     };
     let mut i: Int = 0;
-    while i < 4 { m = mstep(m, poly_step(m.verts, m.hist), 0); i = i + 1; }
+    while i < 4 {
+        m = mstep(m, poly_step(m.verts, m.hist), 0);
+        i = i + 1;
+    }
     return m;
 }
 

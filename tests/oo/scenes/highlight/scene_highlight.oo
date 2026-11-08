@@ -41,7 +41,11 @@ fn hl_build(w: World, info: CanvasInfo) -> World {
         let bright: Int = adjust_brightness(base, 1.75);
         w2 = w_appear(w2, id, ch.sym, base, 0 - 1, 0);
         w2 = w_scene(w2, id, 0, 0, 0, ez(0), "highlight");
-        let hg: List[Int] = gradient_new(list_push(list_push(list_push(list_push(list_new(), base), bright), bright), base), steps, 0);
+        let hg: List[Int]= gradient_new(
+            list_push(list_push(list_push(list_push(list_new(), base), bright), bright), base),
+            steps,
+            0
+        );
         let mut c: Int = 0;
         while c < list_len(hg) {
             w2 = w_frame(w2, id, 0, ch.sym, 2, list_get(hg, c), 0 - 1, 0 - 1);
@@ -56,7 +60,10 @@ fn hl_build(w: World, info: CanvasInfo) -> World {
 fn hl_gidx(n: Int) -> List[Int] {
     let mut out: List[Int] = list_new();
     let mut i: Int = 0;
-    while i < n { out = list_push(out, i); i = i + 1; }
+    while i < n {
+        out = list_push(out, i);
+        i = i + 1;
+    }
     return out;
 }
 

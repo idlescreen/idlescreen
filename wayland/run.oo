@@ -20,8 +20,8 @@ pub type PresenterCtl = struct {
     frames: Int
 };
 
-pub fn wayland_negotiate(env: &EnvCap, fs: &FsReadCap) -> WlSession {
-    return wl_session_open(env, fs);
+pub fn wayland_negotiate( fs: &FsReadCap) -> WlSession {
+    return wl_session_open( fs);
 }
 
 pub fn wayland_ctl_new(timeout_s: Int, frames: Int) -> PresenterCtl {

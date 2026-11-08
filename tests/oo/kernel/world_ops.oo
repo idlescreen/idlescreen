@@ -25,6 +25,10 @@ pub type Path = struct {
     hrem: Int, ldist: Float, oc: Int, orow: Int, has_org: Int
 };
 
+pub type PathCur = struct {
+    total: Float, cur: Int, msteps: Int, hrem: Int, ldist: Float, oc: Int, orow: Int, has_org: Int
+};
+
 pub type Char = struct {
     sym: Int, col0: Int, row0: Int, fill: Int, uses_pre: Int, vis: Int, layer: Int,
     cc: Int, cr: Int, pc: Int, pr: Int,

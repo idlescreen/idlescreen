@@ -41,7 +41,10 @@ pub fn sc_add(s: Scene, ord: Int, dur: Int, fg: Int, bg: Int, bold: Int) -> Scen
     let idx: Int = list_len(s.af);
     let mut fim: List[Int] = s.fim;
     let mut i: Int = 0;
-    while i < dur { fim = list_push(fim, idx); i = i + 1; }
+    while i < dur {
+        fim = list_push(fim, idx);
+        i = i + 1;
+    }
     let _r2 = Scene { loop_: s.loop_, sync: s.sync, ease_on: s.ease_on, ease: s.ease,
         af: list_push(s.af, SFrame { ord: ord, dur: dur, ticks: 0, fg: fg, bg: bg, bold: bold }),
         fr: list_push(s.fr, idx), pf: s.pf, fim: fim, ecs: s.ecs };
@@ -58,14 +61,31 @@ pub fn sc_next(s: Scene) -> SCV {
     let head: Int = list_get(s.fr, 0);
     let f: SFrame = list_get(s.af, head);
     if f.ticks + 1 == f.dur {
-        let af2: List[SFrame] = list_set(s.af, head, SFrame { ord: f.ord, dur: f.dur, ticks: 0, fg: f.fg, bg: f.bg, bold: f.bold });
+        let af2: List[SFrame]= list_set(s.af, head, SFrame {
+            ord: f.ord,
+            dur: f.dur,
+            ticks: 0,
+            fg: f.fg,
+            bg: f.bg,
+            bold: f.bold
+        });
         let mut fr2: List[Int] = list_slice(s.fr, 1, list_len(s.fr));
         let mut pf2: List[Int] = list_push(s.pf, head);
-        if s.loop_ == 1 && list_len(fr2) == 0 { fr2 = pf2; pf2 = list_new(); }
+        if s.loop_ == 1 && list_len(fr2) == 0 {
+            fr2 = pf2;
+            pf2 = list_new();
+        }
         let _r4 = SCV { s: sc_put(s, af2, fr2, pf2, s.ecs), vi: head };
         return _r4;
     }
-    let af3: List[SFrame] = list_set(s.af, head, SFrame { ord: f.ord, dur: f.dur, ticks: f.ticks + 1, fg: f.fg, bg: f.bg, bold: f.bold });
+    let af3: List[SFrame]= list_set(s.af, head, SFrame {
+        ord: f.ord,
+        dur: f.dur,
+        ticks: f.ticks + 1,
+        fg: f.fg,
+        bg: f.bg,
+        bold: f.bold
+    });
     let _r5 = SCV { s: sc_put(s, af3, s.fr, s.pf, s.ecs), vi: head };
     return _r5;
 }
@@ -100,7 +120,10 @@ pub fn sc_eased(s: Scene) -> SCV {
         return _r7; }
         let mut pf: List[Int] = s.pf;
         let mut i: Int = 0;
-        while i < list_len(s.fr) { pf = list_push(pf, list_get(s.fr, i)); i = i + 1; }
+        while i < list_len(s.fr) {
+            pf = list_push(pf, list_get(s.fr, i));
+            i = i + 1;
+        }
         let _r8 = SCV { s: sc_put(s, s.af, list_new(), pf, s.ecs), vi: vi };
         return _r8;
     }
@@ -113,7 +136,10 @@ pub fn sc_synced(s: Scene, cs: Int, ms: Int, td: Float, ld: Float, hp: Int) -> S
         let last: Int = list_get(s.fr, list_len(s.fr) - 1);
         let mut pf: List[Int] = s.pf;
         let mut i: Int = 0;
-        while i < list_len(s.fr) { pf = list_push(pf, list_get(s.fr, i)); i = i + 1; }
+        while i < list_len(s.fr) {
+            pf = list_push(pf, list_get(s.fr, i));
+            i = i + 1;
+        }
         let _r10 = SCV { s: sc_put(s, s.af, list_new(), pf, s.ecs), vi: last };
         return _r10;
     }

@@ -48,7 +48,11 @@ fn step_scene(ch: Char) -> Char {
         let mut hp: Int = 0;
         if c.a_path != 0 - 1 {
             let p: Path = list_get(c.paths, c.a_path);
-            cs = p.cur; ms = p.msteps; td = p.total; ld = p.ldist; hp = 1;
+            cs = p.cur;
+            ms = p.msteps;
+            td = p.total;
+            ld = p.ldist;
+            hp = 1;
         }
         let r: SCV = sc_synced(s0, cs, ms, td, ld, hp);
         let f: SFrame = list_get(r.s.af, r.vi);

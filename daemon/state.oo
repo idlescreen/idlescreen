@@ -20,23 +20,42 @@ pub type DaemonState = struct {
 };
 
 pub fn daemon_state_new(timeout_s: Int, scene_idx: Int, saver_name: String) -> DaemonState {
-    return DaemonState { running: true, idle: false, saver_on: false, sleep_req: false, scene_idx: scene_idx, saver_name: saver_name, timeout_s: timeout_s, inhibitors: 0, uptime_ticks: 0 };
+    return DaemonState {
+        running: true, idle: false, saver_on: false, sleep_req: false,
+        scene_idx: scene_idx, saver_name: saver_name, timeout_s: timeout_s,
+        inhibitors: 0, uptime_ticks: 0
+    };
 }
 
-pub fn daemon_state_set(d: DaemonState, idle: Bool, saver_on: Bool, sleep_req: Bool, scene_idx: Int, timeout_s: Int, inhibitors: Int, ticks: Int) -> DaemonState {
-    return DaemonState { running: d.running, idle: idle, saver_on: saver_on, sleep_req: sleep_req, scene_idx: scene_idx, saver_name: d.saver_name, timeout_s: timeout_s, inhibitors: inhibitors, uptime_ticks: ticks };
+pub fn daemon_state_set(d: DaemonState, idle: Bool, saver_on: Bool, sleep_req: Bool,
+    scene_idx: Int, timeout_s: Int, inhibitors: Int, ticks: Int) -> DaemonState {
+    return DaemonState {
+        running: d.running, idle: idle, saver_on: saver_on, sleep_req: sleep_req,
+        scene_idx: scene_idx, saver_name: d.saver_name, timeout_s: timeout_s,
+        inhibitors: inhibitors, uptime_ticks: ticks
+    };
 }
 
 pub fn daemon_state_stop(d: DaemonState) -> DaemonState {
-    return DaemonState { running: false, idle: d.idle, saver_on: d.saver_on, sleep_req: d.sleep_req, scene_idx: d.scene_idx, saver_name: d.saver_name, timeout_s: d.timeout_s, inhibitors: d.inhibitors, uptime_ticks: d.uptime_ticks };
+    return DaemonState {
+        running: false, idle: d.idle, saver_on: d.saver_on, sleep_req: d.sleep_req,
+        scene_idx: d.scene_idx, saver_name: d.saver_name, timeout_s: d.timeout_s,
+        inhibitors: d.inhibitors, uptime_ticks: d.uptime_ticks
+    };
 }
 
 pub fn daemon_state_with_saver(d: DaemonState, saver_name: String) -> DaemonState {
-    return DaemonState { running: d.running, idle: d.idle, saver_on: d.saver_on, sleep_req: d.sleep_req, scene_idx: d.scene_idx, saver_name: saver_name, timeout_s: d.timeout_s, inhibitors: d.inhibitors, uptime_ticks: d.uptime_ticks };
+    return DaemonState {
+        running: d.running, idle: d.idle, saver_on: d.saver_on, sleep_req: d.sleep_req,
+        scene_idx: d.scene_idx, saver_name: saver_name, timeout_s: d.timeout_s,
+        inhibitors: d.inhibitors, uptime_ticks: d.uptime_ticks
+    };
 }
 
 pub fn daemon_status_line(d: DaemonState, prog: String) -> String {
     let st: String = if !d.running { "stopped" } else if d.saver_on { "saver-on" } else if d.idle { "idle" } else { "armed" };
     let live: String = if d.running { "active" } else { "inactive" };
-    return prog + " " + live + " " + st + " saver=" + d.saver_name + " scene=" + d.scene_idx.to_string() + " timeout=" + d.timeout_s.to_string() + "s inhibitors=" + d.inhibitors.to_string();
+    return prog + " " + live + " " + st + " saver=" + d.saver_name +
+        " scene=" + d.scene_idx.to_string() + " timeout=" + d.timeout_s.to_string() +
+        "s inhibitors=" + d.inhibitors.to_string();
 }

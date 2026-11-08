@@ -27,9 +27,9 @@ import "tests/oo/engine/color_ops.oo";
 import "tests/oo/engine/geometry_fns.oo";
 import "tests/oo/engine/float_conv.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
-import "tests/oo/scenes/burn/bn_parts.oo";
-import "tests/oo/scenes/fireworks/fw_parts.oo";
-import "tests/oo/scenes/spotlights/lite_parts.oo";
+import "tests/oo/scenes/burn/bn_prims.oo";
+import "tests/oo/scenes/fireworks/fw_geom.oo";
+import "tests/oo/scenes/spotlights/lite_seek.oo";
 import "tests/shade_float.oo";
 import "tests/digest_run.oo";
 
@@ -177,7 +177,11 @@ fn lite_setup(w0: World, info: CanvasInfo) -> LiteD {
     let mut bright: List[Int] = list_new();
     let mut dark: List[Int] = list_new();
     let mut z: Int = 0;
-    while z < list_len(w.chars) { bright = list_push(bright, 0 - 1); dark = list_push(dark, 0 - 1); z = z + 1; }
+    while z < list_len(w.chars) {
+        bright = list_push(bright, 0 - 1);
+        dark = list_push(dark, 0 - 1);
+        z = z + 1;
+    }
     let mut k: Int = 0;
     while k < list_len(ids) {
         let id: Int = list_get(ids, k);

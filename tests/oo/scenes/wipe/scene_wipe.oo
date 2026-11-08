@@ -55,7 +55,10 @@ fn wipe_build(w: World, info: CanvasInfo) -> World {
 fn gidx_of(n: Int) -> List[Int] {
     let mut out: List[Int] = list_new();
     let mut i: Int = 0;
-    while i < n { out = list_push(out, i); i = i + 1; }
+    while i < n {
+        out = list_push(out, i);
+        i = i + 1;
+    }
     return out;
 }
 

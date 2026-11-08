@@ -1,0 +1,8 @@
+// # cli/about Domain Anchor
+//
+// Logline: Re-exports the ootheme link and about card pages of the command surface.
+// Setup: Pure shim. Imports the about pages.
+// Beats:
+//   1. Re-export theme and card for the tree.
+import "theme.oo";
+import "card.oo";

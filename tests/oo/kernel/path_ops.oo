@@ -14,6 +14,14 @@ import "tests/oo/engine/geometry_fns.oo";
 import "tests/oo/engine/easing_fns.oo";
 import "tests/oo/engine/float_conv.oo";
 
+pub type WpCfg = struct {
+    speed: Float, ease_on: Int, e: Ease, layer: Int, hold: Int, loop_: Int
+};
+
+pub fn wp_cfg(speed: Float, ease_on: Int, e: Ease, layer: Int, hold: Int, loop_: Int) -> WpCfg {
+    return WpCfg { speed: speed, ease_on: ease_on, e: e, layer: layer, hold: hold, loop_: loop_ };
+}
+
 pub fn path_new(speed: Float, ease_on: Int, e: Ease, layer: Int, hold: Int, loop_: Int) -> Path {
     let _r1 = Path { speed: speed, ease_on: ease_on, ease: e, layer: layer, hold: hold,
         loop_: loop_, segs: list_new(), wps: list_new(), total: 0.0, cur: 0,
@@ -44,10 +52,10 @@ pub fn wp_add(p: Path, c: Int, r: Int, bez: List[Int]) -> Path {
     return _r3;
 }
 
-pub fn path_put(p: Path, segs: List[Seg], total: Float, cur: Int, msteps: Int, hrem: Int, ldist: Float, oc: Int, orow: Int, has_org: Int) -> Path {
+pub fn path_put(p: Path, segs: List[Seg], st: PathCur)-> Path {
     let _r4 = Path { speed: p.speed, ease_on: p.ease_on, ease: p.ease, layer: p.layer,
-        hold: p.hold, loop_: p.loop_, segs: segs, wps: p.wps, total: total,
-        cur: cur, msteps: msteps, hrem: hrem, ldist: ldist, oc: oc, orow: orow, has_org: has_org };
+        hold: p.hold, loop_: p.loop_, segs: segs, wps: p.wps, total: st.total,
+        cur: st.cur, msteps: st.msteps, hrem: st.hrem, ldist: st.ldist, oc: st.oc, orow: st.orow, has_org: st.has_org };
     return _r4;
 }
 
@@ -65,9 +73,13 @@ pub fn path_activate(ch: Char, pi: Int) -> Char {
     } else {
         segs = list_push(list_new(), nseg);
         let mut i: Int = 0;
-        while i < list_len(p.segs) { segs = list_push(segs, list_get(p.segs, i)); i = i + 1; }
+        while i < list_len(p.segs) {
+            segs = list_push(segs, list_get(p.segs, i));
+            i = i + 1;
+        }
     }
-    let p2: Path = path_put(p, segs, total, 0, round_he(total / p.speed), p.hold, p.ldist, ch.cc, ch.cr, 1);
+    let p2: Path = path_put(p, segs, PathCur { total: total, cur: 0, msteps: round_he(total / p.speed),
+        hrem: p.hold, ldist: p.ldist, oc: ch.cc, orow: ch.cr, has_org: 1 });
     let layer: Int = if p.layer >= 0 { p.layer } else { ch.layer };
     let _r5 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: ch.vis, layer: layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,

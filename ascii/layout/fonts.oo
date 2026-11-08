@@ -81,7 +81,9 @@ pub fn font3_rows(ch: String) -> List[String] {
     else if c == "7" || c == "9" { raw = if c == "7" { "▀▀█|  █|  ▀" } else { "█▀█|▀▀█|  ▀" }; }
     else if c == "!" || c == "?" { raw = if c == "!" { " █ | █ | ▄ " } else { "▀█▀| ▄▀| ▄ " }; }
     else if c == ":" || c == "/" || c == "+" { raw = if c == ":" { " ▄ |   | ▄ " } else if c == "/" { "  █| █ |█  " } else { " █ |███| █ " }; }
-    else if c == "_" || c == "." || c == "-" || c == " " { raw = if c == "_" { "   |   |▄▄▄" } else if c == "." { "   |   | ▄ " } else if c == "-" { "   | ▀ |   " } else { "   |   |   " }; }
+    else if c == "_" || c == "." || c == "-" || c == " " {
+        raw = if c == "_" { "   |   |▄▄▄" } else if c == "." { "   |   | ▄ " } else if c == "-" { "   | ▀ |   " } else { "   |   |   " };
+    }
     return str_split(raw, "|");
 }
 
@@ -107,7 +109,10 @@ pub fn font_sf_art() -> List[String] {
 
 pub fn font7_raw(ch: String) -> String {
     let r5: List[String] = font5_rows(ch);
-    let raw: String = list_get(r5, 0) + "  |" + list_get(r5, 1) + "  |" + list_get(r5, 1) + "  |" + list_get(r5, 2) + "  |" + list_get(r5, 3) + "  |" + list_get(r5, 3) + "  |" + list_get(r5, 4) + "  ";
+    let raw: String = list_get(r5, 0)+ "  |" + list_get(
+        r5,
+        1
+    )+ "  |" + list_get(r5, 1)+ "  |" + list_get(r5, 2)+ "  |" + list_get(r5, 3)+ "  |" + list_get(r5, 3)+ "  |" + list_get(r5, 4)+ "  ";
     let mut out: String = "";
     let mut i: Int = 0;
     while i < chars_len(raw) {

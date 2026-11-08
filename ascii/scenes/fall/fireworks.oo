@@ -12,6 +12,25 @@ import "core/grid.oo";
 import "core/imath.oo";
 import "ascii/canvas.oo";
 
+fn fw_burst(out: CellGrid, bx: Int, peak: Int, age: Int, hue: Int, cols: Int, rows: Int) -> CellGrid {
+    let mut o: CellGrid = out;
+    let mut a: Int = 0;
+    while a < 12 {
+        let ang: Int = a * 30;
+        let r: Int = age * 2;
+        let sx: Int = bx + icos(ang) * r / 1000;
+        let sy: Int = peak + isin(ang) * r / 2000 + age * age / 8;
+        if sx >= 0 && sx < cols && sy >= 0 && sy < rows {
+            let fade: Int = 200 - age * 40;
+            if fade > 40 {
+                o = cv_put(o, sx, sy, if age < 3 { "*" } else { "·" }, cv_mix(0, cv_hue(hue), fade), rgb(1, 1, 8));
+            }
+        }
+        a = a + 1;
+    }
+    return o;
+}
+
 pub fn scene_fireworks(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = cv_fill(g, " ", rgb(20, 20, 40), rgb(1, 1, 8));
     let cycle: Int = 24;
@@ -27,20 +46,7 @@ pub fn scene_fireworks(g: CellGrid, tick: Int) -> CellGrid {
         if hy + 2 < g.rows { out = cv_put(out, bx, hy + 2, "·", rgb(80, 60, 30), rgb(1, 1, 8)); }
     } else {
         let age: Int = phase - (g.rows - peak);
-        let mut a: Int = 0;
-        while a < 12 {
-            let ang: Int = a * 30;
-            let r: Int = age * 2;
-            let sx: Int = bx + icos(ang) * r / 1000;
-            let sy: Int = peak + isin(ang) * r / 2000 + age * age / 8;
-            if sx >= 0 && sx < g.cols && sy >= 0 && sy < g.rows {
-                let fade: Int = 200 - age * 40;
-                if fade > 40 {
-                    out = cv_put(out, sx, sy, if age < 3 { "*" } else { "·" }, cv_mix(0, cv_hue(hue), fade), rgb(1, 1, 8));
-                }
-            }
-            a = a + 1;
-        }
+        out = fw_burst(out, bx, peak, age, hue, g.cols, g.rows);
     }
     return out;
 }

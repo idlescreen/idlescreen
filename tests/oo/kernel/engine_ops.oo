@@ -64,6 +64,10 @@ pub fn w_frame(w: World, i: Int, si: Int, ord: Int, dur: Int, fg: Int, bg: Int, 
 
 pub fn w_grad(w: World, i: Int, si: Int, syms: List[Int], dur: Int, fgs: List[Int], bgs: List[Int]) -> World {
     let ch: Char = list_get(w.chars, i);
-    let _r7 = w_put(w, i, ch_sc(ch, ch.sids, list_set(ch.scenes, si, sc_apply_grad(list_get(ch.scenes, si), syms, dur, fgs, bgs))));
+    let _r7 = w_put(
+        w,
+        i,
+        ch_sc(ch, ch.sids, list_set(ch.scenes, si, sc_apply_grad(list_get(ch.scenes, si), syms, dur, fgs, bgs)))
+    );
     return _r7;
 }

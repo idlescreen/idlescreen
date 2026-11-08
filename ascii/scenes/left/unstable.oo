@@ -24,7 +24,13 @@ pub fn scene_unstable(g: CellGrid, tick: Int) -> CellGrid {
                 let h: Int = cv_hash(x, y, tick);
                 let ch: String = cv_ramp(h % 10);
                 let shift: Int = (h % 7) - 3;
-                let c: Int = if h % 3 == 0 { rgb(255, 60, 120) } else if h % 3 == 1 { rgb(60, 255, 200) } else { rgb(200, 200, 220) };
+                let c: Int = if h % 3 == 0 {
+                    rgb(255, 60, 120)
+                } else if h % 3 == 1 {
+                    rgb(60, 255, 200)
+                } else {
+                    rgb(200, 200, 220)
+                };
                 out = cv_put(out, x + shift, y, ch, c, rgb(20, 10, 15));
             } else if cv_hash(x, y, 5) % 17 == 0 {
                 out = cv_put(out, x, y, "·", rgb(60, 60, 80), rgb(6, 6, 10));

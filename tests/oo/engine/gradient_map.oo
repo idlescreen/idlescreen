@@ -19,7 +19,10 @@ pub fn gradient_new(stops: List[Int], steps: List[Int], do_loop: Int) -> List[In
     if n == 1 {
         let mut spec: List[Int] = list_new();
         let mut k: Int = 0;
-        while k < list_get(steps, 0) { spec = list_push(spec, list_get(stops, 0)); k = k + 1; }
+        while k < list_get(steps, 0) {
+            spec = list_push(spec, list_get(stops, 0));
+            k = k + 1;
+        }
         return spec;
     }
     let mut st: List[Int] = stops;

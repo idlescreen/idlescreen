@@ -18,16 +18,14 @@ import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/kernel/engine_ops.oo";
 import "tests/oo/kernel/engine_tick.oo";
 import "tests/oo/kernel/engine_render.oo";
-import "tests/oo/kernel/engine_core.oo";
 import "tests/oo/engapi/input_arena.oo";
 import "tests/oo/engapi/char_ops.oo";
-import "tests/oo/engapi/char_groups.oo";
 import "tests/oo/engine/easing_fns.oo";
 import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/float_conv.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
-import "tests/oo/scenes/fireworks/fw_parts.oo";
+import "tests/oo/scenes/fireworks/fw_geom.oo";
 import "tests/digest_run.oo";
 
 fn fw_shell_color(r: Rng) -> DR {
@@ -51,7 +49,11 @@ fn fw_scenes(w: World, info: CanvasInfo, shells: List[FwSh]) -> World {
         let shell: FwSh = list_get(shells, si);
         let dc: DR = fw_shell_color(w2.rng);
         w2 = w_rng(w2, dc.r);
-        let sgrad: List[Int] = gradient_new(list_push(list_push(list_push(list_new(), dc.v), 16777215), dc.v), list_push(list_new(), 5), 0);
+        let sgrad: List[Int]= gradient_new(
+            list_push(list_push(list_push(list_new(), dc.v), 16777215), dc.v),
+            list_push(list_new(), 5),
+            0
+        );
         let mut m: Int = 0;
         while m < list_len(shell.chars) {
             let id: Int = list_get(shell.chars, m);

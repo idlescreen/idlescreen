@@ -116,13 +116,19 @@ pub fn eng_fire(w: World, i: Int, ev: Int, ck: Int, cid: String) -> World {
     let mut j: Int = 0;
     while j < list_len(ch.evs) {
         let e: Ev = list_get(ch.evs, j);
-        if e.ev == ev && e.ck == ck && e.cid == cid { ei = j; break; }
+        if e.ev == ev && e.ck == ck && e.cid == cid {
+            ei = j;
+            break;
+        }
         j = j + 1;
     }
     if ei < 0 { return w; }
     let acts: List[EvAct] = list_get(ch.evs, ei).acts;
     let mut w2: World = w;
     let mut a: Int = 0;
-    while a < list_len(acts) { w2 = fire_act(w2, i, list_get(acts, a)); a = a + 1; }
+    while a < list_len(acts) {
+        w2 = fire_act(w2, i, list_get(acts, a));
+        a = a + 1;
+    }
     return w2;
 }

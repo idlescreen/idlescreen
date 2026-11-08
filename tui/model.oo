@@ -149,7 +149,10 @@ pub fn tui_apply_text(m: TuiModel, b: Int, act: String) -> TuiModel {
         cur.editing_text = false;
     } else if act == "backspace" {
         let l: Int = chars_len(cur.custom_text);
-        if l > 0 { cur.custom_text = str_slice(cur.custom_text, 0, l - 1); cur.dirty = true; }
+        if l > 0 {
+            cur.custom_text = str_slice(cur.custom_text, 0, l - 1);
+            cur.dirty = true;
+        }
     } else if b >= 32 && b <= 126 {
         let ascii: String = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
         cur.custom_text = cur.custom_text + char_at(ascii, b - 32);

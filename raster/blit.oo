@@ -58,7 +58,10 @@ pub fn blit_cells(g: CellGrid, fmt: String, style: String) -> List[Int] {
     let ph: Int = g.rows * glyph_height();
     let mut px: List[Int] = list_new();
     let mut i: Int = 0;
-    while i < pw * ph { px = list_push(px, 0); i = i + 1; }
+    while i < pw * ph {
+        px = list_push(px, 0);
+        i = i + 1;
+    }
     let mut y: Int = 0;
     while y < g.rows {
         let mut x: Int = 0;

@@ -15,7 +15,6 @@ import "tests/oo/kernel/engine_ops.oo";
 import "tests/oo/kernel/path_ops.oo";
 import "tests/oo/kernel/anim_ops.oo";
 import "tests/oo/kernel/world_ops.oo";
-import "tests/oo/engine/easing_fns.oo";
 
 fn ch_evs(ch: Char, evs: List[Ev]) -> Char {
     let _r1 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
@@ -26,11 +25,16 @@ fn ch_evs(ch: Char, evs: List[Ev]) -> Char {
     return _r1;
 }
 
-pub fn w_path(w: World, i: Int, speed: Float, ease_on: Int, e: Ease, layer: Int, hold: Int, loop_: Int, pid: String) -> World {
+pub fn w_path(w: World, i: Int, cfg: WpCfg, pid: String) -> World {
     let ch: Char = list_get(w.chars, i);
     let mut id: String = pid;
     if id == "" { id = w_auto_id(ch.pids); }
-    let _r2 = w_put(w, i, ch_pa(ch, list_push(ch.pids, id), list_push(ch.paths, path_new(speed, ease_on, e, layer, hold, loop_))));
+    let p: Path = path_new(cfg.speed, cfg.ease_on, cfg.e, cfg.layer, cfg.hold, cfg.loop_);
+    let _r2 = w_put(
+        w,
+        i,
+        ch_pa(ch, list_push(ch.pids, id), list_push(ch.paths, p))
+    );
     return _r2;
 }
 

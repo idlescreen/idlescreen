@@ -11,7 +11,10 @@ import "core/cell.oo";
 import "core/grid.oo";
 
 pub fn cv_put_b(g: CellGrid, x: Int, y: Int, ch: String, fg: Int, bg: Int, bold: Bool) -> CellGrid {
-    let is_blk: Bool = ch == " " || ch == "█" || ch == "▀" || ch == "▄" || ch == "▌" || ch == "▐" || ch == "░" || ch == "▒" || ch == "▓" || ch == "▖" || ch == "▗" || ch == "▘" || ch == "▝" || ch == "▚" || ch == "▞" || ch == "▙" || ch == "▛" || ch == "▜" || ch == "▟";
+    let is_blk: Bool = ch == " " || ch == "█" || ch == "▀" || ch == "▄" ||
+        ch == "▌" || ch == "▐" || ch == "░" || ch == "▒" || ch == "▓" ||
+        ch == "▖" || ch == "▗" || ch == "▘" || ch == "▝" || ch == "▚" ||
+        ch == "▞" || ch == "▙" || ch == "▛" || ch == "▜" || ch == "▟";
     if is_blk {
         let is_solid: Bool = ch == "█";
         return grid_put(g, x, y, ch, fg, bg, bold || is_solid);
@@ -30,7 +33,9 @@ pub fn cv_put_b(g: CellGrid, x: Int, y: Int, ch: String, fg: Int, bg: Int, bold:
     }
     if ch == "*" || ch == "+" || ch == "o" || ch == "O" || ch == "^" || ch == "/" || ch == "\\" || ch == "|" || ch == "=" {
         let t2: Int = h % 8;
-        let g2: String = if t2 == 0 { "▀" } else if t2 == 1 { "▄" } else if t2 == 2 { "▌" } else if t2 == 3 { "▐" } else if t2 == 4 { "▞" } else if t2 == 5 { "▚" } else if t2 == 6 { "▘" } else { "▝" };
+        let g2: String = if t2 == 0 { "▀" } else if t2 == 1 { "▄" } else if t2 == 2 { "▌" } else if t2 == 3 {
+            "▐"
+        } else if t2 == 4 { "▞" } else if t2 == 5 { "▚" } else if t2 == 6 { "▘" } else { "▝" };
         return grid_put(g, x, y, g2, fg, bg, bold);
     }
     return grid_put(g, x, y, ch, fg, bg, bold);

@@ -26,6 +26,7 @@ import "tests/oo/engine/easing_fns.oo";
 import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/digest_run.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 fn mo_stops() -> List[Int] {
     let mut s: List[Int] = list_new();
@@ -52,9 +53,9 @@ fn mo_build(w: World, info: CanvasInfo) -> World {
         let ch: Char = list_get(w2.chars, id);
         let ffg: Int = list_get(cmap, ch.row0 - info.tb);
         w2 = w_pos(w2, id, mo_mid(info.cols), crow);
-        w2 = w_path(w2, id, 1.1, 1, ez(17), 0 - 1, 0, 0, "");
+        w2 = w_path(w2, id, wp_cfg(1.1, 1, ez(17), 0 - 1, 0, 0), "");
         w2 = w_wp(w2, id, 0, ch.col0, crow, list_new());
-        w2 = w_path(w2, id, 1.1, 1, ez(17), 0 - 1, 0, 0, "full");
+        w2 = w_path(w2, id, wp_cfg(1.1, 1, ez(17), 0 - 1, 0, 0), "full");
         w2 = w_wp(w2, id, 1, ch.col0, ch.row0, list_new());
         w2 = w_scene(w2, id, 0, 0, 0, ez(0), "full");
         let g: List[Int] = gradient_new(list_push(list_push(list_new(), 16777215), ffg), list_push(list_new(), 10), 0);

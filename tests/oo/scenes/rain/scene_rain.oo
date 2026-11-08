@@ -28,6 +28,7 @@ import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
 import "tests/digest_run.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 pub type RnQ = struct { w: World, pend: List[Int] };
 
@@ -82,7 +83,7 @@ fn rn_build(w: World, info: CanvasInfo) -> World {
         let sp: DRF = rng_unif(w2.rng, 0.6, 1.1);
         w2 = w_rng(w2, sp.r);
         w2 = w_pos(w2, id, ch.col0, info.top);
-        w2 = w_path(w2, id, sp.v, 1, ez(16), 0 - 1, 0, 0, "");
+        w2 = w_path(w2, id, wp_cfg(sp.v, 1, ez(16), 0 - 1, 0, 0), "");
         w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
         w2 = w_reg(w2, id, 1, 1, "0", EvAct { kind: 1, sid: "1", num: 0, carg: 0 });
         w2 = eng_act_path(w2, id, 0);

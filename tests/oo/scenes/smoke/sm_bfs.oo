@@ -55,7 +55,10 @@ fn bf_links(edges: List[Int], id: Int) -> List[Int] {
 pub fn bf_new(nch: Int, start: Int) -> BfSt {
     let mut ex: List[Int] = list_new();
     let mut i: Int = 0;
-    while i < nch { ex = list_push(ex, 0); i = i + 1; }
+    while i < nch {
+        ex = list_push(ex, 0);
+        i = i + 1;
+    }
     ex = list_set(ex, start, 1);
     let _r6 = BfSt { frontier: list_push(list_new(), start), explored: ex,
         last: list_new(), done: 0 };

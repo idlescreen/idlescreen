@@ -1,4 +1,4 @@
-// # bn_parts — PrimsSimple spanning-tree machinery for the burn port
+// # bn_prims — PrimsSimple spanning-tree machinery for the burn port
 //
 // Logline: Bit-exact port of PrimsSimple (random start inside the text
 // boundary, then random-edge Prim growth until every in-text char is
@@ -30,7 +30,10 @@ pub fn bn_grid(w: World, info: CanvasInfo) -> List[Int] {
     let n: Int = info.cols * info.rows;
     let mut g: List[Int] = list_new();
     let mut i: Int = 0;
-    while i < n { g = list_push(g, 0 - 1); i = i + 1; }
+    while i < n {
+        g = list_push(g, 0 - 1);
+        i = i + 1;
+    }
     i = 0;
     while i < list_len(w.chars) {
         let ch: Char = list_get(w.chars, i);
@@ -112,7 +115,10 @@ pub fn bn_step(info: CanvasInfo, w: World, grid: List[Int], st: BnSt) -> BnSt {
 pub fn bn_link(nch: Int, start: Int, rng: Rng) -> BnSt {
     let mut linked: List[Int] = list_new();
     let mut i: Int = 0;
-    while i < nch { linked = list_push(linked, 0); i = i + 1; }
+    while i < nch {
+        linked = list_push(linked, 0);
+        i = i + 1;
+    }
     let _r2 = BnSt {
         edges: list_push(list_new(), start),
         linked: linked,

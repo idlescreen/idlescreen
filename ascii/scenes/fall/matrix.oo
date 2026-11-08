@@ -40,7 +40,13 @@ pub fn scene_matrix(g: CellGrid, tick: Int) -> CellGrid {
             if ty >= 0 && ty < g.rows {
                 let h: Int = cv_hash(x, ty, tick / 3 + t);
                 let ch: String = matrix_glyph(h);
-                let c: Int = if t == 0 { rgb(210, 255, 210) } else if t < 3 { rgb(60, 230 - t * 40, 60) } else { rgb(0, 140 - t * 12, 0) };
+                let c: Int = if t == 0 {
+                    rgb(210, 255, 210)
+                } else if t < 3 {
+                    rgb(60, 230 - t * 40, 60)
+                } else {
+                    rgb(0, 140 - t * 12, 0)
+                };
                 out = cv_put_b(out, x, ty, ch, c, rgb(0, 3, 0), t == 0);
             }
             t = t + 1;

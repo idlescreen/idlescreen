@@ -12,6 +12,22 @@ import "core/grid.oo";
 import "core/imath.oo";
 import "ascii/canvas.oo";
 
+fn spot_pixel(out: CellGrid, x: Int, y: Int, rx: Int, ax: Int, ay: Int, alen: Int, rig: Int) -> CellGrid {
+    let mut o: CellGrid = out;
+    let dx: Int = x - rx;
+    let dy: Int = (y + 1) * 2;
+    let along: Int = (dx * ax + dy * ay) / alen;
+    let side: Int = iabs(dx * ay - dy * ax) / alen;
+    if along > 0 && side * 100 < alen * 7 {
+        let k: Int = 220 - side * 3000 / alen - along * 30 / alen;
+        if k > 20 {
+            let col: Int = cv_mix(rgb(15, 12, 25), cv_hue(rig * 250 + 60), if k > 230 { 230 } else { k });
+            o = cv_put(o, x, y, if side * 100 < alen * 2 { "▓" } else { "░" }, col, rgb(2, 2, 5));
+        }
+    }
+    return o;
+}
+
 pub fn scene_spotlights(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = cv_fill(g, " ", rgb(15, 12, 25), rgb(2, 2, 5));
     let mut rig: Int = 0;
@@ -25,17 +41,7 @@ pub fn scene_spotlights(g: CellGrid, tick: Int) -> CellGrid {
         while y < g.rows {
             let mut x: Int = 0;
             while x < g.cols {
-                let dx: Int = x - rx;
-                let dy: Int = (y + 1) * 2;
-                let along: Int = (dx * ax + dy * ay) / alen;
-                let side: Int = iabs(dx * ay - dy * ax) / alen;
-                if along > 0 && side * 100 < alen * 7 {
-                    let k: Int = 220 - side * 3000 / alen - along * 30 / alen;
-                    if k > 20 {
-                        let col: Int = cv_mix(rgb(15, 12, 25), cv_hue(rig * 250 + 60), if k > 230 { 230 } else { k });
-                        out = cv_put(out, x, y, if side * 100 < alen * 2 { "▓" } else { "░" }, col, rgb(2, 2, 5));
-                    }
-                }
+                out = spot_pixel(out, x, y, rx, ax, ay, alen, rig);
                 x = x + 1;
             }
             y = y + 1;

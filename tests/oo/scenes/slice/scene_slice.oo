@@ -14,7 +14,6 @@
 import "tests/oo/canvas_cells.oo";
 import "tests/oo/grid_cells.oo";
 import "tests/oo/kernel/world_ops.oo";
-import "tests/oo/kernel/engine_ops.oo";
 import "tests/oo/kernel/engine_tick.oo";
 import "tests/oo/kernel/engine_render.oo";
 import "tests/oo/kernel/engine_core.oo";
@@ -25,11 +24,12 @@ import "tests/oo/engine/easing_fns.oo";
 import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/digest_run.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 fn sz_send(w: World, id: Int, orow: Int) -> World {
     let ch: Char = list_get(w.chars, id);
     let mut w2: World = w_pos(w, id, ch.col0, orow);
-    w2 = w_path(w2, id, 0.25, 1, ez(18), 0 - 1, 0, 0, "");
+    w2 = w_path(w2, id, wp_cfg(0.25, 1, ez(18), 0 - 1, 0, 0), "");
     w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
     w2 = eng_act_path(w2, id, 0);
     w2 = w_active_add(w2, id);

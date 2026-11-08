@@ -23,7 +23,7 @@ import "tests/oo/engapi/input_arena.oo";
 import "tests/oo/engapi/char_ops.oo";
 import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
-import "tests/oo/scenes/bhole/bh_parts.oo";
+import "tests/oo/scenes/bhole/bh_state.oo";
 import "tests/oo/scenes/bhole/bh_build.oo";
 import "tests/oo/scenes/bhole/bh_phase.oo";
 import "tests/digest_run.oo";
@@ -88,9 +88,15 @@ fn bh_frame(w: World, st: Bh, info: CanvasInfo, cc: Int, cr: Int, fmap: List[Int
             if bh_alset(w2, st.bh) == 1 { p2 = 2; }
         }
     }
-    if st.ph == 2 { w2 = bh_collapse(w2, st.bh, info, cc, cr); p2 = 3; }
+    if st.ph == 2 {
+        w2 = bh_collapse(w2, st.bh, info, cc, cr);
+        p2 = 3;
+    }
     if st.ph == 3 {
-        if bh_idle(w2, st.bh) == 1 { w2 = bh_explode(w2, fmap, info); p2 = 4; }
+        if bh_idle(w2, st.bh) == 1 {
+            w2 = bh_explode(w2, fmap, info);
+            p2 = 4;
+        }
     }
     let _r1 = Bh { w: w2, bh: st.bh, awb: a2, awc: c2, fd: f2, ph: p2 };
     return _r1;

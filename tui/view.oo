@@ -20,7 +20,10 @@ pub fn tui_fit_str(s: String, width: Int) -> String {
     if len >= width { return str_slice(s, 0, width); }
     let mut out: String = s;
     let mut p: Int = len;
-    while p < width { out = out + " "; p = p + 1; }
+    while p < width {
+        out = out + " ";
+        p = p + 1;
+    }
     return out;
 }
 
@@ -44,7 +47,8 @@ fn tui_slider_row(label: String, val: String, hint: String, focused: Bool) -> St
     let rev: String = if focused { tui_csi("7m") } else { "" };
     let end: String = if focused { tui_csi("0m") } else { "" };
     let pad_val: String = tui_fit_str(val, 20);
-    return ls + tui_fit_str(label, 19) + tui_csi("0m ") + rev + "[ ◄  " + pad_val + "  ► ]" + end + " " + tui_csi("2m") + hint + tui_csi("0m") + tui_csi("K\r\n");
+    return ls + tui_fit_str(label, 19) + tui_csi("0m ") + rev + "[ ◄  " + pad_val +
+        "  ► ]" + end + " " + tui_csi("2m") + hint + tui_csi("0m") + tui_csi("K\r\n");
 }
 
 fn tui_button_bar(focused: Int) -> String {
@@ -65,17 +69,28 @@ pub fn tui_render_mini_preview(m: TuiModel, tick: Int) -> String {
     let mut sc_idx: Int = 0;
     if m.selected_saver >= 3 { sc_idx = m.selected_saver - 3; }
     else { sc_idx = (tick / 60) % 53; }
-    let wm: String = if m.selected_saver == 2 { "SUPERFEDORA" } else if !m.use_os_brand && str_trim(m.custom_text) != "" { to_uppercase(str_trim(m.custom_text)) } else { wm_clean_os(m.detected_os) };
+    let wm: String = if m.selected_saver == 2 {
+        "SUPERFEDORA"
+    } else if !m.use_os_brand && str_trim(m.custom_text) != "" {
+        to_uppercase(str_trim(m.custom_text))
+    } else {
+        wm_clean_os(m.detected_os)
+    };
     let mut pg: CellGrid = grid_new(pv_cols, 16, rgb(4, 6, 12));
     pg = engine_frame(pg, sc_idx, tick, wm);
     let r0: String = tui_csi("0m");
     let c6: String = tui_csi("1;36m");
     let mut top_bar: String = "┌─ Live Preview ";
     let mut di: Int = 15;
-    while di < pv_cols { top_bar = top_bar + "─"; di = di + 1; }
+    while di < pv_cols {
+        top_bar = top_bar + "─";
+        di = di + 1;
+    }
     top_bar = top_bar + "┐" + r0;
     out = out + tui_csi("1;75H") + c6 + top_bar;
-    out = out + tui_csi("2;75H") + c6 + "│" + r0 + tui_csi("1;33m ") + tui_fit_str("Scene: " + effects_name(sc_idx) + " │ " + wm, pv_cols - 1) + r0 + c6 + "│" + r0;
+    out = out + tui_csi("2;75H") + c6 + "│" + r0 + tui_csi("1;33m ") +
+        tui_fit_str("Scene: " + effects_name(sc_idx) + " │ " + wm, pv_cols - 1) +
+        r0 + c6 + "│" + r0;
     let mut y: Int = 0;
     while y < 16 {
         let r_row: Int = 3 + y;
@@ -85,7 +100,10 @@ pub fn tui_render_mini_preview(m: TuiModel, tick: Int) -> String {
     out = out + tui_csi("19;75H") + c6 + "│" + r0 + tui_csi("2m ") + tui_fit_str("[←/→] Scene  [P] Term  [F] Full", pv_cols - 1) + r0 + c6 + "│" + r0;
     let mut bot_bar: String = "└";
     let mut bi: Int = 0;
-    while bi < pv_cols { bot_bar = bot_bar + "─"; bi = bi + 1; }
+    while bi < pv_cols {
+        bot_bar = bot_bar + "─";
+        bi = bi + 1;
+    }
     bot_bar = bot_bar + "┘" + r0;
     out = out + tui_csi("20;75H") + c6 + bot_bar;
     return out;
@@ -130,7 +148,10 @@ pub fn tui_frame(m: TuiModel, tick: Int) -> String {
     let cust_disp: String = if m.custom_text == "" { "(Custom text below)" } else { m.custom_text };
     b = b + p2 + " " + r2 + " " + tui_fit_str("Custom Banner Text", 24) + " [" + tui_fit_str(cust_disp, 26) + "]" + eol + eol;
     b = b + tui_banner_input_box(m);
-    let is_s: String = m.idle_timeout_s.to_string() + " s (" + (m.idle_timeout_s / 60).to_string() + "m " + (if m.idle_timeout_s % 60 < 10 { "0" } else { "" }) + (m.idle_timeout_s % 60).to_string() + "s)";
+    let is_s: String = m.idle_timeout_s.to_string() + " s (" +
+        (m.idle_timeout_s / 60).to_string() + "m " +
+        (if m.idle_timeout_s % 60 < 10 { "0" } else { "" }) +
+        (m.idle_timeout_s % 60).to_string() + "s)";
     b = b + tui_slider_row("[4] Idle Timeout:", is_s, "(←/→ ±30s, [/] ±5m)", m.focused == 4);
     b = b + tui_slider_row("[5] Scene Dwell:", m.dwell_s.to_string() + " s per scene", "(←/→ ±1s, [/] ±5s)", m.focused == 5);
     let fps_str: String = if m.fps_val <= 0 { "Auto (Monitor Hz)" } else { m.fps_val.to_string() + " FPS" };

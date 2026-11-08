@@ -28,7 +28,10 @@ pub type Aurora = struct {
 };
 
 pub fn aurora_new(cells: List[CellGeom], info: CanvasInfo) -> Aurora {
-    let mut s5: List[Int] = list_push(list_push(list_push(list_push(list_push(list_new(), 15140), 58741), 55551), 8005887), 14725375);
+    let mut s5: List[Int]= list_push(
+        list_push(list_push(list_push(list_push(list_new(), 15140), 58741), 55551), 8005887),
+        14725375
+    );
     let mut s3: List[Int] = list_push(list_push(list_push(list_new(), 58741), 55551), 14725375);
     return Aurora {
         cells: cells,
@@ -104,7 +107,32 @@ pub fn aurora_next(a: Aurora) -> List[PaintCell] {
 }
 
 pub fn aurora_advance(a: Aurora) -> Aurora {
-    return Aurora { cells: a.cells, palette: a.palette, final_spec: a.final_spec, frame: a.frame + 1, frame_f: a.frame_f + 1.0, info: a.info };
+    return Aurora {
+        cells: a.cells,
+        palette: a.palette,
+        final_spec: a.final_spec,
+        frame: a.frame + 1,
+        frame_f: a.frame_f + 1.0,
+        info: a.info
+    };
+}
+
+fn aur_band_pixel(out: CellGrid, x: Int, y: Int, edge: Int, band: Int) -> CellGrid {
+    let mut o: CellGrid = out;
+    let depth: Int = y - edge;
+    let base: Int = if band == 0 {
+        rgb(40, 230, 160)
+    } else if band == 1 {
+        rgb(80, 160, 255)
+    } else {
+        rgb(170, 90, 255)
+    };
+    let dim: Int = 220 - depth * 45;
+    if dim > 25 {
+        let ch: String = if depth == 0 { "▓" } else if depth < 3 { "▒" } else { "░" };
+        o = cv_put(o, x, y, ch, cv_mix(rgb(2, 4, 14), base, dim), rgb(2, 4, 14));
+    }
+    return o;
 }
 
 pub fn scene_aurora(g: CellGrid, tick: Int) -> CellGrid {
@@ -116,13 +144,7 @@ pub fn scene_aurora(g: CellGrid, tick: Int) -> CellGrid {
             let edge: Int = g.rows / 4 + band * 2 + isin(x * 7 + tick * 9 + band * 102) * 4 / 1000;
             let mut y: Int = edge;
             while y < edge + 5 && y < g.rows {
-                let depth: Int = y - edge;
-                let base: Int = if band == 0 { rgb(40, 230, 160) } else if band == 1 { rgb(80, 160, 255) } else { rgb(170, 90, 255) };
-                let dim: Int = 220 - depth * 45;
-                if dim > 25 {
-                    let ch: String = if depth == 0 { "▓" } else if depth < 3 { "▒" } else { "░" };
-                    out = cv_put(out, x, y, ch, cv_mix(rgb(2, 4, 14), base, dim), rgb(2, 4, 14));
-                }
+                out = aur_band_pixel(out, x, y, edge, band);
                 y = y + 1;
             }
             band = band + 1;

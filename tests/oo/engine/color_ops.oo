@@ -66,7 +66,12 @@ pub fn adjust_brightness(color: Int, brightness: Float) -> Int {
         if lightness > 0.5 { sat = diff / (2.0 - mx - mn); }
         else { sat = diff / (mx + mn); }
         let mut hv: Float = 0.0;
-        if mx == nr { hv = (ng - nb) / diff; if ng < nb { hv = hv + 6.0; } }
+        if mx == nr {
+            hv = (ng - nb) / diff;
+            if ng < nb {
+                hv = hv + 6.0;
+            }
+        }
         else if mx == ng { hv = (nb - nr) / diff + 2.0; }
         else { hv = (nr - ng) / diff + 4.0; }
         hue = hv / 6.0;

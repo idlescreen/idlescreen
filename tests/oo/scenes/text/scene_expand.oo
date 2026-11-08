@@ -24,6 +24,7 @@ import "tests/oo/engine/easing_fns.oo";
 import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/digest_run.oo";
+import "tests/oo/kernel/path_ops.oo";
 
 fn exp_stops() -> List[Int] {
     let mut s: List[Int] = list_new();
@@ -50,7 +51,7 @@ fn expand_build(w: World, info: CanvasInfo) -> World {
         let final_fg: Int = list_get(cmap, ch.row0 - info.tb);
         w2 = w_pos(w2, id, canvas_mid(info.cols), canvas_mid(info.rows));
         let pid: String = w_auto_id(list_get(w2.chars, id).pids);
-        w2 = w_path(w2, id, 0.35, 1, ez(12), 0 - 1, 0, 0, "");
+        w2 = w_path(w2, id, wp_cfg(0.35, 1, ez(12), 0 - 1, 0, 0), "");
         w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
         w2 = w_set_vis(w2, id, 1);
         w2 = w_active_add(w2, id);
@@ -58,7 +59,11 @@ fn expand_build(w: World, info: CanvasInfo) -> World {
         w2 = w_reg(w2, id, 1, 1, pid, EvAct { kind: 5, sid: "", num: 0, carg: 0 });
         w2 = eng_act_path(w2, id, 0);
         w2 = w_scene(w2, id, 0, 2, 0, ez(0), "");
-        let g: List[Int] = gradient_new(list_push(list_push(list_new(), list_get(spec, 0)), final_fg), list_push(list_new(), 10), 0);
+        let g: List[Int]= gradient_new(
+            list_push(list_push(list_new(), list_get(spec, 0)), final_fg),
+            list_push(list_new(), 10),
+            0
+        );
         w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 5, g, list_new());
         w2 = w_aset(w2, id, 0);
         k = k + 1;

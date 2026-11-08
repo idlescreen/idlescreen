@@ -40,6 +40,8 @@ import "tests/oo/scenes/decrypt/scene_decrypt.oo";
 import "tests/oo/scenes/fireworks/scene_fireworks.oo";
 import "tests/oo/scenes/spotlights/scene_spotlights.oo";
 import "tests/oo/scenes/errorcorrect/scene_errorcorrect.oo";
+import "tests/oo/scenes/crumble/scene_crumble.oo";
+import "tests/oo/scenes/smoke/scene_smoke.oo";
 import "port_render.oo";
 
 pub type PortSession = struct {
@@ -65,7 +67,11 @@ pub fn port_has(name: String) -> Bool {
     if name == "metaballs" || name == "moire" || name == "cosmos" || name == "radar" { return true; }
     if name == "tunnel" || name == "mystify" || name == "expand" || name == "wipe" { return true; }
     if name == "sweep" || name == "slide" || name == "middleout" || name == "binarypath" { return true; }
-    return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" || name == "pour" || name == "slice" || name == "colorshift" || name == "highlight" || name == "spray" || name == "overflow" || name == "bouncyballs" || name == "decrypt" || name == "fireworks" || name == "spotlights" || name == "errorcorrect";
+    if name == "crumble" || name == "smoke" { return true; }
+    return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" ||
+        name == "pour" || name == "slice" || name == "colorshift" || name == "highlight" ||
+        name == "spray" || name == "overflow" || name == "bouncyballs" || name == "decrypt" ||
+        name == "fireworks" || name == "spotlights" || name == "errorcorrect";
 }
 
 fn port_settled_frame(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> List[PaintCell] {
@@ -90,6 +96,8 @@ fn port_settled_frame(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "fireworks" { return fireworks_run(cells, info, lines).last; }
     if name == "spotlights" { return spotlights_run(cells, info, lines).last; }
     if name == "errorcorrect" { return errorcorrect_run(cells, info, lines).last; }
+    if name == "crumble" { return crumble_run(cells, info, lines).last; }
+    if name == "smoke" { return smoke_run(cells, info, lines).last; }
     return list_new();
 }
 
@@ -113,21 +121,54 @@ pub fn port_session_next(s: PortSession) -> PortSession {
     if s.settled { return s; }
     let mut out: PortSession = s;
     let mut pcs: List[PaintCell] = list_new();
-    if s.name == "plasma" { pcs = plasma_next(s.plasma); out.plasma = plasma_advance(s.plasma); }
-    else if s.name == "ripple" { pcs = ripple_next(s.ripple); out.ripple = ripple_advance(s.ripple); }
-    else if s.name == "aurora" { pcs = aurora_next(s.aurora); out.aurora = aurora_advance(s.aurora); }
-    else if s.name == "chaos" { pcs = chaos_next(s.chaos); out.chaos = chaos_advance(s.chaos); }
-    else if s.name == "metaballs" { pcs = metaballs_next(s.metaballs); out.metaballs = metaballs_advance(s.metaballs); }
-    else if s.name == "moire" { pcs = moire_next(s.moire); out.moire = moire_advance(s.moire); }
-    else if s.name == "cosmos" { pcs = cosmos_next(s.cosmos); out.cosmos = cosmos_advance(s.cosmos); }
-    else if s.name == "radar" { pcs = radar_next(s.radar); out.radar = radar_advance(s.radar); }
-    else if s.name == "tunnel" { pcs = tunnel_next(s.tunnel); out.tunnel = tunnel_advance(s.tunnel); }
-    else if s.name == "mystify" { pcs = mystify_next(s.mystify); out.mystify = mystify_advance(s.mystify); }
-    if list_len(pcs) == 0 { out.settled = true; return out; }
+    if s.name == "plasma" {
+        pcs = plasma_next(s.plasma);
+        out.plasma = plasma_advance(s.plasma);
+    }
+    else if s.name == "ripple" {
+        pcs = ripple_next(s.ripple);
+        out.ripple = ripple_advance(s.ripple);
+    }
+    else if s.name == "aurora" {
+        pcs = aurora_next(s.aurora);
+        out.aurora = aurora_advance(s.aurora);
+    }
+    else if s.name == "chaos" {
+        pcs = chaos_next(s.chaos);
+        out.chaos = chaos_advance(s.chaos);
+    }
+    else if s.name == "metaballs" {
+        pcs = metaballs_next(s.metaballs);
+        out.metaballs = metaballs_advance(s.metaballs);
+    }
+    else if s.name == "moire" {
+        pcs = moire_next(s.moire);
+        out.moire = moire_advance(s.moire);
+    }
+    else if s.name == "cosmos" {
+        pcs = cosmos_next(s.cosmos);
+        out.cosmos = cosmos_advance(s.cosmos);
+    }
+    else if s.name == "radar" {
+        pcs = radar_next(s.radar);
+        out.radar = radar_advance(s.radar);
+    }
+    else if s.name == "tunnel" {
+        pcs = tunnel_next(s.tunnel);
+        out.tunnel = tunnel_advance(s.tunnel);
+    }
+    else if s.name == "mystify" {
+        pcs = mystify_next(s.mystify);
+        out.mystify = mystify_advance(s.mystify);
+    }
+    if list_len(pcs) == 0 {
+        out.settled = true;
+        return out;
+    }
     out.last = pcs;
     return out;
 }
 
-pub fn port_session_frame(s: PortSession) -> String {
-    return port_render(s.last, s.cols, s.rows);
+pub fn port_session_frame(s: &PortSession) -> String {
+    return port_render(&s.last, s.cols, s.rows);
 }

@@ -43,7 +43,10 @@ pub fn clamp_f(x: Float, lo: Float, hi: Float) -> Float {
 pub fn round_f(x: Float) -> Float {
     let mut neg: Int = 0;
     let mut v: Float = x;
-    if v < 0.0 { v = 0.0 - v; neg = 1; }
+    if v < 0.0 {
+        v = 0.0 - v;
+        neg = 1;
+    }
     let mut t: Float = 0.0;
     let mut r: Float = v;
     while r >= 1.0 {
