@@ -166,8 +166,9 @@ shape:
 
 check:
 	@$(MAKE) --no-print-directory std-link
+	@mkdir -p .ooda-cache
 	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./tests/oo/*" -not -path "./tests/scene_dispatch.oo" -not -path "./std/*"); do \
-		$(ENV) $(OODA_COMPILER) check "$$f" > /dev/null || { echo "VIOLATION: oodac check fails on $$f"; exit 1; } \
+		$(ENV) $(OODA_COMPILER) check "$$f" > .ooda-cache/check_out.txt 2>&1 || { echo "VIOLATION: oodac check fails on $$f"; echo "--- compiler output ---"; cat .ooda-cache/check_out.txt; exit 1; } \
 	done; \
 	echo "PASS: oodac check holds on all .oo files"
 
