@@ -7,7 +7,7 @@
 //   2. Emit the hardened systemd user unit matching assets/idlescreen.service.
 //   3. Install the unit, or the autostart fallback, and reload the user manager.
 
-import "std/core/primitives/str.oo";
+import "oostd/core/primitives/str.oo";
 import "core/shell.oo";
 import "core/environ.oo";
 

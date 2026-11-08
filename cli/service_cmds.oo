@@ -7,7 +7,7 @@
 //   2. Install, enable, disable, restart, and toggle the service on systemd, dinit, or XDG autostart.
 //   3. Cleanly remove unit configuration on uninstall with zero residual symlinks.
 
-import "std/core/primitives/str.oo";
+import "oostd/core/primitives/str.oo";
 import "core/shell.oo";
 import "daemon/run.oo";
 import "daemon/config.oo";

@@ -9,7 +9,7 @@
 
 import "cli/dispatch.oo";
 import "daemon/run.oo";
-import "std/fs/process/process.oo";
+import "oostd/fs/process/process.oo";
 
 pub fn idlescreen_persona_resolve(prog: String) -> String {
     let mut base: String = prog;

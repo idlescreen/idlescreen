@@ -7,7 +7,7 @@
 //   2. Persist and apply the idle timeout, and report the resolved configuration file.
 //   3. Run the environment self-check and report PASS lines.
 
-import "std/core/primitives/str.oo";
+import "oostd/core/primitives/str.oo";
 import "core/shell.oo";
 import "daemon/run.oo";
 import "daemon/config.oo";

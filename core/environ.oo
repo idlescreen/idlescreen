@@ -7,7 +7,7 @@
 //   2. Return the value of the first entry matching the requested key.
 //   3. Fall back to host_env when the key is absent from the block.
 
-import "std/fs/os/fs.oo";
+import "oostd/fs/os/fs.oo";
 import "shell.oo";
 
 // Value of key in this process's own environment block, or "" when absent.

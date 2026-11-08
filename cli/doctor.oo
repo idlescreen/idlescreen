@@ -7,7 +7,7 @@
 //   2. Format concise, verbose (-v/--verbose/--all), or JSON (--json) diagnostic views.
 //   3. Execute self-healing repair (--fix) for config.toml, runtime dir permissions, and user service activation.
 
-import "std/core/primitives/str.oo";
+import "oostd/core/primitives/str.oo";
 import "core/shell.oo";
 import "core/environ.oo";
 import "daemon/run.oo";

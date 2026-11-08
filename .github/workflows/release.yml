@@ -63,7 +63,7 @@ jobs:
             exit 1
           fi
           mkdir -p /tmp/ooda-toolchain
-          for r in oodac oodar std; do
+          for r in oodac oodar; do
             git clone --depth 1 \
               "https://x-access-token:${TOOLCHAIN_TOKEN}@github.com/openOODA-core/${r}.git" \
               "/tmp/ooda-toolchain/$r"
@@ -71,6 +71,15 @@ jobs:
             # .git/config of the checkout.
             git -C "/tmp/ooda-toolchain/$r" remote set-url origin "https://github.com/openOODA-core/${r}.git"
           done
+          # The std repo is cloned under the name `oostd`: the compiler
+          # resolves oostd/... imports by walking up from the build
+          # directory, so the tree has to be a directory named `oostd` in an
+          # ancestor of the project — it is checked out under that name
+          # directly, never linked into the tree.
+          git clone --depth 1 \
+            "https://x-access-token:${TOOLCHAIN_TOKEN}@github.com/openOODA-core/std.git" \
+            "/tmp/ooda-toolchain/oostd"
+          git -C "/tmp/ooda-toolchain/oostd" remote set-url origin "https://github.com/openOODA-core/std.git"
 
       - name: Stage the build tree under /tmp
         if: steps.gate.outputs.build == 'yes'
@@ -82,10 +91,14 @@ jobs:
           # root in that list (oodar's fs layer always allows it), so the build
           # tree is staged there. The sandbox stays on and no toolchain
           # revision is pinned.
-          mkdir -p /tmp/ooda-ws
-          rsync -a --exclude .git "$GITHUB_WORKSPACE/" /tmp/ooda-ws/
+          #
+          # The workspace is staged inside the toolchain root so that `oostd`
+          # (the std repo) is a sibling of the project: the compiler walks up
+          # from the build directory to find it.
+          mkdir -p /tmp/ooda-toolchain/idlescreen
+          rsync -a --exclude .git "$GITHUB_WORKSPACE/" /tmp/ooda-toolchain/idlescreen/
           echo "OODA_HOME=/tmp/ooda-toolchain" >> "$GITHUB_ENV"
-          echo "WORKDIR=/tmp/ooda-ws" >> "$GITHUB_ENV"
+          echo "WORKDIR=/tmp/ooda-toolchain/idlescreen" >> "$GITHUB_ENV"
 
       - name: Verify, test, parity, det
         if: steps.gate.outputs.build == 'yes'
@@ -100,7 +113,7 @@ jobs:
         if: steps.gate.outputs.build == 'yes'
         run: |
           mkdir -p "$GITHUB_WORKSPACE/bin"
-          cp /tmp/ooda-ws/bin/idlescreen "$GITHUB_WORKSPACE/bin/idlescreen"
+          cp /tmp/ooda-toolchain/idlescreen/bin/idlescreen "$GITHUB_WORKSPACE/bin/idlescreen"
           chmod +x "$GITHUB_WORKSPACE/bin/idlescreen"
 
       - name: Install Cosign

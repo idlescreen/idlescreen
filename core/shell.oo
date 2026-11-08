@@ -8,8 +8,8 @@
 //   3. Keep hostile content inside one argument instead of letting it reach the command line.
 //   4. Run a command and return its trimmed stdout, or an empty string when it fails.
 
-import "std/core/primitives/str.oo";
-import "std/fs/process/process.oo";
+import "oostd/core/primitives/str.oo";
+import "oostd/fs/process/process.oo";
 
 // Quote one argument so the shell treats it as a single literal word.
 pub fn shell_quote(s: String) -> String {

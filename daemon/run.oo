@@ -7,7 +7,7 @@
 //   2. Run the blocking reactor for daemon/run verbs, or serve one-shot queries over the Unix control socket.
 //   3. Exit 0 on clean shutdown, 69 on bind failure.
 
-import "std/net/unix_socket.oo";
+import "oostd/net/unix_socket.oo";
 import "core/environ.oo";
 import "reactor.oo";
 

@@ -7,7 +7,7 @@
 //   2. Create the idle notification for the configured timeout.
 //   3. Poll the socket without blocking and fold idled/resumed events; rearm on timeout changes.
 
-import "std/net/unix_socket.oo";
+import "oostd/net/unix_socket.oo";
 import "protocol.oo";
 
 pub type IdleNotify = struct {

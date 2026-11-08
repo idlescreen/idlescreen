@@ -7,8 +7,8 @@
 //   2. Serialize ConfigData to canonical TOML string representation.
 //   3. Resolve the config dir (XDG_CONFIG_HOME, then HOME, then /etc) and read or atomically write config.toml.
 
-import "std/core/primitives/str.oo";
-import "std/fs/os/fs.oo";
+import "oostd/core/primitives/str.oo";
+import "oostd/fs/os/fs.oo";
 import "core/shell.oo";
 import "core/environ.oo";
 

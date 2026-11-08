@@ -7,8 +7,8 @@
 //   2. Arm ext-idle-notify-v1 and spawn the tick process that wakes accept so idle events fold in.
 //   3. On idled (enabled, uninhibited) raise the saver and present; on resumed/stop/quit tear it down.
 
-import "std/fs/os/fs.oo";
-import "std/net/unix_socket.oo";
+import "oostd/fs/os/fs.oo";
+import "oostd/net/unix_socket.oo";
 import "core/environ.oo";
 import "core/shell.oo";
 import "state.oo";

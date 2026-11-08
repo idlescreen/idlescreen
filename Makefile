@@ -1,6 +1,8 @@
-# Toolchain: oodac + oodar + std, either an openOODA-core checkout
-# (~/Projects/openOODA-core) or an openOODA install (~/.openooda).
+# Toolchain: oodac + oodar + oostd (the std repo), either an openOODA-core
+# checkout (~/Projects/openOODA-core) or an openOODA install (~/.openooda).
 # Override with OODA_HOME=/path/to/toolchain or OODA_COMPILER=/path/to/oodac.
+# The std repo must additionally be checked out as `oostd` in an ancestor of
+# this project — see the std-check target below.
 OODA_HOME ?= $(shell if [ -x "$$HOME/.openooda/bin/oodac" ]; then echo "$$HOME/.openooda"; elif [ -d "$$HOME/Projects/openOODA-core/oodac" ]; then echo "$$HOME/Projects/openOODA-core"; elif [ -d /Projects/openOODA-core/oodac ]; then echo /Projects/openOODA-core; else echo "$(abspath $(CURDIR)/../../openOODA-core)"; fi)
 OODA_COMPILER ?= $(shell command -v oodac 2>/dev/null || echo $(OODA_HOME)/oodac/bin/oodac)
 OODA_READDIR ?= $(CURDIR):$(OODA_HOME)
@@ -21,7 +23,7 @@ VER := 5.0.3
 SRC := main.oo anchor.oo $(wildcard core/*.oo raster/*.oo ascii/*.oo ascii/*/*.oo ascii/*/*/*.oo wayland/*.oo daemon/*.oo tui/*.oo cli/*.oo)
 ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER)
 
-.PHONY: all build verify test det check line-cap file-law academy density vocab shape clean parity std-link portable
+.PHONY: all build verify test det check line-cap file-law academy density vocab shape clean parity std-check portable
 
 all: build verify test det parity
 
@@ -29,7 +31,7 @@ PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel 
 
 parity:
 	@mkdir -p .ooda-cache bin
-	@$(MAKE) --no-print-directory std-link
+	@$(MAKE) --no-print-directory std-check
 	$(ENV) $(OODA_COMPILER) build tests/oo/scene_emit.oo -o bin/scene_emit > /dev/null
 	@fail=0; \
 	for s in $(PARITY_SCENES); do \
@@ -43,11 +45,16 @@ parity:
 	if [ $$fail -ne 0 ]; then exit 1; fi; \
 	echo "PASS: scene parity ($(words $(PARITY_SCENES)) scenes bit-exact)"
 
-# The compiler resolves std/... imports by walking up from the source tree,
-# so expose the toolchain's std repo as ./std (untracked, see .gitignore).
-std-link:
-	@test -d "$(OODA_HOME)/std" || { echo "FAIL: no std repo under OODA_HOME=$(OODA_HOME) — clone openOODA-core/std there or set OODA_HOME"; exit 1; }
-	@ln -sfn "$(OODA_HOME)/std" std
+# The compiler resolves oostd/... imports by walking up from the source tree
+# (ast/load_import_parse.oo: probe_parent_walk). The std repo must therefore
+# be a directory named `oostd` in an ancestor of this project — it is checked
+# out under that name, not linked into the tree.
+OODA_STD_DIR ?= $(shell d=$(CURDIR); while [ "$$d" != "/" ]; do if [ -d "$$d/oostd" ]; then echo "$$d/oostd"; break; fi; d=$$(dirname $$d); done)
+
+std-check:
+	@test -n "$(OODA_STD_DIR)" || { echo "FAIL: no std repo named oostd in any ancestor of $(CURDIR)"; \
+		echo "      clone openOODA-core/std as \`oostd\` beside this project (e.g. $(dir $(CURDIR))oostd)"; exit 1; }
+	@echo "PASS: std repo at $(OODA_STD_DIR)"
 
 # In a checkout layout, build the oodar archives first; an installed
 # toolchain already ships them.
@@ -58,7 +65,7 @@ build: $(BIN)
 
 $(BIN): $(SRC)
 	@mkdir -p bin .ooda-cache
-	@$(MAKE) --no-print-directory std-link oodar-libs
+	@$(MAKE) --no-print-directory std-check oodar-libs
 	$(ENV) $(OODA_COMPILER) build main.oo -o $(BIN)
 	@ll=$$(ls .ooda-cache/ooda-tmp/all_*.ll | head -n 1); \
 	test -n "$$ll" || { echo "FAIL: no emitted .ll under .ooda-cache/ooda-tmp"; exit 1; }; \
@@ -165,9 +172,9 @@ shape:
 	echo "PASS: function count (<= 8 per page) and length (<= 64 lines) hold"
 
 check:
-	@$(MAKE) --no-print-directory std-link
+	@$(MAKE) --no-print-directory std-check
 	@mkdir -p .ooda-cache
-	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./tests/oo/*" -not -path "./tests/scene_dispatch.oo" -not -path "./std/*"); do \
+	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./tests/oo/*" -not -path "./tests/scene_dispatch.oo" -not -path "./oostd/*"); do \
 		$(ENV) $(OODA_COMPILER) check "$$f" > .ooda-cache/check_out.txt 2>&1 || { echo "VIOLATION: oodac check fails on $$f"; echo "--- compiler output ---"; cat .ooda-cache/check_out.txt; exit 1; } \
 	done; \
 	echo "PASS: oodac check holds on all .oo files"
