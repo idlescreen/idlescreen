@@ -104,10 +104,10 @@ pub fn config_to_toml(c: ConfigData) -> String {
     let mut safe_text: String = "";
     let mut ti: Int = 0;
     while ti < chars_len(c.custom_text) {
-        let tb: Int = byte_at(c.custom_text, ti);
-        if tb == 34 { safe_text = safe_text + "\\\""; }
-        else if tb == 92 { safe_text = safe_text + "\\\\"; }
-        else { safe_text = safe_text + char_at(c.custom_text, ti); }
+        let tc: String = char_at(c.custom_text, ti);
+        if tc == "\"" { safe_text = safe_text + "\\\""; }
+        else if tc == "\\" { safe_text = safe_text + "\\\\"; }
+        else { safe_text = safe_text + tc; }
         ti = ti + 1;
     }
     let mut o: String = "[general]\n";

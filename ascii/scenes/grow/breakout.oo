@@ -28,10 +28,11 @@ pub fn scene_breakout(g: CellGrid, tick: Int) -> CellGrid {
         }
         y = y + 1;
     }
-    let per: Int = g.cols * 2 - 4;
+    let per: Int = if g.cols * 2 - 4 > 0 { g.cols * 2 - 4 } else { 1 };
     let bx: Int = if (tick % per) < g.cols - 2 { 2 + (tick % per) } else { g.cols - (tick % per) + g.cols - 4 };
     let vper: Int = g.rows * 2 - 10;
-    let by: Int = 5 + ((tick * 2) % if vper > 0 { vper } else { 1 }) % (g.rows - 7);
+    let vspan: Int = if g.rows - 7 > 0 { g.rows - 7 } else { 1 };
+    let by: Int = 5 + ((tick * 2) % if vper > 0 { vper } else { 1 }) % vspan;
     let byy: Int = if by < 5 { 5 } else { by };
     out = cv_put_b(out, bx, byy, "●", rgb(255, 255, 200), rgb(4, 4, 8), true);
     let py: Int = g.rows - 2;

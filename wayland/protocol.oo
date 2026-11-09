@@ -84,7 +84,7 @@ pub fn wl_get_u32(s: String, off: Int) -> Int {
 pub fn wl_get_string(s: String, off: Int) -> String {
     let n: Int = wl_get_u32(s, off);
     if n <= 0 || off + 4 + n > bytes_len(s) { return ""; }
-    return str_slice(s, off + 4, off + 4 + n - 1);
+    return byte_slice(s, off + 4, off + 4 + n - 1);
 }
 
 pub fn wl_next_msg(s: String, off: Int) -> WlMsg {

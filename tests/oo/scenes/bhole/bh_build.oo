@@ -115,7 +115,7 @@ pub fn bh_build(w: World, info: CanvasInfo, cc: Int, cr: Int) -> Bh {
     }
     let sh: DRL = rng_shuf(w2.rng, awc);
     w2 = w_rng(w2, sh.r);
-    let mut fd: Int = 100 / list_len(pk.bh);
+    let mut fd: Int = if list_len(pk.bh) > 0 { 100 / list_len(pk.bh) } else { 100 };
     if fd < 3 { fd = 3; }
     let _r2 = Bh { w: w2, bh: pk.bh, awb: pk.bh, awc: sh.v, fd: fd, ph: 0 };
     return _r2;

@@ -91,7 +91,7 @@ fn wl_registry_scan(fs: &FsCap, conn: UnixConnection, buf0: String) -> WlScan {
             off = off + m.size;
             m = wl_next_msg(buf, off);
         }
-        buf = str_slice(buf, off, bytes_len(buf));
+        buf = byte_slice(buf, off, bytes_len(buf));
         tries = tries + 1;
     }
     return WlScan { seat_name: seat_name, seat_ver: seat_ver, notif_name: notif_name, buf: buf };
@@ -165,7 +165,7 @@ pub fn wl_idle_poll(fs: &FsCap, w: IdleWire) -> IdleWire {
     return IdleWire {
         notify: n,
         conn: w.conn,
-        buf: str_slice(buf, off, bytes_len(buf)),
+        buf: byte_slice(buf, off, bytes_len(buf)),
         notif_id: w.notif_id,
         seat_id: w.seat_id,
         notifier_id: w.notifier_id,

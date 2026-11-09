@@ -24,9 +24,9 @@ pub fn self_env(fs_r: &FsReadCap, key: String) -> String {
     while i <= n {
         if i == n || byte_at(content, i) == 0 {
             if i - start > wn {
-                let entry: String = str_slice(content, start, i);
+                let entry: String = byte_slice(content, start, i);
                 if str_starts_with(entry, want) {
-                    return str_slice(entry, wn, chars_len(entry));
+                    return byte_slice(entry, wn, bytes_len(entry));
                 }
             }
             start = i + 1;
