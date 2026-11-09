@@ -21,12 +21,14 @@ OODA_WRITEDIR ?= $(CURDIR):/tmp
 OO_LIST_AMBIENT_QUOTA ?= 8589934592
 # oodar static libs: checkout layout builds core+net; an openOODA install
 # ships one umbrella archive.
-ifeq ($(wildcard $(OODA_HOME)/oodar/scripts/Makefile),)
-OODAR_LIBS := $(OODA_HOME)/bin/liboodar.a
-else
+ifneq ($(wildcard $(OODA_HOME)/oodar/scripts/Makefile),)
 OODAR_LIBS := $(OODA_HOME)/oodar/scripts/lib/liboodar-core.a $(OODA_HOME)/oodar/scripts/lib/liboodar-net.a
+else ifneq ($(wildcard $(OODA_HOME)/oodar/core/lib/liboodar-core.a),)
+OODAR_LIBS := $(OODA_HOME)/oodar/core/lib/liboodar-core.a $(OODA_HOME)/oodar/core/lib/liboodar-net.a
+else
+OODAR_LIBS := $(OODA_HOME)/bin/liboodar.a
 endif
-OODAR_INCDIR := $(if $(wildcard $(OODA_HOME)/oodar/oodar.h),$(OODA_HOME)/oodar,$(OODA_HOME))
+OODAR_INCDIR := $(if $(wildcard $(OODA_HOME)/oodar/oodar.h),$(OODA_HOME)/oodar,$(if $(wildcard $(OODA_HOME)/oodar/core/oodar.h),$(OODA_HOME)/oodar/core,$(OODA_HOME)))
 BIN := bin/idlescreen
 TESTBIN := bin/test_idlescreen
 REPO_NAME := idlescreen
@@ -64,7 +66,8 @@ std-check:
 # In a checkout layout, build the oodar archives first; an installed
 # toolchain already ships them.
 oodar-libs:
-	@if [ -f $(OODA_HOME)/oodar/scripts/Makefile ]; then $(MAKE) -C $(OODA_HOME)/oodar/scripts core net; fi
+	@if [ -f $(OODA_HOME)/oodar/scripts/Makefile ]; then $(MAKE) -C $(OODA_HOME)/oodar/scripts core net; \
+	elif [ -f $(OODA_HOME)/oodar/Makefile ]; then $(MAKE) -C $(OODA_HOME)/oodar core net; fi
 
 build: $(BIN)
 
