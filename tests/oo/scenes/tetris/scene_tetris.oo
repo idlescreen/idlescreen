@@ -1,0 +1,129 @@
+// # scene_tetris — falling tetromino stacker port
+//
+// Logline: Bit-exact port of Tetris::next_frame for the parity harness:
+// each column pair runs on its own phase so a staggered drop band of
+// block glyphs assembles into the locked banner, then frame 64 settles.
+// Setup: Pure over canvas_cells geometry. 64 frames total; palette is 6
+// stops x 10 steps, final spectrum is 3 stops x 12 steps mapped vertical.
+// Beats:
+//   1. tetris_new builds the palette and final spectrum.
+//   2. tetris_next emits one frame of per-cell paint.
+//   3. tetris_run drives frames to settle and returns the digest run.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/math_paint.oo";
+import "tests/shade_float.oo";
+import "tests/digest_run.oo";
+
+pub type Tetris = struct {
+    cells: List[CellGeom],
+    palette: List[Int],
+    final_spec: List[Int],
+    frame: Int,
+    info: CanvasInfo
+};
+
+fn tt_stops(k: Int) -> List[Int] {
+    let mut s: List[Int] = list_new();
+    s = list_push(s, 0 * 65536 + 245 * 256 + 212);
+    if k == 1 {
+        s = list_push(s, 255 * 65536 + 0 * 256 + 110);
+        s = list_push(s, 255 * 65536 + 190 * 256 + 11);
+        return s;
+    }
+    s = list_push(s, 58 * 65536 + 134 * 256 + 255);
+    s = list_push(s, 131 * 65536 + 56 * 256 + 236);
+    s = list_push(s, 255 * 65536 + 0 * 256 + 110);
+    s = list_push(s, 251 * 65536 + 86 * 256 + 7);
+    s = list_push(s, 255 * 65536 + 190 * 256 + 11);
+    return s;
+}
+
+pub fn tetris_new(cells: List[CellGeom], info: CanvasInfo) -> Tetris {
+    let _r1 = Tetris {
+        cells: cells,
+        palette: spectrum_build(tt_stops(0), 10),
+        final_spec: spectrum_build(tt_stops(1), 12),
+        frame: 0,
+        info: info
+    };
+    return _r1;
+}
+
+fn tt_cell(t: Tetris, c: CellGeom, progress: Float, show: Int) -> PaintCell {
+    let piece_col: Int = c.col / 2;
+    let col_phase: Float = int_to_f((piece_col * 2654435761) % 100) / 100.0;
+    let col_color: Float = int_to_f((piece_col * 17) % 6) / 5.0;
+    let lock_th: Float = 1.0 - clamp_f(progress * 1.35 - col_phase * 0.28, 0.0, 1.0);
+    if c.fill == 0 && c.ny >= lock_th {
+        let _r2 = symbol_paint_cell(c, t.info, t.palette, t.final_spec, 0 - 1, 1.0, 1);
+        return _r2;
+    }
+    if show == 0 {
+        let _r3 = symbol_paint_cell(c, t.info, t.palette, t.final_spec, 0 - 1, 0.0, 0);
+        return _r3;
+    }
+    let drop_y: Float = progress * 1.8 + col_phase - floor_f(progress * 1.8 + col_phase);
+    let dist_drop: Float = abs_f(c.ny - drop_y);
+    if dist_drop < 0.065 && ((c.col + c.row) % 2) == 0 {
+        let mut sym: Int = 9619;
+        if dist_drop < 0.03 { sym = 9608; }
+        let _r4 = symbol_paint_cell(c, t.info, t.palette, t.final_spec, sym, col_color, 0);
+        return _r4;
+    }
+    if c.fill == 0 && abs_f(c.ny - lock_th) < 0.05 {
+        let _r5 = symbol_paint_cell(c, t.info, t.palette, t.final_spec, 9618, 0.95, 0);
+        return _r5;
+    }
+    let _r6 = symbol_paint_cell(c, t.info, t.palette, t.final_spec, 0 - 1, 0.0, 0);
+    return _r6;
+}
+
+pub fn tetris_next(t: Tetris) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if t.frame >= 64 { return out; }
+    let frame: Int = t.frame + 1;
+    let n: Int = list_len(t.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, settle_paint_cell(list_get(t.cells, i), t.info));
+            i = i + 1;
+        }
+        return out;
+    }
+    let progress: Float = int_to_f(frame) / 64.0;
+    let mut show: Int = 0;
+    if progress < 0.82 { show = 1; }
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, tt_cell(t, list_get(t.cells, j), progress, show));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn tetris_advance(t: Tetris) -> Tetris {
+    let _r7 = Tetris {
+        cells: t.cells,
+        palette: t.palette,
+        final_spec: t.final_spec,
+        frame: t.frame + 1,
+        info: t.info
+    };
+    return _r7;
+}
+
+pub fn tetris_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {
+    let mut t: Tetris = tetris_new(cells, info);
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        let pcs: List[PaintCell] = tetris_next(t);
+        if list_len(pcs) == 0 { break; }
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        t = tetris_advance(t);
+    }
+    return run;
+}

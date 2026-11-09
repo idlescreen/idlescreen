@@ -4,7 +4,7 @@
 // Setup: Pure shim. Imports family anchors and the dispatch page for the tree.
 // Beats:
 //   1. Import the eight scene family anchors.
-//   2. Import the 53-scene dispatch router page.
+//   2. Import the 51-scene dispatch router page.
 //   3. Carry no code; anchors hold imports only.
 
 import "ascii/effects.oo";

@@ -91,11 +91,12 @@ pub fn w_active_add(w: World, i: Int) -> World {
 pub fn w_set_vis(w: World, i: Int, v: Int) -> World {
     let ch: Char = list_get(w.chars, i);
     if ch.vis == v { return w; }
-    let _r5 = w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+    let nc: Char = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
         uses_pre: ch.uses_pre, vis: v, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
         v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
         a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
-        done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs });
+        done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+    let _r5 = w_put(w, i, nc);
     return _r5;
 }
 

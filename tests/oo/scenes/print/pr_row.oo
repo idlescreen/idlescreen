@@ -1,0 +1,102 @@
+// # pr_row — print row helpers
+//
+// Logline: Row helpers for the Print port: fill tests, column extents,
+// and the make_row builder that stages each input row at canvas bottom
+// with its five-symbol typing gradient scene.
+// Setup: Pure World ops. A "fill" char carries fill tag 1 or 2; input
+// chars carry 0. Scene frames are [FULL BLOCK, dark shade, medium shade,
+// light shade, glyph] cyclically distributed over the 6-color gradient.
+// Beats:
+//   1. pr_fill/pr_all_fill/pr_min_col classify rows for the retain pass.
+//   2. pr_right_extent trims trailing fill beyond the last text glyph.
+//   3. pr_make_row builds one Row's scenes and untyped id list.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+
+pub fn pr_fill(ch: Char) -> Int {
+    if ch.fill == 1 || ch.fill == 2 { return 1; }
+    return 0;
+}
+
+pub fn pr_all_fill(w: World, ids: List[Int]) -> Int {
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        if pr_fill(list_get(w.chars, list_get(ids, k))) == 0 { return 0; }
+        k = k + 1;
+    }
+    if list_len(ids) == 0 { return 0; }
+    return 1;
+}
+
+pub fn pr_min_col(w: World, ids: List[Int]) -> Int {
+    let mut lo: Int = 2147483647;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let ch: Char = list_get(w.chars, list_get(ids, k));
+        if pr_fill(ch) == 0 && ch.col0 < lo { lo = ch.col0; }
+        k = k + 1;
+    }
+    return lo;
+}
+
+fn pr_right_extent(w: World, ids: List[Int]) -> Int {
+    let mut hi: Int = 0 - 1;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let ch: Char = list_get(w.chars, list_get(ids, k));
+        if pr_fill(ch) == 0 && ch.col0 > hi { hi = ch.col0; }
+        k = k + 1;
+    }
+    return hi;
+}
+
+fn pr_keep(w: World, ids: List[Int]) -> List[Int] {
+    let mut all_sp: Int = 1;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        if list_get(w.chars, list_get(ids, k)).sym != 32 { all_sp = 0; }
+        k = k + 1;
+    }
+    let mut out: List[Int] = list_new();
+    if all_sp == 1 { out = list_push(out, list_get(ids, 0));
+    return out; }
+    let hi: Int = pr_right_extent(w, ids);
+    let mut j: Int = 0;
+    while j < list_len(ids) {
+        let ch: Char = list_get(w.chars, list_get(ids, j));
+        if ch.col0 <= hi { out = list_push(out, list_get(ids, j)); }
+        j = j + 1;
+    }
+    return out;
+}
+
+pub type PrRow = struct { w: World, unt: List[Int] };
+
+pub fn pr_make_row(w: World, info: CanvasInfo, cmap: List[Int], rids: List[Int]) -> PrRow {
+    let ids: List[Int] = pr_keep(w, rids);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ci: Int = (ch.row0 - info.tb) * (info.tr - info.tl + 1) + (ch.col0 - info.tl);
+        let ffg: Int = list_get(cmap, ci);
+        w2 = w_pos(w2, id, ch.col0, 1);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+        let g: List[Int] = gradient_new(list_push(list_push(list_new(), 16777215), ffg),
+            list_push(list_new(), 5), 0);
+        let syms: List[Int] = list_push(list_push(list_push(list_push(list_push(list_new(), 9608), 9619),
+            9618), 9617), ch.sym);
+        w2 = w_grad(w2, id, 0, syms, 3, g, list_new());
+        w2 = w_aset(w2, id, 0);
+        w2 = w_set_vis(w2, id, 1);
+        k = k + 1;
+    }
+    let _r1 = PrRow { w: w2, unt: ids };
+    return _r1;
+}

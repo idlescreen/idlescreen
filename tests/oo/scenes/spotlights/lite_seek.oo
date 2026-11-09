@@ -105,10 +105,10 @@ fn lite_one(w: World, info: CanvasInfo) -> LiteC {
     w2 = w_reg(w2, sid, 1, 1, "10", EvAct { kind: 0, sid: "0", num: 0, carg: 0 });
     let mut crow: Int = info.top / 2;
     if crow < info.bottom { crow = info.bottom; }
-    if info.top % 2 != 0 && info.top > 1 { crow = crow + 1; }
+    if (info.top % 2) != 0 && info.top > 1 { crow = crow + 1; }
     let mut ccol: Int = info.right / 2;
     if ccol < info.left { ccol = info.left; }
-    if info.right % 2 != 0 && info.right > 1 { ccol = ccol + 1; }
+    if (info.right % 2) != 0 && info.right > 1 { ccol = ccol + 1; }
     w2 = w_path(w2, sid, wp_cfg(0.5, 1, ez(3), 0 - 1, 0, 0), "center");
     w2 = w_wp(w2, sid, 11, ccol, crow, list_new());
     let _r3 = LiteC { w: w2, c: sid, r: 0 };

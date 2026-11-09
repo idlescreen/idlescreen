@@ -11,14 +11,19 @@
 import "tests/oo/grid_cells.oo";
 import "tests/fnv1a64.oo";
 
+pub type PcFrame = struct {
+    cells: List[PaintCell]
+};
+
 pub type DigestRun = struct {
     frames: List[Int],
     composite: Int,
-    last: List[PaintCell]
+    last: List[PaintCell],
+    pc_frames: List[PcFrame]
 };
 
 pub fn digest_run_new() -> DigestRun {
-    let _r1 = DigestRun { frames: list_new(), composite: fnv1a64_new(), last: list_new() };
+    let _r1 = DigestRun { frames: list_new(), composite: fnv1a64_new(), last: list_new(), pc_frames: list_new() };
     return _r1;
 }
 
@@ -53,10 +58,14 @@ pub fn digest_paint_cells(pcs: List[PaintCell]) -> Int {
 }
 
 pub fn run_push(run: DigestRun, d: Int, pcs: List[PaintCell]) -> DigestRun {
+    let last2: List[PaintCell] = list_slice(pcs, 0, list_len(pcs));
+    let fr: PcFrame = PcFrame { cells: pcs };
+    let pf: List[PcFrame] = list_push(run.pc_frames, fr);
     let _r3 = DigestRun {
         frames: list_push(run.frames, d),
         composite: fnv1a64_combine(run.composite, d),
-        last: pcs
+        last: last2,
+        pc_frames: pf
     };
     return _r3;
 }

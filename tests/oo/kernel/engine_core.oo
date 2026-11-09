@@ -107,6 +107,8 @@ fn act_hi(w: World, i: Int, act: EvAct, c2: Char) -> World {
             pend: list_push(list_push(list_push(w.pend, i), act.num), act.carg) };
         return _r10;
     }
+    if act.kind == 8 { let _r11 = w_set_vis(w, i, act.num);
+    return _r11; }
     return w;
 }
 

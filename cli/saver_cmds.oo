@@ -3,7 +3,7 @@
 // Logline: The scene-facing command verbs: roster listing and wordmark text configuration.
 // Setup: Requires ProcessCap and EnvCap for OS/config resolution, and FfiCap for terminal emission.
 // Beats:
-//   1. List the 53-scene roster in text or JSON format.
+//   1. List the 51-scene roster in text or JSON format.
 //   2. Render wordmark presets or configure/report ASCII banner text targets.
 
 import "ascii/effects.oo";
@@ -22,9 +22,9 @@ pub fn cmd_list(args: List[String]) -> Int {
         i = i + 1;
     }
     if json {
-        let mut out: String = "{\"count\":53,\"scenes\":[";
+        let mut out: String = "{\"count\":51,\"scenes\":[";
         let mut j: Int = 0;
-        while j < 53 {
+        while j < 51 {
             if j > 0 { out = out + ","; }
             out = out + "\"" + effects_name(j) + "\"";
             j = j + 1;
@@ -34,7 +34,7 @@ pub fn cmd_list(args: List[String]) -> Int {
         return 0;
     }
     let mut k: Int = 0;
-    while k < 53 {
+    while k < 51 {
         println((k + 1).to_string() + " " + effects_name(k));
         k = k + 1;
     }

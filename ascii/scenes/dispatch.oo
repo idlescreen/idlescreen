@@ -1,4 +1,4 @@
-// # scenes Dispatch Anchor - 53-Scene Render Router
+// # scenes Dispatch Anchor - 51-Scene Render Router
 //
 // Logline: Routes a roster index to the matching scene render function across the eight family anchors.
 // Setup: Pure dispatch over CellGrid. Imports the eight family anchors.
@@ -44,7 +44,6 @@ fn scene_render_b(n: String, g: CellGrid, tick: Int) -> CellGrid {
     else if n == "vhstape" { r = scene_vhstape(g, tick); }
     else if n == "waves" { r = scene_waves(g, tick); }
     else if n == "wipe" { r = scene_wipe(g, tick); }
-    else if n == "zero" { r = scene_zero(g, tick); }
     return r;
 }
 
@@ -73,7 +72,6 @@ pub fn scene_render(idx: Int, g: CellGrid, tick: Int) -> CellGrid {
     else if n == "matrix" { r = scene_matrix(g, tick); }
     else if n == "metaballs" { r = scene_metaballs(g, tick); }
     else if n == "middleout" { r = scene_middleout(g, tick); }
-    else if n == "mmx" { r = scene_mmx(g, tick); }
     else if n == "moire" { r = scene_moire(g, tick); }
     else if n == "mystify" { r = scene_mystify(g, tick); }
     else if n == "orbittingvolley" { r = scene_orbittingvolley(g, tick); }

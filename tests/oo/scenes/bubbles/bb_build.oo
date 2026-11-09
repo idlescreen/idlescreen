@@ -1,0 +1,120 @@
+// # bb_build — bubbles construction and bubble spawning
+//
+// Logline: Bit-exact Bubbles::build_scene plus Bubble::make_bubble: per
+// glyph pop/final scenes and events, bottom-to-top row grouping, and the
+// RNG-drawn bubble queue (5..20 grouping, origin, waypoint, color).
+// Setup: pop_color FFFFFF, final d33aff->02ff7f diagonal steps [12];
+// per-glyph final scene = pop->final with_steps 8 at 6 ticks/frame.
+// Bubble speed 1.1 linear, pop_out 0.3 OutExpo, final path 0.3
+// InOutExpo. RNG draw order per bubble: group size, origin column,
+// waypoint column, color choice.
+// Beats:
+//   1. bb_chars stages the three scenes, two events, and final path.
+//   2. bb_mk forms one bubble (circle seats, floor path, sheen color).
+//   3. bb_queue drains unbubbled into the pending Groups + meta lists.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/geometry_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_helpers.oo";
+
+pub type BBQ = struct {
+    w: World, g: Groups, rad: List[Int], anc: List[Int], low: List[Int]
+};
+
+pub type BCh = struct { w: World, land: Int };
+
+pub fn bb_place(w: World, anchor: Int, ids: List[Int], rad: Int, low: Int) -> BCh {
+    let ach: Char = list_get(w.chars, anchor);
+    let pts: List[Int] = coords_on_circle(ach.cc, ach.cr, rad, list_len(ids), 0);
+    let mut w2: World = w;
+    let mut land: Int = 0;
+    let mut i: Int = 0;
+    while i < list_len(ids) && i < list_len(pts) / 2 {
+        w2 = w_pos(w2, list_get(ids, i), list_get(pts, i * 2), list_get(pts, i * 2 + 1));
+        if list_get(pts, i * 2 + 1) == low { land = 1; }
+        i = i + 1;
+    }
+    let _r1 = BCh { w: w2, land: land };
+    return _r1;
+}
+
+fn bb_chars(w: World, info: CanvasInfo) -> World {
+    let spec: List[Int] = gradient_new(list_push(list_push(list_new(), 13863167), 196479),
+        list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_d(spec, info.tb, info.tt, info.tl, info.tr);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ci: Int = (ch.row0 - info.tb) * (info.tr - info.tl + 1) + (ch.col0 - info.tl);
+        let ffg: Int = list_get(cmap, ci);
+        w2 = w_lay(w2, id, 1);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "pop_1");
+        w2 = w_frame(w2, id, 0, 42, 9, 16777215, 0 - 1, 0);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+        w2 = w_frame(w2, id, 1, 39, 9, 16777215, 0 - 1, 0);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+        let g: List[Int] = gradient_new(list_push(list_push(list_new(), 16777215), ffg),
+            list_push(list_new(), 8), 0);
+        w2 = w_grad(w2, id, 2, list_push(list_new(), ch.sym), 6, g, list_new());
+        w2 = w_reg(w2, id, 2, 0, "pop_1", EvAct { kind: 1, sid: "1", num: 0, carg: 0 });
+        w2 = w_reg(w2, id, 2, 0, "1", EvAct { kind: 1, sid: "2", num: 0, carg: 0 });
+        w2 = w_path(w2, id, wp_cfg(0.3, 1, ez(18), 0 - 1, 0, 0), "final");
+        w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
+        w2 = w_reg(w2, id, 1, 1, "final", EvAct { kind: 5, sid: "", num: 0, carg: 0 });
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn bb_mk(w: World, info: CanvasInfo, ids: List[Int], ocol: Int, rng: Rng) -> BBQ {
+    let mut w2: World = w;
+    let mut r2: Rng = rng;
+    let anchor: Int = list_len(w2.chars);
+    w2 = w_add_char(w2, 32, ocol, info.top + 10);
+    let mut rad: Int = list_len(ids) / 5;
+    if rad < 1 { rad = 1; }
+    let mut low: Int = 2147483647;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let r: Int = list_get(w2.chars, list_get(ids, i)).row0;
+        if r < low { low = r; }
+        i = i + 1;
+    }
+    let b0: BCh = bb_place(w2, anchor, ids, rad, low);
+    w2 = b0.w;
+    let wc: DR = rng_int(r2, info.left, info.right);
+    r2 = wc.r;
+    w2 = w_path(w2, anchor, wp_cfg(1.1, 0, ez(0), 0 - 1, 0, 0), "");
+    w2 = w_wp(w2, anchor, 0, wc.v, low, list_new());
+    w2 = eng_act_path(w2, anchor, 0);
+    let cols: List[Int] = list_push(list_push(list_push(list_push(list_new(), 13863167),
+        7570884), 4430247), 196479);
+    let cc: DR = rng_pick(r2, 4);
+    r2 = cc.r;
+    let bcol: Int = list_get(cols, cc.v);
+    let mut j: Int = 0;
+    while j < list_len(ids) {
+        let id: Int = list_get(ids, j);
+        let ch2: Char = list_get(w2.chars, id);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+        w2 = w_frame(w2, id, 3, ch2.sym, 1, bcol, 0 - 1, 0);
+        w2 = w_aset(w2, id, 3);
+        j = j + 1;
+    }
+    let g: Groups = Groups { keys: list_push(list_new(), 0), bounds: list_push(list_new(), list_len(ids)),
+        members: ids };
+    let _r2 = BBQ { w: w_rng(w2, r2), g: g, rad: list_push(list_new(), rad),
+        anc: list_push(list_new(), anchor), low: list_push(list_new(), low) };
+    return _r2;
+}

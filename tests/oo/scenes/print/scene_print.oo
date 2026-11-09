@@ -1,0 +1,163 @@
+// # scene_print — typewriter row reveal port
+//
+// Logline: Bit-exact port of Print::build/next_frame: rows type six
+// glyphs per tick at canvas bottom, finished rows stack upward, and the
+// block typing head carriage-returns on an InOutQuad path that hides it
+// on PathComplete.
+// Setup: print_speed=6, head return speed 4.0 InOutQuad. Final gradient
+// 02b8bd->c1f0e3->00ffa0 diagonal, steps [12]. Filter covers input +
+// inner + outer fill. No RNG draws.
+// Beats:
+//   1. pr_build adds the head, maps final colors, and stages every row.
+//   2. pr_step types six chars, or lifts finished rows and re-paths the head.
+//   3. print_run updates and emits until typing ends and actives drain.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/digest_run.oo";
+import "tests/oo/scenes/print/pr_row.oo";
+
+pub type PrS = struct {
+    w: World, g: Groups, gi: Int, cur_unt: List[Int], cur_typed: List[Int],
+    proc_typed: List[Int], typing: Int, last_col: Int, head: Int
+};
+
+fn pr_new_row(s: PrS, info: CanvasInfo) -> PrS {
+    let mut w2: World = s.w;
+    let mut pt: List[Int] = s.proc_typed;
+    let mut i: Int = 0;
+    while i < list_len(pt) {
+        let id: Int = list_get(pt, i);
+        let ch: Char = list_get(w2.chars, id);
+        w2 = w_pos(w2, id, ch.cc, ch.cr + 1);
+        i = i + 1;
+    }
+    let mut cur: List[Int] = grp_win(s.g, s.gi);
+    let hch: Char = list_get(w2.chars, s.head);
+    w2 = w_pos(w2, s.head, s.last_col, 1);
+    w2 = w_set_vis(w2, s.head, 1);
+    let mut gi: Int = s.gi + 1;
+    let mut last_ok: Int = 1;
+    if pr_all_fill(w2, s.cur_typed) == 1 || pr_all_fill(w2, cur) == 1 { last_ok = 0; }
+    if last_ok == 1 {
+        let lo: Int = pr_min_col(w2, cur);
+        let mut kept: List[Int] = list_new();
+        let mut k: Int = 0;
+        while k < list_len(cur) {
+            let c2: Char = list_get(w2.chars, list_get(cur, k));
+            if c2.col0 >= lo && c2.col0 <= info.tr { kept = list_push(kept, list_get(cur, k)); }
+            k = k + 1;
+        }
+        cur = kept;
+    }
+    w2 = w_put(w2, s.head, ch_pa(hch, list_new(), list_new()));
+    w2 = w_path(w2, s.head, wp_cfg(4.0, 1, ez(6), 0 - 1, 0, 0), "carriage_return_path");
+    let tc: Int = list_get(w2.chars, list_get(cur, 0)).col0;
+    w2 = w_wp(w2, s.head, 0, tc, 1, list_new());
+    w2 = w_reg(w2, s.head, 1, 1, "carriage_return_path", EvAct { kind: 8, sid: "", num: 0, carg: 0 });
+    w2 = eng_act_path(w2, s.head, 0);
+    w2 = w_active_add(w2, s.head);
+    let _r1 = PrS { w: w2, g: s.g, gi: gi, cur_unt: cur, cur_typed: list_new(),
+        proc_typed: pt, typing: s.typing, last_col: s.last_col, head: s.head };
+    return _r1;
+}
+
+fn pr_step(s: PrS, info: CanvasInfo) -> PrS {
+    let hch: Char = list_get(s.w.chars, s.head);
+    if hch.a_path != 0 - 1 { return s; }
+    if list_len(s.cur_unt) > 0 {
+        let mut w2: World = s.w;
+        let mut unt: List[Int] = s.cur_unt;
+        let mut typed: List[Int] = s.cur_typed;
+        let mut lc: Int = s.last_col;
+        let mut cnt: Int = list_len(unt);
+        if cnt > 6 { cnt = 6; }
+        let mut t: Int = 0;
+        while t < cnt {
+            if list_len(unt) > 0 {
+                let id: Int = list_get(unt, 0);
+                unt = list_slice(unt, 1, list_len(unt));
+                typed = list_push(typed, id);
+                w2 = w_set_vis(w2, id, 1);
+                w2 = w_active_add(w2, id);
+                lc = list_get(w2.chars, id).col0;
+            }
+            t = t + 1;
+        }
+        let _r2 = PrS { w: w2, g: s.g, gi: s.gi, cur_unt: unt, cur_typed: typed,
+            proc_typed: s.proc_typed, typing: s.typing, last_col: lc, head: s.head };
+        return _r2;
+    }
+    let mut pt: List[Int] = s.proc_typed;
+    let mut i2: Int = 0;
+    while i2 < list_len(s.cur_typed) {
+        pt = list_push(pt, list_get(s.cur_typed, i2));
+        i2 = i2 + 1;
+    }
+    let mut s2: PrS = PrS { w: s.w, g: s.g, gi: s.gi, cur_unt: s.cur_unt,
+        cur_typed: s.cur_typed, proc_typed: pt, typing: s.typing, last_col: s.last_col, head: s.head };
+    if s2.gi >= list_len(s2.g.keys) {
+        s2 = PrS { w: s2.w, g: s2.g, gi: s2.gi, cur_unt: s2.cur_unt, cur_typed: s2.cur_typed,
+            proc_typed: s2.proc_typed, typing: 0, last_col: s2.last_col, head: s2.head };
+        return s2;
+    }
+    let _r3 = pr_new_row(s2, info);
+    return _r3;
+}
+
+pub fn print_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = w_input(info, lines, rng_seed(42));
+    w = w_add_char(w, 9608, 1, 1);
+    let head: Int = list_len(w.chars) - 1;
+    let stops: List[Int] = list_push(list_push(list_push(list_new(), 178365), 12673251), 65440);
+    let spec: List[Int] = gradient_new(stops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_d(spec, info.tb, info.tt, info.tl, info.tr);
+    let g0: Groups = groups_of(w, collect_ids(w, 7), 1, 0, 0, 1);
+    let mut w2: World = w;
+    let mut unt_all: List[Int] = list_new();
+    let mut bounds: List[Int] = list_new();
+    let mut keys: List[Int] = list_new();
+    let mut gi: Int = 0;
+    while gi < list_len(g0.keys) {
+        let r: PrRow = pr_make_row(w2, info, cmap, grp_win(g0, gi));
+        w2 = r.w;
+        keys = list_push(keys, gi);
+        bounds = list_push(bounds, list_len(r.unt));
+        let mut m: Int = 0;
+        while m < list_len(r.unt) {
+            unt_all = list_push(unt_all, list_get(r.unt, m));
+            m = m + 1;
+        }
+        gi = gi + 1;
+    }
+    let g: Groups = Groups { keys: keys, bounds: bounds, members: unt_all };
+    let mut s: PrS = PrS { w: w2, g: g, gi: 0, cur_unt: list_new(), cur_typed: list_new(),
+        proc_typed: list_new(), typing: 1, last_col: 0, head: head };
+    if list_len(g.keys) > 0 {
+        s = PrS { w: w2, g: g, gi: 1, cur_unt: grp_win(g, 0), cur_typed: list_new(),
+            proc_typed: list_new(), typing: 1, last_col: 0, head: head };
+    }
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while s.typing == 1 || list_len(s.w.active) > 0 {
+        s = pr_step(s, info);
+        let w3: World = eng_update(s.w);
+        s = PrS { w: w3, g: s.g, gi: s.gi, cur_unt: s.cur_unt, cur_typed: s.cur_typed,
+            proc_typed: s.proc_typed, typing: s.typing, last_col: s.last_col, head: s.head };
+        let pcs: List[PaintCell] = eng_render(w3, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

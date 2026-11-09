@@ -42,6 +42,16 @@ import "tests/oo/scenes/fireworks/scene_fireworks.oo";
 import "tests/oo/scenes/spotlights/scene_spotlights.oo";
 import "tests/oo/scenes/errorcorrect/scene_errorcorrect.oo";
 import "tests/oo/scenes/crumble/scene_crumble.oo";
+import "tests/oo/scenes/randomsequence/scene_randomsequence.oo";
+import "tests/oo/scenes/orbittingvolley/scene_orbittingvolley.oo";
+import "tests/oo/scenes/bubbles/scene_bubbles.oo";
+import "tests/oo/scenes/beams/scene_beams.oo";
+import "tests/oo/scenes/laseretch/scene_laseretch.oo";
+import "tests/oo/scenes/print/scene_print.oo";
+import "tests/oo/scenes/breakout/scene_breakout.oo";
+import "tests/oo/scenes/life/scene_life.oo";
+import "tests/oo/scenes/pipes/scene_pipes.oo";
+import "tests/oo/scenes/tetris/scene_tetris.oo";
 
 pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> Result[DigestRun, String] {
     if name == "plasma" { return Ok(plasma_run(cells, info)); }
@@ -77,5 +87,15 @@ pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "spotlights" { return Ok(spotlights_run(cells, info, lines)); }
     if name == "errorcorrect" { return Ok(errorcorrect_run(cells, info, lines)); }
     if name == "crumble" { return Ok(crumble_run(cells, info, lines)); }
+    if name == "randomsequence" { return Ok(randomsequence_run(cells, info, lines)); }
+    if name == "orbittingvolley" { return Ok(orbittingvolley_run(cells, info, lines)); }
+    if name == "bubbles" { return Ok(bubbles_run(cells, info, lines)); }
+    if name == "beams" { return Ok(beams_run(cells, info, lines)); }
+    if name == "laseretch" { return Ok(laseretch_run(cells, info, lines)); }
+    if name == "print" { return Ok(print_run(cells, info, lines)); }
+    if name == "breakout" { return Ok(breakout_run(cells, info)); }
+    if name == "life" { return Ok(life_run(cells, info)); }
+    if name == "pipes" { return Ok(pipes_run(cells, info)); }
+    if name == "tetris" { return Ok(tetris_run(cells, info)); }
     return Err("ERR\tscene\tno parity port: " + name);
 }

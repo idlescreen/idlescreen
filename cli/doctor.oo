@@ -126,7 +126,7 @@ fn doctor_print_concise(r: DoctorReport) -> Int {
     println("  [✓] Active Saver    : " + r.active_saver + " (timeout: " + r.timeout_secs.to_string() + "s, dwell: " + r.dwell_secs.to_string() + ".0s)");
     let cfg_str: String = if r.config_exists { r.config_path + " (TOML active)" } else { "Default built-in configuration" };
     println("  [✓] Configuration   : " + cfg_str);
-    println("  [✓] Savers Engine   : built-in 16-bit arcade engine (53 scenes)");
+    println("  [✓] Savers Engine   : built-in 16-bit arcade engine (51 scenes)");
     println("  [✓] Capabilities    : Process FsRead FsWrite Fs Bind Tcp Env Time Rand Ffi Alloc Arena");
     let shm_str: String = if r.shm_writable { "/dev/shm writable" } else { "/dev/shm unwritable" };
     let sock_str: String = if r.inhibited { "control socket connected, inhibited" } else { "control socket connected, uninhibited" };
@@ -175,7 +175,7 @@ fn doctor_print_verbose(r: DoctorReport) -> Int {
     let cfg_str: String = if r.config_exists { r.config_path + " (TOML active)" } else { "Default built-in configuration" };
     println("  [✓] Config File: " + cfg_str);
     println("  [✓] Active Saver: " + r.active_saver + " (mode: " + r.mode_desc + ", dwell: " + r.dwell_secs.to_string() + ".0s, timeout: " + r.timeout_secs.to_string() + "s)");
-    println("  [✓] Built-in Engine: 16-bit arcade animation engine (53 scenes)\n\nPermissions & IPC:");
+    println("  [✓] Built-in Engine: 16-bit arcade animation engine (51 scenes)\n\nPermissions & IPC:");
     println("  [✓] Capabilities: Process FsRead FsWrite Fs Bind Tcp Env Time Rand Ffi Alloc Arena");
     let sh_m: String = if r.shm_writable { "✓" } else { "✗" };
     let sh_d: String = if r.shm_writable { "writable (wl_shm ready)" } else { "not writable" };
@@ -205,7 +205,7 @@ fn doctor_print_json(r: DoctorReport) -> Int {
         ",\"inhibited\":" + inh_ok + "},\"config\":{\"path\":\"" + r.config_path +
         "\",\"is_toml\":true,\"active_saver\":\"" + r.active_saver +
         "\",\"timeout_secs\":" + r.timeout_secs.to_string() +
-        ",\"dwell_secs\":" + r.dwell_secs.to_string() + ".0},\"savers\":{\"builtin_ascii\":true,\"scenes\":53},\"system\":{\"shm_writable\":" + sh_ok +
+        ",\"dwell_secs\":" + r.dwell_secs.to_string() + ".0},\"savers\":{\"builtin_ascii\":true,\"scenes\":51},\"system\":{\"shm_writable\":" + sh_ok +
         ",\"session_bus_connected\":" + bs_ok +
         ",\"caps\":\"Process FsRead FsWrite Fs Bind Tcp Env Time Rand Ffi Alloc Arena\"}}");
     return 0;

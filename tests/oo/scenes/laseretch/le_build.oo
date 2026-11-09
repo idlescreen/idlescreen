@@ -1,0 +1,150 @@
+// # le_build — laseretch backtracker + laser/pool construction
+// Logline: span the text rect with a RecursiveBacktracker order, then mint
+// the 2000-spark pool and the 25-cell diagonal laser beam.
+// Setup: le_grid cells are (row-1)*80+(col-1) over the 1-based canvas; linked
+// is a per-char visited bitmask standing in for ttfx's bidirectional links.
+// Beats: le_scenes -> le_pending -> le_pool -> le_beam.
+
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/canvas_cells.oo";
+
+pub type LeBt = struct {
+    cur: Int,
+    done: Int,
+    stk: List[Int],
+    linked: List[Int],
+    order: List[Int],
+    r: Rng
+};
+
+pub type LeOrder = struct {
+    order: List[Int],
+    r: Rng
+};
+
+pub fn le_grid(w: World) -> List[Int] {
+    let mut grid: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < 1920 {
+        grid = list_push(grid, 0 - 1);
+        i = i + 1;
+    }
+    let n: Int = list_len(w.chars);
+    i = 0;
+    while i < n {
+        let ch: Char = list_get(w.chars, i);
+        if ch.col0 >= 1 && ch.col0 <= 80 && ch.row0 >= 1 && ch.row0 <= 24 {
+            grid = list_set(grid, (ch.row0 - 1) * 80 + ch.col0 - 1, i);
+        }
+        i = i + 1;
+    }
+    return grid;
+}
+
+fn le_nbr(w: World, grid: List[Int], cur: Int, linked: List[Int],
+          info: CanvasInfo) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let ch: Char = list_get(w.chars, cur);
+    let cs: List[Int] = [ch.col0, ch.col0 + 1, ch.col0, ch.col0 - 1];
+    let rs: List[Int] = [ch.row0 + 1, ch.row0, ch.row0 - 1, ch.row0];
+    let mut i: Int = 0;
+    while i < 4 {
+        let c: Int = list_get(cs, i);
+        let r: Int = list_get(rs, i);
+        if c >= 1 && c <= 80 && r >= 1 && r <= 24 {
+            let nid: Int = list_get(grid, (r - 1) * 80 + c - 1);
+            if nid >= 0 && list_get(linked, nid) == 0 {
+                if c >= info.tl && c <= info.tr && r >= info.tb && r <= info.tt {
+                    out = list_push(out, nid);
+                }
+            }
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn le_step(w: World, grid: List[Int], b: LeBt, info: CanvasInfo) -> LeBt {
+    let mut cur: Int = b.cur;
+    let mut done: Int = b.done;
+    let mut stk: List[Int] = b.stk;
+    let mut linked: List[Int] = b.linked;
+    let mut order: List[Int] = b.order;
+    let mut r: Rng = b.r;
+    if list_len(stk) > 0 {
+        let unv: List[Int] = le_nbr(w, grid, cur, linked, info);
+        if list_len(unv) > 0 {
+            let d: DR = rng_pick(r, list_len(unv));
+            r = d.r;
+            let nxt: Int = list_get(unv, d.v);
+            linked = list_set(linked, cur, 1);
+            linked = list_set(linked, nxt, 1);
+            order = list_push(order, nxt);
+            stk = list_push(stk, nxt);
+            cur = nxt;
+        } else {
+            stk = list_slice(stk, 0, list_len(stk) - 1);
+            if list_len(stk) > 0 { cur = list_get(stk, list_len(stk) - 1); }
+        }
+    } else { done = 1; }
+    return LeBt { cur: cur, done: done, stk: stk, linked: linked,
+        order: order, r: r };
+}
+
+pub fn le_pending(w: World, grid: List[Int], info: CanvasInfo) -> LeOrder {
+    let mut r: Rng = w.rng;
+    let dc: DR = rng_int(r, info.tl, info.tr);
+    r = dc.r;
+    let dr: DR = rng_int(r, info.tb, info.tt);
+    r = dr.r;
+    let start: Int = list_get(grid, (dr.v - 1) * 80 + dc.v - 1);
+    let mut linked: List[Int] = list_new();
+    let n: Int = list_len(w.chars);
+    let mut i: Int = 0;
+    while i < n {
+        linked = list_push(linked, 0);
+        i = i + 1;
+    }
+    linked = list_set(linked, start, 1);
+    let mut b: LeBt = LeBt { cur: start, done: 0,
+        stk: [start], linked: linked, order: [start], r: r };
+    let mut guard: Int = 0;
+    while b.done == 0 && guard < 200000 {
+        b = le_step(w, grid, b, info);
+        guard = guard + 1;
+    }
+    return LeOrder { order: b.order, r: b.r };
+}
+
+pub fn le_scenes(w: World, info: CanvasInfo) -> World {
+    let mut w2: World = w;
+    let spec: List[Int] = gradient_new([9044106, 53759, 16777215], [8, 8], 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w2, collect_ids(w2, 1), info.cols, info.rows, 0);
+    let n: Int = list_len(ids);
+    let mut i: Int = 0;
+    while i < n {
+        let id: Int = list_get(ids, i);
+        let ch: Char = list_get(w2.chars, id);
+        let mapped: Int = list_get(cmap, ch.row0 - info.tb);
+        let cool: List[Int] = gradient_new([16770688, 16734976, mapped],
+            [8, 8], 0);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "spawn");
+        w2 = w_frame(w2, id, 0, 94, 3, 16770688, 0 - 1, 0);
+        let mut k: Int = 0;
+        while k < list_len(cool) {
+            w2 = w_frame(w2, id, 0, ch.sym, 3, list_get(cool, k), 0 - 1, 0);
+            k = k + 1;
+        }
+        w2 = w_aset(w2, id, 0);
+        i = i + 1;
+    }
+    return w2;
+}

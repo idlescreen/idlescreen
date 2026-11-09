@@ -88,12 +88,12 @@ fn preview_poll_key(ffi: &FfiCap, sc: Int) -> Int {
     if b == 27 {
         let s2: String = match oo_tui_read_byte_timeout(ffi, "", 10) { Ok(s) => s, Err(_) => "" };
         let s3: String = if s2 == "[" { match oo_tui_read_byte_timeout(ffi, "", 10) { Ok(s) => s, Err(_) => "" } } else { "" };
-        if s3 == "C" || s3 == "B" { return (sc + 1) % 53; }
-        if s3 == "D" || s3 == "A" { return (sc + 52) % 53; }
+        if s3 == "C" || s3 == "B" { return (sc + 1) % 51; }
+        if s3 == "D" || s3 == "A" { return (sc + 50) % 51; }
         return -1;
     }
-    if b == 110 || b == 78 || b == 93 || b == 9 || b == 62 || b == 46 { return (sc + 1) % 53; }
-    if b == 112 || b == 80 || b == 91 || b == 60 || b == 44 { return (sc + 52) % 53; }
+    if b == 110 || b == 78 || b == 93 || b == 9 || b == 62 || b == 46 { return (sc + 1) % 51; }
+    if b == 112 || b == 80 || b == 91 || b == 60 || b == 44 { return (sc + 50) % 51; }
     return -1;
 }
 
@@ -129,6 +129,7 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, w
     let mut tick: Int = 0;
     let mut running: Bool = true;
     while running && (end_ms == 0 || now_ms(time) < end_ms) {
+        let ft0: Int = now_ms(time);
         let d: PvDims = preview_term_dims(ffi);
         let rows: Int = d.rows;
         let cols: Int = d.cols;
@@ -156,17 +157,15 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, w
         } else {
             engine_preview_wordmark(cols, rows - 1, sc_name, tick, tour, wm)
         };
-        let tit: String = if is_wm { "Preset: " + sc_name } else { "Scene: " + sc_name + " (" + (sc + 1).to_string() + "/53) │ Banner: " + wm };
+        let tit: String = if is_wm { "Preset: " + sc_name } else { "Scene: " + sc_name + " (" + (sc + 1).to_string() + "/51) │ Banner: " + wm };
         let out_line: String = ansi_home() + frame + "\r\n" + e0 + "[1;36m[" + tit + "] [←/→/n/p: Step  q/Esc/Space: Exit]" + e0 + "[0m" + e0 + "[K";
         let _ = oo_tui_write(ffi, out_line);
         let _l: Int = frame_arena_leave(ar, aid);
         let nsc: Int = preview_poll_key(ffi, sc);
-        if nsc < 0 {
-            running = false;
-        } else {
-            sc = nsc;
-        }
-        if tour && (tick % 180 == 179) { sc = (sc + 1) % 53; }
+        if nsc < 0 { running = false; }
+        if nsc >= 0 { sc = nsc; }
+        if tour && (tick % 180 == 179) { sc = (sc + 1) % 51; }
+        if now_ms(time) - ft0 < 33 && now_ms(time) - ft0 >= 0 { sleep_ms(time, 33 - (now_ms(time) - ft0)); }
         tick = tick + 1;
     }
     let _c: Int = frame_arena_close(ar, aid);

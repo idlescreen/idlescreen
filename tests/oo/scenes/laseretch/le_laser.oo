@@ -1,0 +1,126 @@
+// # le_laser — laseretch spark pool + diagonal laser beam
+// Logline: Bit-exact port of Laser._make_sparks_pool and the beam-char
+// diagonal: 2000 pooled sparks with a 12-frame fade, a rotating 13-color
+// beam scene, reposition-to-target emit, and SceneComplete reclaim.
+// Setup: avail is the upstream VecDeque (pop_back = list tail). Spark RNG
+// draws mirror upstream order: choice per preallocated spark, then on each
+// emit randint(col-20,col+20) and randint(-10,20) for the bezier fall.
+// Beats:
+//   1. le_pool preallocates the pool and wires reclaim callbacks.
+//   2. le_beam lays the 25-cell diagonal beam with rotated laser scenes.
+//   3. le_emit acquires, provisions, and launches one spark.
+//   4. le_reclaim hides and requeues a finished spark.
+
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_deact.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+
+pub type LeP = struct { w: World, avail: List[Int] };
+pub type LeB = struct { w: World, avail: List[Int], beam: List[Int] };
+
+pub fn le_pool(w: World) -> LeP {
+    let mut w2: World = w;
+    let mut avail: List[Int] = list_new();
+    let syms: List[Int] = [46, 44, 42];
+    let colors: List[Int] = gradient_new([16777215, 16770688, 16734976, 1706240],
+        [3, 8], 0);
+    let mut i: Int = 0;
+    while i < 2000 {
+        let d: DR = rng_pick(w2.rng, list_len(syms));
+        w2 = w_rng(w2, d.r);
+        w2 = w_add_char(w2, list_get(syms, d.v), 0, 0);
+        let id: Int = list_len(w2.chars) - 1;
+        w2 = w_lay(w2, id, 2);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "spark");
+        let mut k: Int = 0;
+        while k < list_len(colors) {
+            w2 = w_frame(w2, id, 0, list_get(syms, d.v), 3,
+                list_get(colors, k), 0 - 1, 0);
+            k = k + 1;
+        }
+        w2 = w_reg(w2, id, 2, 0, "spark",
+            EvAct { kind: 7, sid: "", num: 0, carg: 0 });
+        avail = list_push(avail, id);
+        i = i + 1;
+    }
+    return LeP { w: w2, avail: avail };
+}
+
+fn le_rot(lg: List[Int]) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = 1;
+    while i < list_len(lg) {
+        out = list_push(out, list_get(lg, i));
+        i = i + 1;
+    }
+    out = list_push(out, list_get(lg, 0));
+    return out;
+}
+
+pub fn le_beam(p: LeP) -> LeB {
+    let mut w2: World = p.w;
+    let mut beam: List[Int] = list_new();
+    let mut lg: List[Int] = gradient_new([16777215, 3634431], [6], 1);
+    let mut row: Int = 0;
+    while row <= 24 {
+        let mut sym: Int = 47;
+        if row == 0 { sym = 42; }
+        w2 = w_add_char(w2, sym, row, row);
+        let id: Int = list_len(w2.chars) - 1;
+        w2 = w_lay(w2, id, 2);
+        w2 = w_set_vis(w2, id, 1);
+        w2 = w_scene(w2, id, 1, 0, 0, ez(0), "laser");
+        let mut k: Int = 0;
+        while k < list_len(lg) {
+            w2 = w_frame(w2, id, 0, sym, 3, list_get(lg, k), 0 - 1, 0);
+            k = k + 1;
+        }
+        w2 = w_aset(w2, id, 0);
+        beam = list_push(beam, id);
+        lg = le_rot(lg);
+        row = row + 1;
+    }
+    return LeB { w: w2, avail: p.avail, beam: beam };
+}
+
+fn le_reset(w: World, id: Int) -> World {
+    let mut w2: World = w_deact_p(w, id, 0 - 1);
+    w2 = w_deact_s(w2, id, 0 - 1);
+    let ch: Char = list_get(w2.chars, id);
+    let _r2 = w_put(w2, id, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0,
+        fill: ch.fill, uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer,
+        cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord,
+        v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold, a_scene: ch.a_scene,
+        sids: ch.sids, scenes: ch.scenes, a_path: ch.a_path,
+        done_path: ch.done_path, pids: list_new(), paths: list_new(),
+        evs: ch.evs });
+    return _r2;
+}
+
+pub fn le_emit(w: World, avail: List[Int], pc: Int, pr: Int) -> LeP {
+    let mut w2: World = w;
+    if list_len(avail) == 0 { return LeP { w: w2, avail: avail }; }
+    let pid: Int = list_get(avail, list_len(avail) - 1);
+    let av2: List[Int] = list_slice(avail, 0, list_len(avail) - 1);
+    w2 = le_reset(w2, pid);
+    w2 = w_pos(w2, pid, pc, pr);
+    w2 = w_path(w2, pid, wp_cfg(0.3, 1, ez(2), 0 - 1, 0, 0), "");
+    let df: DR = rng_int(w2.rng, pc - 20, pc + 20);
+    w2 = w_rng(w2, df.r);
+    let dc: DR = rng_int(w2.rng, 0 - 10, 20);
+    w2 = w_rng(w2, dc.r);
+    w2 = w_wp(w2, pid, 0, df.v, 1, [df.v, pr + dc.v]);
+    w2 = eng_act_path(w2, pid, 0);
+    w2 = w_sc_reset(w2, pid, 0);
+    w2 = w_aset(w2, pid, 0);
+    w2 = w_set_vis(w2, pid, 1);
+    w2 = w_active_add(w2, pid);
+    return LeP { w: w2, avail: av2 };
+}

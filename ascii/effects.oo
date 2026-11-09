@@ -1,19 +1,19 @@
-// # Scene Roster - The 53 Canonical Screensaver Effects
+// # Scene Roster - The 51 Canonical Screensaver Effects
 //
 // Logline: Ordered roster of the fifty-three screensaver scenes with name lookup and index resolution.
 // Setup: Pure constant table plus the oostd string primitives. Operates with zero ambient authority.
 // Beats:
-//   1. Hold the 53 scene names in canonical order.
+//   1. Hold the 51 scene names in canonical order.
 //   2. Resolve a lowercased name to its roster index, honoring the legacy xscreensaver aliases.
 //   3. Report the roster count for list and tour commands.
 
 import "oostd/core/primitives/str.oo";
 
-pub fn effects_count() -> Int { return 53; }
+pub fn effects_count() -> Int { return 51; }
 
 pub fn effects_name(idx: Int) -> String {
-    if idx < 0 || idx >= 53 { return ""; }
-    let names: String = "aurora|beams|binarypath|blackhole|bouncyballs|breakout|bubbles|burn|chaos|colorshift|cosmos|crumble|decrypt|errorcorrect|expand|fireworks|highlight|laseretch|life|matrix|metaballs|middleout|mmx|moire|mystify|orbittingvolley|overflow|pipes|plasma|pour|print|radar|rain|randomsequence|rings|ripple|scattered|slice|slide|smoke|spotlights|spray|swarm|sweep|synthgrid|tetris|thunderstorm|tunnel|unstable|vhstape|waves|wipe|zero";
+    if idx < 0 || idx >= 51 { return ""; }
+    let names: String = "aurora|beams|binarypath|blackhole|bouncyballs|breakout|bubbles|burn|chaos|colorshift|cosmos|crumble|decrypt|errorcorrect|expand|fireworks|highlight|laseretch|life|matrix|metaballs|middleout|moire|mystify|orbittingvolley|overflow|pipes|plasma|pour|print|radar|rain|randomsequence|rings|ripple|scattered|slice|slide|smoke|spotlights|spray|swarm|sweep|synthgrid|tetris|thunderstorm|tunnel|unstable|vhstape|waves|wipe";
     let mut k: Int = 0;
     let mut s: Int = 0;
     let mut i: Int = 0;
@@ -42,10 +42,8 @@ pub fn effects_index(name: String) -> Int {
     else if n == "scramble" { n = "scattered"; }
     else if n == "led" { n = "sweep"; }
     else if n == "wave" { n = "waves"; }
-    else if n == "megaman" || n == "megamanx" || n == "x" { n = "mmx"; }
-    else if n == "zsaber" { n = "zero"; }
     let mut i: Int = 0;
-    while i < 53 {
+    while i < 51 {
         let sn: String = effects_name(i);
         if sn == n { return i; }
         i = i + 1;
@@ -57,10 +55,10 @@ pub fn effects_family(idx: Int) -> String {
     let n: String = effects_name(idx);
     if n == "plasma" || n == "waves" || n == "ripple" || n == "moire" || n == "tunnel" || n == "vhstape" || n == "smoke" { return "wave"; }
     if n == "rain" || n == "matrix" || n == "decrypt" || n == "bubbles" || n == "fireworks" || n == "spray" || n == "thunderstorm" { return "fall"; }
-    if n == "life" || n == "breakout" || n == "tetris" || n == "mmx" || n == "pipes" || n == "beams" || n == "laseretch" { return "grow"; }
+    if n == "life" || n == "breakout" || n == "tetris" || n == "pipes" || n == "beams" || n == "laseretch" { return "grow"; }
     if n == "print" || n == "overflow" || n == "scattered" || n == "slide" || n == "slice" || n == "expand" || n == "wipe" { return "text"; }
     if n == "rings" || n == "orbittingvolley" || n == "metaballs" || n == "swarm" || n == "bouncyballs" || n == "spotlights" || n == "synthgrid" { return "orbit"; }
-    if n == "aurora" || n == "colorshift" || n == "highlight" || n == "randomsequence" || n == "chaos" || n == "zero" || n == "errorcorrect" { return "veil"; }
+    if n == "aurora" || n == "colorshift" || n == "highlight" || n == "randomsequence" || n == "chaos" || n == "errorcorrect" { return "veil"; }
     if n == "binarypath" || n == "blackhole" || n == "mystify" || n == "cosmos" || n == "sweep" || n == "radar" || n == "burn" { return "deep"; }
     return "left";
 }

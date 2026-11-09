@@ -1,0 +1,182 @@
+// # scene_breakout — Arkanoid ball-wall reveal port
+//
+// Logline: Bit-exact port of Breakout::build/next_frame for the parity
+// harness: three energy balls bounce under a paddle row while a downward
+// lock line converts the banner, then frame 64 settles.
+// Setup: Pure. Balls ride as 12 Floats (x,y,vx,vy per ball); the palette
+// is 5 stops x 12 steps and the final spectrum is 3 stops x 12 steps.
+// Beats:
+//   1. breakout_new builds palette and ball state.
+//   2. bk_step integrates and reflects the three balls.
+//   3. breakout_next emits one frame; breakout_run drives to settle.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/math_paint.oo";
+import "tests/shade_float.oo";
+import "tests/shade_trig.oo";
+import "tests/digest_run.oo";
+
+pub type Breakout = struct {
+    cells: List[CellGeom],
+    palette: List[Int],
+    final_spec: List[Int],
+    balls: List[Float],
+    frame: Int,
+    info: CanvasInfo
+};
+
+fn bk_stops(k: Int) -> List[Int] {
+    let mut s: List[Int] = list_new();
+    if k == 1 {
+        s = list_push(s, 0 * 65536 + 245 * 256 + 212);
+        s = list_push(s, 255 * 65536 + 190 * 256 + 11);
+        s = list_push(s, 255 * 65536 + 0 * 256 + 110);
+        return s;
+    }
+    s = list_push(s, 0 * 65536 + 180 * 256 + 216);
+    s = list_push(s, 0 * 65536 + 245 * 256 + 212);
+    s = list_push(s, 255 * 65536 + 190 * 256 + 11);
+    s = list_push(s, 251 * 65536 + 86 * 256 + 7);
+    s = list_push(s, 255 * 65536 + 0 * 256 + 110);
+    return s;
+}
+
+fn bk_balls() -> List[Float] {
+    let mut b: List[Float] = list_new();
+    b = list_push(list_push(list_push(list_push(b, 0.25), 0.82), 0.034), 0.0 - 0.048);
+    b = list_push(list_push(list_push(list_push(b, 0.5), 0.78), 0.0 - 0.039), 0.0 - 0.044);
+    b = list_push(list_push(list_push(list_push(b, 0.75), 0.84), 0.0 - 0.031), 0.0 - 0.051);
+    return b;
+}
+
+pub fn breakout_new(cells: List[CellGeom], info: CanvasInfo) -> Breakout {
+    let _r1 = Breakout {
+        cells: cells,
+        palette: spectrum_build(bk_stops(0), 12),
+        final_spec: spectrum_build(bk_stops(1), 12),
+        balls: bk_balls(),
+        frame: 0,
+        info: info
+    };
+    return _r1;
+}
+
+fn bk_step(b: Breakout) -> Breakout {
+    let mut balls: List[Float] = b.balls;
+    let mut i: Int = 0;
+    while i < 3 {
+        let o: Int = i * 4;
+        let mut x: Float = list_get(balls, o) + list_get(balls, o + 2);
+        let mut y: Float = list_get(balls, o + 1) + list_get(balls, o + 3);
+        let mut vx: Float = list_get(balls, o + 2);
+        let mut vy: Float = list_get(balls, o + 3);
+        if x <= 0.05 || x >= 0.95 {
+            vx = 0.0 - vx;
+            x = clamp_f(x, 0.05, 0.95);
+        }
+        if y <= 0.08 || y >= 0.88 {
+            vy = 0.0 - vy;
+            y = clamp_f(y, 0.08, 0.88);
+        }
+        balls = list_set(list_set(list_set(list_set(balls, o, x), o + 1, y), o + 2, vx), o + 3, vy);
+        i = i + 1;
+    }
+    let _r2 = Breakout { cells: b.cells, palette: b.palette, final_spec: b.final_spec,
+        balls: balls, frame: b.frame, info: b.info };
+    return _r2;
+}
+
+fn bk_cell(b: Breakout, c: CellGeom, lock_line: Float, show: Int, paddle_x: Float) -> PaintCell {
+    if c.fill == 0 && c.ny >= lock_line {
+        let _r3 = symbol_paint_cell(c, b.info, b.palette, b.final_spec, 0 - 1, 1.0, 1);
+        return _r3;
+    }
+    if show == 0 {
+        let _r4 = symbol_paint_cell(c, b.info, b.palette, b.final_spec, 0 - 1, 0.0, 0);
+        return _r4;
+    }
+    if abs_f(c.ny - 0.91) < 0.028 && abs_f(c.nx - paddle_x) < 0.11 {
+        let _r5 = symbol_paint_cell(c, b.info, b.palette, b.final_spec, 9600, 0.15, 0);
+        return _r5;
+    }
+    let mut sym: Int = 0 - 1;
+    let mut col_t: Float = 0.0;
+    let mut i: Int = 0;
+    while i < 3 {
+        let o: Int = i * 4;
+        let d: Float = hypot_f((c.nx - list_get(b.balls, o)) * 1.8, c.ny - list_get(b.balls, o + 1));
+        let td: Float = hypot_f(
+            (c.nx - (list_get(b.balls, o) - list_get(b.balls, o + 2))) * 1.8,
+            c.ny - (list_get(b.balls, o + 1) - list_get(b.balls, o + 3)));
+        if d < 0.055 {
+            sym = 9608;
+            col_t = 0.95 - int_to_f(i) * 0.2;
+            i = 3;
+        } else {
+            if td < 0.065 {
+                sym = 9618;
+                col_t = 0.65 - int_to_f(i) * 0.15;
+            }
+            i = i + 1;
+        }
+    }
+    if sym >= 0 {
+        let _r6 = symbol_paint_cell(c, b.info, b.palette, b.final_spec, sym, col_t, 0);
+        return _r6;
+    }
+    if c.fill == 0 {
+        let _r7 = symbol_paint_cell(c, b.info, b.palette, b.final_spec, 9617, c.ny, 0);
+        return _r7;
+    }
+    let _r8 = symbol_paint_cell(c, b.info, b.palette, b.final_spec, 0 - 1, 0.0, 0);
+    return _r8;
+}
+
+pub fn breakout_next(b: Breakout) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if b.frame >= 64 { return out; }
+    let frame: Int = b.frame + 1;
+    let n: Int = list_len(b.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, settle_paint_cell(list_get(b.cells, i), b.info));
+            i = i + 1;
+        }
+        return out;
+    }
+    let b2: Breakout = bk_step(b);
+    let progress: Float = int_to_f(frame) / 64.0;
+    let mut show: Int = 0;
+    if progress < 0.84 { show = 1; }
+    let paddle_x: Float = clamp_f(list_get(b2.balls, 0), 0.14, 0.86);
+    let lock_line: Float = 1.0 - progress * 1.15;
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, bk_cell(b2, list_get(b.cells, j), lock_line, show, paddle_x));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn breakout_advance(b: Breakout) -> Breakout {
+    let mut st: Breakout = b;
+    if b.frame + 1 < 64 { st = bk_step(b); }
+    let _r9 = Breakout { cells: st.cells, palette: st.palette, final_spec: st.final_spec,
+        balls: st.balls, frame: b.frame + 1, info: b.info };
+    return _r9;
+}
+
+pub fn breakout_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {
+    let mut b: Breakout = breakout_new(cells, info);
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        let pcs: List[PaintCell] = breakout_next(b);
+        if list_len(pcs) == 0 { break; }
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        b = breakout_advance(b);
+    }
+    return run;
+}

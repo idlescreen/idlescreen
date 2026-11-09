@@ -1,0 +1,49 @@
+// # Port Compose - Arcade Pipeline for Ported Scene Frames
+//
+// Logline: Composites bit-exact PaintCell frames onto the full arcade CellGrid pipeline (starfield, gleam, bevelled banner).
+// Setup: Pure draw over core/grid plus the draw/ post-processing pages. Operates with zero ambient authority.
+// Beats:
+//   1. Convert the PaintCell grid to a CellGrid in one pass (glyph, packed RGB inks).
+//   2. Apply post_apply (diagonal specular gleam plus 3-layer parallax starfield on empty cells).
+//   3. Stamp the bevelled wordmark banner when the scene has settled, then emit ANSI.
+
+import "tests/oo/grid_cells.oo";
+import "core/grid.oo";
+import "ascii/port_render.oo";
+import "ascii/draw/post_fx.oo";
+import "ascii/draw/ansi.oo";
+import "ascii/layout/render.oo";
+
+pub fn port_to_grid(pcs: &List[PaintCell], cols: Int, rows: Int) -> CellGrid {
+    let mut chs: List[String] = list_new();
+    let mut fgs: List[Int] = list_new();
+    let mut bgs: List[Int] = list_new();
+    let mut bolds: List[Int] = list_new();
+    let total: Int = if cols * rows > 0 { cols * rows } else { 0 };
+    let mut i: Int = 0;
+    while i < total {
+        if i < list_len(pcs) {
+            let c: PaintCell = list_get(pcs, i);
+            chs = list_push(chs, port_glyph(c.ord));
+            fgs = list_push(fgs, rgb(c.fr, c.fg, c.fb));
+            bgs = list_push(bgs, rgb(c.br, c.bg, c.bb));
+            bolds = list_push(bolds, c.bold);
+        } else {
+            chs = list_push(chs, " ");
+            fgs = list_push(fgs, 16446712);
+            bgs = list_push(bgs, rgb(4, 6, 12));
+            bolds = list_push(bolds, 0);
+        }
+        i = i + 1;
+    }
+    return CellGrid { cols: cols, rows: rows, chs: chs, fgs: fgs, bgs: bgs, bolds: bolds };
+}
+
+pub fn port_compose(pcs: &List[PaintCell], cols: Int, rows: Int, tick: Int, settled: Bool, wm: String) -> String {
+    let mut g: CellGrid = port_to_grid(pcs, cols, rows);
+    g = post_apply(g, tick);
+    if settled && wm != "" {
+        g = wm_render(g, wm, tick);
+    }
+    return ansi_frame(g);
+}

@@ -1,0 +1,251 @@
+// # scene_orbittingvolley — perimeter launcher volley port
+//
+// Logline: Bit-exact port of OrbittingVolley::build/next_frame: four
+// block launchers ride the top edge, launch input glyphs back to their
+// home cells on OutSine input_paths, then all launchers fade.
+// Setup: launcher speed 1.5 layer 2, glyph path speed 2.4 OutSine layer
+// 1 (SetLayer 0 on PathComplete), volley_size 0.08, launch_delay 10.
+// Radial final gradient FFA15C->44D492 over 12 steps; no RNG draws.
+// Beats:
+//   1. ov_build provisions paths, events, launchers, and magazines.
+//   2. ov_step re-arms the main launcher, tracks children, and launches.
+//   3. orbittingvolley_run emits until volleys drain and one final frame
+//      hides the launchers.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/digest_run.oo";
+
+pub type VolS = struct {
+    w: World, m0: List[Int], m1: List[Int], m2: List[Int], m3: List[Int],
+    delay: Int, done: Int
+};
+
+fn ov_lmap(lcmap: List[Int], info: CanvasInfo, cc: Int, cr: Int) -> Int {
+    if cc < info.left || cc > info.right || cr < info.bottom || cr > info.top {
+        return 0 - 1;
+    }
+    let idx: Int = (cr - info.bottom) * (info.right - info.left + 1) + (cc - info.left);
+    return list_get(lcmap, idx);
+}
+
+fn ov_child(w: World, lcmap: List[Int], info: CanvasInfo, lch: Char, ch: Int) -> World {
+    let cch: Char = list_get(w.chars, ch);
+    let prog: Float = int_to_f(lch.cc) / int_to_f(info.right);
+    let mut w2: World = w;
+    if cch.col0 == info.right && cch.row0 == info.top {
+        let r2: Int = info.top - trunc_i(int_to_f(info.top) * prog);
+        let mut rr: Int = r2;
+        if rr < 1 { rr = 1; }
+        w2 = w_pos(w2, ch, info.right, rr);
+    } else {
+        if cch.col0 == info.right && cch.row0 == info.bottom {
+            let c2: Int = info.right - trunc_i(int_to_f(info.right) * prog);
+            let mut cc: Int = c2;
+            if cc < 1 { cc = 1; }
+            w2 = w_pos(w2, ch, cc, info.bottom);
+        } else {
+            if cch.col0 == info.left && cch.row0 == info.bottom {
+                let r3: Int = info.bottom + trunc_i(int_to_f(info.top) * prog);
+                let mut rr3: Int = r3;
+                if rr3 > info.top { rr3 = info.top; }
+                w2 = w_pos(w2, ch, info.left, rr3);
+            }
+        }
+    }
+    let cc2: Char = list_get(w2.chars, ch);
+    let col: Int = ov_lmap(lcmap, info, cc2.cc, cc2.cr);
+    if col >= 0 { let _r1 = w_appear(w2, ch, 9608, col, 0 - 1, 0);
+    return _r1; }
+    return w2;
+}
+
+fn ov_launch(w: World, mag: List[Int], lch: Char) -> RsQ2 {
+    let mut w2: World = w;
+    let mut m2: List[Int] = mag;
+    if list_len(m2) > 0 {
+        let id: Int = list_get(m2, 0);
+        m2 = list_slice(m2, 1, list_len(m2));
+        w2 = w_pos(w2, id, lch.cc, lch.cr);
+        w2 = eng_act_path(w2, id, 0);
+        w2 = w_set_vis(w2, id, 1);
+        w2 = w_active_add(w2, id);
+    }
+    let _r1 = RsQ2 { w: w2, v: m2 };
+    return _r1;
+}
+
+pub type RsQ2 = struct { w: World, v: List[Int] };
+
+fn ov_step(s: VolS, lcmap: List[Int], info: CanvasInfo, nin: Int) -> VolS {
+    let mch: Int = list_len(s.w.chars) - 4;
+    let lch: Char = list_get(s.w.chars, mch);
+    let mut w2: World = s.w;
+    let mut done: Int = 0;
+    if lch.a_path == 0 - 1 {
+        w2 = w_pos(w2, mch, info.left, info.top);
+        w2 = eng_act_path(w2, mch, 0);
+        w2 = w_active_add(w2, mch);
+    }
+    let l2: Char = list_get(w2.chars, mch);
+    let mc: Int = ov_lmap(lcmap, info, l2.cc, l2.cr);
+    if mc < 0 { done = 1; }
+    if done == 0 {
+        w2 = w_appear(w2, mch, 9608, mc, 0 - 1, 0);
+        let mut ci: Int = 1;
+        while ci < 4 {
+            w2 = ov_child(w2, lcmap, info, list_get(w2.chars, mch), mch + ci);
+            ci = ci + 1;
+        }
+    }
+    let mut delay: Int = s.delay;
+    let mut m0: List[Int] = s.m0;
+    let mut m1: List[Int] = s.m1;
+    let mut m2: List[Int] = s.m2;
+    let mut m3: List[Int] = s.m3;
+    if done == 0 && delay > 0 { delay = delay - 1; }
+    if done == 0 && delay == 0 && s.delay == 0 {
+        let ctl: Int = trunc_i(0.08 * int_to_f(nin) / 4.0);
+        let mut ct: Int = ctl;
+        if ct < 1 { ct = 1; }
+        let mut li: Int = 0;
+        while li < 4 {
+            let mut t: Int = 0;
+            while t < ct {
+                let l3: Char = list_get(w2.chars, mch + li);
+                let mut q: RsQ2 = ov_launch(w2, m0, l3);
+                if li == 1 { q = ov_launch(w2, m1, l3); }
+                if li == 2 { q = ov_launch(w2, m2, l3); }
+                if li == 3 { q = ov_launch(w2, m3, l3); }
+                w2 = q.w;
+                if li == 0 { m0 = q.v; }
+                if li == 1 { m1 = q.v; }
+                if li == 2 { m2 = q.v; }
+                if li == 3 { m3 = q.v; }
+                t = t + 1;
+            }
+            li = li + 1;
+        }
+        delay = 10;
+    }
+    let _r2 = VolS { w: w2, m0: m0, m1: m1, m2: m2, m3: m3, delay: delay, done: done };
+    return _r2;
+}
+
+fn ov_build(w: World, info: CanvasInfo) -> VolS {
+    let stops: List[Int] = list_push(list_push(list_new(), 16750940), 4502674);
+    let spec: List[Int] = gradient_new(stops, list_push(list_new(), 12), 0);
+    let mut w2: World = w;
+    let ids: List[Int] = sort_ids(w2, collect_ids(w2, 1), info.cols, info.rows, 0);
+    let mut kk: Int = 0;
+    while kk < list_len(ids) {
+        let id: Int = list_get(ids, kk);
+        let ch: Char = list_get(w2.chars, id);
+        let ci: Int = (ch.row0 - info.tb) * (info.tr - info.tl + 1) + (ch.col0 - info.tl);
+        let ffg: Int = list_get(cmap_r(spec, info.tb, info.tt, info.tl, info.tr), ci);
+        w2 = w_path(w2, id, wp_cfg(2.4, 1, ez(2), 1, 0, 0), "input_path");
+        w2 = w_wp(w2, id, 0, ch.col0, ch.row0, list_new());
+        w2 = w_reg(w2, id, 1, 1, "input_path", EvAct { kind: 5, sid: "", num: 0, carg: 0 });
+        w2 = w_appear(w2, id, ch.sym, ffg, 0 - 1, 0);
+        kk = kk + 1;
+    }
+    let corners: List[Int] = list_push(list_push(list_push(list_push(list_push(list_push(
+        list_push(list_push(list_new(), info.left), info.top),
+        info.right), info.top), info.right), info.bottom), info.left), info.bottom);
+    let mut li: Int = 0;
+    while li < 4 {
+        let nid: Int = list_len(w2.chars);
+        w2 = w_add_char(w2, 9608, list_get(corners, li * 2), list_get(corners, li * 2 + 1));
+        w2 = w_lay(w2, nid, 2);
+        w2 = w_set_vis(w2, nid, 1);
+        w2 = w_active_add(w2, nid);
+        li = li + 1;
+    }
+    let mch: Int = list_len(w2.chars) - 4;
+    w2 = w_appear(w2, mch, 9608, 4502674, 0 - 1, 0);
+    w2 = w_path(w2, mch, wp_cfg(1.5, 0, ez(0), 2, 0, 0), "perimeter");
+    w2 = w_wp(w2, mch, 0, info.left, info.top, list_new());
+    w2 = w_wp(w2, mch, 0, info.right, info.top, list_new());
+    w2 = eng_act_path(w2, mch, 0);
+    let tcx: Int = info.tl + (info.tr - info.tl) / 2;
+    let tcy: Int = info.tb + (info.tt - info.tb) / 2;
+    let g: Groups = groups_of(w2, collect_ids(w2, 1), 4, tcx, tcy, 0);
+    let mut m0: List[Int] = list_new();
+    let mut m1: List[Int] = list_new();
+    let mut m2: List[Int] = list_new();
+    let mut m3: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(g.members) {
+        let id2: Int = list_get(g.members, i);
+        let r: Int = i - (i / 4) * 4;
+        if r == 0 { m0 = list_push(m0, id2); }
+        if r == 1 { m1 = list_push(m1, id2); }
+        if r == 2 { m2 = list_push(m2, id2); }
+        if r == 3 { m3 = list_push(m3, id2); }
+        i = i + 1;
+    }
+    let _r3 = VolS { w: w2, m0: m0, m1: m1, m2: m2, m3: m3, delay: 0, done: 0 };
+    return _r3;
+}
+
+pub fn orbittingvolley_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let spec: List[Int] = gradient_new(list_push(list_push(list_new(), 16750940), 4502674),
+        list_push(list_new(), 12), 0);
+    let lcmap: List[Int] = cmap_r(spec, info.bottom, info.top, info.left, info.right);
+    let s0: VolS = ov_build(w_input(info, lines, rng_seed(42)), info);
+    let nin: Int = list_len(collect_ids(s0.w, 1));
+    let mut s: VolS = s0;
+    let mut run: DigestRun = digest_run_new();
+    let mut done: Int = 0;
+    let _ = cells;
+    while done == 0 {
+        let any_mag: Int = list_len(s.m0) + list_len(s.m1) + list_len(s.m2) + list_len(s.m3);
+        if any_mag > 0 || list_len(s.w.active) > 1 {
+            s = ov_step(s, lcmap, info, nin);
+            if s.done == 1 { done = 1; }
+            if done == 0 {
+                let w2: World = eng_update(s.w);
+                let t0: List[Int] = s.m0;
+                let t1: List[Int] = s.m1;
+                let t2: List[Int] = s.m2;
+                let t3: List[Int] = s.m3;
+                let td: Int = s.delay;
+                let sd: Int = s.done;
+                s = VolS { w: w2, m0: t0, m1: t1, m2: t2, m3: t3, delay: td, done: sd };
+                let pcs: List[PaintCell] = eng_render(w2, info.cols, info.rows);
+                run = run_push(run, digest_paint_cells(pcs), pcs);
+            }
+        } else {
+            let mut w3: World = s.w;
+            let mch: Int = list_len(w3.chars) - 4;
+            let mut li: Int = 0;
+            while li < 4 {
+                w3 = w_set_vis(w3, mch + li, 0);
+                li = li + 1;
+            }
+            let u0: List[Int] = s.m0;
+            let u1: List[Int] = s.m1;
+            let u2: List[Int] = s.m2;
+            let u3: List[Int] = s.m3;
+            let ud: Int = s.delay;
+            s = VolS { w: w3, m0: u0, m1: u1, m2: u2, m3: u3, delay: ud, done: 1 };
+            let pcs2: List[PaintCell] = eng_render(w3, info.cols, info.rows);
+            run = run_push(run, digest_paint_cells(pcs2), pcs2);
+            done = 1;
+        }
+    }
+    return run;
+}

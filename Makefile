@@ -3,8 +3,10 @@
 # Override with OODA_HOME=/path/to/toolchain or OODA_COMPILER=/path/to/oodac.
 # The std repo must additionally be checked out as `oostd` in an ancestor of
 # this project — see the std-check target below.
-OODA_HOME ?= $(shell if [ -x "$$HOME/.openooda/bin/oodac" ]; then echo "$$HOME/.openooda"; elif [ -d "$$HOME/Projects/openOODA-core/oodac" ]; then echo "$$HOME/Projects/openOODA-core"; elif [ -d /Projects/openOODA-core/oodac ]; then echo /Projects/openOODA-core; else echo "$(abspath $(CURDIR)/../../openOODA-core)"; fi)
-OODA_COMPILER ?= $(shell command -v oodac 2>/dev/null || echo $(OODA_HOME)/oodac/bin/oodac)
+OODA_HOME ?= $(shell if [ -d /Projects/openOODA-core/oodac ]; then echo /Projects/openOODA-core; elif [ -d "$$HOME/Projects/openOODA-core/oodac" ]; then echo "$$HOME/Projects/openOODA-core"; elif [ -x "$$HOME/.openooda/bin/oodac" ]; then echo "$$HOME/.openooda"; else echo "$(abspath $(CURDIR)/../../openOODA-core)"; fi)
+OODA_COMPILER ?= /Projects/openOODA-core/oodac/bin/oodac
+OODA_OODAR_ROOT ?= /Projects/openOODA-core/oodar/core
+export OODA_OODAR_ROOT
 # The compiler resolves oostd/... imports by walking up from the source tree
 # (ast/load_import_parse.oo: probe_parent_walk). The std repo must therefore
 # be a directory named `oostd` in an ancestor of this project — it is checked
@@ -34,13 +36,13 @@ TESTBIN := bin/test_idlescreen
 REPO_NAME := idlescreen
 VER := 5.0.3
 SRC := main.oo anchor.oo $(wildcard core/*.oo raster/*.oo ascii/*.oo ascii/*/*.oo ascii/*/*/*.oo wayland/*.oo daemon/*.oo tui/*.oo cli/*.oo)
-ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER)
+ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER) OODA_OODAR_ROOT=$(OODA_OODAR_ROOT)
 
 .PHONY: all build verify test det check line-cap file-law academy density vocab shape clean parity std-check portable ll-declares
 
 all: build verify test det parity
 
-PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel mystify expand wipe sweep slide middleout binarypath burn blackhole rain scattered pour slice colorshift highlight spray overflow bouncyballs decrypt fireworks spotlights errorcorrect crumble smoke
+PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel mystify expand wipe sweep slide middleout binarypath burn blackhole rain scattered pour slice colorshift highlight spray overflow bouncyballs decrypt fireworks spotlights errorcorrect crumble smoke breakout life pipes tetris
 
 parity:
 	@mkdir -p .ooda-cache bin
@@ -225,9 +227,9 @@ test: $(BIN)
 	@./$(BIN) --version | grep -q "$(VER)" && echo "PASS: --version"
 	@./$(BIN) version | grep -q "$(VER)" && echo "PASS: version"
 	@./$(BIN) list | grep -q "aurora" && echo "PASS: list aurora"
-	@./$(BIN) list | grep -q "zero" && echo "PASS: list zero"
-	@./$(BIN) list | grep -qc "" && test "$$(./$(BIN) list | grep -c ' ')" -ge 50 && echo "PASS: list 53 scenes"
-	@./$(BIN) list --json | grep -q '"count":53' && echo "PASS: list --json count"
+	@./$(BIN) list | grep -q "waves" && echo "PASS: list waves"
+	@./$(BIN) list | grep -qc "" && test "$$(./$(BIN) list | grep -c ' ')" -ge 50 && echo "PASS: list 51 scenes"
+	@./$(BIN) list --json | grep -q '"count":51' && echo "PASS: list --json count"
 	@./$(BIN) text openooda | grep -qi "openooda" && echo "PASS: text openooda"
 	@./$(BIN) text superfedora | grep -qi "superfedora" && echo "PASS: text superfedora"
 	@./$(BIN) preview matrix --frames 2 --cols 40 --rows 12 | grep -q "frame" && echo "PASS: preview matrix"
@@ -248,6 +250,14 @@ test: $(BIN)
 	@./$(BIN) --self-test | grep -q "PASS" && echo "PASS: --self-test"
 	@./$(BIN) --json | grep -q '"status":"pass"' && echo "PASS: --json"
 	@./$(BIN) --json > .ooda-cache/r1.txt && ./$(BIN) --json > .ooda-cache/r2.txt && cmp -s .ooda-cache/r1.txt .ooda-cache/r2.txt && echo "PASS: double-run output determinism"
+	@./$(BIN) about | grep -q "^Binary       : idlescreen (v$(VER))" && echo "PASS: about Binary field"
+	@./$(BIN) about | grep -q "^Organization : idlescreen" && echo "PASS: about Organization field"
+	@./$(BIN) about | grep -q "^Summary      : " && echo "PASS: about Summary field"
+	@./$(BIN) about | grep -q "^Subcommands  : " && echo "PASS: about Subcommands field"
+	@./$(BIN) about | grep -q "^Capabilities : " && echo "PASS: about Capabilities field"
+	@./$(BIN) about | grep -q "^Theme        : " && echo "PASS: about Theme field"
+	@./$(BIN) about --json | grep -q '"component":"idlescreen"' && echo "PASS: about --json"
+	@rc=0; ./$(BIN) --unknown-flag-zzz >/dev/null 2>&1 || rc=$$?; [ "$$rc" = "2" ] && echo "PASS: --unknown-flag-zzz exits 2"
 	@./$(BIN) bogus 2>&1 | grep -qi "unknown" && echo "PASS: unknown verb fails closed"
 	@echo "ALL TESTS PASSED"
 

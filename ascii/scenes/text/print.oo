@@ -12,7 +12,7 @@ import "core/grid.oo";
 import "ascii/canvas.oo";
 
 pub fn scene_print(g: CellGrid, tick: Int) -> CellGrid {
-    let corpus: String = "boot ooda kernel|mount /dev/idle|spawn rasterd --hdr|vsync locked at 60hz|palette: 16-bit arcade|scene graph: 53 effects|render loop: pure cells|idle is a state of mind|";
+    let corpus: String = "boot ooda kernel|mount /dev/idle|spawn rasterd --hdr|vsync locked at 60hz|palette: 16-bit arcade|scene graph: 51 effects|render loop: pure cells|idle is a state of mind|";
     let all: List[String] = str_split(corpus, "|");
     let mut out: CellGrid = cv_fill(g, " ", rgb(200, 200, 200), rgb(8, 10, 8));
     let head: Int = tick / 2;

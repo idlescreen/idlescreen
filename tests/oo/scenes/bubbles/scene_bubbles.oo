@@ -1,0 +1,218 @@
+// # scene_bubbles — rising bubble pop port
+//
+// Logline: Bit-exact Bubbles::next_frame: every four ticks a queued
+// bubble launches, animating bubbles ride their anchor's floor path,
+// landed bubbles pop into * -> ' -> final-gradient scenes riding
+// pop_out then final paths home.
+// Setup: bubble_delay 4, pop on reaching the group's lowest input row.
+// RNG draw order in the build queue: group size, origin column,
+// waypoint column, color index.
+// Beats:
+//   1. bb_launch promotes the head queued bubble and reveals its glyphs.
+//   2. bb_pop/bb_move handle landed pops and circle-seat motion.
+//   3. bubbles_run emits until queues and actives drain.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/geometry_fns.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/digest_run.oo";
+import "tests/oo/scenes/bubbles/bb_build.oo";
+
+pub type Bubs = struct {
+    g: Groups, rad: List[Int], anc: List[Int], low: List[Int], land: List[Int]
+};
+
+pub type Bub = struct { w: World, pend: Bubs, anim: Bubs, steps: Int };
+
+fn bb_win(g: Groups, i: Int) -> List[Int] {
+    return grp_win(g, i);
+}
+
+fn bb_cat(a: List[Int], b: List[Int]) -> List[Int] {
+    let mut out: List[Int] = a;
+    let mut i: Int = 0;
+    while i < list_len(b) {
+        out = list_push(out, list_get(b, i));
+        i = i + 1;
+    }
+    return out;
+}
+
+fn bb_pop(w: World, ids: List[Int], anchor: Int, rad: Int) -> World {
+    let ach: Char = list_get(w.chars, anchor);
+    let pts: List[Int] = coords_on_circle(ach.cc, ach.cr, rad + 3, list_len(ids), 1);
+    let mut w2: World = w;
+    let mut i: Int = 0;
+    while i < list_len(ids) && i < list_len(pts) / 2 {
+        let id: Int = list_get(ids, i);
+        w2 = w_path(w2, id, wp_cfg(0.3, 1, ez(17), 0 - 1, 0, 0), "pop_out");
+        let pi: Int = list_len(list_get(w2.chars, id).paths) - 1;
+        w2 = w_wp(w2, id, pi, list_get(pts, i * 2), list_get(pts, i * 2 + 1), list_new());
+        w2 = w_reg(w2, id, 1, 1, "pop_out", EvAct { kind: 0, sid: "final", num: 0, carg: 0 });
+        i = i + 1;
+    }
+    let mut j: Int = 0;
+    while j < list_len(ids) {
+        let id2: Int = list_get(ids, j);
+        w2 = w_aset(w2, id2, 0);
+        let pch: Char = list_get(w2.chars, id2);
+        let pp: Int = find_id(pch.pids, "pop_out");
+        if pp >= 0 { w2 = eng_act_path(w2, id2, pp); }
+        j = j + 1;
+    }
+    return w2;
+}
+
+fn bb_move(w: World, ids: List[Int], anchor: Int, rad: Int, low: Int) -> BCh {
+    let w2: World = eng_tick(w, anchor);
+    let b: BCh = bb_place(w2, anchor, ids, rad, low);
+    let mut w3: World = b.w;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        w3 = eng_tick(w3, list_get(ids, i));
+        i = i + 1;
+    }
+    let _r1 = BCh { w: w3, land: b.land };
+    return _r1;
+}
+
+fn bb_launch(s: Bub) -> Bub {
+    let mut w2: World = s.w;
+    let mut pend: Bubs = s.pend;
+    let mut anim: Bubs = s.anim;
+    let mut steps: Int = s.steps;
+    if list_len(pend.g.bounds) > 0 && steps >= 4 {
+        let ids0: List[Int] = bb_win(pend.g, 0);
+        let mut k: Int = 0;
+        while k < list_len(ids0) {
+            w2 = w_set_vis(w2, list_get(ids0, k), 1);
+            k = k + 1;
+        }
+        anim = Bubs { g: Groups { keys: list_push(anim.g.keys, 0),
+            bounds: list_push(anim.g.bounds, list_get(pend.g.bounds, 0)),
+            members: bb_cat(anim.g.members, ids0) },
+            rad: list_push(anim.rad, list_get(pend.rad, 0)),
+            anc: list_push(anim.anc, list_get(pend.anc, 0)),
+            low: list_push(anim.low, list_get(pend.low, 0)),
+            land: list_push(anim.land, 0) };
+        pend = Bubs { g: Groups { keys: list_slice(pend.g.keys, 1, list_len(pend.g.keys)),
+            bounds: list_slice(pend.g.bounds, 1, list_len(pend.g.bounds)),
+            members: list_slice(pend.g.members, list_get(pend.g.bounds, 0), list_len(pend.g.members)) },
+            rad: list_slice(pend.rad, 1, list_len(pend.rad)),
+            anc: list_slice(pend.anc, 1, list_len(pend.anc)),
+            low: list_slice(pend.low, 1, list_len(pend.low)), land: pend.land };
+        steps = 0;
+    }
+    return Bub { w: w2, pend: pend, anim: anim, steps: steps + 1 };
+}
+
+fn bb_step(s: Bub, info: CanvasInfo) -> Bub {
+    let _ = info;
+    let s1: Bub = bb_launch(s);
+    let mut w2: World = s1.w;
+    let pend: Bubs = s1.pend;
+    let anim: Bubs = s1.anim;
+    let steps: Int = s1.steps;
+    let mut keep_g: Groups = Groups { keys: list_new(), bounds: list_new(), members: list_new() };
+    let mut krad: List[Int] = list_new();
+    let mut kanc: List[Int] = list_new();
+    let mut klow: List[Int] = list_new();
+    let mut kland: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(anim.g.bounds) {
+        if list_get(anim.land, i) == 1 {
+            w2 = bb_pop(w2, bb_win(anim.g, i), list_get(anim.anc, i), list_get(anim.rad, i));
+            let ids2: List[Int] = bb_win(anim.g, i);
+            let mut c: Int = 0;
+            while c < list_len(ids2) {
+                w2 = w_active_add(w2, list_get(ids2, c));
+                c = c + 1;
+            }
+        }
+        i = i + 1;
+    }
+    let mut j: Int = 0;
+    while j < list_len(anim.g.bounds) {
+        if list_get(anim.land, j) == 0 {
+            let ids3: List[Int] = bb_win(anim.g, j);
+            let bm: BCh = bb_move(w2, ids3, list_get(anim.anc, j), list_get(anim.rad, j),
+                list_get(anim.low, j));
+            w2 = bm.w;
+            keep_g = Groups { keys: list_push(keep_g.keys, 0),
+                bounds: list_push(keep_g.bounds, list_get(anim.g.bounds, j)),
+                members: bb_cat(keep_g.members, ids3) };
+            krad = list_push(krad, list_get(anim.rad, j));
+            kanc = list_push(kanc, list_get(anim.anc, j));
+            klow = list_push(klow, list_get(anim.low, j));
+            kland = list_push(kland, bm.land);
+        }
+        j = j + 1;
+    }
+    let _r2 = Bub { w: w2, pend: pend,
+        anim: Bubs { g: keep_g, rad: krad, anc: kanc, low: klow, land: kland }, steps: steps };
+    return _r2;
+}
+
+fn bb_queue(w: World, info: CanvasInfo) -> Bub {
+    let mut w2: World = w;
+    let mut r2: Rng = w2.rng;
+    let g0: Groups = groups_of(w2, collect_ids(w2, 1), 1, 0, 0, 0);
+    let mut unb: List[Int] = g0.members;
+    let mut g: Groups = Groups { keys: list_new(), bounds: list_new(), members: list_new() };
+    let mut rad: List[Int] = list_new();
+    let mut anc: List[Int] = list_new();
+    let mut low: List[Int] = list_new();
+    while list_len(unb) > 0 {
+        let mut cnt: Int = list_len(unb);
+        if list_len(unb) >= 5 {
+            let mut hi: Int = list_len(unb);
+            if hi > 20 { hi = 20; }
+            let d: DR = rng_int(r2, 5, hi);
+            r2 = d.r;
+            cnt = d.v;
+        }
+        let grp: List[Int] = list_slice(unb, 0, cnt);
+        unb = list_slice(unb, cnt, list_len(unb));
+        let oc: DR = rng_int(r2, info.left, info.right);
+        r2 = oc.r;
+        let q: BBQ = bb_mk(w2, info, grp, oc.v, r2);
+        w2 = q.w;
+        r2 = w2.rng;
+        g = Groups { keys: list_push(g.keys, 0), bounds: list_push(g.bounds, cnt),
+            members: bb_cat(g.members, grp) };
+        rad = bb_cat(rad, q.rad);
+        anc = bb_cat(anc, q.anc);
+        low = bb_cat(low, q.low);
+    }
+    let _r1 = Bub { w: w_rng(w2, r2),
+        pend: Bubs { g: g, rad: rad, anc: anc, low: low, land: list_new() },
+        anim: Bubs { g: Groups { keys: list_new(), bounds: list_new(), members: list_new() },
+            rad: list_new(), anc: list_new(), low: list_new(), land: list_new() }, steps: 0 };
+    return _r1;
+}
+
+pub fn bubbles_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let w0: World = bb_chars(w_input(info, lines, rng_seed(42)), info);
+    let mut s: Bub = bb_queue(w0, info);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(s.anim.g.bounds) > 0 || list_len(s.w.active) > 0 || list_len(s.pend.g.bounds) > 0 {
+        s = bb_step(s, info);
+        let w2: World = eng_update(s.w);
+        s = Bub { w: w2, pend: s.pend, anim: s.anim, steps: s.steps };
+        let pcs: List[PaintCell] = eng_render(w2, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

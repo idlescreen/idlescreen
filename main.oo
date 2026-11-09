@@ -42,10 +42,14 @@ pub fn main(
     let mut persona: String = idlescreen_persona_resolve(prog);
     let mut args2: List[String] = args;
     if list_len(args2) > 0 && list_get(args2, 0) == "--persona" {
-        if list_len(args2) < 2 { return Err("ERR --persona requires a persona name"); }
+        if list_len(args2) < 2 {
+            println("ERR --persona requires a persona name");
+            return Ok(2);
+        }
         let sel: String = list_get(args2, 1);
         if sel != "ooidle" && sel != "idlescreen" {
-            return Err("ERR unknown persona: " + sel);
+            println("ERR unknown persona: " + sel);
+            return Ok(2);
         }
         persona = sel;
         args2 = strip_persona_args(args2);

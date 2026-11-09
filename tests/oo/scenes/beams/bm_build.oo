@@ -1,0 +1,173 @@
+// # bm_build — beams construction
+//
+// Logline: Bit-exact Beams::build_scene: input chars map to the vertical
+// final gradient (fill maps black), every char gets beam_row/beam_column
+// + brighten scenes, then row and column groups get speed/reverse draws
+// and the pending list is shuffled.
+// Setup: beam gradient ffffff->00D1FF->8A008A steps [2,6] at 2 ticks per
+// frame; fade/brighten gradients are 10-step with brightness factor 0.3.
+// brighten frames run 4 ticks. RNG draw order: per group speed then
+// reverse coin, rows top-to-bottom then columns left-to-right, then one
+// shuffle of the whole pending list.
+// Beats:
+//   1. bm_scenes stages the three scenes on every beam char.
+//   2. bm_groups builds row then column groups with their draws.
+//   3. bm_build returns the seeded pending queue and wipe groups.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/color_ops.oo";
+import "tests/oo/engine/rng_helpers.oo";
+
+pub type BGrp = struct {
+    g: Groups, dir: List[Int], spd: List[Float], ctr: List[Float], use_: List[Int]
+};
+
+pub type BmB = struct { w: World, grp: BGrp, fwg: Groups };
+
+fn bm_scenes(w: World, info: CanvasInfo) -> World {
+    let spec: List[Int] = gradient_new(list_push(list_push(list_push(list_new(), 9044106),
+        53759), 16777215), list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let bspec: List[Int] = gradient_new(list_push(list_push(list_push(list_new(), 16777215),
+        53759), 9044106), list_push(list_push(list_new(), 2), 6), 0);
+    let rsyms: List[Int] = list_push(list_push(list_push(list_new(), 9602), 9601), 95);
+    let csyms: List[Int] = list_push(list_push(list_push(list_push(list_new(), 9612), 9613),
+        9614), 9615);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 7), info.cols, info.rows, 0);
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let mut ffg: Int = 0;
+        if ch.fill == 0 { ffg = list_get(cmap, ch.row0 - info.tb); }
+        let fad: Int = adjust_brightness(ffg, 0.3);
+        let fgs: List[Int] = gradient_new(list_push(list_push(list_new(), ffg), fad),
+            list_push(list_new(), 10), 0);
+        let bgs: List[Int] = gradient_new(list_push(list_push(list_new(), fad), ffg),
+            list_push(list_new(), 10), 0);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "beam_row");
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "beam_column");
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "brighten");
+        w2 = w_grad(w2, id, 0, rsyms, 2, bspec, list_new());
+        w2 = w_grad(w2, id, 1, csyms, 2, bspec, list_new());
+        w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 2, fgs, list_new());
+        w2 = w_grad(w2, id, 1, list_push(list_new(), ch.sym), 2, fgs, list_new());
+        w2 = w_grad(w2, id, 2, list_push(list_new(), ch.sym), 4, bgs, list_new());
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn bm_group(w: World, ids: List[Int], dir: Int, rng: Rng) -> BmQ {
+    let mut r2: Rng = rng;
+    let lo: Int = if dir == 0 { 30 } else { 18 };
+    let hi: Int = if dir == 0 { 90 } else { 35 };
+    let sd: DR = rng_int(r2, lo, hi);
+    r2 = sd.r;
+    let spd: Float = int_to_f(sd.v) * 0.1;
+    let cd: DR = rng_pick(r2, 2);
+    r2 = cd.r;
+    let mut mem: List[Int] = list_slice(ids, 0, list_len(ids));
+    if cd.v == 1 {
+        let mut rev: List[Int] = list_new();
+        let mut i: Int = list_len(ids) - 1;
+        while i >= 0 {
+            rev = list_push(rev, list_get(ids, i));
+            i = i - 1;
+        }
+        mem = rev;
+    }
+    let _r1 = BmQ { spd: spd, mem: mem, r: r2 };
+    return _r1;
+}
+
+pub type BmQ = struct { spd: Float, mem: List[Int], r: Rng };
+
+pub fn bm_build(w: World, info: CanvasInfo) -> BmB {
+    let mut w2: World = bm_scenes(w, info);
+    let mut r2: Rng = w2.rng;
+    let rows: Groups = groups_of(w2, collect_ids(w2, 7), 1, 0, 0, 1);
+    let cols: Groups = groups_of(w2, collect_ids(w2, 7), 0, 0, 0, 0);
+    let mut g: Groups = Groups { keys: list_new(), bounds: list_new(), members: list_new() };
+    let mut dirs: List[Int] = list_new();
+    let mut spds: List[Float] = list_new();
+    let mut di: Int = 0;
+    while di < 2 {
+        let gg: Groups = if di == 0 { rows } else { cols };
+        let mut off: Int = 0;
+        let mut gi: Int = 0;
+        while gi < list_len(gg.bounds) {
+            let n: Int = list_get(gg.bounds, gi);
+            let mem: List[Int] = list_slice(gg.members, off, off + n);
+            off = off + n;
+            let q: BmQ = bm_group(w2, mem, di, r2);
+            r2 = q.r;
+            g = Groups { keys: list_push(g.keys, 0), bounds: list_push(g.bounds, n),
+                members: bb_cat2(g.members, q.mem) };
+            dirs = list_push(dirs, di);
+            spds = list_push(spds, q.spd);
+            gi = gi + 1;
+        }
+        di = di + 1;
+    }
+    w2 = w_rng(w2, r2);
+    let fwg: Groups = groups_of(w2, collect_ids(w2, 1), 3, 0, 0, 0);
+    let mut pend: List[Int] = list_new();
+    let mut p: Int = 0;
+    while p < list_len(g.bounds) {
+        pend = list_push(pend, p);
+        p = p + 1;
+    }
+    let sh: DRL = rng_shuf(w2.rng, pend);
+    w2 = w_rng(w2, sh.r);
+    let _r2 = BmB { w: w2, fwg: fwg, grp: bm_shuf_grp(g, dirs, spds, sh.v) };
+    return _r2;
+}
+
+fn bm_shuf_grp(g: Groups, dirs: List[Int], spds: List[Float], shv: List[Int]) -> BGrp {
+    let mut ng: Groups = Groups { keys: list_new(), bounds: list_new(), members: list_new() };
+    let mut ndir: List[Int] = list_new();
+    let mut nspd: List[Float] = list_new();
+    let mut nuse: List[Int] = list_new();
+    let mut nctr: List[Float] = list_new();
+    let mut si: Int = 0;
+    while si < list_len(g.bounds) {
+        ng.bounds = list_push(ng.bounds, 0);
+        si = si + 1;
+    }
+    let mut j: Int = 0;
+    while j < list_len(shv) {
+        let src: Int = list_get(shv, j);
+        let mut off3: Int = 0;
+        let mut z: Int = 0;
+        while z < src {
+            off3 = off3 + list_get(g.bounds, z);
+            z = z + 1;
+        }
+        let nb: Int = list_get(g.bounds, src);
+        ng.bounds = list_set(ng.bounds, j, nb);
+        ng.members = bb_cat2(ng.members, list_slice(g.members, off3, off3 + nb));
+        ndir = list_push(ndir, list_get(dirs, src));
+        nspd = list_push(nspd, list_get(spds, src));
+        nuse = list_push(nuse, 0);
+        nctr = list_push(nctr, 0.0);
+        j = j + 1;
+    }
+    return BGrp { g: ng, dir: ndir, spd: nspd, ctr: nctr, use_: nuse };
+}
+
+pub fn bb_cat2(a: List[Int], b: List[Int]) -> List[Int] {
+    let mut out: List[Int] = a;
+    let mut i: Int = 0;
+    while i < list_len(b) {
+        out = list_push(out, list_get(b, i));
+        i = i + 1;
+    }
+    return out;
+}

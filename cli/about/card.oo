@@ -1,35 +1,67 @@
 // # About Card - idlescreen Identity and Theme Reporter
 //
-// Logline: Prints the five-field idlescreen about card with the resolved ootheme and NO_COLOR state.
+// Logline: Prints the canonical six-field idlescreen about card with the resolved ootheme and NO_COLOR state.
 // Setup: Requires FsReadCap for the theme file and environ block, ProcessCap for env probes.
 // Beats:
 //   1. Resolve name, version, summary, subcommands, capabilities, and theme.
-//   2. Honour NO_COLOR/OO_NO_COLOR/OODA_NO_COLOR suppression and emit the deterministic card.
+//   2. Honour NO_COLOR/OO_NO_COLOR/OODA_NO_COLOR suppression and emit the deterministic card or JSON.
+//   3. Refuse unknown flags with exit code 2.
 
 import "cli/about/theme.oo";
 import "cli/help.oo";
 
 fn idlescreen_about_card(ver: String, summary: String, subs: String, caps: String, theme: String) -> String {
-    return "idlescreen " + ver + " - idlescreen\n"
-        + summary + "\n"
-        + "subcommands: " + subs + "\n"
-        + "capabilities: " + caps + "\n"
-        + "theme: " + theme + "\n";
+    return "Binary       : idlescreen (v" + ver + ")\n"
+        + "Organization : idlescreen (https://github.com/idlescreen/idlescreen)\n"
+        + "Summary      : " + summary + "\n"
+        + "Subcommands  : " + subs + "\n"
+        + "Capabilities : " + caps + "\n"
+        + "Theme        : " + theme + "\n";
 }
 
-pub fn idlescreen_about(fs_r: &FsReadCap, proc: &ProcessCap, flag_theme: String) -> Int {
+fn idlescreen_about_json(ver: String, summary: String, subs: String, caps: String, theme: String) -> String {
+    return "{\"component\":\"idlescreen\",\"version\":\"" + ver
+        + "\",\"layer\":\"L5-apps\",\"organization\":\"idlescreen\""
+        + ",\"summary\":\"" + summary + "\""
+        + ",\"subcommands\":\"" + subs + "\""
+        + ",\"capabilities\":\"" + caps + "\""
+        + ",\"theme\":\"" + theme + "\"}\n";
+}
+
+pub fn idlescreen_about(fs_r: &FsReadCap, proc: &ProcessCap, flag_theme: String, rest: List[String]) -> Int {
+    let mut json: Bool = false;
+    let mut i: Int = 0;
+    while i < list_len(rest) {
+        let a: String = list_get(rest, i);
+        if a == "--json" {
+            json = true;
+            i = i + 1;
+            continue;
+        }
+        if str_starts_with(a, "-") {
+            println("idlescreen: about: unknown flag: " + a);
+            return 2;
+        }
+        i = i + 1;
+    }
     let vl: String = cli_version_line("idlescreen");
     let sp: Int = str_index_of(vl, " ");
     let ver: String = if sp >= 0 { str_slice(vl, sp + 1, chars_len(vl)) } else { vl };
     let summary: String = "capability-secured ASCII idle screensaver suite";
-    let subs: String = "preview text list set tui daemon status inhibitors timeout config doctor service about";
-    let caps: String = "FsRead FsWrite Fs Process Bind Time Ffi Arena Alloc";
+    let subs: String = "preview,text,list,set,tui,daemon,status,inhibitors,timeout,config,doctor,service,about";
+    let caps: String = "FsRead,FsWrite,Fs,Process,Bind,Time,Ffi,Arena,Alloc";
     let resolved: String = idlescreen_ootheme_resolve(fs_r, proc, flag_theme);
-    let theme: String = if idlescreen_ootheme_suppressed(fs_r, proc) || resolved == "" {
+    let theme: String = if idlescreen_ootheme_suppressed(fs_r, proc) {
         "none"
+    } else if resolved == "" {
+        "ooda-dark"
     } else {
         resolved
     };
+    if json {
+        print(idlescreen_about_json(ver, summary, subs, caps, theme));
+        return 0;
+    }
     print(idlescreen_about_card(ver, summary, subs, caps, theme));
     return 0;
 }

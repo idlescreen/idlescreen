@@ -1,0 +1,196 @@
+// # scene_life — Conway automata reveal port
+//
+// Logline: Bit-exact port of Life::build/next_frame for the parity
+// harness: a toroidal Game-of-Life board seeded from cell coords steps on
+// odd frames while a center-out reveal locks the banner, then frame 64
+// settles.
+// Setup: Pure over canvas_cells geometry. Board and scratch ride as flat
+// List[Int] of width*height = cols*rows cells tagged 0..4.
+// Beats:
+//   1. life_new seeds the board like build() does (fill or hash <= 1).
+//   2. life_step runs one automata tick into scratch and swaps.
+//   3. life_next emits one frame; life_run drives to settle.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/math_paint.oo";
+import "tests/shade_float.oo";
+import "tests/digest_run.oo";
+
+pub type Life = struct {
+    cells: List[CellGeom],
+    palette: List[Int],
+    final_spec: List[Int],
+    board: List[Int],
+    scratch: List[Int],
+    frame: Int,
+    info: CanvasInfo
+};
+
+fn lf_stops(k: Int) -> List[Int] {
+    let mut s: List[Int] = list_new();
+    if k == 1 {
+        s = list_push(s, 56 * 65536 + 176 * 256 + 0);
+        s = list_push(s, 112 * 65536 + 224 * 256 + 0);
+        s = list_push(s, 204 * 65536 + 255 * 256 + 51);
+        return s;
+    }
+    s = list_push(s, 0 * 65536 + 75 * 256 + 35);
+    s = list_push(s, 0 * 65536 + 128 * 256 + 0);
+    s = list_push(s, 56 * 65536 + 176 * 256 + 0);
+    s = list_push(s, 112 * 65536 + 224 * 256 + 0);
+    s = list_push(s, 204 * 65536 + 255 * 256 + 51);
+    return s;
+}
+
+fn lf_seed(cells: List[CellGeom], info: CanvasInfo) -> List[Int] {
+    let mut board: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < info.cols * info.rows {
+        board = list_push(board, 0);
+        i = i + 1;
+    }
+    let mut k: Int = 0;
+    while k < list_len(cells) {
+        let c: CellGeom = list_get(cells, k);
+        let x: Int = c.col - 1;
+        let y: Int = c.row - 1;
+        let seed_hash: Int = (x * 37 ^ y * 19) % 7;
+        if c.fill == 0 || seed_hash <= 1 {
+            board = list_set(board, y * info.cols + x, 3);
+        }
+        k = k + 1;
+    }
+    return board;
+}
+
+pub fn life_new(cells: List[CellGeom], info: CanvasInfo) -> Life {
+    let _r1 = Life {
+        cells: cells,
+        palette: spectrum_build(lf_stops(0), 12),
+        final_spec: spectrum_build(lf_stops(1), 12),
+        board: lf_seed(cells, info),
+        scratch: lf_seed(cells, info),
+        frame: 0,
+        info: info
+    };
+    return _r1;
+}
+
+fn lf_step(l: Life) -> Life {
+    let w: Int = l.info.cols;
+    let h: Int = l.info.rows;
+    let mut scratch: List[Int] = l.scratch;
+    let mut y: Int = 0;
+    while y < h {
+        let ym1: Int = (y + h - 1) % h;
+        let yp1: Int = (y + 1) % h;
+        let mut x: Int = 0;
+        while x < w {
+            let xm1: Int = (x + w - 1) % w;
+            let xp1: Int = (x + 1) % w;
+            let mut nbs: Int = 0;
+            if list_get(l.board, ym1 * w + xm1) >= 2 { nbs = nbs + 1; }
+            if list_get(l.board, ym1 * w + x) >= 2 { nbs = nbs + 1; }
+            if list_get(l.board, ym1 * w + xp1) >= 2 { nbs = nbs + 1; }
+            if list_get(l.board, y * w + xm1) >= 2 { nbs = nbs + 1; }
+            if list_get(l.board, y * w + xp1) >= 2 { nbs = nbs + 1; }
+            if list_get(l.board, yp1 * w + xm1) >= 2 { nbs = nbs + 1; }
+            if list_get(l.board, yp1 * w + x) >= 2 { nbs = nbs + 1; }
+            if list_get(l.board, yp1 * w + xp1) >= 2 { nbs = nbs + 1; }
+            let cur: Int = list_get(l.board, y * w + x);
+            let mut nxt: Int = 0;
+            if cur >= 2 { nxt = 1; }
+            if nbs == 3 || (cur >= 2 && nbs == 2) {
+                nxt = cur + 1;
+                if nxt > 4 { nxt = 4; }
+            }
+            scratch = list_set(scratch, y * w + x, nxt);
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    let _r2 = Life { cells: l.cells, palette: l.palette, final_spec: l.final_spec,
+        board: scratch, scratch: l.board, frame: l.frame, info: l.info };
+    return _r2;
+}
+
+fn lf_cell(l: Life, c: CellGeom, reveal: Float, show: Int) -> PaintCell {
+    if c.fill == 0 && c.dist <= reveal {
+        let _r3 = symbol_paint_cell(c, l.info, l.palette, l.final_spec, 0 - 1, 1.0, 1);
+        return _r3;
+    }
+    if show == 0 {
+        let _r4 = symbol_paint_cell(c, l.info, l.palette, l.final_spec, 0 - 1, 0.0, 0);
+        return _r4;
+    }
+    let x: Int = (c.col - 1) % l.info.cols;
+    let y: Int = (c.row - 1) % l.info.rows;
+    let st: Int = list_get(l.board, y * l.info.cols + x);
+    if st == 4 {
+        let _r5 = symbol_paint_cell(c, l.info, l.palette, l.final_spec, 9608, 0.95, 0);
+        return _r5;
+    }
+    if st == 3 {
+        let _r6 = symbol_paint_cell(c, l.info, l.palette, l.final_spec, 9619, 0.75, 0);
+        return _r6;
+    }
+    if st == 2 {
+        let _r7 = symbol_paint_cell(c, l.info, l.palette, l.final_spec, 9618, 0.5, 0);
+        return _r7;
+    }
+    if st == 1 {
+        let _r8 = symbol_paint_cell(c, l.info, l.palette, l.final_spec, 9617, 0.25, 0);
+        return _r8;
+    }
+    let _r9 = symbol_paint_cell(c, l.info, l.palette, l.final_spec, 0 - 1, 0.0, 0);
+    return _r9;
+}
+
+pub fn life_next(l: Life) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if l.frame >= 64 { return out; }
+    let frame: Int = l.frame + 1;
+    let n: Int = list_len(l.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, settle_paint_cell(list_get(l.cells, i), l.info));
+            i = i + 1;
+        }
+        return out;
+    }
+    let mut l2: Life = l;
+    if frame % 2 == 1 { l2 = lf_step(l); }
+    let progress: Float = int_to_f(frame) / 64.0;
+    let mut show: Int = 0;
+    if progress < 0.8 { show = 1; }
+    let reveal: Float = progress * 1.85;
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, lf_cell(l2, list_get(l.cells, j), reveal, show));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn life_advance(l: Life) -> Life {
+    let mut st: Life = l;
+    if (l.frame + 1) % 2 == 1 { st = lf_step(l); }
+    let _r10 = Life { cells: st.cells, palette: st.palette, final_spec: st.final_spec,
+        board: st.board, scratch: st.scratch, frame: l.frame + 1, info: l.info };
+    return _r10;
+}
+
+pub fn life_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {
+    let mut l: Life = life_new(cells, info);
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        let pcs: List[PaintCell] = life_next(l);
+        if list_len(pcs) == 0 { break; }
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        l = life_advance(l);
+    }
+    return run;
+}

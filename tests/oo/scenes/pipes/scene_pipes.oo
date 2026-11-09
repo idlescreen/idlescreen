@@ -1,0 +1,185 @@
+// # scene_pipes — Manhattan pipe-racer reveal port
+//
+// Logline: Bit-exact port of Pipes::build/next_frame for the parity
+// harness: four deterministic pipe heads walk a toroidal grid leaving
+// colored trails while a center-out reveal locks the banner, then frame
+// 64 settles.
+// Setup: Pure. Heads ride as 20 Ints (x,y,dx,dy,color_idx per head);
+// grid is a flat List[Int] of cols*rows color tags. Turns hash on
+// (tick+s)*(31+i*17) exactly like upstream.
+// Beats:
+//   1. pipes_new builds palette, heads, and grid.
+//   2. pipes_step runs the three sub-steps per head per frame.
+//   3. pipes_next emits one frame; pipes_run drives to settle.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/math_paint.oo";
+import "tests/oo/shade_math.oo";
+import "tests/shade_float.oo";
+import "tests/digest_run.oo";
+
+pub type Pipes = struct {
+    cells: List[CellGeom],
+    palette: List[Int],
+    final_spec: List[Int],
+    grid: List[Int],
+    heads: List[Int],
+    frame: Int,
+    info: CanvasInfo
+};
+
+fn pp_stops(k: Int) -> List[Int] {
+    let mut s: List[Int] = list_new();
+    if k == 1 {
+        s = list_push(s, 0 * 65536 + 245 * 256 + 212);
+        s = list_push(s, 241 * 65536 + 91 * 256 + 181);
+        s = list_push(s, 254 * 65536 + 228 * 256 + 64);
+        return s;
+    }
+    s = list_push(s, 0 * 65536 + 245 * 256 + 212);
+    s = list_push(s, 0 * 65536 + 187 * 256 + 249);
+    s = list_push(s, 155 * 65536 + 93 * 256 + 229);
+    s = list_push(s, 241 * 65536 + 91 * 256 + 181);
+    s = list_push(s, 254 * 65536 + 228 * 256 + 64);
+    return s;
+}
+
+fn pp_euclid(v: Int, m: Int) -> Int {
+    let r: Int = v % m;
+    if r < 0 { return r + m; }
+    return r;
+}
+
+pub fn pipes_new(cells: List[CellGeom], info: CanvasInfo) -> Pipes {
+    let mut grid: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < info.cols * info.rows {
+        grid = list_push(grid, 0);
+        i = i + 1;
+    }
+    let w: Int = info.cols;
+    let h: Int = info.rows;
+    let mut heads: List[Int] = list_new();
+    heads = list_push(list_push(list_push(list_push(list_push(heads, w / 4), h / 2), 1), 0), 1);
+    heads = list_push(list_push(list_push(list_push(list_push(heads, w * 3 / 4), h / 2), 0 - 1), 0), 2);
+    heads = list_push(list_push(list_push(list_push(list_push(heads, w / 2), h / 3), 0), 1), 3);
+    heads = list_push(list_push(list_push(list_push(list_push(heads, w / 2), h * 2 / 3), 0), 0 - 1), 4);
+    let _r1 = Pipes {
+        cells: cells,
+        palette: spectrum_build(pp_stops(0), 12),
+        final_spec: spectrum_build(pp_stops(1), 12),
+        grid: grid,
+        heads: heads,
+        frame: 0,
+        info: info
+    };
+    return _r1;
+}
+
+fn pp_step(p: Pipes, tick: Int) -> Pipes {
+    let w: Int = p.info.cols;
+    let h: Int = p.info.rows;
+    let mut heads: List[Int] = p.heads;
+    let mut grid: List[Int] = p.grid;
+    let mut i: Int = 0;
+    while i < 4 {
+        let mut s: Int = 0;
+        while s < 3 {
+            let b: Int = i * 5;
+            let mut x: Int = pp_euclid(list_get(heads, b) + list_get(heads, b + 2), w);
+            let mut y: Int = pp_euclid(list_get(heads, b + 1) + list_get(heads, b + 3), h);
+            heads = list_set(heads, b, x);
+            heads = list_set(heads, b + 1, y);
+            let idx: Int = y * w + x;
+            if idx < list_len(grid) { grid = list_set(grid, idx, list_get(heads, b + 4)); }
+            let th: Int = (tick + s) * (31 + i * 17);
+            if th % 5 == 0 {
+                let mut dv: Int = 1;
+                if th % 2 != 0 { dv = 0 - 1; }
+                if list_get(heads, b + 2) != 0 {
+                    heads = list_set(heads, b + 2, 0);
+                    heads = list_set(heads, b + 3, dv);
+                } else {
+                    heads = list_set(heads, b + 3, 0);
+                    heads = list_set(heads, b + 2, dv);
+                }
+            }
+            s = s + 1;
+        }
+        i = i + 1;
+    }
+    let _r2 = Pipes { cells: p.cells, palette: p.palette, final_spec: p.final_spec,
+        grid: grid, heads: heads, frame: p.frame, info: p.info };
+    return _r2;
+}
+
+fn pp_cell(p: Pipes, c: CellGeom, reveal: Float, show: Int) -> PaintCell {
+    if c.fill == 0 && c.dist <= reveal {
+        let _r3 = symbol_paint_cell(c, p.info, p.palette, p.final_spec, 0 - 1, 1.0, 1);
+        return _r3;
+    }
+    if show == 0 {
+        let _r4 = symbol_paint_cell(c, p.info, p.palette, p.final_spec, 0 - 1, 0.0, 0);
+        return _r4;
+    }
+    let gx: Int = imin(imax(c.col - 1, 0), p.info.cols - 1);
+    let gy: Int = imin(imax(c.row - 1, 0), p.info.rows - 1);
+    let val: Int = list_get(p.grid, gy * p.info.cols + gx);
+    if val > 0 {
+        let mut sym: Int = 9608;
+        if gy % 2 == 0 { sym = 9600; }
+        let col_t: Float = (int_to_f(val) - 1.0) / 3.0;
+        let _r5 = symbol_paint_cell(c, p.info, p.palette, p.final_spec, sym, col_t, 0);
+        return _r5;
+    }
+    let _r6 = symbol_paint_cell(c, p.info, p.palette, p.final_spec, 0 - 1, 0.0, 0);
+    return _r6;
+}
+
+pub fn pipes_next(p: Pipes) -> List[PaintCell] {
+    let mut out: List[PaintCell] = list_new();
+    if p.frame >= 64 { return out; }
+    let frame: Int = p.frame + 1;
+    let n: Int = list_len(p.cells);
+    if frame == 64 {
+        let mut i: Int = 0;
+        while i < n {
+            out = list_push(out, settle_paint_cell(list_get(p.cells, i), p.info));
+            i = i + 1;
+        }
+        return out;
+    }
+    let p2: Pipes = pp_step(p, frame);
+    let progress: Float = int_to_f(frame) / 64.0;
+    let mut show: Int = 0;
+    if progress < 0.8 { show = 1; }
+    let reveal: Float = progress * 1.85;
+    let mut j: Int = 0;
+    while j < n {
+        out = list_push(out, pp_cell(p2, list_get(p.cells, j), reveal, show));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn pipes_advance(p: Pipes) -> Pipes {
+    let mut st: Pipes = p;
+    if p.frame + 1 < 64 { st = pp_step(p, p.frame + 1); }
+    let _r7 = Pipes { cells: st.cells, palette: st.palette, final_spec: st.final_spec,
+        grid: st.grid, heads: st.heads, frame: p.frame + 1, info: p.info };
+    return _r7;
+}
+
+pub fn pipes_run(cells: List[CellGeom], info: CanvasInfo) -> DigestRun {
+    let mut p: Pipes = pipes_new(cells, info);
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        let pcs: List[PaintCell] = pipes_next(p);
+        if list_len(pcs) == 0 { break; }
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        p = pipes_advance(p);
+    }
+    return run;
+}

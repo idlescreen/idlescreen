@@ -20,7 +20,7 @@ import "about/card.oo";
 
 fn cli_self_test() -> Int {
     println("self-test: idlescreen 5.0.3");
-    println("PASS scene roster (53)");
+    println("PASS scene roster (51)");
     println("PASS wordmark presets (4)");
     println("PASS caps default-deny surface");
     println("PASS self-test complete");
@@ -62,8 +62,12 @@ fn dispatch_service_ctl(fs_r:&FsReadCap, fs:&FsCap, fw:&FsWriteCap, proc:&Proces
         let arg: String = if list_len(rest) > 0 { list_get(rest, 0) } else { "" };
         return cmd_saver_ctl(fs_r, fs, fw, proc, verb + " " + arg);
     }
+    if str_starts_with(verb, "-") {
+        println("idlescreen: unknown flag: " + verb + " — try `idlescreen help`");
+        return 2;
+    }
     println("unknown command: " + verb + " — try `idlescreen help`");
-    return 1;
+    return 2;
 }
 
 pub fn idlescreen_cli_run(fs_r:&FsReadCap, fs_w:&FsWriteCap, fs:&FsCap,
@@ -97,6 +101,6 @@ pub fn idlescreen_cli_run(fs_r:&FsReadCap, fs_w:&FsWriteCap, fs:&FsCap,
     if verb == "timeout" { return cmd_timeout(fs_r, fs, fs_w, proc, rest); }
     if verb == "config" { return cmd_config(fs_r, proc); }
     if verb == "doctor" { return cmd_doctor(fs_r, fs, fs_w, proc, rest); }
-    if verb == "about" { return idlescreen_about(fs_r, proc, theme); }
+    if verb == "about" { return idlescreen_about(fs_r, proc, theme, rest); }
     return dispatch_service_ctl(fs_r, fs, fs_w, proc, ffi, time, ar, SvcReq { verb: verb, rest: rest });
 }

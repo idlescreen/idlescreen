@@ -1,0 +1,199 @@
+// # scene_beams — row/column beam sweep port
+//
+// Logline: Bit-exact Beams::next_frame: shuffled groups promote 1-5 at a
+// time every 3 ticks, each group releases members at its speed, already
+// animating chars reset instead of re-hiding, then diagonal wipe groups
+// brighten six at a time.
+// Setup: Group counters accumulate float speed; release count is the
+// truncated counter when > 1. beam_row/beam_column scenes are picked by
+// group direction. Phase order Beams -> FinalWipe -> Complete.
+// Beats:
+//   1. bm_gnext pops one member: reset-scene path for shared chars.
+//   2. bm_phase advances groups, the delay draw, and phase switches.
+//   3. beams_run updates and emits until complete and actives drain.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/digest_run.oo";
+import "tests/oo/scenes/beams/bm_build.oo";
+
+pub type BmS = struct { w: World, pend: BGrp, act: BGrp, fwg: Groups, delay: Int, phase: Int };
+
+fn bm_gnext(w: World, grp: BGrp, gi: Int) -> BmN {
+    let ch: Char = list_get(w.chars, list_get(grp.g.members, bm_off(grp.g, gi) + list_get(grp.use_, gi)));
+    let mut w2: World = w;
+    if ch.a_scene != 0 - 1 {
+        let s0: Scene = sc_reset(list_get(ch.scenes, ch.a_scene));
+        w2 = w_put(w2, list_get(grp.g.members, bm_off(grp.g, gi) + list_get(grp.use_, gi)),
+            ch_scenes2(ch, list_set(ch.scenes, ch.a_scene, s0)));
+    } else {
+        w2 = w_set_vis(w2, list_get(grp.g.members, bm_off(grp.g, gi) + list_get(grp.use_, gi)), 1);
+        w2 = w_active_add(w2, list_get(grp.g.members, bm_off(grp.g, gi) + list_get(grp.use_, gi)));
+    }
+    let id: Int = list_get(grp.g.members, bm_off(grp.g, gi) + list_get(grp.use_, gi));
+    let si: Int = if list_get(grp.dir, gi) == 0 { 0 } else { 1 };
+    w2 = w_aset(w2, id, si);
+    let _r1 = BmN { w: w2, ins: if ch.a_scene == 0 - 1 { 1 } else { 0 } };
+    return _r1;
+}
+
+pub type BmN = struct { w: World, ins: Int };
+
+fn bm_off(g: Groups, i: Int) -> Int {
+    let mut off: Int = 0;
+    let mut k: Int = 0;
+    while k < i {
+        off = off + list_get(g.bounds, k);
+        k = k + 1;
+    }
+    return off;
+}
+
+fn ch_scenes2(ch: Char, scenes: List[Scene]) -> Char {
+    let _r2 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
+        pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene, sids: ch.sids, scenes: scenes, a_path: ch.a_path,
+        done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+    return _r2;
+}
+
+fn bm_pop_pend(pend: BGrp, act: BGrp, n_take: Int) -> BmS {
+    let mut p: BGrp = pend;
+    let mut a: BGrp = act;
+    let mut t: Int = 0;
+    while t < n_take {
+        if list_len(p.g.bounds) > 0 {
+            let n: Int = list_get(p.g.bounds, 0);
+            a = BGrp { g: Groups { keys: list_push(a.g.keys, 0), bounds: list_push(a.g.bounds, n),
+                members: bb_cat2(a.g.members, list_slice(p.g.members, 0, n)) },
+                dir: list_push(a.dir, list_get(p.dir, 0)), spd: list_push(a.spd, list_get(p.spd, 0)),
+                ctr: list_push(a.ctr, 0.0), use_: list_push(a.use_, 0) };
+            p = BGrp { g: Groups { keys: list_slice(p.g.keys, 1, list_len(p.g.keys)),
+                bounds: list_slice(p.g.bounds, 1, list_len(p.g.bounds)),
+                members: list_slice(p.g.members, n, list_len(p.g.members)) },
+                dir: list_slice(p.dir, 1, list_len(p.dir)), spd: list_slice(p.spd, 1, list_len(p.spd)),
+                ctr: list_slice(p.ctr, 1, list_len(p.ctr)), use_: list_slice(p.use_, 1, list_len(p.use_)) };
+        }
+        t = t + 1;
+    }
+    return BmS { w: World { chars: list_new(), active: list_new(),
+        rng: rng_seed(0), next_id: 0, pend: list_new() }, pend: p, act: a,
+        fwg: Groups { keys: list_new(), bounds: list_new(), members: list_new() }, delay: 3, phase: 0 };
+}
+
+fn bm_phase_one(s: BmS) -> BmS {
+    let mut w2: World = s.w;
+    let mut fwg: Groups = s.fwg;
+    if list_len(fwg.bounds) == 0 {
+        return BmS { w: w2, pend: s.pend, act: s.act, fwg: fwg, delay: s.delay, phase: 2 };
+    }
+    let mut t3: Int = 0;
+    while t3 < 6 && list_len(fwg.bounds) > 0 {
+        let ids: List[Int] = bb_win2(fwg, 0);
+        let mut c: Int = 0;
+        while c < list_len(ids) {
+            let id: Int = list_get(ids, c);
+            w2 = w_aset(w2, id, 2);
+            w2 = w_set_vis(w2, id, 1);
+            w2 = w_active_add(w2, id);
+            c = c + 1;
+        }
+        fwg = Groups { keys: list_slice(fwg.keys, 1, list_len(fwg.keys)),
+            bounds: list_slice(fwg.bounds, 1, list_len(fwg.bounds)),
+            members: list_slice(fwg.members, list_get(fwg.bounds, 0), list_len(fwg.members)) };
+        t3 = t3 + 1;
+    }
+    return BmS { w: w2, pend: s.pend, act: s.act, fwg: fwg, delay: s.delay, phase: 1 };
+}
+
+fn bm_phase(s: BmS, info: CanvasInfo) -> BmS {
+    let _ = info;
+    if s.phase != 0 {
+        if s.phase == 1 { return bm_phase_one(s); }
+        return s;
+    }
+    let mut w2: World = s.w;
+    let mut r2: Rng = w2.rng;
+    let mut pend: BGrp = s.pend;
+    let mut act: BGrp = s.act;
+    let mut delay: Int = s.delay;
+    if delay > 0 { delay = delay - 1; }
+    if s.delay == 0 {
+        if list_len(pend.g.bounds) > 0 {
+            let d: DR = rng_int(r2, 1, 5);
+            r2 = d.r;
+            let pp: BmS = bm_pop_pend(pend, act, d.v);
+            pend = pp.pend;
+            act = pp.act;
+        }
+        delay = 3;
+    }
+    let mut gi: Int = 0;
+    let kact: BGrp = act;
+    let mut ng: Groups = Groups { keys: list_new(), bounds: list_new(), members: list_new() };
+    let mut ndir: List[Int] = list_new();
+    let mut nspd: List[Float] = list_new();
+    let mut nctr: List[Float] = list_new();
+    let mut nuse: List[Int] = list_new();
+    while gi < list_len(kact.g.bounds) {
+        let mut ctr: Float = list_get(kact.ctr, gi) + list_get(kact.spd, gi);
+        let cnt: Int = trunc_i(ctr);
+        let mut use2: Int = list_get(kact.use_, gi);
+        let mut t2: Int = 0;
+        while cnt > 1 && t2 < cnt {
+            if use2 < list_get(kact.g.bounds, gi) {
+                ctr = ctr - 1.0;
+                let bmn: BmN = bm_gnext(w2, BGrp { g: kact.g, dir: kact.dir, spd: kact.spd,
+                    ctr: kact.ctr, use_: list_set(kact.use_, gi, use2) }, gi);
+                w2 = bmn.w;
+                use2 = use2 + 1;
+            }
+            t2 = t2 + 1;
+        }
+        if use2 < list_get(kact.g.bounds, gi) {
+            let n2: Int = list_get(kact.g.bounds, gi);
+            ng = Groups { keys: list_push(ng.keys, 0), bounds: list_push(ng.bounds, n2),
+                members: bb_cat2(ng.members, list_slice(kact.g.members, bm_off(kact.g, gi), bm_off(kact.g, gi) + n2)) };
+            ndir = list_push(ndir, list_get(kact.dir, gi));
+            nspd = list_push(nspd, list_get(kact.spd, gi));
+            nctr = list_push(nctr, ctr);
+            nuse = list_push(nuse, use2);
+        }
+        gi = gi + 1;
+    }
+    act = BGrp { g: ng, dir: ndir, spd: nspd, ctr: nctr, use_: nuse };
+    let mut phase: Int = 0;
+    if list_len(pend.g.bounds) == 0 && list_len(act.g.bounds) == 0 && list_len(w2.active) == 0 { phase = 1; }
+    return BmS { w: w_rng(w2, r2), pend: pend, act: act, fwg: s.fwg, delay: delay, phase: phase };
+}
+
+fn bb_win2(g: Groups, i: Int) -> List[Int] {
+    return list_slice(g.members, bm_off(g, i), bm_off(g, i) + list_get(g.bounds, i));
+}
+
+pub fn beams_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let b: BmB = bm_build(w_input(info, lines, rng_seed(42)), info);
+    let mut s: BmS = BmS { w: b.w, fwg: b.fwg, delay: 0, phase: 0,
+        pend: b.grp,
+        act: BGrp { g: Groups { keys: list_new(), bounds: list_new(), members: list_new() },
+            dir: list_new(), spd: list_new(), ctr: list_new(), use_: list_new() } };
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while s.phase != 2 || list_len(s.w.active) > 0 {
+        s = bm_phase(s, info);
+        let w2: World = eng_update(s.w);
+        s = BmS { w: w2, pend: s.pend, act: s.act, fwg: s.fwg, delay: s.delay, phase: s.phase };
+        let pcs: List[PaintCell] = eng_render(w2, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

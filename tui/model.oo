@@ -41,11 +41,9 @@ pub fn tui_saver_name(idx: Int) -> String {
 
 pub fn tui_saver_display(idx: Int) -> String {
     let n: String = tui_saver_name(idx);
-    if n == "ascii" { return "ascii (All 53 Arcade Scenes Shuffled)"; }
-    if n == "tour" { return "tour (All 53 Arcade Scenes in Order 1-53)"; }
+    if n == "ascii" { return "ascii (All 51 Arcade Scenes Shuffled)"; }
+    if n == "tour" { return "tour (All 51 Arcade Scenes in Order 1-51)"; }
     if n == "superfedora" { return "superfedora (16-Bit SuperFedora Arcade)"; }
-    if n == "mmx" { return "mmx (16-Bit SNES Mega Man X Scene)"; }
-    if n == "zero" { return "zero (16-Bit SNES Mega Man X Zero Scene)"; }
     return n + " (Pinned Arcade Scene)";
 }
 

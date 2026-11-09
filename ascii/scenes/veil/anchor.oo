@@ -1,13 +1,12 @@
 // # scenes/veil Family Anchor
 //
-// Logline: Re-exports the field-veil scene pages: aurora, colorshift, highlight, randomsequence, chaos, zero, errorcorrect.
+// Logline: Re-exports the field-veil scene pages: aurora, colorshift, highlight, randomsequence, chaos, errorcorrect.
 // Setup: Pure shim. Imports the family scene pages.
 // Beats:
-//   1. Re-export all seven veil-family scene render functions for the dispatch anchor.
+//   1. Re-export all six veil-family scene render functions for the dispatch anchor.
 import "aurora.oo";
 import "colorshift.oo";
 import "highlight.oo";
 import "randomsequence.oo";
 import "chaos.oo";
-import "zero.oo";
 import "errorcorrect.oo";

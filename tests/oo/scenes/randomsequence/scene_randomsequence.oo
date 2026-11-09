@@ -1,0 +1,104 @@
+// # scene_randomsequence — shuffled fade-in port
+//
+// Logline: Bit-exact port of RandomSequence::build/next_frame: each input
+// glyph hides, gets a 7-step terminal-bg to final-gradient scene over 8
+// frames, joins the shuffled pending list, and releases characters_per_tick
+// from the tail each frame.
+// Setup: characters_per_tick = max(int(0.007 * input_count), 1). Final
+// gradient is vertical 8A008A->00D1FF->FFFFFF over 12 steps. RNG draw is a
+// single Fisher-Yates shuffle of the pending list after the build loop.
+// Beats:
+//   1. rs_build seeds hidden scenes and the final-color map per glyph.
+//   2. rs_release pops characters_per_tick ids from the pending tail.
+//   3. randomsequence_run updates and emits until pending+active drain.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/shade_float.oo";
+import "tests/digest_run.oo";
+
+pub type RsQ = struct { w: World, pend: List[Int] };
+
+fn rs_build(w: World, info: CanvasInfo) -> RsQ {
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let stops: List[Int] = list_push(list_push(list_push(list_new(), 9044106), 53759), 16777215);
+    let spec: List[Int] = gradient_new(stops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let mut w2: World = w;
+    let mut pend: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let ffg: Int = list_get(cmap, ch.row0 - info.tb);
+        w2 = w_set_vis(w2, id, 0);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+        let g: List[Int] = gradient_new(list_push(list_push(list_new(), 0), ffg), list_push(list_new(), 7), 0);
+        w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 8, g, list_new());
+        w2 = w_aset(w2, id, 0);
+        pend = list_push(pend, id);
+        k = k + 1;
+    }
+    let sh: DRL = rng_shuf(w2.rng, pend);
+    let _r1 = RsQ { w: w_rng(w2, sh.r), pend: sh.v };
+    return _r1;
+}
+
+fn rs_pop(pend: List[Int]) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(pend) - 1 {
+        out = list_push(out, list_get(pend, i));
+        i = i + 1;
+    }
+    return out;
+}
+
+fn rs_release(w: World, pend: List[Int], cpt: Int) -> RsQ {
+    let mut w2: World = w;
+    let mut p2: List[Int] = pend;
+    let mut t: Int = 0;
+    while t < cpt {
+        if list_len(p2) > 0 {
+            let id: Int = list_get(p2, list_len(p2) - 1);
+            p2 = rs_pop(p2);
+            w2 = w_set_vis(w2, id, 1);
+            w2 = w_active_add(w2, id);
+        }
+        t = t + 1;
+    }
+    let _r2 = RsQ { w: w2, pend: p2 };
+    return _r2;
+}
+
+pub fn randomsequence_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let q: RsQ = rs_build(w_input(info, lines, rng_seed(42)), info);
+    let mut w: World = q.w;
+    let mut pend: List[Int] = q.pend;
+    let mut cpt: Int = trunc_i(0.007 * int_to_f(list_len(pend)));
+    if cpt < 1 { cpt = 1; }
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(pend) > 0 || list_len(w.active) > 0 {
+        let q2: RsQ = rs_release(w, pend, cpt);
+        w = q2.w;
+        pend = q2.pend;
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

@@ -4,11 +4,12 @@
 // Setup: Pure state threading over the tests/oo bit-exact scene ports. Operates with zero ambient authority.
 // Beats:
 //   1. Build canvas geometry for the terminal size and construct every ported scene state.
-//   2. Advance the active scene one frame per call; run-only ports settle immediately to their final frame.
-//   3. Render the latest frame through the PaintCell ANSI renderer.
+//   2. Continuous ports step their World each call; run ports replay their bit-exact frame tape frame-by-frame.
+//   3. Render the latest frame through the arcade composite pipeline (starfield, gleam, settled banner).
 
 import "tests/oo/canvas_cells.oo";
 import "tests/oo/grid_cells.oo";
+import "tests/digest_run.oo";
 import "tests/oo/scenes/wave/scene_plasma.oo";
 import "tests/oo/scenes/wave/scene_ripple.oo";
 import "tests/oo/scenes/wave/scene_moire.oo";
@@ -42,7 +43,13 @@ import "tests/oo/scenes/spotlights/scene_spotlights.oo";
 import "tests/oo/scenes/errorcorrect/scene_errorcorrect.oo";
 import "tests/oo/scenes/crumble/scene_crumble.oo";
 import "tests/oo/scenes/smoke/scene_smoke.oo";
+import "tests/oo/scenes/randomsequence/scene_randomsequence.oo";
+import "tests/oo/scenes/breakout/scene_breakout.oo";
+import "tests/oo/scenes/life/scene_life.oo";
+import "tests/oo/scenes/pipes/scene_pipes.oo";
+import "tests/oo/scenes/tetris/scene_tetris.oo";
 import "port_render.oo";
+import "port_compose.oo";
 
 pub type PortSession = struct {
     name: String,
@@ -50,6 +57,9 @@ pub type PortSession = struct {
     rows: Int,
     last: List[PaintCell],
     settled: Bool,
+    tick: Int,
+    wm: String,
+    pf: List[PcFrame],
     plasma: Plasma,
     ripple: Ripple,
     aurora: Aurora,
@@ -68,47 +78,60 @@ pub fn port_has(name: String) -> Bool {
     if name == "tunnel" || name == "mystify" || name == "expand" || name == "wipe" { return true; }
     if name == "sweep" || name == "slide" || name == "middleout" || name == "binarypath" { return true; }
     if name == "crumble" || name == "smoke" { return true; }
+    if name == "randomsequence" || name == "breakout" || name == "life" || name == "pipes" || name == "tetris" { return true; }
     return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" ||
         name == "pour" || name == "slice" || name == "colorshift" || name == "highlight" ||
         name == "spray" || name == "overflow" || name == "bouncyballs" || name == "decrypt" ||
         name == "fireworks" || name == "spotlights" || name == "errorcorrect";
 }
 
-fn port_settled_frame(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> List[PaintCell] {
-    if name == "expand" { return expand_run(cells, info, lines).last; }
-    if name == "wipe" { return wipe_run(cells, info, lines).last; }
-    if name == "sweep" { return sweep_run(cells, info, lines).last; }
-    if name == "slide" { return slide_run(cells, info, lines).last; }
-    if name == "middleout" { return middleout_run(cells, info, lines).last; }
-    if name == "binarypath" { return binarypath_run(cells, info, lines).last; }
-    if name == "burn" { return burn_run(cells, info, lines).last; }
-    if name == "blackhole" { return blackhole_run(cells, info, lines).last; }
-    if name == "rain" { return rain_run(cells, info, lines).last; }
-    if name == "scattered" { return scattered_run(cells, info, lines).last; }
-    if name == "pour" { return pour_run(cells, info, lines).last; }
-    if name == "slice" { return slice_run(cells, info, lines).last; }
-    if name == "colorshift" { return colorshift_run(cells, info, lines).last; }
-    if name == "highlight" { return highlight_run(cells, info, lines).last; }
-    if name == "spray" { return spray_run(cells, info, lines).last; }
-    if name == "overflow" { return overflow_run(cells, info, lines).last; }
-    if name == "bouncyballs" { return bouncyballs_run(cells, info, lines).last; }
-    if name == "decrypt" { return decrypt_run(cells, info, lines).last; }
-    if name == "fireworks" { return fireworks_run(cells, info, lines).last; }
-    if name == "spotlights" { return spotlights_run(cells, info, lines).last; }
-    if name == "errorcorrect" { return errorcorrect_run(cells, info, lines).last; }
-    if name == "crumble" { return crumble_run(cells, info, lines).last; }
-    if name == "smoke" { return smoke_run(cells, info, lines).last; }
-    return list_new();
+fn port_run_all(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    if name == "expand" { return expand_run(cells, info, lines); }
+    if name == "wipe" { return wipe_run(cells, info, lines); }
+    if name == "sweep" { return sweep_run(cells, info, lines); }
+    if name == "slide" { return slide_run(cells, info, lines); }
+    if name == "middleout" { return middleout_run(cells, info, lines); }
+    if name == "binarypath" { return binarypath_run(cells, info, lines); }
+    if name == "burn" { return burn_run(cells, info, lines); }
+    if name == "blackhole" { return blackhole_run(cells, info, lines); }
+    if name == "rain" { return rain_run(cells, info, lines); }
+    if name == "scattered" { return scattered_run(cells, info, lines); }
+    if name == "pour" { return pour_run(cells, info, lines); }
+    if name == "slice" { return slice_run(cells, info, lines); }
+    if name == "colorshift" { return colorshift_run(cells, info, lines); }
+    if name == "highlight" { return highlight_run(cells, info, lines); }
+    if name == "spray" { return spray_run(cells, info, lines); }
+    if name == "overflow" { return overflow_run(cells, info, lines); }
+    if name == "bouncyballs" { return bouncyballs_run(cells, info, lines); }
+    if name == "decrypt" { return decrypt_run(cells, info, lines); }
+    if name == "fireworks" { return fireworks_run(cells, info, lines); }
+    if name == "spotlights" { return spotlights_run(cells, info, lines); }
+    if name == "errorcorrect" { return errorcorrect_run(cells, info, lines); }
+    if name == "crumble" { return crumble_run(cells, info, lines); }
+    if name == "smoke" { return smoke_run(cells, info, lines); }
+    if name == "randomsequence" { return randomsequence_run(cells, info, lines); }
+    if name == "breakout" { return breakout_run(cells, info); }
+    if name == "life" { return life_run(cells, info); }
+    if name == "pipes" { return pipes_run(cells, info); }
+    if name == "tetris" { return tetris_run(cells, info); }
+    return digest_run_new();
 }
 
 pub fn port_session_new(name: String, cols: Int, rows: Int, wordmark: String) -> PortSession {
     let lines: List[String] = port_lines(wordmark, cols, rows);
     let info: CanvasInfo = art_block(lines, canvas_info(cols, rows));
     let cells: List[CellGeom] = canvas_cells(info, lines);
-    let settled_last: List[PaintCell] = port_settled_frame(name, cells, info, lines);
+    let run: DigestRun = port_run_all(name, cells, info, lines);
+    let pf: List[PcFrame] = run.pc_frames;
+    let mut first: List[PaintCell] = list_new();
+    if list_len(pf) > 0 {
+        let f0: PcFrame = list_get(pf, 0);
+        first = f0.cells;
+    }
     return PortSession {
         name: name, cols: cols, rows: rows,
-        last: settled_last, settled: list_len(settled_last) > 0,
+        last: first, settled: list_len(pf) == 1,
+        tick: 0 - 1, wm: wordmark, pf: pf,
         plasma: plasma_new(cells, info), ripple: ripple_new(cells, info),
         aurora: aurora_new(cells, info), chaos: chaos_new(cells, info),
         metaballs: metaballs_new(cells, info), moire: moire_new(cells, info),
@@ -117,58 +140,73 @@ pub fn port_session_new(name: String, cols: Int, rows: Int, wordmark: String) ->
     };
 }
 
-pub fn port_session_next(s: PortSession) -> PortSession {
-    if s.settled { return s; }
-    let mut out: PortSession = s;
+fn port_step_world(s: PortSession, out: PortSession) -> PortSession {
+    let mut o: PortSession = out;
     let mut pcs: List[PaintCell] = list_new();
     if s.name == "plasma" {
         pcs = plasma_next(s.plasma);
-        out.plasma = plasma_advance(s.plasma);
+        o.plasma = plasma_advance(s.plasma);
     }
     else if s.name == "ripple" {
         pcs = ripple_next(s.ripple);
-        out.ripple = ripple_advance(s.ripple);
+        o.ripple = ripple_advance(s.ripple);
     }
     else if s.name == "aurora" {
         pcs = aurora_next(s.aurora);
-        out.aurora = aurora_advance(s.aurora);
+        o.aurora = aurora_advance(s.aurora);
     }
     else if s.name == "chaos" {
         pcs = chaos_next(s.chaos);
-        out.chaos = chaos_advance(s.chaos);
+        o.chaos = chaos_advance(s.chaos);
     }
     else if s.name == "metaballs" {
         pcs = metaballs_next(s.metaballs);
-        out.metaballs = metaballs_advance(s.metaballs);
+        o.metaballs = metaballs_advance(s.metaballs);
     }
     else if s.name == "moire" {
         pcs = moire_next(s.moire);
-        out.moire = moire_advance(s.moire);
+        o.moire = moire_advance(s.moire);
     }
     else if s.name == "cosmos" {
         pcs = cosmos_next(s.cosmos);
-        out.cosmos = cosmos_advance(s.cosmos);
+        o.cosmos = cosmos_advance(s.cosmos);
     }
     else if s.name == "radar" {
         pcs = radar_next(s.radar);
-        out.radar = radar_advance(s.radar);
+        o.radar = radar_advance(s.radar);
     }
     else if s.name == "tunnel" {
         pcs = tunnel_next(s.tunnel);
-        out.tunnel = tunnel_advance(s.tunnel);
+        o.tunnel = tunnel_advance(s.tunnel);
     }
     else if s.name == "mystify" {
         pcs = mystify_next(s.mystify);
-        out.mystify = mystify_advance(s.mystify);
+        o.mystify = mystify_advance(s.mystify);
     }
     if list_len(pcs) == 0 {
-        out.settled = true;
+        o.settled = true;
+        return o;
+    }
+    o.last = pcs;
+    return o;
+}
+
+pub fn port_session_next(s: PortSession) -> PortSession {
+    let mut out: PortSession = s;
+    out.tick = s.tick + 1;
+    let n: Int = list_len(s.pf);
+    if n > 0 {
+        if s.settled { return out; }
+        let idx: Int = if out.tick >= n { n - 1 } else { out.tick };
+        let fr: PcFrame = list_get(s.pf, idx);
+        out.last = fr.cells;
+        if out.tick >= n - 1 { out.settled = true; }
         return out;
     }
-    out.last = pcs;
-    return out;
+    if s.settled { return out; }
+    return port_step_world(s, out);
 }
 
 pub fn port_session_frame(s: &PortSession) -> String {
-    return port_render(&s.last, s.cols, s.rows);
+    return port_compose(&s.last, s.cols, s.rows, s.tick, s.settled, s.wm);
 }

@@ -68,7 +68,7 @@ pub fn tui_render_mini_preview(m: TuiModel, tick: Int) -> String {
     let mut out: String = "";
     let mut sc_idx: Int = 0;
     if m.selected_saver >= 3 { sc_idx = m.selected_saver - 3; }
-    else { sc_idx = (tick / 60) % 53; }
+    else { sc_idx = (tick / 60) % 51; }
     let wm: String = if m.selected_saver == 2 {
         "SUPERFEDORA"
     } else if !m.use_os_brand && str_trim(m.custom_text) != "" {

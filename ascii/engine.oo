@@ -26,7 +26,7 @@ pub fn engine_frame(g: CellGrid, scene_idx: Int, tick: Int, wordmark: String) ->
 pub fn engine_tour_index(tick: Int, scene_secs: Int) -> Int {
     let mut s: Int = scene_secs;
     if s <= 0 { s = 10; }
-    return (tick / s) % 53;
+    return (tick / s) % 51;
 }
 
 pub fn engine_preview_wordmark(cols: Int, rows: Int, name: String, tick: Int, tour: Bool, wordmark: String) -> String {
@@ -37,7 +37,7 @@ pub fn engine_preview_wordmark(cols: Int, rows: Int, name: String, tick: Int, to
     let wm: String = if wordmark != "" { wordmark } else if wm_known(name) { name } else { "FEDORA" };
     g = engine_frame(g, i, tick, wm);
     let sn: String = effects_name(i);
-    g = draw_preview_hud(g, sn, i + 1, 53, tour);
+    g = draw_preview_hud(g, sn, i + 1, 51, tour);
     let res: String = ansi_frame(g);
     return res;
 }

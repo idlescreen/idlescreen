@@ -4,7 +4,7 @@
 // Setup: Pure probes; zero ambient authority. Prints PASS lines per domain.
 // Beats:
 //   1. Probe grid set/get, damage rect, and pixel packing.
-//   2. Probe the 53-scene roster and wordmark presets.
+//   2. Probe the 51-scene roster and wordmark presets.
 //   3. Probe the DPMS debounce, inhibitor registry, and control dispatch.
 
 import "core/cell.oo";
@@ -90,21 +90,17 @@ pub fn main(argv: List[String]) -> Result[Int, String] {
         pack_argb8888(255, 255, 0, 128)== 4294901888 - 2147483648 + 2147483648 || pack_argb8888(255, 255, 0, 128)> 0
     );
     fails = fails + probe("pack argb2101010 alpha", (pack_argb2101010(255, 10, 20, 30) >> 30) == 3);
-    fails = fails + probe("roster count", effects_count() == 53);
-    fails = fails + probe("roster zero", effects_index("zero") == 52);
+    fails = fails + probe("roster count", effects_count() == 51);
+    fails = fails + probe("roster wipe", effects_index("wipe") == 50);
     fails = fails + probe("roster aurora", effects_index("aurora") == 0);
     fails = fails + probe("roster matrix", effects_name(effects_index("matrix")) == "matrix");
     fails = fails + probe("alias shower", effects_name(effects_index("shower")) == "rain");
     fails = fails + probe("alias scramble", effects_name(effects_index("scramble")) == "scattered");
     fails = fails + probe("alias led", effects_name(effects_index("led")) == "sweep");
     fails = fails + probe("alias wave", effects_name(effects_index("wave")) == "waves");
-    let mm_ok: Bool = effects_name(effects_index("megaman")) == "mmx" && effects_name(effects_index("megamanx")) == "mmx";
-    fails = fails + probe("alias megaman", mm_ok && effects_name(effects_index("x")) == "mmx");
-    fails = fails + probe("alias zsaber", effects_name(effects_index("zsaber")) == "zero");
     fails = fails + probe("norm hyphen", effects_name(effects_index("binary-path")) == "binarypath");
     fails = fails + probe("norm underscore", effects_name(effects_index("binary_path")) == "binarypath");
     fails = fails + probe("norm mixed", effects_name(effects_index("  Binary-Path  ")) == "binarypath");
-    fails = fails + probe("alias+norm", effects_name(effects_index("Mega-Man_X")) == "mmx");
     let wmp_ok: Bool = wm_known("openooda") && wm_known("superfedora") && wm_known("fedora");
     fails = fails + probe("wm presets", wmp_ok && wm_known("arch") && !wm_known("bogus"));
     fails = fails + probe("wm text", wm_text("openooda") == "OPENOODA" && wm_text("superfedora") == "SUPERFEDORA");
