@@ -32,12 +32,11 @@ fn tui_query_inhibitors(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &Pr
 }
 
 fn tui_detect_os(proc: &ProcessCap) -> String {
-    let res: Result[String, String] = process_exec(proc, "grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'");
-    let s: String = match res { Ok(v) => str_trim(v), Err(_) => "" };
+    let s: String = shell_out(proc, "grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'");
     if s != "" { return s; }
-    let u: Result[String, String] = process_exec(proc, "uname -s 2>/dev/null");
-    let un: String = match u { Ok(v) => str_trim(v), Err(_) => "Linux" };
-    return un;
+    let un: String = shell_out(proc, "uname -s 2>/dev/null");
+    if un != "" { return un; }
+    return "Linux";
 }
 
 fn tui_save_model(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, m: TuiModel) -> String {

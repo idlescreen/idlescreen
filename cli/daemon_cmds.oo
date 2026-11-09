@@ -18,7 +18,8 @@ import "ascii/effects.oo";
 fn saver_canonical(name: String) -> String {
     if name == "ascii" || name == "superfedora" { return name; }
     if name == "tour" || name == "new" { return "tour"; }
-    if effects_index(name) >= 0 { return name; }
+    let idx: Int = effects_index(name);
+    if idx >= 0 { return effects_name(idx); }
     return "";
 }
 

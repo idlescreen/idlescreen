@@ -46,11 +46,13 @@ fn ctl_set(d: DaemonState, inh: List[String], arg: String) -> CtlReply {
     let low: String = to_lowercase(arg);
     let idx: Int = effects_index(low);
     let mut nd: DaemonState = d;
+    let mut stored: String = low;
     if idx >= 0 {
         nd = daemon_state_set(d, d.idle, d.saver_on, d.sleep_req, idx, d.timeout_s, d.inhibitors, d.uptime_ticks + 1);
+        stored = effects_name(idx);
     }
-    nd = daemon_state_with_saver(nd, low);
-    return CtlReply { text: "saver set to " + low, state: nd, inhibitors: inh, quit: false };
+    nd = daemon_state_with_saver(nd, stored);
+    return CtlReply { text: "saver set to " + stored, state: nd, inhibitors: inh, quit: false };
 }
 
 // "timeout <secs>" — retune the idle threshold on the live daemon.
@@ -100,7 +102,7 @@ pub fn ctl_dispatch(d: DaemonState, inh: List[String], frame: String, prog: Stri
         let idx: Int = effects_index(arg);
         if idx >= 0 {
             let nd: DaemonState = ctl_next(d, d.saver_on, d.sleep_req, idx, d.inhibitors);
-            return CtlReply { text: "scene " + arg, state: nd, inhibitors: inh, quit: false };
+            return CtlReply { text: "scene " + effects_name(idx), state: nd, inhibitors: inh, quit: false };
         }
         return CtlReply { text: "ERR unknown scene " + arg, state: d, inhibitors: inh, quit: false };
     }

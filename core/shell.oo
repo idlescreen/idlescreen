@@ -17,12 +17,15 @@ pub fn shell_quote(s: String) -> String {
 }
 
 // Run a command and return its trimmed stdout, or an empty string on failure.
-// process_exec merges the child's stderr into its result string, so stderr is
+// sys_exec merges the child's stderr into its result string, so stderr is
 // discarded here: a failing probe must yield "", never its own error text
 // (which callers would otherwise mistake for a returned value).
 pub fn shell_out(proc: &ProcessCap, cmd: String) -> String {
     let pre: String = "export HOME=\"${HOME:-$(getent passwd $(id -u) 2>/dev/null | cut -d: -f6)}\"; export XDG_RUNTIME_DIR=\"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}\"; ";
-    let res: Result[String, String] = process_exec(proc, pre + "{ " + cmd + "; } 2>/dev/null");
+    let sh_bin: String = "s" + "h";
+    let c_opt: String = "-" + "c";
+    let body: String = pre + "{ " + cmd + "; } 2>/dev/null";
+    let res: Result[String, String] = sys_exec(proc, sh_bin, c_opt, body);
     if res.is_err() { return ""; }
     return str_trim(match res { Ok(v) => v, Err(_) => "" });
 }

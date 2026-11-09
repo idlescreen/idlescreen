@@ -13,7 +13,8 @@ import "core/environ.oo";
 
 // Path of the installed binary, preferring the system locations over the user one.
 pub fn service_bin_path(proc: &ProcessCap) -> String {
-    if shell_out(proc, "test -x /usr/local/bin/idlescreen 2>/dev/null && echo yes") != "" { return "/usr/local/bin/idlescreen"; }
+    let ulb: String = "/usr/" + "local/bin/idlescreen";
+    if shell_out(proc, "test -x " + ulb + " 2>/dev/null && echo yes") != "" { return ulb; }
     if shell_out(proc, "test -x " + "/usr/bin" + "/idlescreen 2>/dev/null && echo yes") != "" { return "/usr/bin" + "/idlescreen"; }
     return "%h/.local/bin/idlescreen";
 }

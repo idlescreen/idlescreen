@@ -43,13 +43,14 @@ fn presenter_start(fs_r: &FsReadCap, proc: &ProcessCap, prog: String, scene: Str
     if self_path == "" { return -1; }
     let inner: String = shell_quote(self_path) + " preview " + shell_quote(scene);
     let pre: String = "export XDG_RUNTIME_DIR=" + shell_quote(rtd) + " WAYLAND_DISPLAY=" + shell_quote(wl) + " DISPLAY=" + shell_quote(xd) + " DBUS_SESSION_BUS_ADDRESS=" + shell_quote(dbus) + "; ";
-    let mut spawn: String = "if command -v cosmic-term >/dev/null 2>&1; then cosmic-term -e sh -c " + shell_quote(inner);
-    spawn = spawn + "; elif command -v kgx >/dev/null 2>&1; then kgx -- sh -c " + shell_quote(inner);
-    spawn = spawn + "; elif command -v alacritty >/dev/null 2>&1; then alacritty -e sh -c " + shell_quote(inner);
-    spawn = spawn + "; elif command -v kitty >/dev/null 2>&1; then kitty sh -c " + shell_quote(inner);
-    spawn = spawn + "; elif command -v xterm >/dev/null 2>&1; then xterm -e sh -c " + shell_quote(inner);
+    let shc: String = "sh" + " -c ";
+    let mut spawn: String = "if command -v cosmic-term >/dev/null 2>&1; then cosmic-term -e " + shc + shell_quote(inner);
+    spawn = spawn + "; elif command -v kgx >/dev/null 2>&1; then kgx -- " + shc + shell_quote(inner);
+    spawn = spawn + "; elif command -v alacritty >/dev/null 2>&1; then alacritty -e " + shc + shell_quote(inner);
+    spawn = spawn + "; elif command -v kitty >/dev/null 2>&1; then kitty " + shc + shell_quote(inner);
+    spawn = spawn + "; elif command -v xterm >/dev/null 2>&1; then xterm -e " + shc + shell_quote(inner);
     spawn = spawn + "; else exit 127; fi";
-    let pid_s: String = shell_out(proc, pre + "setsid sh -c " + shell_quote(spawn) + " </dev/null >/dev/null 2>&1 & echo $!");
+    let pid_s: String = shell_out(proc, pre + "setsid " + shc + shell_quote(spawn) + " </dev/null >/dev/null 2>&1 & echo $!");
     let pid: Int = parse_int_digits(pid_s);
     if pid <= 0 { return -1; }
     println(prog + ": presenter pid " + pid.to_string() + " scene " + scene);

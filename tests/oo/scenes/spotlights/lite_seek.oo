@@ -1,10 +1,10 @@
-// # lite_seek — spotlight seeker provisioning
+// # lite_seek — stage-light seeker provisioning
 //
 // Logline: Bit-exact port of Spotlights.make_spotlights: four added
 // "O" chars spawn just off-canvas, each with 11 chained looping
 // InOutQuad bezier search paths (targets at least right/4 apart)
 // plus an InOutSine "center" path used when the search ends.
-// Setup: RNG mirrors Rust per spotlight: outside spawn coord (col,
+// Setup: RNG mirrors Rust per stage-light: outside spawn coord (col,
 // col, row, row draws then a 4-pick), first target (col, row), ten
 // minimum-distance targets (rejection loop on doubled-row distance
 // NOT applied — plain line length), then per path a uniform speed

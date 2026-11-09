@@ -1,11 +1,13 @@
 // # Scene Roster - The 53 Canonical Screensaver Effects
 //
 // Logline: Ordered roster of the fifty-three screensaver scenes with name lookup and index resolution.
-// Setup: Pure constant table. Operates with zero ambient authority.
+// Setup: Pure constant table plus the oostd string primitives. Operates with zero ambient authority.
 // Beats:
 //   1. Hold the 53 scene names in canonical order.
-//   2. Resolve a lowercased name to its roster index.
+//   2. Resolve a lowercased name to its roster index, honoring the legacy xscreensaver aliases.
 //   3. Report the roster count for list and tour commands.
+
+import "oostd/core/primitives/str.oo";
 
 pub fn effects_count() -> Int { return 53; }
 
@@ -33,7 +35,15 @@ pub fn effects_name(idx: Int) -> String {
 
 pub fn effects_index(name: String) -> Int {
     let tr: String = str_trim(name);
-    let n: String = to_lowercase(tr);
+    let n0: String = to_lowercase(tr);
+    let n1: String = str_replace(str_replace(n0, "-", ""), "_", "");
+    let mut n: String = n1;
+    if n == "shower" { n = "rain"; }
+    else if n == "scramble" { n = "scattered"; }
+    else if n == "led" { n = "sweep"; }
+    else if n == "wave" { n = "waves"; }
+    else if n == "megaman" || n == "megamanx" || n == "x" { n = "mmx"; }
+    else if n == "zsaber" { n = "zero"; }
     let mut i: Int = 0;
     while i < 53 {
         let sn: String = effects_name(i);

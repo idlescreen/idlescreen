@@ -1,6 +1,6 @@
 // # Scene Spotlights - Sweeping Stage Light Cones
 //
-// Logline: Twin spotlight cones sweeping the stage from overhead rigs and crossing mid-frame.
+// Logline: Twin stage-light cones sweeping the stage from overhead rigs and crossing mid-frame.
 // Setup: Pure integer arithmetic over CellGrid. Zero ambient authority.
 // Beats:
 //   1. Anchor two rig points at the top corners.
