@@ -49,6 +49,7 @@ import "tests/oo/scenes/bubbles/scene_bubbles.oo";
 import "tests/oo/scenes/beams/scene_beams.oo";
 import "tests/oo/scenes/laseretch/scene_laseretch.oo";
 import "tests/oo/scenes/print/scene_print.oo";
+import "tests/oo/scenes/rings/scene_rings.oo";
 import "tests/oo/scenes/breakout/scene_breakout.oo";
 import "tests/oo/scenes/life/scene_life.oo";
 import "tests/oo/scenes/pipes/scene_pipes.oo";
@@ -57,6 +58,7 @@ import "tests/oo/scenes/waves/scene_waves.oo";
 import "tests/oo/scenes/swarm/scene_swarm.oo";
 import "tests/oo/scenes/unstable/scene_unstable.oo";
 import "tests/oo/scenes/thunderstorm/scene_thunderstorm.oo";
+import "tests/oo/scenes/synthgrid/scene_synthgrid.oo";
 import "port_render.oo";
 import "port_compose.oo";
 
@@ -89,7 +91,7 @@ pub fn port_has(name: String) -> Bool {
     if name == "crumble" || name == "smoke" { return true; }
     if name == "randomsequence" || name == "breakout" || name == "life" || name == "pipes" || name == "tetris" || name == "waves" { return true; }
     if name == "swarm" || name == "unstable" || name == "thunderstorm" { return true; }
-    if name == "orbittingvolley" || name == "bubbles" || name == "beams" || name == "laseretch" || name == "print" { return true; }
+    if name == "orbittingvolley" || name == "bubbles" || name == "beams" || name == "laseretch" || name == "print" || name == "rings" || name == "synthgrid" { return true; }
     return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" ||
         name == "pour" || name == "slice" || name == "colorshift" || name == "highlight" ||
         name == "spray" || name == "overflow" || name == "bouncyballs" || name == "decrypt" ||
@@ -126,6 +128,8 @@ fn port_run_all(name: String, cells: List[CellGeom], info: CanvasInfo, lines: Li
     if name == "beams" { return beams_run(cells, info, lines); }
     if name == "laseretch" { return laseretch_run(cells, info, lines); }
     if name == "print" { return print_run(cells, info, lines); }
+    if name == "rings" { return rings_run(cells, info, lines); }
+    if name == "synthgrid" { return synthgrid_run(cells, info, lines); }
     if name == "breakout" { return breakout_run(cells, info); }
     if name == "life" { return life_run(cells, info); }
     if name == "pipes" { return pipes_run(cells, info); }

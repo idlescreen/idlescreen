@@ -1,0 +1,62 @@
+// # rg_state — rings flat state record and per-ring accessors
+//
+// Logline: The RgS scene state (phase timers, flat ring stores, pending
+// bookkeeping) plus constructors and bounds-indexed ring/char slicing so the
+// build, loom, and step pages share one acyclic state type.
+// Setup: All ring data lives in flat parallel lists; no nested list fields.
+// Beats:
+//   1. RgS is the single state record threaded through the driver.
+//   2. rg_ring_at/rg_ring_chars slice a ring's coord/char window by bounds.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/scenes/rings/rg_ring.oo";
+
+pub type RgS = struct {
+    w: World, phase: Int, t_init: Int, t_spin: Int, t_disp: Int, cyc: Int, idc: Int,
+    ccw: List[Int], rb: List[Int], col: List[Int], spd: List[Float],
+    rch: List[Int], rcb: List[Int], lrp: List[String], nrc: List[Int],
+    fcm: List[Int], ids: List[Int], gap: Int
+};
+
+pub fn rg_mk(s: RgS, w: World) -> RgS {
+    let _r1 = RgS { w: w, phase: s.phase, t_init: s.t_init, t_spin: s.t_spin,
+        t_disp: s.t_disp, cyc: s.cyc, idc: s.idc, ccw: s.ccw, rb: s.rb,
+        col: s.col, spd: s.spd, rch: s.rch, rcb: s.rcb, lrp: s.lrp, nrc: s.nrc,
+        fcm: s.fcm, ids: s.ids, gap: s.gap };
+    return _r1;
+}
+
+pub fn rg_ring_at(s: RgS, ri: Int) -> RingD {
+    let mut off: Int = 0;
+    let mut j: Int = 0;
+    while j < ri {
+        off = off + list_get(s.rb, j) * 2;
+        j = j + 1;
+    }
+    let n: Int = list_get(s.rb, ri) * 2;
+    let _r2 = RingD { cc: list_slice(s.ccw, off, off + n), col: list_get(s.col, ri),
+        spd: list_get(s.spd, ri) };
+    return _r2;
+}
+
+pub fn rg_ring_chars(s: RgS, ri: Int) -> List[Int] {
+    let mut off: Int = 0;
+    let mut j: Int = 0;
+    while j < ri {
+        off = off + list_get(s.rcb, j);
+        j = j + 1;
+    }
+    let n: Int = list_get(s.rcb, ri);
+    let _r3 = list_slice(s.rch, off, off + n);
+    return _r3;
+}
+
+pub fn rg_flat_idx(s: RgS, ri: Int, k: Int) -> Int {
+    let mut off: Int = 0;
+    let mut j: Int = 0;
+    while j < ri {
+        off = off + list_get(s.rcb, j);
+        j = j + 1;
+    }
+    return off + k;
+}

@@ -46,7 +46,10 @@ fn arg_str(args: List[String], flag: String, dflt: String) -> String {
     return dflt;
 }
 
-fn preview_batch(ffi: &FfiCap, ar: &ArenaCap, name: String, wm: String, frames: Int, cols: Int, rows: Int, tour: Bool) -> Int {
+fn preview_batch(ffi: &FfiCap, ar: &ArenaCap, time: &TimeCap, name: String,
+    wm: String, frames: Int, dims: PvDims, tour: Bool) -> Int {
+    let cols: Int = dims.cols;
+    let rows: Int = dims.rows;
     let is_wm: Bool = wm_known(name) && name != "superfedora";
     if is_wm {
         let wmt: String = wm_text(name);
@@ -58,6 +61,7 @@ fn preview_batch(ffi: &FfiCap, ar: &ArenaCap, name: String, wm: String, frames: 
     let mut ps: PortSession = port_session_new(name, cols, rows, wm);
     let mut i: Int = 0;
     while i < frames {
+        let ft0: Int = now_ms(time);
         let mut port_frame_str: String = "";
         if use_port {
             ps = port_session_next(ps);
@@ -75,6 +79,8 @@ fn preview_batch(ffi: &FfiCap, ar: &ArenaCap, name: String, wm: String, frames: 
         if w.is_err() { print(frame); }
         println("frame " + i.to_string() + "/" + fs_str);
         let _l: Int = frame_arena_leave(ar, aid);
+        let el: Int = now_ms(time) - ft0;
+        if el < 33 && el >= 0 { sleep_ms(time, 33 - el); }
         i = i + 1;
     }
     let _c: Int = frame_arena_close(ar, aid);
@@ -120,9 +126,7 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, w
     let is_wm: Bool = wm_known(name) && name != "superfedora";
     let end_ms: Int = if timeout_s > 0 { now_ms(time) + timeout_s * 1000 } else { 0 };
     let mut last_pack: Int = 0;
-    let mut eb: List[Int] = bytes_new();
-    eb = bytes_push(eb, 27);
-    let e0: String = bytes_to_str(eb);
+    let e0: String = bytes_to_str(bytes_push(bytes_new(), 27));
     let aid: Int = frame_arena_open(ar);
     let mut ps: PortSession = port_session_new("plasma", 80, 24, wm);
     let mut ps_key: String = "";
@@ -157,15 +161,18 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, w
         } else {
             engine_preview_wordmark(cols, rows - 1, sc_name, tick, tour, wm)
         };
-        let tit: String = if is_wm { "Preset: " + sc_name } else { "Scene: " + sc_name + " (" + (sc + 1).to_string() + "/51) │ Banner: " + wm };
-        let out_line: String = ansi_home() + frame + "\r\n" + e0 + "[1;36m[" + tit + "] [←/→/n/p: Step  q/Esc/Space: Exit]" + e0 + "[0m" + e0 + "[K";
+        let sfx: String = " (" + (sc + 1).to_string() + "/51) │ Banner: " + wm;
+        let tit: String = if is_wm { "Preset: " + sc_name } else { "Scene: " + sc_name + sfx };
+        let keys: String = "] [←/→/n/p: Step  q/Esc/Space: Exit]";
+        let out_line: String = ansi_home() + frame + "\r\n" + e0 + "[1;36m[" + tit + keys + e0 + "[0m" + e0 + "[K";
         let _ = oo_tui_write(ffi, out_line);
         let _l: Int = frame_arena_leave(ar, aid);
         let nsc: Int = preview_poll_key(ffi, sc);
+        sc = if nsc >= 0 { nsc } else { sc };
         if nsc < 0 { running = false; }
-        if nsc >= 0 { sc = nsc; }
         if tour && (tick % 180 == 179) { sc = (sc + 1) % 51; }
-        if now_ms(time) - ft0 < 33 && now_ms(time) - ft0 >= 0 { sleep_ms(time, 33 - (now_ms(time) - ft0)); }
+        let el: Int = now_ms(time) - ft0;
+        if el < 33 && el >= 0 { sleep_ms(time, 33 - el); }
         tick = tick + 1;
     }
     let _c: Int = frame_arena_close(ar, aid);
@@ -190,7 +197,8 @@ pub fn cmd_preview(fs_r:&FsReadCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap
             has_frames = true;
             i = i + 1;
         }
-        else if a == "--cols" || a == "--rows" || a == "--timeout" || a == "-t" || a == "--text" || a == "--mode" || a == "-m" || a == "--dwell" || a == "-d" { i = i + 1; }
+        else if a == "--cols" || a == "--rows" || a == "--timeout" || a == "-t" { i = i + 1; }
+        else if a == "--text" || a == "--mode" || a == "-m" || a == "--dwell" || a == "-d" { i = i + 1; }
         else if !str_starts_with(a, "-") && !name_set {
             name = to_lowercase(a);
             name_set = true;
@@ -210,7 +218,7 @@ pub fn cmd_preview(fs_r:&FsReadCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap
         let frames: Int = arg_num(args, "--frames", 2);
         let cols: Int = arg_num(args, "--cols", 72);
         let rows: Int = arg_num(args, "--rows", 12);
-        return preview_batch(ffi, ar, name, wm, frames, cols, rows, tour);
+        return preview_batch(ffi, ar, time, name, wm, frames, PvDims { rows: rows, cols: cols }, tour);
     }
     let timeout_s: Int = arg_num(args, "--timeout", arg_num(args, "-t", 0));
     return preview_interactive(ffi, time, ar, name, wm, timeout_s, tour);

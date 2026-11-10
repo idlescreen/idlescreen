@@ -27,7 +27,8 @@ pub type LeS = struct {
     w: World,
     pend: List[Int],
     beam: List[Int],
-    avail: List[Int]
+    avail: List[Int],
+    delay: Int
 };
 
 fn le_repos(w: World, beam: &List[Int], av0: List[Int], tc: Int, tr: Int) -> LeP {
@@ -71,7 +72,7 @@ fn le_release(w: World, pd: List[Int], beam: &List[Int],
         s = s + 1;
     }
     let bc: List[Int] = list_slice(beam, 0, list_len(beam));
-    return LeS { w: w2, pend: p2, beam: bc, avail: av };
+    return LeS { w: w2, pend: p2, beam: bc, avail: av, delay: 0 };
 }
 
 fn le_arm(xs: List[Int], id: Int) -> List[Int] {

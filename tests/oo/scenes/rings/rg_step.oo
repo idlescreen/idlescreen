@@ -1,0 +1,193 @@
+// # rg_step — rings phase machine and digest driver
+//
+// Logline: Ports next_frame: Start hold, initial disperse, spin/disperse
+// cycles, Final home-path release, then Complete; the driver emits one digest
+// per tick including the Complete transition frame.
+// Setup: Flat RgS state; helpers rebuild RgS with a new World.
+// Beats:
+//   1. rg_idisperse runs the one-shot initial disperse for all ring chars.
+//   2. rg_spin_all / rg_disp_all run the per-ring cycle transitions.
+//   3. rings_run ticks until phase Complete, digesting each rendered frame.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/scenes/rings/rg_geom.oo";
+import "tests/oo/scenes/rings/rg_ring.oo";
+import "tests/oo/scenes/rings/rg_state.oo";
+
+fn rg_idisp(s: RgS) -> RgS {
+    let mut w2: World = s.w;
+    let mut ri: Int = 0;
+    while ri < list_len(s.rb) {
+        let chs: List[Int] = rg_ring_chars(s, ri);
+        let mut k: Int = 0;
+        while k < list_len(chs) {
+            let id: Int = list_get(chs, k);
+            let fw: List[Int] = rg_fwp(list_get(w2.chars, id), "0");
+            w2 = rg_mk_disp(w2, id, list_get(fw, 0), list_get(fw, 1), s.gap);
+            let df: List[Int] = rg_fwp(list_get(w2.chars, id), "disperse");
+            w2 = w_path(w2, id, wp_cfg(0.3, 1, ez(8), 0 - 1, 0, 0), "");
+            let pi: Int = list_len(list_get(w2.chars, id).pids) - 1;
+            w2 = w_wp(w2, id, pi, list_get(df, 0), list_get(df, 1), list_new());
+            w2 = w_reg(w2, id, 1, 1, list_get(list_get(w2.chars, id).pids, pi),
+                EvAct { kind: 0, sid: "disperse", num: 0, carg: 0 });
+            w2 = rg_act_s(w2, id, "disperse");
+            w2 = eng_act_path(w2, id, pi);
+            w2 = w_active_add(w2, id);
+            k = k + 1;
+        }
+        ri = ri + 1;
+    }
+    let mut k2: Int = 0;
+    while k2 < list_len(s.nrc) {
+        let id2: Int = list_get(s.nrc, k2);
+        w2 = rg_act_p(w2, id2, "external");
+        w2 = w_active_add(w2, id2);
+        k2 = k2 + 1;
+    }
+    let _r1 = rg_mk(s, w2);
+    return _r1;
+}
+
+fn rg_disp_all(s: RgS) -> RgS {
+    let mut w2: World = s.w;
+    let mut lrp: List[String] = s.lrp;
+    let mut ri: Int = 0;
+    while ri < list_len(s.rb) {
+        let chs: List[Int] = rg_ring_chars(s, ri);
+        let mut k: Int = 0;
+        while k < list_len(chs) {
+            let id: Int = list_get(chs, k);
+            let d: RgD = rg_rdisp(w2, id, s.gap);
+            w2 = d.w;
+            lrp = list_set(lrp, rg_flat_idx(s, ri, k), d.last);
+            k = k + 1;
+        }
+        ri = ri + 1;
+    }
+    let _r2 = RgS { w: w2, phase: s.phase, t_init: s.t_init, t_spin: s.t_spin,
+        t_disp: s.t_disp, cyc: s.cyc, idc: s.idc, ccw: s.ccw, rb: s.rb,
+        col: s.col, spd: s.spd, rch: s.rch, rcb: s.rcb, lrp: lrp, nrc: s.nrc,
+        fcm: s.fcm, ids: s.ids, gap: s.gap };
+    return _r2;
+}
+
+fn rg_spin_all(s: RgS) -> RgS {
+    let mut w2: World = s.w;
+    let mut ri: Int = 0;
+    while ri < list_len(s.rb) {
+        let chs: List[Int] = rg_ring_chars(s, ri);
+        let mut k: Int = 0;
+        while k < list_len(chs) {
+            let id: Int = list_get(chs, k);
+            w2 = rg_rspin(w2, id, list_get(s.lrp, rg_flat_idx(s, ri, k)));
+            k = k + 1;
+        }
+        ri = ri + 1;
+    }
+    let _r3 = rg_mk(s, w2);
+    return _r3;
+}
+
+fn rg_final(s: RgS) -> RgS {
+    let mut w2: World = s.w;
+    let mut k: Int = 0;
+    while k < list_len(s.ids) {
+        let id: Int = list_get(s.ids, k);
+        w2 = w_set_vis(w2, id, 1);
+        w2 = rg_act_p(w2, id, "home");
+        w2 = w_active_add(w2, id);
+        if find_id(list_get(w2.chars, id).pids, "external") < 0 {
+            w2 = rg_act_s(w2, id, "disperse");
+        }
+        k = k + 1;
+    }
+    let _r4 = rg_mk(s, w2);
+    return _r4;
+}
+
+pub fn rg_step(s: RgS) -> RgS {
+    if s.phase == 0 {
+        if s.t_init == 0 { let _r5 = RgS { w: s.w, phase: 1, t_init: s.t_init,
+            t_spin: s.t_spin, t_disp: s.t_disp, cyc: s.cyc, idc: s.idc,
+            ccw: s.ccw, rb: s.rb, col: s.col, spd: s.spd, rch: s.rch,
+            rcb: s.rcb, lrp: s.lrp, nrc: s.nrc, fcm: s.fcm, ids: s.ids,
+            gap: s.gap };
+        return _r5; }
+        let _r6 = RgS { w: s.w, phase: 0, t_init: s.t_init - 1,
+            t_spin: s.t_spin, t_disp: s.t_disp, cyc: s.cyc, idc: s.idc,
+            ccw: s.ccw, rb: s.rb, col: s.col, spd: s.spd, rch: s.rch,
+            rcb: s.rcb, lrp: s.lrp, nrc: s.nrc, fcm: s.fcm, ids: s.ids,
+            gap: s.gap };
+        return _r6;
+    }
+    let _r7 = rg_step_hi(s);
+    return _r7;
+}
+
+fn rg_step_hi(s: RgS) -> RgS {
+    if s.phase == 1 {
+        if s.idc == 0 {
+            let s1: RgS = rg_idisp(s);
+            let _r8 = RgS { w: s1.w, phase: 1, t_init: s1.t_init,
+                t_spin: s1.t_spin, t_disp: s1.t_disp, cyc: s1.cyc, idc: 1,
+                ccw: s1.ccw, rb: s1.rb, col: s1.col, spd: s1.spd, rch: s1.rch,
+                rcb: s1.rcb, lrp: s1.lrp, nrc: s1.nrc, fcm: s1.fcm, ids: s1.ids,
+                gap: s1.gap };
+            return _r8;
+        }
+        if s.t_disp == 0 {
+            let s2: RgS = rg_spin_all(RgS { w: s.w, phase: 2, t_init: s.t_init,
+                t_spin: 90, t_disp: s.t_disp, cyc: s.cyc - 1, idc: s.idc,
+                ccw: s.ccw, rb: s.rb, col: s.col, spd: s.spd, rch: s.rch,
+                rcb: s.rcb, lrp: s.lrp, nrc: s.nrc, fcm: s.fcm, ids: s.ids,
+                gap: s.gap });
+            return s2;
+        }
+        let _r9 = RgS { w: s.w, phase: 1, t_init: s.t_init, t_spin: s.t_spin,
+            t_disp: s.t_disp - 1, cyc: s.cyc, idc: s.idc, ccw: s.ccw, rb: s.rb,
+            col: s.col, spd: s.spd, rch: s.rch, rcb: s.rcb, lrp: s.lrp,
+            nrc: s.nrc, fcm: s.fcm, ids: s.ids, gap: s.gap };
+        return _r9;
+    }
+    let _r10 = rg_step_top(s);
+    return _r10;
+}
+
+fn rg_step_top(s: RgS) -> RgS {
+    if s.phase == 2 {
+        if s.t_spin == 0 {
+            if s.cyc == 0 {
+                let s3: RgS = rg_final(RgS { w: s.w, phase: 3, t_init: s.t_init,
+                    t_spin: s.t_spin, t_disp: s.t_disp, cyc: s.cyc, idc: s.idc,
+                    ccw: s.ccw, rb: s.rb, col: s.col, spd: s.spd, rch: s.rch,
+                    rcb: s.rcb, lrp: s.lrp, nrc: s.nrc, fcm: s.fcm, ids: s.ids,
+                    gap: s.gap });
+                return s3;
+            }
+            let s4: RgS = rg_disp_all(RgS { w: s.w, phase: 1, t_init: s.t_init,
+                t_spin: s.t_spin, t_disp: 60, cyc: s.cyc, idc: s.idc,
+                ccw: s.ccw, rb: s.rb, col: s.col, spd: s.spd, rch: s.rch,
+                rcb: s.rcb, lrp: s.lrp, nrc: s.nrc, fcm: s.fcm, ids: s.ids,
+                gap: s.gap });
+            return s4;
+        }
+        let _r11 = RgS { w: s.w, phase: 2, t_init: s.t_init,
+            t_spin: s.t_spin - 1, t_disp: s.t_disp, cyc: s.cyc, idc: s.idc,
+            ccw: s.ccw, rb: s.rb, col: s.col, spd: s.spd, rch: s.rch,
+            rcb: s.rcb, lrp: s.lrp, nrc: s.nrc, fcm: s.fcm, ids: s.ids,
+            gap: s.gap };
+        return _r11;
+    }
+    if s.phase == 3 && list_len(s.w.active) == 0 {
+        let _r12 = RgS { w: s.w, phase: 4, t_init: s.t_init, t_spin: s.t_spin,
+            t_disp: s.t_disp, cyc: s.cyc, idc: s.idc, ccw: s.ccw, rb: s.rb,
+            col: s.col, spd: s.spd, rch: s.rch, rcb: s.rcb, lrp: s.lrp,
+            nrc: s.nrc, fcm: s.fcm, ids: s.ids, gap: s.gap };
+        return _r12;
+    }
+    return s;
+}

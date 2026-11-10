@@ -85,7 +85,10 @@ pub fn pr_make_row(w: World, info: CanvasInfo, cmap: List[Int], rids: List[Int])
         let id: Int = list_get(ids, k);
         let ch: Char = list_get(w2.chars, id);
         let ci: Int = (ch.row0 - info.tb) * (info.tr - info.tl + 1) + (ch.col0 - info.tl);
-        let ffg: Int = list_get(cmap, ci);
+        let mut ffg: Int = 16777215;
+        if ch.row0 >= info.tb && ch.row0 <= info.tt && ch.col0 >= info.tl && ch.col0 <= info.tr {
+            if ci >= 0 && ci < list_len(cmap) { ffg = list_get(cmap, ci); }
+        }
         w2 = w_pos(w2, id, ch.col0, 1);
         w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
         let g: List[Int] = gradient_new(list_push(list_push(list_new(), 16777215), ffg),
@@ -94,7 +97,6 @@ pub fn pr_make_row(w: World, info: CanvasInfo, cmap: List[Int], rids: List[Int])
             9618), 9617), ch.sym);
         w2 = w_grad(w2, id, 0, syms, 3, g, list_new());
         w2 = w_aset(w2, id, 0);
-        w2 = w_set_vis(w2, id, 1);
         k = k + 1;
     }
     let _r1 = PrRow { w: w2, unt: ids };

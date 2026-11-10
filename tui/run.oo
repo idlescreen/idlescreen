@@ -14,7 +14,6 @@ import "daemon/config_file.oo";
 import "daemon/run.oo";
 import "cli/preview/cmds.oo";
 import "core/shell.oo";
-import "oostd/fs/process/process.oo";
 
 fn tui_link_probe() -> Int {
     return hot_reload("idlescreen-tui-tier");

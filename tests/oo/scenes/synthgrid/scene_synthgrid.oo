@@ -1,0 +1,193 @@
+// # scene_synthgrid — extend/collapse line ticks, phase machine, driver
+//
+// Logline: Ports GridLine.extend/collapse and next_frame: GridExpand reveals
+// line chars, AddChars releases pending blocks under the active cap,
+// Collapse hides them back, then Complete.
+// Setup: SgS flat state; pend triples decrement tr[group] per callback.
+// Beats:
+//   1. sg_extend/sg_collapse move up to count chars between windows per tick.
+//   2. sg_step mirrors the phase machine; driver drains pend then emits.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/shade_float.oo";
+import "tests/digest_run.oo";
+import "tests/oo/scenes/synthgrid/sg_grid.oo";
+import "tests/oo/scenes/synthgrid/sg_build.oo";
+import "tests/oo/scenes/synthgrid/sg_setup.oo";
+
+
+fn sg_extend(s: SgS, li: Int) -> SgS {
+    let cnt: Int = if list_get(s.ld, li) == 0 { 3 } else { 1 };
+    let win: List[Int] = sg_win(s.lc, s.lb, li);
+    let mut w2: World = s.w;
+    let mut n: Int = cnt;
+    if n > list_len(win) { n = list_len(win); }
+    let mut take: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < n {
+        let id: Int = list_get(win, i);
+        take = list_push(take, id);
+        w2 = w_set_vis(w2, id, 1);
+        i = i + 1;
+    }
+    let d: SgD = sg_drop(s.lc, s.lb, li, n);
+    let p: SgD = sg_push(s.le, s.leb, li, take);
+    return SgS { w: w2, phase: s.phase, tot: s.tot, act: s.act, lc: d.xs,
+        lb: d.b, le: p.xs, leb: p.b, ld: s.ld, pn: s.pn, pm: s.pm, pb: s.pb,
+        tr: s.tr, ids: s.ids };
+}
+
+fn sg_collapse(s: SgS, li: Int) -> SgS {
+    let cnt: Int = if list_get(s.ld, li) == 0 { 3 } else { 1 };
+    let mut le2: List[Int] = s.le;
+    if list_get(s.lb, li) == 0 { le2 = sg_rev(s.le, s.leb, li); }
+    let win: List[Int] = sg_win(le2, s.leb, li);
+    let mut w2: World = s.w;
+    let mut n: Int = cnt;
+    if n > list_len(win) { n = list_len(win); }
+    let mut take: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < n {
+        let id: Int = list_get(win, i);
+        take = list_push(take, id);
+        w2 = w_set_vis(w2, id, 0);
+        i = i + 1;
+    }
+    let d: SgD = sg_drop(le2, s.leb, li, n);
+    let p: SgD = sg_push(s.lc, s.lb, li, take);
+    return SgS { w: w2, phase: s.phase, tot: s.tot, act: s.act, lc: p.xs,
+        lb: p.b, le: d.xs, leb: d.b, ld: s.ld, pn: s.pn, pm: s.pm, pb: s.pb,
+        tr: s.tr, ids: s.ids };
+}
+
+pub fn sg_step(s: SgS) -> SgS {
+    if s.phase == 0 {
+        let mut all: Int = 1;
+        let mut li: Int = 0;
+        while li < list_len(s.lb) {
+            if list_get(s.lb, li) > 0 { all = 0; }
+            li = li + 1;
+        }
+        if all == 1 { return SgS { w: s.w, phase: 1, tot: s.tot, act: s.act,
+            lc: s.lc, lb: s.lb, le: s.le, leb: s.leb, ld: s.ld, pn: s.pn,
+            pm: s.pm, pb: s.pb, tr: s.tr, ids: s.ids }; }
+        let mut s2: SgS = s;
+        let mut lj: Int = 0;
+        while lj < list_len(s2.lb) {
+            if list_get(s2.lb, lj) > 0 { s2 = sg_extend(s2, lj); }
+            lj = lj + 1;
+        }
+        return s2;
+    }
+    let _r1 = sg_step_hi(s);
+    return _r1;
+}
+
+fn sg_step_hi(s: SgS) -> SgS {
+    if s.phase == 1 {
+        let mut w2: World = s.w;
+        let mut tr: List[Int] = s.tr;
+        let mut pn: List[Int] = s.pn;
+        let mut pm: List[Int] = s.pm;
+        let mut pb: List[Int] = s.pb;
+        if list_len(pn) > 0 && int_to_f(s.act) < int_to_f(s.tot) * 0.25 {
+            let gn: Int = list_get(pn, 0);
+            let cnt: Int = list_get(pb, 0);
+            let mut k: Int = 0;
+            while k < cnt {
+                let id: Int = list_get(pm, k);
+                w2 = w_set_vis(w2, id, 1);
+                w2 = w_active_add(w2, id);
+                tr = list_set(tr, gn, list_get(tr, gn) + 1);
+                k = k + 1;
+            }
+            pn = list_slice(pn, 1, list_len(pn));
+            pm = list_slice(pm, cnt, list_len(pm));
+            pb = list_slice(pb, 1, list_len(pb));
+        }
+        let mut ph: Int = 1;
+        if list_len(pn) == 0 && list_len(w2.active) == 0 && s.act == 0 { ph = 2; }
+        return SgS { w: w2, phase: ph, tot: s.tot, act: s.act, lc: s.lc,
+            lb: s.lb, le: s.le, leb: s.leb, ld: s.ld, pn: pn, pm: pm, pb: pb,
+            tr: tr, ids: s.ids };
+    }
+    if s.phase == 2 {
+        let mut all: Int = 1;
+        let mut li: Int = 0;
+        while li < list_len(s.leb) {
+            if list_get(s.leb, li) > 0 { all = 0; }
+            li = li + 1;
+        }
+        if all == 1 { return SgS { w: s.w, phase: 3, tot: s.tot, act: s.act,
+            lc: s.lc, lb: s.lb, le: s.le, leb: s.leb, ld: s.ld, pn: s.pn,
+            pm: s.pm, pb: s.pb, tr: s.tr, ids: s.ids }; }
+        let mut s2: SgS = s;
+        let mut lj: Int = 0;
+        while lj < list_len(s2.leb) {
+            if list_get(s2.leb, lj) > 0 { s2 = sg_collapse(s2, lj); }
+            lj = lj + 1;
+        }
+        return s2;
+    }
+    return s;
+}
+
+pub fn synthgrid_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let s0: SgS = sg_setup(w_input(info, lines, rng_seed(42)), info);
+    let mut w: World = s0.w;
+    let mut phase: Int = s0.phase;
+    let mut act: Int = s0.act;
+    let tot: Int = s0.tot;
+    let mut lc: List[Int] = s0.lc;
+    let mut lb: List[Int] = s0.lb;
+    let mut le: List[Int] = s0.le;
+    let mut leb: List[Int] = s0.leb;
+    let ld: List[Int] = s0.ld;
+    let mut pn: List[Int] = s0.pn;
+    let mut pm: List[Int] = s0.pm;
+    let mut pb: List[Int] = s0.pb;
+    let mut tr: List[Int] = s0.tr;
+    let ids: List[Int] = s0.ids;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(pn) > 0 || list_len(w.active) > 0 || phase != 3 {
+        let s: SgS = sg_step(SgS { w: w, phase: phase, tot: tot, act: act,
+            lc: lc, lb: lb, le: le, leb: leb, ld: ld, pn: pn, pm: pm,
+            pb: pb, tr: tr, ids: ids });
+        w = s.w;
+        phase = s.phase;
+        lc = s.lc;
+        lb = s.lb;
+        le = s.le;
+        leb = s.leb;
+        pn = s.pn;
+        pm = s.pm;
+        pb = s.pb;
+        tr = s.tr;
+        w = eng_update(w);
+        let mut p: Int = 0;
+        while p < list_len(w.pend) {
+            let cid: Int = list_get(w.pend, p);
+            let cb: Int = list_get(w.pend, p + 1);
+            let cg: Int = list_get(w.pend, p + 2);
+            if cb == 0 { tr = list_set(tr, cg, list_get(tr, cg) - 1); }
+            p = p + 3;
+        }
+        w = World { chars: w.chars, active: w.active, rng: w.rng,
+            next_id: w.next_id, pend: list_new() };
+        act = 0;
+        let mut t: Int = 0;
+        while t < list_len(tr) {
+            if list_get(tr, t) != 0 { act = act + 1; }
+            t = t + 1;
+        }
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

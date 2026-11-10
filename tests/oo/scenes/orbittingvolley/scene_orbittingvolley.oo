@@ -28,19 +28,7 @@ import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/engine/float_conv.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/digest_run.oo";
-
-pub type VolS = struct {
-    w: World, m0: List[Int], m1: List[Int], m2: List[Int], m3: List[Int],
-    delay: Int, done: Int
-};
-
-fn ov_lmap(lcmap: List[Int], info: CanvasInfo, cc: Int, cr: Int) -> Int {
-    if cc < info.left || cc > info.right || cr < info.bottom || cr > info.top {
-        return 0 - 1;
-    }
-    let idx: Int = (cr - info.bottom) * (info.right - info.left + 1) + (cc - info.left);
-    return list_get(lcmap, idx);
-}
+import "tests/oo/scenes/orbittingvolley/ov_get.oo";
 
 fn ov_child(w: World, lcmap: List[Int], info: CanvasInfo, lch: Char, ch: Int) -> World {
     let cch: Char = list_get(w.chars, ch);
@@ -73,18 +61,26 @@ fn ov_child(w: World, lcmap: List[Int], info: CanvasInfo, lch: Char, ch: Int) ->
     return w2;
 }
 
+fn ov_lmap(lcmap: List[Int], info: CanvasInfo, cc: Int, cr: Int) -> Int {
+    if cc < info.left || cc > info.right || cr < info.bottom || cr > info.top {
+        return 0 - 1;
+    }
+    let idx: Int = (cr - info.bottom) * (info.right - info.left + 1) + cc - info.left;
+    return list_get(lcmap, idx);
+}
+
 fn ov_launch(w: World, mag: List[Int], lch: Char) -> RsQ2 {
     let mut w2: World = w;
-    let mut m2: List[Int] = mag;
-    if list_len(m2) > 0 {
-        let id: Int = list_get(m2, 0);
-        m2 = list_slice(m2, 1, list_len(m2));
+    let mut vmc: List[Int] = mag;
+    if list_len(vmc) > 0 {
+        let id: Int = list_get(vmc, 0);
+        vmc = list_slice(vmc, 1, list_len(vmc));
         w2 = w_pos(w2, id, lch.cc, lch.cr);
         w2 = eng_act_path(w2, id, 0);
         w2 = w_set_vis(w2, id, 1);
         w2 = w_active_add(w2, id);
     }
-    let _r1 = RsQ2 { w: w2, v: m2 };
+    let _r1 = RsQ2 { w: w2, v: vmc };
     return _r1;
 }
 
@@ -101,10 +97,10 @@ fn ov_step(s: VolS, lcmap: List[Int], info: CanvasInfo, nin: Int) -> VolS {
         w2 = w_active_add(w2, mch);
     }
     let l2: Char = list_get(w2.chars, mch);
-    let mc: Int = ov_lmap(lcmap, info, l2.cc, l2.cr);
-    if mc < 0 { done = 1; }
+    let mcc: Int = ov_lmap(lcmap, info, l2.cc, l2.cr);
+    if mcc < 0 { done = 1; }
     if done == 0 {
-        w2 = w_appear(w2, mch, 9608, mc, 0 - 1, 0);
+        w2 = w_appear(w2, mch, 9608, mcc, 0 - 1, 0);
         let mut ci: Int = 1;
         while ci < 4 {
             w2 = ov_child(w2, lcmap, info, list_get(w2.chars, mch), mch + ci);
@@ -112,10 +108,10 @@ fn ov_step(s: VolS, lcmap: List[Int], info: CanvasInfo, nin: Int) -> VolS {
         }
     }
     let mut delay: Int = s.delay;
-    let mut m0: List[Int] = s.m0;
-    let mut m1: List[Int] = s.m1;
-    let mut m2: List[Int] = s.m2;
-    let mut m3: List[Int] = s.m3;
+    let mut vma: List[Int] = s.vma;
+    let mut vmb: List[Int] = s.vmb;
+    let mut vmc: List[Int] = s.vmc;
+    let mut vmd: List[Int] = s.vmd;
     if done == 0 && delay > 0 { delay = delay - 1; }
     if done == 0 && delay == 0 && s.delay == 0 {
         let ctl: Int = trunc_i(0.08 * int_to_f(nin) / 4.0);
@@ -126,27 +122,27 @@ fn ov_step(s: VolS, lcmap: List[Int], info: CanvasInfo, nin: Int) -> VolS {
             let mut t: Int = 0;
             while t < ct {
                 let l3: Char = list_get(w2.chars, mch + li);
-                let mut q: RsQ2 = ov_launch(w2, m0, l3);
-                if li == 1 { q = ov_launch(w2, m1, l3); }
-                if li == 2 { q = ov_launch(w2, m2, l3); }
-                if li == 3 { q = ov_launch(w2, m3, l3); }
+                let mut q: RsQ2 = ov_launch(w2, vma, l3);
+                if li == 1 { q = ov_launch(w2, vmb, l3); }
+                if li == 2 { q = ov_launch(w2, vmc, l3); }
+                if li == 3 { q = ov_launch(w2, vmd, l3); }
                 w2 = q.w;
-                if li == 0 { m0 = q.v; }
-                if li == 1 { m1 = q.v; }
-                if li == 2 { m2 = q.v; }
-                if li == 3 { m3 = q.v; }
+                if li == 0 { vma = q.v; }
+                if li == 1 { vmb = q.v; }
+                if li == 2 { vmc = q.v; }
+                if li == 3 { vmd = q.v; }
                 t = t + 1;
             }
             li = li + 1;
         }
         delay = 10;
     }
-    let _r2 = VolS { w: w2, m0: m0, m1: m1, m2: m2, m3: m3, delay: delay, done: done };
+    let _r2 = VolS { w: w2, vma: vma, vmb: vmb, vmc: vmc, vmd: vmd, delay: delay, done: done };
     return _r2;
 }
 
 fn ov_build(w: World, info: CanvasInfo) -> VolS {
-    let stops: List[Int] = list_push(list_push(list_new(), 16750940), 4502674);
+    let stops: List[Int] = list_push(list_push(list_new(), 16752988), 4510866);
     let spec: List[Int] = gradient_new(stops, list_push(list_new(), 12), 0);
     let mut w2: World = w;
     let ids: List[Int] = sort_ids(w2, collect_ids(w2, 1), info.cols, info.rows, 0);
@@ -175,7 +171,7 @@ fn ov_build(w: World, info: CanvasInfo) -> VolS {
         li = li + 1;
     }
     let mch: Int = list_len(w2.chars) - 4;
-    w2 = w_appear(w2, mch, 9608, 4502674, 0 - 1, 0);
+    w2 = w_appear(w2, mch, 9608, 4510866, 0 - 1, 0);
     w2 = w_path(w2, mch, wp_cfg(1.5, 0, ez(0), 2, 0, 0), "perimeter");
     w2 = w_wp(w2, mch, 0, info.left, info.top, list_new());
     w2 = w_wp(w2, mch, 0, info.right, info.top, list_new());
@@ -183,66 +179,65 @@ fn ov_build(w: World, info: CanvasInfo) -> VolS {
     let tcx: Int = info.tl + (info.tr - info.tl) / 2;
     let tcy: Int = info.tb + (info.tt - info.tb) / 2;
     let g: Groups = groups_of(w2, collect_ids(w2, 1), 4, tcx, tcy, 0);
-    let mut m0: List[Int] = list_new();
-    let mut m1: List[Int] = list_new();
-    let mut m2: List[Int] = list_new();
-    let mut m3: List[Int] = list_new();
+    let mut vma: List[Int] = list_new();
+    let mut vmb: List[Int] = list_new();
+    let mut vmc: List[Int] = list_new();
+    let mut vmd: List[Int] = list_new();
     let mut i: Int = 0;
     while i < list_len(g.members) {
         let id2: Int = list_get(g.members, i);
         let r: Int = i - (i / 4) * 4;
-        if r == 0 { m0 = list_push(m0, id2); }
-        if r == 1 { m1 = list_push(m1, id2); }
-        if r == 2 { m2 = list_push(m2, id2); }
-        if r == 3 { m3 = list_push(m3, id2); }
+        if r == 0 { vma = list_push(vma, id2); }
+        if r == 1 { vmb = list_push(vmb, id2); }
+        if r == 2 { vmc = list_push(vmc, id2); }
+        if r == 3 { vmd = list_push(vmd, id2); }
         i = i + 1;
     }
-    let _r3 = VolS { w: w2, m0: m0, m1: m1, m2: m2, m3: m3, delay: 0, done: 0 };
+    let _r3 = VolS { w: w2, vma: vma, vmb: vmb, vmc: vmc, vmd: vmd, delay: 0, done: 0 };
     return _r3;
 }
 
 pub fn orbittingvolley_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
-    let spec: List[Int] = gradient_new(list_push(list_push(list_new(), 16750940), 4502674),
+    let spec: List[Int] = gradient_new(list_push(list_push(list_new(), 16752988), 4510866),
         list_push(list_new(), 12), 0);
     let lcmap: List[Int] = cmap_r(spec, info.bottom, info.top, info.left, info.right);
+    let wq: World = w_input(info, lines, rng_seed(42));
+    let nin: Int = list_len(collect_ids(wq, 1));
     let s0: VolS = ov_build(w_input(info, lines, rng_seed(42)), info);
-    let nin: Int = list_len(collect_ids(s0.w, 1));
-    let mut s: VolS = s0;
+    let mut w: World = vg_w(s0);
+    let mut la: List[Int] = vg_vma(s0);
+    let mut lb: List[Int] = vg_vmb(s0);
+    let mut lc: List[Int] = vg_vmc(s0);
+    let mut ld: List[Int] = vg_vmd(s0);
+    let mut delay: Int = vg_delay(s0);
+    let mut done: Int = vg_done(s0);
     let mut run: DigestRun = digest_run_new();
-    let mut done: Int = 0;
     let _ = cells;
     while done == 0 {
-        let any_mag: Int = list_len(s.m0) + list_len(s.m1) + list_len(s.m2) + list_len(s.m3);
-        if any_mag > 0 || list_len(s.w.active) > 1 {
-            s = ov_step(s, lcmap, info, nin);
-            if s.done == 1 { done = 1; }
+        let any_mag: Int = list_len(la) + list_len(lb) + list_len(lc) + list_len(ld);
+        if any_mag > 0 || list_len(w.active) > 1 {
+            let s: VolS = ov_step(VolS { w: w, vma: la, vmb: lb, vmc: lc,
+                vmd: ld, delay: delay, done: done }, lcmap, info, nin);
+            w = vg_w(s);
+            la = vg_vma(s);
+            lb = vg_vmb(s);
+            lc = vg_vmc(s);
+            ld = vg_vmd(s);
+            delay = vg_delay(s);
+            done = vg_done(s);
             if done == 0 {
-                let w2: World = eng_update(s.w);
-                let t0: List[Int] = s.m0;
-                let t1: List[Int] = s.m1;
-                let t2: List[Int] = s.m2;
-                let t3: List[Int] = s.m3;
-                let td: Int = s.delay;
-                let sd: Int = s.done;
-                s = VolS { w: w2, m0: t0, m1: t1, m2: t2, m3: t3, delay: td, done: sd };
-                let pcs: List[PaintCell] = eng_render(w2, info.cols, info.rows);
+                w = eng_update(w);
+                let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
                 run = run_push(run, digest_paint_cells(pcs), pcs);
             }
         } else {
-            let mut w3: World = s.w;
-            let mch: Int = list_len(w3.chars) - 4;
+            let mch: Int = list_len(w.chars) - 4;
             let mut li: Int = 0;
             while li < 4 {
-                w3 = w_set_vis(w3, mch + li, 0);
+                w = w_set_vis(w, mch + li, 0);
                 li = li + 1;
             }
-            let u0: List[Int] = s.m0;
-            let u1: List[Int] = s.m1;
-            let u2: List[Int] = s.m2;
-            let u3: List[Int] = s.m3;
-            let ud: Int = s.delay;
-            s = VolS { w: w3, m0: u0, m1: u1, m2: u2, m3: u3, delay: ud, done: 1 };
-            let pcs2: List[PaintCell] = eng_render(w3, info.cols, info.rows);
+            let pcs2: List[PaintCell] = eng_render(w, info.cols, info.rows);
             run = run_push(run, digest_paint_cells(pcs2), pcs2);
             done = 1;
         }

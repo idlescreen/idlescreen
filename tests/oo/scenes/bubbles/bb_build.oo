@@ -46,8 +46,8 @@ pub fn bb_place(w: World, anchor: Int, ids: List[Int], rad: Int, low: Int) -> BC
     return _r1;
 }
 
-fn bb_chars(w: World, info: CanvasInfo) -> World {
-    let spec: List[Int] = gradient_new(list_push(list_push(list_new(), 13863167), 196479),
+pub fn bb_chars(w: World, info: CanvasInfo) -> World {
+    let spec: List[Int] = gradient_new(list_push(list_push(list_new(), 13843199), 196479),
         list_push(list_new(), 12), 0);
     let cmap: List[Int] = cmap_d(spec, info.tb, info.tt, info.tl, info.tr);
     let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
@@ -77,7 +77,7 @@ fn bb_chars(w: World, info: CanvasInfo) -> World {
     return w2;
 }
 
-fn bb_mk(w: World, info: CanvasInfo, ids: List[Int], ocol: Int, rng: Rng) -> BBQ {
+pub fn bb_mk(w: World, info: CanvasInfo, ids: List[Int], ocol: Int, rng: Rng) -> BBQ {
     let mut w2: World = w;
     let mut r2: Rng = rng;
     let anchor: Int = list_len(w2.chars);
@@ -98,8 +98,8 @@ fn bb_mk(w: World, info: CanvasInfo, ids: List[Int], ocol: Int, rng: Rng) -> BBQ
     w2 = w_path(w2, anchor, wp_cfg(1.1, 0, ez(0), 0 - 1, 0, 0), "");
     w2 = w_wp(w2, anchor, 0, wc.v, low, list_new());
     w2 = eng_act_path(w2, anchor, 0);
-    let cols: List[Int] = list_push(list_push(list_push(list_push(list_new(), 13863167),
-        7570884), 4430247), 196479);
+    let cols: List[Int] = list_push(list_push(list_push(list_push(list_new(), 13843199),
+        7574980), 4440743), 196479);
     let cc: DR = rng_pick(r2, 4);
     r2 = cc.r;
     let bcol: Int = list_get(cols, cc.v);

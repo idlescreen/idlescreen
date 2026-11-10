@@ -4,7 +4,7 @@
 // Setup: Requires FsReadCap for the theme file and the environ block, ProcessCap for the parent-environ probe.
 // Beats:
 //   1. idlescreen_ootheme_extract strips --theme/--theme= from argv before verb parsing.
-//   2. idlescreen_ootheme_resolve applies flag > OOTHEME > current file > OODA_THEME > legacy file precedence.
+//   2. idlescreen_theme_pick applies flag > OOTHEME > current file > OODA_THEME > legacy file precedence.
 //   3. idlescreen_ootheme_suppressed reports NO_COLOR, OO_NO_COLOR, or OODA_NO_COLOR.
 
 import "oostd/fs/os/fs.oo";
@@ -90,7 +90,7 @@ pub fn idlescreen_ootheme_extract(args: List[String]) -> OothemeLink {
     return OothemeLink { args: out, theme: theme };
 }
 
-pub fn idlescreen_ootheme_resolve(fs_r: &FsReadCap, proc: &ProcessCap, flag_theme: String) -> String {
+pub fn idlescreen_theme_pick(fs_r: &FsReadCap, proc: &ProcessCap, flag_theme: String) -> String {
     if flag_theme != "" { return flag_theme; }
     let ot: String = theme_env(fs_r, proc, "OOTHEME");
     if ot != "" { return ot; }

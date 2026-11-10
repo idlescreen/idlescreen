@@ -182,17 +182,27 @@ fn bb_win2(g: Groups, i: Int) -> List[Int] {
 
 pub fn beams_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
     let b: BmB = bm_build(w_input(info, lines, rng_seed(42)), info);
-    let mut s: BmS = BmS { w: b.w, fwg: b.fwg, delay: 0, phase: 0,
-        pend: b.grp,
-        act: BGrp { g: Groups { keys: list_new(), bounds: list_new(), members: list_new() },
-            dir: list_new(), spd: list_new(), ctr: list_new(), use_: list_new() } };
+    let mut w: World = b.w;
+    let mut fwg: Groups = b.fwg;
+    let mut pend: BGrp = b.grp;
+    let mut act: BGrp = BGrp { g: Groups { keys: list_new(), bounds: list_new(),
+        members: list_new() }, dir: list_new(), spd: list_new(),
+        ctr: list_new(), use_: list_new() };
+    let mut delay: Int = 0;
+    let mut phase: Int = 0;
     let mut run: DigestRun = digest_run_new();
     let _ = cells;
-    while s.phase != 2 || list_len(s.w.active) > 0 {
-        s = bm_phase(s, info);
-        let w2: World = eng_update(s.w);
-        s = BmS { w: w2, pend: s.pend, act: s.act, fwg: s.fwg, delay: s.delay, phase: s.phase };
-        let pcs: List[PaintCell] = eng_render(w2, info.cols, info.rows);
+    while phase != 2 || list_len(w.active) > 0 {
+        let s: BmS = bm_phase(BmS { w: w, pend: pend, act: act, fwg: fwg,
+            delay: delay, phase: phase }, info);
+        w = s.w;
+        pend = s.pend;
+        act = s.act;
+        fwg = s.fwg;
+        delay = s.delay;
+        phase = s.phase;
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
         run = run_push(run, digest_paint_cells(pcs), pcs);
     }
     return run;

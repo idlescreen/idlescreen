@@ -1,0 +1,118 @@
+// # rg_ring — per-ring character wiring: gradient/disperse scenes, rotated
+// rotation waypoints, chained loop, disperse waypoint path, spin condense
+//
+// Logline: Ports Ring.add_character, Ring.make_disperse_waypoints,
+// ring_disperse, and ring_spin over the flattened RgS ring store.
+// Setup: Pure World threading; ring data rides in flat lists on RgS.
+// Beats:
+//   1. rg_add_char builds the two scenes + N rotated one-waypoint paths.
+//   2. chain_paths loop registers PathComplete(i) -> ActivatePath(i+1), last->0.
+//   3. rg_mk_disp rebuilds the looping "disperse" path from 5 rect picks.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/scenes/rings/rg_geom.oo";
+
+pub type RingD = struct { cc: List[Int], col: Int, spd: Float };
+pub type RgA = struct { w: World, np: Int };
+pub type RgD = struct { w: World, last: String };
+
+fn rg_rev_pairs(xs: List[Int]) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = list_len(xs) - 2;
+    while i >= 0 {
+        out = list_push(list_push(out, list_get(xs, i)), list_get(xs, i + 1));
+        i = i - 2;
+    }
+    return out;
+}
+
+fn rg_scenes(w: World, i: Int, fgc: Int, rcol: Int) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let mut w2: World = w_scene(w, i, 0, 0, 0, ez(0), "gradient");
+    let g1: List[Int] = gradient_new(list_push(list_push(list_new(), fgc), rcol),
+        list_push(list_new(), 8), 0);
+    let gi: Int = list_len(list_get(w2.chars, i).sids) - 1;
+    w2 = w_grad(w2, i, gi, list_push(list_new(), ch.sym), 3, g1, list_new());
+    w2 = w_scene(w2, i, 0, 0, 0, ez(0), "disperse");
+    let g2: List[Int] = gradient_new(list_push(list_push(list_new(), rcol), fgc),
+        list_push(list_new(), 8), 0);
+    let di: Int = list_len(list_get(w2.chars, i).sids) - 1;
+    w2 = w_grad(w2, i, di, list_push(list_new(), ch.sym), 10, g2, list_new());
+    return w2;
+}
+
+fn rg_chain(w: World, i: Int, np: Int) -> World {
+    let mut w2: World = w;
+    let mut k: Int = 0;
+    while k < np {
+        let nxt: Int = if k + 1 < np { k + 1 } else { 0 };
+        w2 = w_reg(w2, i, 1, 1, k.to_string(),
+            EvAct { kind: 0, sid: nxt.to_string(), num: 0, carg: 0 });
+        k = k + 1;
+    }
+    return w2;
+}
+
+pub fn rg_add_char(w: World, i: Int, rd: RingD, start: Int, cwf: Int, fgc: Int) -> RgA {
+    let mut w2: World = rg_scenes(w, i, fgc, rd.col);
+    let mut src: List[Int] = rd.cc;
+    if cwf == 1 { src = rg_rev_pairs(rd.cc); }
+    let n: Int = list_len(src) / 2;
+    let mut k: Int = 0;
+    while k < n {
+        let idx: Int = (start + k) % n;
+        w2 = w_path(w2, i, wp_cfg(rd.spd, 0, ez(0), 0 - 1, 0, 0), k.to_string());
+        let pi: Int = list_len(list_get(w2.chars, i).pids) - 1;
+        w2 = w_wp(w2, i, pi, list_get(src, idx * 2), list_get(src, idx * 2 + 1),
+            list_new());
+        k = k + 1;
+    }
+    let w3: World = rg_chain(w2, i, n);
+    return RgA { w: w3, np: n };
+}
+
+pub fn rg_mk_disp(w: World, i: Int, oc: Int, orow: Int, gap: Int) -> World {
+    let rect: List[Int] = rg_rect(oc, orow, gap);
+    let np: Int = list_len(rect) / 2;
+    let mut w2: World = rg_del_path(w, i, "disperse");
+    w2 = w_path(w2, i, wp_cfg(0.14, 0, ez(0), 0 - 1, 0, 1), "disperse");
+    let pi: Int = list_len(list_get(w2.chars, i).pids) - 1;
+    let mut k: Int = 0;
+    while k < 5 {
+        let d: DR = rng_range(w2.rng, 0, np);
+        let wq: World = World { chars: w2.chars, active: w2.active, rng: d.r,
+            next_id: w2.next_id, pend: w2.pend };
+        w2 = w_wp(wq, i, pi, list_get(rect, d.v * 2), list_get(rect, d.v * 2 + 1),
+            list_new());
+        k = k + 1;
+    }
+    return w2;
+}
+
+pub fn rg_rdisp(w: World, i: Int, gap: Int) -> RgD {
+    let ch: Char = list_get(w.chars, i);
+    let mut last: String = "0";
+    if ch.a_path >= 0 { last = list_get(ch.pids, ch.a_path); }
+    let w2: World = rg_mk_disp(w, i, ch.cc, ch.cr, gap);
+    let w3: World = rg_act_p(w2, i, "disperse");
+    let w4: World = rg_act_s(w3, i, "disperse");
+    return RgD { w: w4, last: last };
+}
+
+pub fn rg_rspin(w: World, i: Int, last: String) -> World {
+    let fwp: List[Int] = rg_fwp(list_get(w.chars, i), last);
+    let mut w2: World = w_path(w, i, wp_cfg(0.1, 0, ez(0), 0 - 1, 0, 0), "");
+    let pi: Int = list_len(list_get(w2.chars, i).pids) - 1;
+    w2 = w_wp(w2, i, pi, list_get(fwp, 0), list_get(fwp, 1), list_new());
+    let cid: String = list_get(list_get(w2.chars, i).pids, pi);
+    w2 = w_reg(w2, i, 1, 1, cid, EvAct { kind: 0, sid: last, num: 0, carg: 0 });
+    w2 = eng_act_path(w2, i, pi);
+    let w3: World = rg_act_s(w2, i, "gradient");
+    return w3;
+}

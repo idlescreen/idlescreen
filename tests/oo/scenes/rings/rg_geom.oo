@@ -1,0 +1,126 @@
+// # rg_geom — rings geometry, canvas random_coord, path/scene name ops
+//
+// Logline: find_coords_in_rect block, canvas center, outside-edge random_coord
+// (above/below/left/right draw order), name-keyed path delete/activate and
+// first-waypoint reads for the rings four-phase machine.
+// Setup: Pure World threading; rng draws live on World.rng.
+// Beats:
+//   1. rg_rect emits the column-major (2d+1)^2 block like ttfx.
+//   2. rg_rcoord mirrors Canvas.random_coord(outside_scope=true).
+//   3. rg_act_p/rg_act_s resolve names then delegate to the engine.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/canvas_cells.oo";
+
+pub type RgC = struct { w: World, c: Int, r: Int };
+
+fn rg_cat_p(a: List[Path], b: List[Path]) -> List[Path] {
+    let mut out: List[Path] = a;
+    let mut i: Int = 0;
+    while i < list_len(b) {
+        out = list_push(out, list_get(b, i));
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn rg_rect(oc: Int, orow: Int, d: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    if d == 0 { return out; }
+    let mut c: Int = oc - d;
+    while c <= oc + d {
+        let mut r: Int = orow - d;
+        while r <= orow + d {
+            out = list_push(list_push(out, c), r);
+            r = r + 1;
+        }
+        c = c + 1;
+    }
+    return out;
+}
+
+pub fn rg_center(info: CanvasInfo) -> List[Int] {
+    let mut cr: Int = info.top / 2;
+    if cr < 1 { cr = 1; }
+    if info.top % 2 != 0 && info.top > 1 { cr = cr + 1; }
+    let mut cc: Int = info.right / 2;
+    if cc < 1 { cc = 1; }
+    if info.right % 2 != 0 && info.right > 1 { cc = cc + 1; }
+    return list_push(list_push(list_new(), cc), cr);
+}
+
+pub fn rg_rcoord(w: World, info: CanvasInfo) -> RgC {
+    let d1: DR = rng_int(w.rng, info.left, info.right);
+    let d2: DR = rng_int(d1.r, info.left, info.right);
+    let d3: DR = rng_int(d2.r, info.bottom, info.top);
+    let d4: DR = rng_int(d3.r, info.bottom, info.top);
+    let pk: DR = rng_below(d4.r, 4);
+    let mut c: Int = d1.v;
+    let mut r: Int = info.top + 1;
+    if pk.v == 1 {
+        c = d2.v;
+        r = info.bottom - 1;
+    }
+    if pk.v == 2 {
+        c = info.left - 1;
+        r = d3.v;
+    }
+    if pk.v == 3 {
+        c = info.right + 1;
+        r = d4.v;
+    }
+    return RgC { w: World { chars: w.chars, active: w.active, rng: pk.r,
+        next_id: w.next_id, pend: w.pend }, c: c, r: r };
+}
+
+pub fn rg_del_path(w: World, i: Int, pid: String) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let pi: Int = find_id(ch.pids, pid);
+    if pi < 0 { return w; }
+    let mut pids: List[String] = list_slice(ch.pids, 0, pi);
+    let ptail: List[String] = list_slice(ch.pids, pi + 1, list_len(ch.pids));
+    let mut pt: Int = 0;
+    while pt < list_len(ptail) {
+        pids = list_push(pids, list_get(ptail, pt));
+        pt = pt + 1;
+    }
+    let paths: List[Path] = rg_cat_p(list_slice(ch.paths, 0, pi),
+        list_slice(ch.paths, pi + 1, list_len(ch.paths)));
+    let ap: Int = if ch.a_path == pi { 0 - 1 } else { ch.a_path };
+    let ap2: Int = if ap > pi { ap - 1 } else { ap };
+    let _r1 = w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
+        pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg,
+        v_bold: ch.v_bold, a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes,
+        a_path: ap2, done_path: ch.done_path, pids: pids, paths: paths,
+        evs: ch.evs });
+    return _r1;
+}
+
+pub fn rg_act_p(w: World, i: Int, pid: String) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let pi: Int = find_id(ch.pids, pid);
+    if pi < 0 { return w; }
+    let _r2 = eng_act_path(w, i, pi);
+    return _r2;
+}
+
+pub fn rg_act_s(w: World, i: Int, sid: String) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let si: Int = find_id(ch.sids, sid);
+    if si < 0 { return w; }
+    let _r3 = w_aset(w, i, si);
+    return _r3;
+}
+
+pub fn rg_fwp(ch: Char, pid: String) -> List[Int] {
+    let pi: Int = find_id(ch.pids, pid);
+    if pi < 0 { return list_push(list_push(list_new(), 0 - 1), 0 - 1); }
+    let p: Path = list_get(ch.paths, pi);
+    if list_len(p.wps) == 0 { return list_push(list_push(list_new(), 0 - 1), 0 - 1); }
+    let we: Wp = list_get(p.wps, 0);
+    return list_push(list_push(list_new(), we.c), we.r);
+}

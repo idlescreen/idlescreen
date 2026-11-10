@@ -1,0 +1,138 @@
+// # scene_rings — rings build + four-phase driver (Start/Disperse/Spin/Final)
+//
+// Logline: Ports Rings.build_scene and next_frame: center-out ring chars,
+// external-path non-ring chars, initial disperse, spin/disperse cycles, then
+// the home path and Complete.
+// Setup: Flat RgS state (no nested lists); rng lives on World.rng.
+// Beats:
+//   1. rg_setup mirrors build_scene: start scene, home path, rings, externals.
+//   2. rings_run ticks rg_step until phase Complete, digesting each frame.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/oo/shade_math.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/digest_run.oo";
+import "tests/oo/scenes/rings/rg_state.oo";
+import "tests/oo/scenes/rings/rg_loom.oo";
+import "tests/oo/scenes/rings/rg_step.oo";
+
+fn rg_chars(s: RgS, cmap: List[Int], info: CanvasInfo) -> RgS {
+    let mut w2: World = s.w;
+    let mut fcm: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(s.ids) {
+        let id: Int = list_get(s.ids, k);
+        let ch: Char = list_get(w2.chars, id);
+        let fgc: Int = list_get(cmap, ch.row0 - info.tb);
+        fcm = list_push(fcm, fgc);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+        let si: Int = list_len(list_get(w2.chars, id).sids) - 1;
+        w2 = w_frame(w2, id, si, ch.sym, 1, fgc, 0 - 1, 0);
+        w2 = w_path(w2, id, wp_cfg(0.8, 1, ez(5), 0 - 1, 0, 0), "home");
+        let pi: Int = list_len(list_get(w2.chars, id).pids) - 1;
+        w2 = w_wp(w2, id, pi, ch.col0, ch.row0, list_new());
+        w2 = w_aset(w2, id, si);
+        w2 = w_set_vis(w2, id, 1);
+        k = k + 1;
+    }
+    let _r4 = RgS { w: w2, phase: s.phase, t_init: s.t_init, t_spin: s.t_spin,
+        t_disp: s.t_disp, cyc: s.cyc, idc: s.idc, ccw: s.ccw, rb: s.rb,
+        col: s.col, spd: s.spd, rch: s.rch, rcb: s.rcb, lrp: s.lrp, nrc: s.nrc,
+        fcm: fcm, ids: s.ids, gap: s.gap };
+    return _r4;
+}
+
+fn rg_setup(w: World, info: CanvasInfo) -> RgS {
+    let mut gap: Int = round_he(int_to_f(imin(info.top, info.right)) * 0.1);
+    if gap < 1 { gap = 1; }
+    let spec: List[Int] = gradient_new(list_push(list_push(list_push(list_new(),
+        11225343), 15184562), 16776893), list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let s0: RgS = RgS { w: w, phase: 0, t_init: 100, t_spin: 90, t_disp: 60,
+        cyc: 2, idc: 0, ccw: list_new(), rb: list_new(), col: list_new(),
+        spd: list_new(), rch: list_new(), rcb: list_new(), lrp: list_new(),
+        nrc: list_new(), fcm: list_new(), ids: ids, gap: gap };
+    let s1: RgS = rg_chars(s0, cmap, info);
+    let d: DRL = rng_shuf(s1.w.rng, s1.ids);
+    let wq: World = World { chars: s1.w.chars, active: s1.w.active, rng: d.r,
+        next_id: s1.w.next_id, pend: s1.w.pend };
+    let s2: RgS = RgS { w: wq, phase: 0, t_init: 100, t_spin: 90, t_disp: 60,
+        cyc: 2, idc: 0, ccw: s1.ccw, rb: s1.rb, col: s1.col, spd: s1.spd,
+        rch: s1.rch, rcb: s1.rcb, lrp: s1.lrp, nrc: s1.nrc, fcm: s1.fcm,
+        ids: s1.ids, gap: s1.gap };
+    let _r5 = rg_loom(s2, d.v, info);
+    return _r5;
+}
+
+pub fn rings_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let s0: RgS = rg_setup(w_input(info, lines, rng_seed(42)), info);
+    let mut w: World = s0.w;
+    let mut phase: Int = s0.phase;
+    let mut t_init: Int = s0.t_init;
+    let mut t_spin: Int = s0.t_spin;
+    let mut t_disp: Int = s0.t_disp;
+    let mut cyc: Int = s0.cyc;
+    let mut idc: Int = s0.idc;
+    let mut ccw: List[Int] = s0.ccw;
+    let mut rb: List[Int] = s0.rb;
+    let mut col: List[Int] = s0.col;
+    let mut spd: List[Float] = s0.spd;
+    let mut rch: List[Int] = s0.rch;
+    let mut rcb: List[Int] = s0.rcb;
+    let mut lrp: List[String] = s0.lrp;
+    let mut nrc: List[Int] = s0.nrc;
+    let mut fcm: List[Int] = s0.fcm;
+    let mut ids: List[Int] = s0.ids;
+    let gap: Int = s0.gap;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while phase != 4 {
+        let s: RgS = rg_step(RgS { w: w, phase: phase, t_init: t_init,
+            t_spin: t_spin, t_disp: t_disp, cyc: cyc, idc: idc, ccw: ccw,
+            rb: rb, col: col, spd: spd, rch: rch, rcb: rcb, lrp: lrp,
+            nrc: nrc, fcm: fcm, ids: ids, gap: gap });
+        w = s.w;
+        phase = s.phase;
+        t_init = s.t_init;
+        t_spin = s.t_spin;
+        t_disp = s.t_disp;
+        cyc = s.cyc;
+        idc = s.idc;
+        ccw = s.ccw;
+        rb = s.rb;
+        col = s.col;
+        spd = s.spd;
+        rch = s.rch;
+        rcb = s.rcb;
+        lrp = s.lrp;
+        nrc = s.nrc;
+        fcm = s.fcm;
+        ids = s.ids;
+        w = eng_update(w);
+        let mut p: Int = 0;
+        while p < list_len(w.pend) {
+            let cid: Int = list_get(w.pend, p);
+            let cb: Int = list_get(w.pend, p + 1);
+            if cb == 0 { w = w_set_vis(w, cid, 0); }
+            p = p + 3;
+        }
+        w = World { chars: w.chars, active: w.active, rng: w.rng,
+            next_id: w.next_id, pend: list_new() };
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

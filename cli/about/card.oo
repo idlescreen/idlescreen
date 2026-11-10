@@ -50,7 +50,7 @@ pub fn idlescreen_about(fs_r: &FsReadCap, proc: &ProcessCap, flag_theme: String,
     let summary: String = "capability-secured ASCII idle screensaver suite";
     let subs: String = "preview,text,list,set,tui,daemon,status,inhibitors,timeout,config,doctor,service,about";
     let caps: String = "FsRead,FsWrite,Fs,Process,Bind,Time,Ffi,Arena,Alloc";
-    let resolved: String = idlescreen_ootheme_resolve(fs_r, proc, flag_theme);
+    let resolved: String = idlescreen_theme_pick(fs_r, proc, flag_theme);
     let theme: String = if idlescreen_ootheme_suppressed(fs_r, proc) {
         "none"
     } else if resolved == "" {

@@ -47,7 +47,7 @@ fn cell_of(ch: Char, gx: Int, gy: Int) -> PaintCell {
     if g == 32 { let _r1 = paint_cell_default();
     return _r1; }
     let mut fg: Int = ch.v_fg;
-    if fg < 0 { fg = 16313586; }
+    if fg < 0 { fg = 16316658; }
     let mut bg: Int = ch.v_bg;
     if bg < 0 { bg = 0; }
     if bg == 0 { fg = neon_rgb(fg); }

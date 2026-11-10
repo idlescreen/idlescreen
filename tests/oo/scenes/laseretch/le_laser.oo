@@ -29,7 +29,7 @@ pub fn le_pool(w: World) -> LeP {
     let mut w2: World = w;
     let mut avail: List[Int] = list_new();
     let syms: List[Int] = [46, 44, 42];
-    let colors: List[Int] = gradient_new([16777215, 16770688, 16734976, 1706240],
+    let colors: List[Int] = gradient_new([16777215, 16770688, 16743168, 1706240],
         [3, 8], 0);
     let mut i: Int = 0;
     while i < 2000 {
@@ -67,7 +67,7 @@ fn le_rot(lg: List[Int]) -> List[Int] {
 pub fn le_beam(p: LeP) -> LeB {
     let mut w2: World = p.w;
     let mut beam: List[Int] = list_new();
-    let mut lg: List[Int] = gradient_new([16777215, 3634431], [6], 1);
+    let mut lg: List[Int] = gradient_new([16777215, 3632383], [6], 1);
     let mut row: Int = 0;
     while row <= 24 {
         let mut sym: Int = 47;

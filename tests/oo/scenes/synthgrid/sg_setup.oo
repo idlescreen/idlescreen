@@ -1,0 +1,142 @@
+// # sg_setup — dissolve scenes and full scene assembly
+//
+// Logline: Ports the dissolve-scene writer (randint frame count, glyph/color
+// choices, final frame) plus sg_setup's gradient maps, fcm, block grouping,
+// pending shuffle, and tracker wiring.
+// Setup: Draw order per char: randint(8,16) then per-frame sym pick + fg pick.
+// Beats:
+//   1. sg_scenes writes per-char dissolve + final frames and registers
+//      SceneComplete callbacks carrying the group number.
+//   2. sg_setup assembles SgS in build_scene order.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/scenes/synthgrid/sg_grid.oo";
+import "tests/oo/scenes/synthgrid/sg_build.oo";
+
+
+pub fn sg_scenes(w: World, b: SgB, tspec: List[Int], fcm: List[Int]) -> World {
+    let mut w2: World = w;
+    let mut off: Int = 0;
+    let mut gi: Int = 0;
+    while gi < list_len(b.pb) {
+        let cnt: Int = list_get(b.pb, gi);
+        let mut k: Int = 0;
+        while k < cnt {
+            let id: Int = list_get(b.pm, off + k);
+            let ch: Char = list_get(w2.chars, id);
+            w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+            let si: Int = list_len(list_get(w2.chars, id).sids) - 1;
+            let fc: DR = rng_int(w2.rng, 8, 16);
+            w2 = w_rng(w2, fc.r);
+            let mut f: Int = 0;
+            while f < fc.v {
+                let ds: DR = rng_below(w2.rng, 3);
+                let df: DR = rng_below(ds.r, list_len(tspec));
+                w2 = w_rng(w2, df.r);
+                w2 = w_frame(w2, id, si, 9617 + ds.v, 2,
+                    list_get(tspec, df.v), 0 - 1, 0);
+                f = f + 1;
+            }
+            w2 = w_frame(w2, id, si, ch.sym, 1, list_get(fcm, id), 0 - 1, 0);
+            w2 = w_aset(w2, id, si);
+            w2 = w_reg(w2, id, 2, 0, list_get(list_get(w2.chars, id).sids, si),
+                EvAct { kind: 7, sid: "", num: 0, carg: list_get(b.pn, gi) });
+            k = k + 1;
+        }
+        off = off + cnt;
+        gi = gi + 1;
+    }
+    return w2;
+}
+
+fn sg_zeros(n: Int) -> List[Int] {
+    let mut tr: List[Int] = list_new();
+    let mut t: Int = 0;
+    while t < n {
+        tr = list_push(tr, 0);
+        t = t + 1;
+    }
+    return tr;
+}
+
+fn sg_seq(n: Int) -> List[Int] {
+    let mut perm: List[Int] = list_new();
+    let mut z: Int = 0;
+    while z < n {
+        perm = list_push(perm, z);
+        z = z + 1;
+    }
+    return perm;
+}
+
+pub fn sg_setup(w: World, info: CanvasInfo) -> SgS {
+    let gspec: List[Int] = gradient_new(list_push(list_push(list_new(),
+        13369548), 16777215), list_push(list_new(), 12), 0);
+    let tspec: List[Int] = gradient_new(list_push(list_push(list_push(list_new(),
+        9044106), 53759), 16777215), list_push(list_new(), 12), 0);
+    let gmap: List[Int] = cmap_d(gspec, 1, info.top, 1, info.right);
+    let tmap: List[Int] = cmap_v(tspec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    let mut fcm: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(w.chars) {
+        let ch: Char = list_get(w.chars, i);
+        let mut fc: Int = 0 - 1;
+        if ch.fill == 0 && ch.sym != 32 { fc = list_get(tmap, ch.row0 - info.tb); }
+        fcm = list_push(fcm, fc);
+        i = i + 1;
+    }
+    let st: SgT = sg_lines(w, info, gmap);
+    let mut rg: Int = 0;
+    let mut cg: Int = 0;
+    if info.top > 2 * info.right {
+        rg = sg_even_gap(info.top) + 1;
+        cg = rg * 2;
+    }
+    else {
+        cg = sg_even_gap(info.right) + 1;
+        rg = cg / 2;
+    }
+    let b: SgB = sg_blocks(st.w, info, rg, cg);
+    let w2: World = sg_scenes(st.w, b, tspec, fcm);
+    let n: Int = list_len(b.pn);
+    let tr: List[Int] = sg_zeros(n);
+    let perm: List[Int] = sg_seq(n);
+    let sh: DRL = rng_shuf(w2.rng, perm);
+    let mut w3: World = w_rng(w2, sh.r);
+    let mut pn2: List[Int] = list_new();
+    let mut pm2: List[Int] = list_new();
+    let mut pb2: List[Int] = list_new();
+    let mut x: Int = 0;
+    while x < n {
+        let g: Int = list_get(sh.v, x);
+        let off: Int = sg_off(b.pb, g);
+        pn2 = list_push(pn2, list_get(b.pn, g));
+        pb2 = list_push(pb2, list_get(b.pb, g));
+        let mut m: Int = 0;
+        while m < list_get(b.pb, g) {
+            pm2 = list_push(pm2, list_get(b.pm, off + m));
+            m = m + 1;
+        }
+        x = x + 1;
+    }
+    if n == 0 {
+        let mut a: Int = 0;
+        while a < list_len(ids) {
+            w3 = w_set_vis(w3, list_get(ids, a), 1);
+            w3 = w_active_add(w3, list_get(ids, a));
+            a = a + 1;
+        }
+    }
+    return SgS { w: w3, phase: 0, tot: n, act: 0, lc: st.lc, lb: st.lb,
+        le: st.le, leb: st.leb, ld: st.ld, pn: pn2, pm: pm2, pb: pb2,
+        tr: tr, ids: ids };
+}

@@ -1,0 +1,147 @@
+// # rg_loom — ring creation loop, pending-char assignment, external paths
+//
+// Logline: Ports build_scene's ring construction (per-ring uniform speed
+// draw), the deque-pop assignment into rings, and the external-path plus
+// set-invisible callback wiring for non-ring chars.
+// Setup: Flat lists on RgS; rng draws ride on World.rng.
+// Beats:
+//   1. rg_loom grows rings until the in-canvas share drops below 0.25.
+//   2. rg_deal pops pending chars into each ring in ccw order.
+//   3. rg_extern gives leftovers an "external" path + CB_SET_INVISIBLE.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/geometry_fns.oo";
+import "tests/oo/shade_math.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/scenes/rings/rg_geom.oo";
+import "tests/oo/scenes/rings/rg_ring.oo";
+import "tests/oo/scenes/rings/rg_state.oo";
+
+pub type RgL = struct { s: RgS, pq: List[Int] };
+
+fn rg_fidx(xs: List[Int], v: Int) -> Int {
+    let mut i: Int = 0;
+    while i < list_len(xs) {
+        if list_get(xs, i) == v { return i; }
+        i = i + 1;
+    }
+    return 0 - 1;
+}
+
+fn list_cat_i(a: List[Int], b: List[Int]) -> List[Int] {
+    let mut out: List[Int] = a;
+    let mut i: Int = 0;
+    while i < list_len(b) {
+        out = list_push(out, list_get(b, i));
+        i = i + 1;
+    }
+    return out;
+}
+
+fn rg_in_canvas(xs: List[Int], info: CanvasInfo) -> Int {
+    let mut n: Int = 0;
+    let mut i: Int = 0;
+    while i < list_len(xs) {
+        let c: Int = list_get(xs, i);
+        let r: Int = list_get(xs, i + 1);
+        if c >= info.left && c <= info.right && r >= info.bottom && r <= info.top {
+            n = n + 1;
+        }
+        i = i + 2;
+    }
+    return n;
+}
+
+fn rg_deal(s: RgS, ri: Int, pq: List[Int]) -> RgL {
+    let rd: RingD = rg_ring_at(s, ri);
+    let n: Int = list_len(rd.cc) / 2;
+    let cw: Int = if ri % 2 == 1 { 1 } else { 0 };
+    let mut w2: World = s.w;
+    let mut rch: List[Int] = s.rch;
+    let mut lrp: List[String] = s.lrp;
+    let mut p2: List[Int] = pq;
+    let mut cnt: Int = 0;
+    let mut k: Int = 0;
+    while k < n {
+        if list_len(p2) > 0 {
+            let id: Int = list_get(p2, 0);
+            p2 = list_slice(p2, 1, list_len(p2));
+            let fi: Int = rg_fidx(s.ids, id);
+            let fgc: Int = list_get(s.fcm, fi);
+            let a: RgA = rg_add_char(w2, id, rd, cnt, cw, fgc);
+            w2 = a.w;
+            rch = list_push(rch, id);
+            lrp = list_push(lrp, "0");
+            cnt = cnt + 1;
+        }
+        k = k + 1;
+    }
+    let _r1 = RgS { w: w2, phase: s.phase, t_init: s.t_init, t_spin: s.t_spin,
+        t_disp: s.t_disp, cyc: s.cyc, idc: s.idc, ccw: s.ccw, rb: s.rb,
+        col: s.col, spd: s.spd, rch: rch, rcb: list_push(s.rcb, cnt),
+        lrp: lrp, nrc: s.nrc, fcm: s.fcm, ids: s.ids, gap: s.gap };
+    let _r2 = RgL { s: _r1, pq: p2 };
+    return _r2;
+}
+
+fn rg_extern(s: RgS, info: CanvasInfo) -> RgS {
+    let mut w2: World = s.w;
+    let mut nrc: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(s.ids) {
+        let id: Int = list_get(s.ids, k);
+        if rg_fidx(s.rch, id) < 0 {
+            let rc: RgC = rg_rcoord(w2, info);
+            w2 = rc.w;
+            w2 = w_path(w2, id, wp_cfg(0.8, 1, ez(2), 0 - 1, 0, 0), "external");
+            let pi: Int = list_len(list_get(w2.chars, id).pids) - 1;
+            w2 = w_wp(w2, id, pi, rc.c, rc.r, list_new());
+            w2 = w_reg(w2, id, 1, 1, "external",
+                EvAct { kind: 7, sid: "", num: 0, carg: 0 });
+            nrc = list_push(nrc, id);
+        }
+        k = k + 1;
+    }
+    let _r3 = RgS { w: w2, phase: s.phase, t_init: s.t_init, t_spin: s.t_spin,
+        t_disp: s.t_disp, cyc: s.cyc, idc: s.idc, ccw: s.ccw, rb: s.rb,
+        col: s.col, spd: s.spd, rch: s.rch, rcb: s.rcb, lrp: s.lrp, nrc: nrc,
+        fcm: s.fcm, ids: s.ids, gap: s.gap };
+    return _r3;
+}
+
+pub fn rg_loom(s: RgS, pq: List[Int], info: CanvasInfo) -> RgS {
+    let ctr: List[Int] = rg_center(info);
+    let lim: Int = imax(info.right, info.top);
+    let cols: List[Int] = list_push(list_push(list_push(list_new(), 11225343),
+        15184562), 16776893);
+    let mut s2: RgS = s;
+    let mut p2: List[Int] = pq;
+    let mut radius: Int = 1;
+    while radius < lim {
+        let rc: List[Int] = coords_on_circle(list_get(ctr, 0), list_get(ctr, 1),
+            radius, 7 * radius, 1);
+        let nn: Int = list_len(rc) / 2;
+        if int_to_f(rg_in_canvas(rc, info)) / int_to_f(nn) < 0.25 { radius = lim; }
+        else {
+            let d: DRF = rng_unif(s2.w.rng, 0.6, 1.8);
+            let wq: World = World { chars: s2.w.chars, active: s2.w.active,
+                rng: d.r, next_id: s2.w.next_id, pend: s2.w.pend };
+            s2 = RgS { w: wq, phase: s2.phase, t_init: s2.t_init,
+                t_spin: s2.t_spin, t_disp: s2.t_disp, cyc: s2.cyc, idc: s2.idc,
+                ccw: list_cat_i(s2.ccw, rc), rb: list_push(s2.rb, nn),
+                col: list_push(s2.col, list_get(cols, list_len(s2.rb) % 3)),
+                spd: list_push(s2.spd, d.v), rch: s2.rch, rcb: s2.rcb,
+                lrp: s2.lrp, nrc: s2.nrc, fcm: s2.fcm, ids: s2.ids, gap: s2.gap };
+            let dl: RgL = rg_deal(s2, list_len(s2.rb) - 1, p2);
+            s2 = dl.s;
+            p2 = dl.pq;
+            radius = radius + s2.gap;
+        }
+    }
+    let _r4 = rg_extern(s2, info);
+    return _r4;
+}

@@ -48,6 +48,7 @@ import "tests/oo/scenes/bubbles/scene_bubbles.oo";
 import "tests/oo/scenes/beams/scene_beams.oo";
 import "tests/oo/scenes/laseretch/scene_laseretch.oo";
 import "tests/oo/scenes/print/scene_print.oo";
+import "tests/oo/scenes/rings/scene_rings.oo";
 import "tests/oo/scenes/breakout/scene_breakout.oo";
 import "tests/oo/scenes/life/scene_life.oo";
 import "tests/oo/scenes/pipes/scene_pipes.oo";
@@ -56,7 +57,7 @@ import "tests/oo/scenes/waves/scene_waves.oo";
 import "tests/oo/scenes/swarm/scene_swarm.oo";
 import "tests/oo/scenes/unstable/scene_unstable.oo";
 import "tests/oo/scenes/thunderstorm/scene_thunderstorm.oo";
-
+import "tests/oo/scenes/synthgrid/scene_synthgrid.oo";
 pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> Result[DigestRun, String] {
     if name == "plasma" { return Ok(plasma_run(cells, info)); }
     if name == "ripple" { return Ok(ripple_run(cells, info)); }
@@ -97,6 +98,8 @@ pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "beams" { return Ok(beams_run(cells, info, lines)); }
     if name == "laseretch" { return Ok(laseretch_run(cells, info, lines)); }
     if name == "print" { return Ok(print_run(cells, info, lines)); }
+    if name == "rings" { return Ok(rings_run(cells, info, lines)); }
+    if name == "synthgrid" { return Ok(synthgrid_run(cells, info, lines)); }
     if name == "breakout" { return Ok(breakout_run(cells, info)); }
     if name == "life" { return Ok(life_run(cells, info)); }
     if name == "pipes" { return Ok(pipes_run(cells, info)); }

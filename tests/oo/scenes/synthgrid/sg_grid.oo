@@ -1,0 +1,111 @@
+// # sg_grid — synthgrid flat group/line list ops and find_even_gap
+//
+// Logline: Bounds-indexed window ops (off/win/drop/push/rev) over the flat
+// parallel lists the emitter supports, plus SynthGridIterator.find_even_gap.
+// Setup: Groups and grid lines share the {flat, bounds} Groups encoding.
+// Beats:
+//   1. sg_win slices the li-th window; sg_drop/sg_push move char ids
+//      between collapsed and extended windows preserving pop/push order.
+//   2. sg_rev mirrors Vec::reverse on the extended window.
+
+
+pub type SgD = struct { xs: List[Int], b: List[Int] };
+
+pub fn sg_cat(a: List[Int], b: List[Int]) -> List[Int] {
+    let mut out: List[Int] = a;
+    let mut i: Int = 0;
+    while i < list_len(b) {
+        out = list_push(out, list_get(b, i));
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn sg_off(b: List[Int], li: Int) -> Int {
+    let mut off: Int = 0;
+    let mut j: Int = 0;
+    while j < li {
+        off = off + list_get(b, j);
+        j = j + 1;
+    }
+    return off;
+}
+
+pub fn sg_win(xs: List[Int], b: List[Int], li: Int) -> List[Int] {
+    let _r1 = list_slice(xs, sg_off(b, li), sg_off(b, li) + list_get(b, li));
+    return _r1;
+}
+
+pub fn sg_drop(xs: List[Int], b: List[Int], li: Int, n: Int) -> SgD {
+    let off: Int = sg_off(b, li);
+    let lo: List[Int] = list_slice(xs, 0, off);
+    let hi: List[Int] = list_slice(xs, off + n, list_len(xs));
+    let mut out: List[Int] = lo;
+    let mut i: Int = 0;
+    while i < list_len(hi) {
+        out = list_push(out, list_get(hi, i));
+        i = i + 1;
+    }
+    let _r2 = SgD { xs: out, b: list_set(b, li, list_get(b, li) - n) };
+    return _r2;
+}
+
+pub fn sg_push(xs: List[Int], b: List[Int], li: Int, vs: List[Int]) -> SgD {
+    let off: Int = sg_off(b, li);
+    let cnt: Int = list_get(b, li);
+    let lo: List[Int] = list_slice(xs, 0, off + cnt);
+    let hi: List[Int] = list_slice(xs, off + cnt, list_len(xs));
+    let mut out: List[Int] = lo;
+    let mut i: Int = 0;
+    while i < list_len(vs) {
+        out = list_push(out, list_get(vs, i));
+        i = i + 1;
+    }
+    let mut j: Int = 0;
+    while j < list_len(hi) {
+        out = list_push(out, list_get(hi, j));
+        j = j + 1;
+    }
+    let _r3 = SgD { xs: out, b: list_set(b, li, cnt + list_len(vs)) };
+    return _r3;
+}
+
+pub fn sg_rev(xs: List[Int], b: List[Int], li: Int) -> List[Int] {
+    let off: Int = sg_off(b, li);
+    let cnt: Int = list_get(b, li);
+    let lo: List[Int] = list_slice(xs, 0, off);
+    let hi: List[Int] = list_slice(xs, off + cnt, list_len(xs));
+    let mut out: List[Int] = lo;
+    let mut i: Int = cnt - 1;
+    while i >= 0 {
+        out = list_push(out, list_get(xs, off + i));
+        i = i - 1;
+    }
+    let mut j: Int = 0;
+    while j < list_len(hi) {
+        out = list_push(out, list_get(hi, j));
+        j = j + 1;
+    }
+    return out;
+}
+
+pub fn sg_even_gap(dimension: Int) -> Int {
+    let dim: Int = dimension - 2;
+    if dim <= 0 { return 0; }
+    let mut best: Int = 0 - 1;
+    let mut bk: Int = 0;
+    let target: Int = dim / 5;
+    let mut i: Int = dim;
+    while i > 4 {
+        if dim - (dim / i) * i <= 1 {
+            let key: Int = if i - target < 0 { target - i } else { i - target };
+            if best < 0 || key < bk {
+                best = i;
+                bk = key;
+            }
+        }
+        i = i - 1;
+    }
+    if best < 0 { return 4; }
+    return best;
+}

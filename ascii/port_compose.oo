@@ -12,6 +12,7 @@ import "core/grid.oo";
 import "ascii/port_render.oo";
 import "ascii/draw/post_fx.oo";
 import "ascii/draw/ansi.oo";
+import "ascii/draw/lens_flare.oo";
 import "ascii/layout/render.oo";
 
 pub fn port_to_grid(pcs: &List[PaintCell], cols: Int, rows: Int) -> CellGrid {
@@ -41,9 +42,11 @@ pub fn port_to_grid(pcs: &List[PaintCell], cols: Int, rows: Int) -> CellGrid {
 
 pub fn port_compose(pcs: &List[PaintCell], cols: Int, rows: Int, tick: Int, settled: Bool, wm: String) -> String {
     let mut g: CellGrid = port_to_grid(pcs, cols, rows);
-    g = post_apply(g, tick);
-    if settled && wm != "" {
-        g = wm_render(g, wm, tick);
+    if settled {
+        let w: String = if wm == "" { "FEDORA" } else { wm };
+        g = wm_render(g, w, tick);
+        g = lens_flare(g, tick, 160);
     }
+    g = post_apply(g, tick);
     return ansi_frame(g);
 }

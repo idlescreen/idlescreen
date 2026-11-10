@@ -11,6 +11,8 @@ import "core/cell.oo";
 import "core/grid.oo";
 import "fonts.oo";
 import "wordmark.oo";
+import "oostd/core/text/utf8_codepoint_length_law.oo";
+import "oostd/core/text/utf8_stream.oo";
 
 pub fn wm_measure(name: String) -> Int {
     let t: String = wm_text(name);
@@ -46,15 +48,19 @@ fn wm_build_5x5_scaled(word: String, scale: Int) -> List[String] {
         while ci < n {
             let pat: List[String] = font5_rows(char_at(word, ci));
             let base: String = list_get(pat, r);
+            let blen: Int = bytes_len(base);
             let mut k: Int = 0;
-            while k < chars_len(base) {
-                let ch: String = if char_at(base, k) == " " { " " } else { "█" };
+            while k < blen {
+                let b0: Int = byte_at(base, k);
+                let bl: Int = utf8_lead_byte_len(b0);
+                let step: Int = if bl > 0 { bl } else { 1 };
+                let ch: String = if byte_at(base, k) == 32 { " " } else { "█" };
                 let mut s: Int = 0;
                 while s < scale {
                     line = line + ch;
                     s = s + 1;
                 }
-                k = k + 1;
+                k = k + step;
             }
             if ci + 1 < n { line = line + sp; }
             ci = ci + 1;
@@ -116,11 +122,15 @@ fn wm_stamp_line(g: CellGrid, line: String, ox: Int, y: Int, min_y: Int, max_y: 
     let mut out: CellGrid = g;
     let base_fg: Int = wm_bevel_color(y, min_y, max_y, is_sf);
     let shad_fg: Int = wm_shadow_color();
-    let len: Int = chars_len(line);
+    let len: Int = bytes_len(line);
     let mut i: Int = 0;
+    let mut ci: Int = 0;
     while i < len {
-        let ch: String = char_at(line, i);
-        let x: Int = ox + i;
+        let b0: Int = byte_at(line, i);
+        let bl: Int = utf8_lead_byte_len(b0);
+        let step: Int = if bl > 0 { bl } else { 1 };
+        let ch: String = str_slice(line, i, i + step);
+        let x: Int = ox + ci;
         if x >= 0 && x < out.cols {
             let cur: TerminalCell = grid_get(out, x, y);
             if ch != " " {
@@ -144,7 +154,8 @@ fn wm_stamp_line(g: CellGrid, line: String, ox: Int, y: Int, min_y: Int, max_y: 
                 out = grid_set(out, x, y, cell_new(" ", shad_fg, cur.bg, false));
             }
         }
-        i = i + 1;
+        i = i + step;
+        ci = ci + 1;
     }
     return out;
 }
@@ -156,7 +167,7 @@ pub fn wm_render_at(g: CellGrid, name: String, oy: Int, tick: Int) -> CellGrid {
     let mut max_w: Int = 0;
     let mut i: Int = 0;
     while i < h {
-        let lw: Int = chars_len(list_get(lines, i));
+        let lw: Int = utf8_codepoint_count(list_get(lines, i));
         if lw > max_w { max_w = lw; }
         i = i + 1;
     }

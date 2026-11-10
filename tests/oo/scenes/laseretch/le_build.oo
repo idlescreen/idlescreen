@@ -112,7 +112,6 @@ pub fn le_pending(w: World, grid: List[Int], info: CanvasInfo) -> LeOrder {
         linked = list_push(linked, 0);
         i = i + 1;
     }
-    linked = list_set(linked, start, 1);
     let mut b: LeBt = LeBt { cur: start, done: 0,
         stk: [start], linked: linked, order: [start], r: r };
     let mut guard: Int = 0;
@@ -134,7 +133,7 @@ pub fn le_scenes(w: World, info: CanvasInfo) -> World {
         let id: Int = list_get(ids, i);
         let ch: Char = list_get(w2.chars, id);
         let mapped: Int = list_get(cmap, ch.row0 - info.tb);
-        let cool: List[Int] = gradient_new([16770688, 16734976, mapped],
+        let cool: List[Int] = gradient_new([16770688, 16743168, mapped],
             [8, 8], 0);
         w2 = w_scene(w2, id, 0, 0, 0, ez(0), "spawn");
         w2 = w_frame(w2, id, 0, 94, 3, 16770688, 0 - 1, 0);

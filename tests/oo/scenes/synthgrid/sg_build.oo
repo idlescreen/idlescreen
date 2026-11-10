@@ -1,0 +1,183 @@
+// # sg_build — synthgrid scene construction: grid lines, blocks, dissolves
+//
+// Logline: Ports build_scene — canvas-wide diagonal grid gradient lines,
+// text vertical gradient final colors, even-gap row/column split into
+// pending blocks, and per-char dissolve scenes with group-tracker callbacks.
+// Setup: Flat {chars,bounds,dir} line store; pending groups as Groups.
+// Beats:
+//   1. sg_mkline adds scene-colored grid chars collapsed at each line coord.
+//   2. sg_lines builds the 4 edges then even-gap inner lines.
+//   3. sg_blocks buckets input chars by rect; sg_scenes writes dissolves.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/shade_math.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/scenes/synthgrid/sg_grid.oo";
+
+
+pub type SgL = struct { w: World, cs: List[Int] };
+pub type SgT = struct { w: World, lc: List[Int], lb: List[Int], le: List[Int],
+    leb: List[Int], ld: List[Int] };
+pub type SgB = struct { pn: List[Int], pm: List[Int], pb: List[Int] };
+pub type SgS = struct { w: World, phase: Int, tot: Int, act: Int,
+    lc: List[Int], lb: List[Int], le: List[Int], leb: List[Int], ld: List[Int],
+    pn: List[Int], pm: List[Int], pb: List[Int], tr: List[Int], ids: List[Int] };
+
+fn sg_mkline(w: World, oc: Int, orow: Int, dir: Int, gmap: List[Int], info: CanvasInfo) -> SgL {
+    let sym: Int = if dir == 0 { 9472 } else { 9474 };
+    let mut w2: World = w;
+    let mut cs: List[Int] = list_new();
+    if dir == 0 {
+        let mut c: Int = info.left;
+        while c <= info.right {
+            w2 = w_add_char(w2, sym, 0, 0);
+            let id: Int = list_len(w2.chars) - 1;
+            w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+            let si: Int = list_len(list_get(w2.chars, id).sids) - 1;
+            w2 = w_frame(w2, id, si, sym, 1,
+                list_get(gmap, (orow - 1) * info.right + c - 1), 0 - 1, 0);
+            w2 = w_aset(w2, id, si);
+            w2 = w_lay(w2, id, 2);
+            w2 = w_pos(w2, id, c, orow);
+            cs = list_push(cs, id);
+            c = c + 1;
+        }
+    } else {
+        let mut r: Int = info.bottom;
+        while r < info.top {
+            w2 = w_add_char(w2, sym, 0, 0);
+            let id: Int = list_len(w2.chars) - 1;
+            w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+            let si: Int = list_len(list_get(w2.chars, id).sids) - 1;
+            w2 = w_frame(w2, id, si, sym, 1,
+                list_get(gmap, (r - 1) * info.right + oc - 1), 0 - 1, 0);
+            w2 = w_aset(w2, id, si);
+            w2 = w_lay(w2, id, 2);
+            w2 = w_pos(w2, id, oc, r);
+            cs = list_push(cs, id);
+            r = r + 1;
+        }
+    }
+    return SgL { w: w2, cs: cs };
+}
+
+fn sg_line_t(st: SgT, w: World, cs: List[Int], dir: Int) -> SgT {
+    let _r4 = SgT { w: w, lc: sg_cat(st.lc, cs), lb: list_push(st.lb, list_len(cs)),
+        le: st.le, leb: list_push(st.leb, 0), ld: list_push(st.ld, dir) };
+    return _r4;
+}
+
+pub fn sg_lines(w: World, info: CanvasInfo, gmap: List[Int]) -> SgT {
+    let st0: SgT = SgT { w: w, lc: list_new(), lb: list_new(), le: list_new(),
+        leb: list_new(), ld: list_new() };
+    let l1: SgL = sg_mkline(st0.w, info.left, info.bottom, 0, gmap, info);
+    let st1: SgT = sg_line_t(st0, l1.w, l1.cs, 0);
+    let l2: SgL = sg_mkline(st1.w, info.left, info.top, 0, gmap, info);
+    let st2: SgT = sg_line_t(st1, l2.w, l2.cs, 0);
+    let l3: SgL = sg_mkline(st2.w, info.left, info.bottom, 1, gmap, info);
+    let st3: SgT = sg_line_t(st2, l3.w, l3.cs, 1);
+    let l4: SgL = sg_mkline(st3.w, info.right, info.bottom, 1, gmap, info);
+    let mut st: SgT = sg_line_t(st3, l4.w, l4.cs, 1);
+    let mut rg: Int = 0;
+    let mut cg: Int = 0;
+    if info.top > 2 * info.right {
+        rg = sg_even_gap(info.top) + 1;
+        cg = rg * 2;
+    } else {
+        cg = sg_even_gap(info.right) + 1;
+        rg = cg / 2;
+    }
+    let mut ri: Int = info.bottom + rg;
+    while ri < info.top {
+        if info.top - ri >= 2 {
+            let l: SgL = sg_mkline(st.w, info.left, ri, 0, gmap, info);
+            st = sg_line_t(st, l.w, l.cs, 0);
+        }
+        ri = ri + imax(rg, 1);
+    }
+    let mut ci: Int = info.left + cg;
+    while ci < info.right {
+        if info.right - ci >= 2 {
+            let l: SgL = sg_mkline(st.w, ci, info.bottom, 1, gmap, info);
+            st = sg_line_t(st, l.w, l.cs, 1);
+        }
+        ci = ci + imax(cg, 1);
+    }
+    return st;
+}
+
+fn sg_char_at(w: World, c: Int, r: Int) -> Int {
+    let mut i: Int = 0;
+    while i < list_len(w.chars) {
+        let ch: Char = list_get(w.chars, i);
+        if ch.col0 == c && ch.row0 == r { return i; }
+        i = i + 1;
+    }
+    return 0 - 1;
+}
+
+fn sg_rect_ids(w: World, c0: Int, c1: Int, r0: Int, r1: Int) -> List[Int] {
+    let mut mem: List[Int] = list_new();
+    let mut r: Int = r0;
+    while r < r1 {
+        let mut c: Int = c0;
+        while c < c1 {
+            let id: Int = sg_char_at(w, c, r);
+            if id >= 0 {
+                mem = list_push(mem, id);
+            }
+            c = c + 1;
+        }
+        r = r + 1;
+    }
+    return mem;
+}
+
+pub fn sg_blocks(w: World, info: CanvasInfo, rg: Int, cg: Int) -> SgB {
+    let mut ris: List[Int] = list_new();
+    let mut ri: Int = info.bottom + rg;
+    while ri < info.top {
+        if info.top - ri >= 2 { ris = list_push(ris, ri); }
+        ri = ri + imax(rg, 1);
+    }
+    ris = list_push(ris, info.top + 1);
+    let mut cis: List[Int] = list_new();
+    let mut ci: Int = info.left + cg;
+    while ci < info.right {
+        if info.right - ci >= 2 { cis = list_push(cis, ci); }
+        ci = ci + imax(cg, 1);
+    }
+    cis = list_push(cis, info.right + 1);
+    let mut pn: List[Int] = list_new();
+    let mut pm: List[Int] = list_new();
+    let mut pb: List[Int] = list_new();
+    let mut pr: Int = 1;
+    let mut k: Int = 0;
+    while k < list_len(ris) {
+        let mut rv: Int = list_get(ris, k);
+        if rv == info.top { rv = rv + 1; }
+        let mut pc: Int = 1;
+        let mut j: Int = 0;
+        while j < list_len(cis) {
+            let cv: Int = list_get(cis, j);
+            let mem: List[Int] = sg_rect_ids(w, pc, cv, pr, rv);
+            if list_len(mem) > 0 {
+                pn = list_push(pn, list_len(pn));
+                pb = list_push(pb, list_len(mem));
+                let mut m: Int = 0;
+                while m < list_len(mem) {
+                    pm = list_push(pm, list_get(mem, m));
+                    m = m + 1;
+                }
+            }
+            pc = cv;
+            j = j + 1;
+        }
+        pr = rv;
+        k = k + 1;
+    }
+    return SgB { pn: pn, pm: pm, pb: pb };
+}

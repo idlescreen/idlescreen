@@ -1,0 +1,51 @@
+// # ov_get — borrowed VolS field getters (emitter-safe destructuring)
+//
+// Logline: Field reads on a let-bound struct poison the emitter's move
+// table after the first partial move; param field reads work. These
+// seven &VolS getters copy fields out through borrows so drivers can
+// destructure state without consuming the record.
+// Setup: All accessors take the state by shared borrow and return the
+// field by value (retained copy for list/struct fields).
+// Beats:
+//   1. vg_w/vg_vma..vmd/vg_delay/vg_done mirror every VolS field.
+//   2. Drivers call them per-iteration on each step's return value.
+
+import "tests/oo/kernel/world_ops.oo";
+
+pub type VolS = struct {
+    w: World,
+    vma: List[Int],
+    vmb: List[Int],
+    vmc: List[Int],
+    vmd: List[Int],
+    delay: Int,
+    done: Int
+};
+
+pub fn vg_w(s: &VolS) -> World {
+    return s.w;
+}
+
+pub fn vg_vma(s: &VolS) -> List[Int] {
+    return s.vma;
+}
+
+pub fn vg_vmb(s: &VolS) -> List[Int] {
+    return s.vmb;
+}
+
+pub fn vg_vmc(s: &VolS) -> List[Int] {
+    return s.vmc;
+}
+
+pub fn vg_vmd(s: &VolS) -> List[Int] {
+    return s.vmd;
+}
+
+pub fn vg_delay(s: &VolS) -> Int {
+    return s.delay;
+}
+
+pub fn vg_done(s: &VolS) -> Int {
+    return s.done;
+}

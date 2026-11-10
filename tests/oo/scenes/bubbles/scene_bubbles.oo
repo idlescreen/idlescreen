@@ -18,6 +18,7 @@ import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/kernel/engine_tick.oo";
 import "tests/oo/kernel/engine_render.oo";
 import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/scenes/bubbles/bb_build.oo";
 import "tests/oo/kernel/path_ops.oo";
 import "tests/oo/engapi/input_arena.oo";
 import "tests/oo/engapi/char_ops.oo";
@@ -204,14 +205,21 @@ fn bb_queue(w: World, info: CanvasInfo) -> Bub {
 
 pub fn bubbles_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
     let w0: World = bb_chars(w_input(info, lines, rng_seed(42)), info);
-    let mut s: Bub = bb_queue(w0, info);
+    let b0: Bub = bb_queue(w0, info);
+    let mut w: World = b0.w;
+    let mut pend: Bubs = b0.pend;
+    let mut anim: Bubs = b0.anim;
+    let mut steps: Int = b0.steps;
     let mut run: DigestRun = digest_run_new();
     let _ = cells;
-    while list_len(s.anim.g.bounds) > 0 || list_len(s.w.active) > 0 || list_len(s.pend.g.bounds) > 0 {
-        s = bb_step(s, info);
-        let w2: World = eng_update(s.w);
-        s = Bub { w: w2, pend: s.pend, anim: s.anim, steps: s.steps };
-        let pcs: List[PaintCell] = eng_render(w2, info.cols, info.rows);
+    while list_len(anim.g.bounds) > 0 || list_len(w.active) > 0 || list_len(pend.g.bounds) > 0 {
+        let s: Bub = bb_step(Bub { w: w, pend: pend, anim: anim, steps: steps }, info);
+        w = s.w;
+        pend = s.pend;
+        anim = s.anim;
+        steps = s.steps;
+        w = eng_update(w);
+        let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
         run = run_push(run, digest_paint_cells(pcs), pcs);
     }
     return run;

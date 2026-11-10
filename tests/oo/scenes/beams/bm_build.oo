@@ -74,7 +74,7 @@ fn bm_group(w: World, ids: List[Int], dir: Int, rng: Rng) -> BmQ {
     let cd: DR = rng_pick(r2, 2);
     r2 = cd.r;
     let mut mem: List[Int] = list_slice(ids, 0, list_len(ids));
-    if cd.v == 1 {
+    if cd.v == 0 {
         let mut rev: List[Int] = list_new();
         let mut i: Int = list_len(ids) - 1;
         while i >= 0 {

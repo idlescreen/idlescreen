@@ -34,7 +34,7 @@ pub type PrS = struct {
     proc_typed: List[Int], typing: Int, last_col: Int, head: Int
 };
 
-fn pr_new_row(s: PrS, info: CanvasInfo) -> PrS {
+pub fn pr_new_row(s: PrS, info: CanvasInfo) -> PrS {
     let mut w2: World = s.w;
     let mut pt: List[Int] = s.proc_typed;
     let mut i: Int = 0;
@@ -45,9 +45,9 @@ fn pr_new_row(s: PrS, info: CanvasInfo) -> PrS {
         i = i + 1;
     }
     let mut cur: List[Int] = grp_win(s.g, s.gi);
-    let hch: Char = list_get(w2.chars, s.head);
     w2 = w_pos(w2, s.head, s.last_col, 1);
     w2 = w_set_vis(w2, s.head, 1);
+    let hch: Char = list_get(w2.chars, s.head);
     let mut gi: Int = s.gi + 1;
     let mut last_ok: Int = 1;
     if pr_all_fill(w2, s.cur_typed) == 1 || pr_all_fill(w2, cur) == 1 { last_ok = 0; }
@@ -74,7 +74,7 @@ fn pr_new_row(s: PrS, info: CanvasInfo) -> PrS {
     return _r1;
 }
 
-fn pr_step(s: PrS, info: CanvasInfo) -> PrS {
+pub fn pr_step(s: PrS, info: CanvasInfo) -> PrS {
     let hch: Char = list_get(s.w.chars, s.head);
     if hch.a_path != 0 - 1 { return s; }
     if list_len(s.cur_unt) > 0 {
@@ -121,7 +121,7 @@ pub fn print_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -
     let mut w: World = w_input(info, lines, rng_seed(42));
     w = w_add_char(w, 9608, 1, 1);
     let head: Int = list_len(w.chars) - 1;
-    let stops: List[Int] = list_push(list_push(list_push(list_new(), 178365), 12673251), 65440);
+    let stops: List[Int] = list_push(list_push(list_push(list_new(), 178365), 12710115), 65440);
     let spec: List[Int] = gradient_new(stops, list_push(list_new(), 12), 0);
     let cmap: List[Int] = cmap_d(spec, info.tb, info.tt, info.tl, info.tr);
     let g0: Groups = groups_of(w, collect_ids(w, 7), 1, 0, 0, 1);
@@ -142,21 +142,33 @@ pub fn print_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -
         }
         gi = gi + 1;
     }
-    let g: Groups = Groups { keys: keys, bounds: bounds, members: unt_all };
-    let mut s: PrS = PrS { w: w2, g: g, gi: 0, cur_unt: list_new(), cur_typed: list_new(),
-        proc_typed: list_new(), typing: 1, last_col: 0, head: head };
-    if list_len(g.keys) > 0 {
-        s = PrS { w: w2, g: g, gi: 1, cur_unt: grp_win(g, 0), cur_typed: list_new(),
-            proc_typed: list_new(), typing: 1, last_col: 0, head: head };
+    let mut gi2: Int = 0;
+    let mut cur_unt: List[Int] = list_new();
+    if list_len(bounds) > 0 {
+        gi2 = 1;
+        cur_unt = list_slice(unt_all, 0, list_get(bounds, 0));
     }
+    let mut g: Groups = Groups { keys: keys, bounds: bounds, members: unt_all };
+    let mut cur_typed: List[Int] = list_new();
+    let mut proc_typed: List[Int] = list_new();
+    let mut typing: Int = 1;
+    let mut last_col: Int = 0;
     let mut run: DigestRun = digest_run_new();
     let _ = cells;
-    while s.typing == 1 || list_len(s.w.active) > 0 {
-        s = pr_step(s, info);
-        let w3: World = eng_update(s.w);
-        s = PrS { w: w3, g: s.g, gi: s.gi, cur_unt: s.cur_unt, cur_typed: s.cur_typed,
-            proc_typed: s.proc_typed, typing: s.typing, last_col: s.last_col, head: s.head };
-        let pcs: List[PaintCell] = eng_render(w3, info.cols, info.rows);
+    while typing == 1 || list_len(w2.active) > 0 {
+        let s: PrS = pr_step(PrS { w: w2, g: g, gi: gi2, cur_unt: cur_unt,
+            cur_typed: cur_typed, proc_typed: proc_typed, typing: typing,
+            last_col: last_col, head: head }, info);
+        w2 = s.w;
+        g = s.g;
+        gi2 = s.gi;
+        cur_unt = s.cur_unt;
+        cur_typed = s.cur_typed;
+        proc_typed = s.proc_typed;
+        typing = s.typing;
+        last_col = s.last_col;
+        w2 = eng_update(w2);
+        let pcs: List[PaintCell] = eng_render(w2, info.cols, info.rows);
         run = run_push(run, digest_paint_cells(pcs), pcs);
     }
     return run;
