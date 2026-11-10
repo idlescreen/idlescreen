@@ -1,0 +1,143 @@
+// # th_state — thunderstorm pools, state struct, and small World ops
+//
+// Logline: ParticlePool (avail pop-back / push-back) and the manually
+// managed strike-char pool state, plus the callback-drain helpers the
+// step driver needs: active-set removal, named-scene activation with
+// the upstream ecs reset, input-coord lookup, and pool reclaim.
+// Setup: Pure. ThPool.avail is a deque (pop_back acquire, push_back
+// reclaim); nparts tracks len for the spark max gate. Phase codes:
+// 0 PreStorm, 1 Waiting, 2 Storm, 3 Complete.
+// Beats:
+//   1. pool_new/pool_pop mirror ParticlePool deque ops.
+//   2. th_aset activates a named scene resetting ecs like activate_scene.
+//   3. th_reclaim mirrors ParticlePool.reclaim(hide,deactivate).
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/kernel/anim_ops.oo";
+
+pub type ThPool = struct { syms: List[Int], avail: List[Int], nparts: Int, max: Int };
+
+pub type ThS = struct {
+    w: World, phase: Int, delay: Int, spdelay: Int,
+    rain: ThPool, spark: ThPool,
+    pend: List[Int], avail_s: List[Int], act_s: List[Int], glow_p: List[Int],
+    sgrad: List[Int], in_prog: Int, branch: Float, sstart: Int, frames: Int
+};
+
+pub fn pool_new(syms: List[Int], max: Int) -> ThPool {
+    let _r1 = ThPool { syms: syms, avail: list_new(), nparts: 0, max: max };
+    return _r1;
+}
+
+pub fn th_adel(w: World, i: Int) -> World {
+    let mut out: List[Int] = list_new();
+    let mut k: Int = 0;
+    while k < list_len(w.active) {
+        if list_get(w.active, k) != i { out = list_push(out, list_get(w.active, k)); }
+        k = k + 1;
+    }
+    let _r2 = World { chars: w.chars, active: out, rng: w.rng, next_id: w.next_id, pend: w.pend };
+    return _r2;
+}
+
+pub fn th_aset(w: World, i: Int, sid: String) -> World {
+    let si: Int = find_id(list_get(w.chars, i).sids, sid);
+    if si < 0 { return w; }
+    let w2: World = w_aset(w, i, si);
+    let ch: Char = list_get(w2.chars, i);
+    let sc: Scene = list_get(ch.scenes, si);
+    let sc2: Scene = Scene { loop_: sc.loop_, sync: sc.sync, ease_on: sc.ease_on,
+        ease: sc.ease, af: sc.af, fr: sc.fr, pf: sc.pf, fim: sc.fim, ecs: 0 };
+    let _r3 = w_put(w2, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
+        v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene, sids: ch.sids, scenes: list_set(ch.scenes, si, sc2),
+        a_path: ch.a_path, done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs });
+    return _r3;
+}
+
+pub fn th_at_coord(w: World, c: Int, r: Int) -> Int {
+    let mut i: Int = 0;
+    while i < list_len(w.chars) {
+        let ch: Char = list_get(w.chars, i);
+        if ch.fill <= 2 && ch.col0 == c && ch.row0 == r { return i; }
+        i = i + 1;
+    }
+    return 0 - 1;
+}
+
+pub fn th_clear_ce(ch: Char) -> Char {
+    let es: List[String] = list_new();
+    let esc: List[Scene] = list_new();
+    let ee: List[Ev] = list_new();
+    let _r4 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
+        v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: ch.a_scene, sids: es, scenes: esc,
+        a_path: ch.a_path, done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ee };
+    return _r4;
+}
+
+fn th_deact(ch: Char) -> Char {
+    let _r5 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
+        v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: 0 - 1, sids: ch.sids, scenes: ch.scenes,
+        a_path: 0 - 1, done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
+    return _r5;
+}
+
+pub fn th_reset_p(ch: Char) -> Char {
+    let ep: List[String] = list_new();
+    let epa: List[Path] = list_new();
+    let ee2: List[Ev] = list_new();
+    let _r8 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
+        v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: 0 - 1, sids: ch.sids, scenes: ch.scenes,
+        a_path: 0 - 1, done_path: 0 - 1, pids: ep, paths: epa, evs: ee2 };
+    return _r8;
+}
+
+pub fn th_reclaim(s: ThS, i: Int, which: Int) -> ThS {
+    let mut w: World = w_set_vis(s.w, i, 0);
+    w = w_put(w, i, th_deact(list_get(w.chars, i)));
+    w = th_adel(w, i);
+    let mut syms: List[Int] = list_new();
+    let mut av: List[Int] = list_new();
+    let mut np: Int = 0;
+    let mut mx: Int = 0;
+    if which == 0 {
+        syms = s.rain.syms;
+        av = s.rain.avail;
+        np = s.rain.nparts;
+        mx = s.rain.max;
+    } else {
+        syms = s.spark.syms;
+        av = s.spark.avail;
+        np = s.spark.nparts;
+        mx = s.spark.max;
+    }
+    let mut has: Int = 0;
+    let mut k: Int = 0;
+    while k < list_len(av) {
+        if list_get(av, k) == i { has = 1; }
+        k = k + 1;
+    }
+    let mut p2: ThPool = ThPool { syms: syms, avail: av, nparts: np, max: mx };
+    if has == 0 {
+        p2 = ThPool { syms: syms, avail: list_push(av, i), nparts: np, max: mx }; }
+    if which == 0 {
+        let _r6 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+            rain: p2, spark: s.spark, pend: s.pend, avail_s: s.avail_s, act_s: s.act_s,
+            glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
+            sstart: s.sstart, frames: s.frames };
+        return _r6;
+    }
+    let _r7 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+        rain: s.rain, spark: p2, pend: s.pend, avail_s: s.avail_s, act_s: s.act_s,
+        glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
+        sstart: s.sstart, frames: s.frames };
+    return _r7;
+}

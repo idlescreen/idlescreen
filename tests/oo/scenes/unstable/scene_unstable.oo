@@ -1,0 +1,190 @@
+// # scene_unstable — rumble/explosion/reassembly step + run
+//
+// Logline: Bit-exact port of Unstable::step_scene/next_frame: rumble for
+// 150 steps (jittering all glyphs on a decaying period), explode to canvas
+// edges (OutExpo 1.75), hold 30 frames, reassemble (OutExpo 1.6) while the
+// ff9200->final scene plays out. The Rust step drives ctx.tick /
+// step_animation itself, so the port iterates the active set directly.
+// Setup: emits one frame per us_step that returns emit=1; stops on the
+// first emit=0 (phase Reassembly with an empty active set).
+// Beats:
+//   1. us_all ticks the active snapshot and rebuilds it by phase filter.
+//   2. us_step runs the 3-phase machine.
+//   3. unstable_run loops us_step and digests each emitted frame.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/scenes/unstable/us_build.oo";
+import "tests/digest_run.oo";
+
+fn us_sc_open(ch: Char) -> Int {
+    if ch.a_scene == 0 - 1 { return 0; }
+    let s: Scene = list_get(ch.scenes, ch.a_scene);
+    if list_len(s.fr) > 0 && s.loop_ == 0 { return 1; }
+    return 0;
+}
+
+fn us_all(s: UsS, f: Int) -> UsS {
+    let mut w: World = s.w;
+    let mut act: List[Int] = list_new();
+    if f == 0 {
+        let mut k: Int = 0;
+        while k < list_len(w.active) {
+            w = eng_tick(w, list_get(w.active, k));
+            k = k + 1;
+        }
+        k = 0;
+        while k < list_len(w.active) {
+            let i2: Int = list_get(w.active, k);
+            let ch: Char = list_get(w.chars, i2);
+            let p: Path = list_get(ch.paths, 0);
+            let wp: Wp = list_get(p.wps, 0);
+            if ch.cc != wp.c || ch.cr != wp.r { act = list_push(act, i2); }
+            k = k + 1;
+        }
+    } else {
+        let mut k2: Int = 0;
+        while k2 < list_len(w.active) {
+            w = eng_tick(w, list_get(w.active, k2));
+            k2 = k2 + 1;
+        }
+        k2 = 0;
+        while k2 < list_len(w.active) {
+            let i3: Int = list_get(w.active, k2);
+            let c2: Char = list_get(w.chars, i3);
+            let p2: Path = list_get(c2.paths, 1);
+            let wp2: Wp = list_get(p2.wps, 0);
+            if c2.cc != wp2.c || c2.cr != wp2.r || us_sc_open(c2) == 1 { act = list_push(act, i3); }
+            k2 = k2 + 1;
+        }
+    }
+    let _r3 = UsS { w: World { chars: w.chars, active: act, rng: w.rng, next_id: w.next_id,
+        pend: w.pend }, jum: s.jum, chars: s.chars, phase: s.phase, hold: s.hold,
+        cur: s.cur, rmod: s.rmod };
+    return _r3;
+}
+
+fn us_step(s: UsS, info: CanvasInfo) -> UsR {
+    if s.phase != 0 || s.cur >= 150 {
+        return us_step_late(s, info);
+    }
+    let mut w: World = s.w;
+    let mut rmod: Int = s.rmod;
+    let mut jig: Int = 0;
+    if s.cur > 30 && rmod > 0 && s.cur - s.cur / rmod * rmod == 0 { jig = 1; }
+    let mut ro: Int = 0;
+    let mut co: Int = 0;
+    if jig == 1 {
+        let d1: DR = rng_int(w.rng, 0 - 1, 1);
+        let d2: DR = rng_int(d1.r, 0 - 1, 1);
+        ro = d1.v;
+        co = d2.v;
+        w = w_rng(w, d2.r);
+    }
+    let mut k: Int = 0;
+    while k < list_len(s.chars) {
+        let id: Int = list_get(s.chars, k);
+        if jig == 1 {
+            let ch: Char = list_get(w.chars, id);
+            w = w_pos(w, id, ch.cc + co, ch.cr + ro);
+        }
+        w = eng_step_anim(w, id);
+        k = k + 1;
+    }
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    if jig == 1 {
+        let mut k2: Int = 0;
+        while k2 < list_len(s.chars) {
+            let id2: Int = list_get(s.chars, k2);
+            w = w_pos(w, id2, list_get(s.jum, id2 * 2), list_get(s.jum, id2 * 2 + 1));
+            k2 = k2 + 1;
+        }
+        if rmod > 1 { rmod = rmod - 1; }
+    }
+    let _r5 = UsR { s: UsS { w: w, jum: s.jum, chars: s.chars, phase: s.phase,
+        hold: s.hold, cur: s.cur + 1, rmod: rmod }, emit: 1, pcs: pcs };
+    return _r5;
+}
+
+fn us_step_late(s: UsS, info: CanvasInfo) -> UsR {
+    let mut w: World = s.w;
+    let mut phase: Int = s.phase;
+    let mut hold: Int = s.hold;
+    let cur: Int = s.cur;
+    let mut rmod: Int = s.rmod;
+    let mut emit: Int = 0;
+    let mut pcs: List[PaintCell] = list_new();
+    if phase == 0 {
+        phase = 1;
+        let mut k3: Int = 0;
+        while k3 < list_len(s.chars) {
+            w = eng_act_path(w, list_get(s.chars, k3), 0);
+            k3 = k3 + 1;
+        }
+        w = World { chars: w.chars, active: list_new(), rng: w.rng, next_id: w.next_id,
+            pend: w.pend };
+        k3 = 0;
+        while k3 < list_len(s.chars) {
+            w = w_active_add(w, list_get(s.chars, k3));
+            k3 = k3 + 1;
+        }
+    }
+    if phase == 1 {
+        if list_len(w.active) > 0 {
+            let s2: UsS = us_all(UsS { w: w, jum: s.jum, chars: s.chars, phase: phase,
+                hold: hold, cur: cur, rmod: rmod }, 0);
+            w = s2.w;
+            emit = 1;
+            pcs = eng_render(w, info.cols, info.rows);
+        } else {
+            if hold != 0 {
+                hold = hold - 1;
+                emit = 1;
+                pcs = eng_render(w, info.cols, info.rows);
+            } else {
+                phase = 2;
+                let mut k4: Int = 0;
+                while k4 < list_len(s.chars) {
+                    let id4: Int = list_get(s.chars, k4);
+                    w = w_aset(w, id4, 1);
+                    w = w_active_add(w, id4);
+                    w = eng_act_path(w, id4, 1);
+                    k4 = k4 + 1;
+                }
+            }
+        }
+    }
+    if phase == 2 && list_len(w.active) > 0 {
+        let s3: UsS = us_all(UsS { w: w, jum: s.jum, chars: s.chars, phase: phase,
+            hold: hold, cur: cur, rmod: rmod }, 1);
+        w = s3.w;
+        emit = 1;
+        pcs = eng_render(w, info.cols, info.rows);
+    }
+    let _r4 = UsR { s: UsS { w: w, jum: s.jum, chars: s.chars, phase: phase, hold: hold,
+        cur: cur, rmod: rmod }, emit: emit, pcs: pcs };
+    return _r4;
+}
+
+pub fn unstable_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut s: UsS = us_build(w_input(info, lines, rng_seed(42)), info);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    let mut go: Int = 1;
+    while go == 1 {
+        let r: UsR = us_step(s, info);
+        s = r.s;
+        if r.emit == 1 {
+            run = run_push(run, digest_paint_cells(r.pcs), r.pcs);
+        } else { go = 0; }
+    }
+    return run;
+}

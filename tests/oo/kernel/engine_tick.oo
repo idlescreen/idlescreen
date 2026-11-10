@@ -99,6 +99,12 @@ fn sub_sc(w: World, i: Int) -> Int {
     return 0;
 }
 
+pub fn eng_step_anim(w: World, i: Int) -> World {
+    let w2: World = w_put(w, i, step_scene(list_get(w.chars, i)));
+    let _r6 = complete_scene(w2, i);
+    return _r6;
+}
+
 pub fn eng_tick(w: World, i: Int) -> World {
     let m: MStep = motion_move(list_get(w.chars, i));
     if m.fired == 0 {

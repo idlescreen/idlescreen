@@ -1,0 +1,106 @@
+// # scene_waves — column-reveal block-wave port
+//
+// Logline: Bit-exact port of Waves::build/next_frame: every input char
+// gets a 4x15-frame eased wave scene cycling the block-fill symbols under
+// the wave gradient, chained by SceneComplete to a landing scene that
+// settles into the diagonal final gradient. Columns reveal left to right.
+// Setup: Non-dynamic probe path only (ExistingColorHandling::Ignore):
+// final fg = diagonal cmap at input_coord; bg always none. Pending columns
+// ride as a Groups plus a monotone pop index.
+// Beats:
+//   1. wv_build seeds wave/final scenes and the column groups.
+//   2. waves_run pops one column per frame, then updates and emits.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/digest_run.oo";
+
+pub type WvS = struct { w: World, cols: Groups, pc: Int };
+
+fn wv_syms() -> List[Int] {
+    let mut s: List[Int] = list_new();
+    let mut v: Int = 9601;
+    while v <= 9608 {
+        s = list_push(s, v);
+        v = v + 1;
+    }
+    v = 9607;
+    while v >= 9601 {
+        s = list_push(s, v);
+        v = v - 1;
+    }
+    return s;
+}
+
+fn wv_build(w0: World, info: CanvasInfo) -> WvS {
+    let fstops: List[Int] = list_push(list_push(list_push(list_new(), 16756994), 3252436), 15794021);
+    let fspec: List[Int] = gradient_new(fstops, list_push(list_new(), 12), 0);
+    let lcmap: List[Int] = cmap_d(fspec, info.tb, info.tt, info.tl, info.tr);
+    let wstops: List[Int] = list_push(list_push(list_push(list_push(list_push(list_new(),
+        15794021), 16756994), 3252436), 16756994), 15794021);
+    let wspec: List[Int] = gradient_new(wstops, list_push(list_new(), 6), 0);
+    let wlast: Int = list_get(wspec, list_len(wspec) - 1);
+    let wsyms: List[Int] = wv_syms();
+    let ids: List[Int] = sort_ids(w0, collect_ids(w0, 1), info.cols, info.rows, 0);
+    let mut w: World = w0;
+    let mut k: Int = 0;
+    while k < list_len(ids) {
+        let id: Int = list_get(ids, k);
+        let ch: Char = list_get(w.chars, id);
+        let ci: Int = (ch.row0 - info.tb) * (info.tr - info.tl + 1) + (ch.col0 - info.tl);
+        let ffg: Int = list_get(lcmap, ci);
+        w = w_scene(w, id, 0, 0, 1, ez(6), "");
+        let mut wc: Int = 0;
+        while wc < 4 {
+            w = w_grad(w, id, 0, wsyms, 1, wspec, list_new());
+            wc = wc + 1;
+        }
+        w = w_scene(w, id, 0, 0, 0, ez(0), "");
+        let land: List[Int] = gradient_new(list_push(list_push(list_new(), wlast), ffg),
+            list_push(list_new(), 12), 0);
+        w = w_grad(w, id, 1, list_push(list_new(), ch.sym), 10, land, list_new());
+        w = w_reg(w, id, 2, 0, "0", EvAct { kind: 1, sid: "1", num: 0, carg: 0 });
+        w = w_aset(w, id, 0);
+        k = k + 1;
+    }
+    let cols: Groups = groups_of(w, collect_ids(w, 1), 0, 0, 0, 0);
+    let _r1 = WvS { w: w, cols: cols, pc: 0 };
+    return _r1;
+}
+
+pub fn waves_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let s0: WvS = wv_build(w_input(info, lines, rng_seed(42)), info);
+    let mut s: WvS = s0;
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while s.pc < list_len(s.cols.keys) || list_len(s.w.active) > 0 {
+        let mut w2: World = s.w;
+        let mut pc2: Int = s.pc;
+        if pc2 < list_len(s.cols.keys) {
+            let col: List[Int] = grp_win(s.cols, pc2);
+            let mut j: Int = 0;
+            while j < list_len(col) {
+                let id: Int = list_get(col, j);
+                w2 = w_set_vis(w2, id, 1);
+                w2 = w_active_add(w2, id);
+                j = j + 1;
+            }
+            pc2 = pc2 + 1;
+        }
+        w2 = eng_update(w2);
+        let pcs: List[PaintCell] = eng_render(w2, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        s = WvS { w: w2, cols: s.cols, pc: pc2 };
+    }
+    return run;
+}

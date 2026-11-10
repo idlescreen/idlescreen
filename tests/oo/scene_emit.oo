@@ -42,6 +42,19 @@ fn scene_name(args: List[String]) -> String {
 
 
 
+fn dump_idx(s: String) -> Int {
+    let mut v: Int = 0 - 1;
+    let mut i: Int = 0;
+    while i < chars_len(s) {
+        let o: Int = ord(char_at(s, i));
+        if o < 48 || o > 57 { return 0 - 1; }
+        if v < 0 { v = 0; }
+        v = v * 10 + o - 48;
+        i = i + 1;
+    }
+    return v;
+}
+
 pub fn main(alloc: &AllocCap, args: List[String]) -> Result[Int, String] {
     let name: String = scene_name(args);
     let info0: CanvasInfo = canvas_info(80, 24);
@@ -58,10 +71,16 @@ pub fn main(alloc: &AllocCap, args: List[String]) -> Result[Int, String] {
         idx = idx + 1;
     }
     if list_len(args) > 2 && list_get(args, 1) == "dump" {
-        let dn: Int = list_len(run.last);
+        let mut src: List[PaintCell] = run.last;
+        let fi: Int = dump_idx(list_get(args, 2));
+        if fi >= 0 && fi < list_len(run.pc_frames) {
+            let pf0: PcFrame = list_get(run.pc_frames, fi);
+            src = pf0.cells;
+        }
+        let dn: Int = list_len(src);
         let mut di: Int = 0;
         while di < dn {
-            println("cell\t" + di.to_string() + "\t" + paint_cell_record(list_get(run.last, di)));
+            println("cell\t" + di.to_string() + "\t" + paint_cell_record(list_get(src, di)));
             di = di + 1;
         }
     }

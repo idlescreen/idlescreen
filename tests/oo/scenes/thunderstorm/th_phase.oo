@@ -1,0 +1,148 @@
+// # th_phase — strike progression step and the pend callback drain
+//
+// Logline: Bit-exact ports of step_lightning_strike (spdelay gate, batch
+// pop of pending chars, spark burst + flash activation on the final
+// char) and dispatch_callback (the seven CB_* arms), replayed from
+// w.pend triples in order after eng_update.
+// Setup: pend holds the unactivated strike chars (front-pop);
+// act_strike accumulates the current batch until the final char fires
+// the spark burst, registers CB_SET_STRIKE_IN_PROGRESS_FALSE, and
+// flashes every strike + text char. glow_p defers active-set inserts
+// of make_char_glow targets to the next Storm step.
+// Beats:
+//   1. th_strike_step mirrors the upstream batch/delay walk.
+//   2. th_cb dispatches one callback arm.
+//   3. th_drain replays w.pend then clears it.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/scenes/thunderstorm/th_state.oo";
+import "tests/oo/scenes/thunderstorm/th_step.oo";
+
+fn ths(s: ThS, w: World) -> ThS {
+    let _r0 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
+        act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
+        branch: s.branch, sstart: s.sstart, frames: s.frames };
+    return _r0;
+}
+
+fn th_flash_all(s: ThS, last: Int, ids: List[Int], info: CanvasInfo) -> ThS {
+    let mut s2: ThS = s;
+    let dc: DR = rng_int(s2.w.rng, 12, 18);
+    s2 = ths(s2, w_rng(s2.w, dc.r));
+    let mut k: Int = 0;
+    while k < dc.v {
+        s2 = th_spark_emit(s2, last, info);
+        k = k + 1;
+    }
+    let mut w: World = w_reg(s2.w, last, 2, 0, "fade",
+        EvAct { kind: 7, sid: "", num: 4, carg: 0 });
+    let mut i: Int = 0;
+    while i < list_len(s2.act_s) {
+        let sc: Int = list_get(s2.act_s, i);
+        w = th_aset(w, sc, "flash");
+        w = w_active_add(w, sc);
+        i = i + 1;
+    }
+    i = 0;
+    while i < list_len(ids) {
+        let tid: Int = list_get(ids, i);
+        w = th_aset(w, tid, "flash");
+        w = w_active_add(w, tid);
+        i = i + 1;
+    }
+    let _r1 = ThS { w: w, phase: s2.phase, delay: s2.delay, spdelay: s2.spdelay,
+        rain: s2.rain, spark: s2.spark, pend: s2.pend, avail_s: s2.avail_s,
+        act_s: list_new(), glow_p: s2.glow_p, sgrad: s2.sgrad, in_prog: s2.in_prog,
+        branch: s2.branch, sstart: s2.sstart, frames: s2.frames };
+    return _r1;
+}
+
+pub fn th_strike_step(s: ThS, ids: List[Int], info: CanvasInfo) -> ThS {
+    if s.spdelay != 0 {
+        let _r2 = ThS { w: s.w, phase: s.phase, delay: s.delay,
+            spdelay: s.spdelay - 1, rain: s.rain, spark: s.spark, pend: s.pend,
+            avail_s: s.avail_s, act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad,
+            in_prog: s.in_prog, branch: s.branch, sstart: s.sstart, frames: s.frames };
+        return _r2;
+    }
+    if list_len(s.pend) == 0 { return s; }
+    let mut s2: ThS = s;
+    let db: DR = rng_int(s2.w.rng, 1, 3);
+    s2 = ths(s2, w_rng(s2.w, db.r));
+    let mut b: Int = 0;
+    while b < db.v {
+        if list_len(s2.pend) == 0 { b = db.v; }
+        else {
+            let id: Int = list_get(s2.pend, 0);
+            s2 = ThS { w: w_set_vis(s2.w, id, 1), phase: s2.phase, delay: s2.delay,
+                spdelay: 1, rain: s2.rain, spark: s2.spark,
+                pend: list_slice(s2.pend, 1, list_len(s2.pend)),
+                avail_s: s2.avail_s, act_s: list_push(s2.act_s, id), glow_p: s2.glow_p,
+                sgrad: s2.sgrad, in_prog: s2.in_prog, branch: s2.branch,
+                sstart: s2.sstart, frames: s2.frames };
+            if list_len(s2.pend) == 0 { s2 = th_flash_all(s2, id, ids, info); }
+            b = b + 1;
+        }
+    }
+    return s2;
+}
+
+fn th_cb(s: ThS, ci: Int, cb: Int) -> ThS {
+    let mut s2: ThS = s;
+    if cb == 0 {
+        s2 = ThS { w: s.w, phase: 2, delay: s.delay, spdelay: s.spdelay,
+            rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
+            act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
+            branch: s.branch, sstart: s.frames, frames: s.frames };
+    }
+    if cb == 1 { s2 = ths(s2, w_set_vis(s2.w, ci, 0)); }
+    if cb == 2 {
+        let ch: Char = list_get(s2.w.chars, ci);
+        let ic: Int = th_at_coord(s2.w, ch.cc, ch.cr);
+        if ic >= 0 && list_get(s2.w.chars, ic).vis == 1 {
+            s2 = ths(s2, th_aset(s2.w, ic, "glow"));
+            s2 = ThS { w: s2.w, phase: s2.phase, delay: s2.delay, spdelay: s2.spdelay,
+                rain: s2.rain, spark: s2.spark, pend: s2.pend, avail_s: s2.avail_s,
+                act_s: s2.act_s, glow_p: list_push(s2.glow_p, ic), sgrad: s2.sgrad,
+                in_prog: s2.in_prog, branch: s2.branch, sstart: s2.sstart,
+                frames: s2.frames };
+        }
+    }
+    if cb == 3 {
+        s2 = ThS { w: s2.w, phase: s2.phase, delay: s2.delay, spdelay: s2.spdelay,
+            rain: s2.rain, spark: s2.spark, pend: s2.pend,
+            avail_s: list_push(s2.avail_s, ci), act_s: s2.act_s, glow_p: s2.glow_p,
+            sgrad: s2.sgrad, in_prog: s2.in_prog, branch: s2.branch,
+            sstart: s2.sstart, frames: s2.frames };
+    }
+    if cb == 4 {
+        s2 = ThS { w: s2.w, phase: s2.phase, delay: s2.delay, spdelay: s2.spdelay,
+            rain: s2.rain, spark: s2.spark, pend: s2.pend, avail_s: s2.avail_s,
+            act_s: s2.act_s, glow_p: s2.glow_p, sgrad: s2.sgrad, in_prog: 0,
+            branch: s2.branch, sstart: s2.sstart, frames: s2.frames };
+    }
+    if cb == 5 { s2 = th_reclaim(s2, ci, 0); }
+    if cb == 6 { s2 = th_reclaim(s2, ci, 1); }
+    return s2;
+}
+
+pub fn th_drain(s: ThS) -> ThS {
+    let mut s2: ThS = s;
+    let mut i: Int = 0;
+    while i + 2 <= list_len(s2.w.pend) {
+        s2 = th_cb(s2, list_get(s2.w.pend, i), list_get(s2.w.pend, i + 1));
+        i = i + 3;
+    }
+    let _r3 = ThS { w: World { chars: s2.w.chars, active: s2.w.active,
+            rng: s2.w.rng, next_id: s2.w.next_id, pend: list_new() },
+        phase: s2.phase, delay: s2.delay, spdelay: s2.spdelay,
+        rain: s2.rain, spark: s2.spark, pend: s2.pend, avail_s: s2.avail_s,
+        act_s: s2.act_s, glow_p: s2.glow_p, sgrad: s2.sgrad, in_prog: s2.in_prog,
+        branch: s2.branch, sstart: s2.sstart, frames: s2.frames };
+    return _r3;
+}

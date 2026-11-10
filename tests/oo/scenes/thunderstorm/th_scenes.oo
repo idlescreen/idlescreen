@@ -1,0 +1,85 @@
+// # th_scenes — per-text-character scene construction (non-dynamic path)
+//
+// Logline: The four scenes build() installs on every input character:
+// "glow" (EF5411 -> storm_fg), "fade" (vis_fg -> storm_fg), "unfade"
+// (reversed), and "flash" (storm_fg -> 1.7x vis_fg looped), plus the
+// terminal set_character_visibility(true).
+// Setup: Probe runs ExistingColorHandling::Ignore so only the
+// non-dynamic branch is reachable; storm fg = adjust_brightness(vis, .5)
+// and the lightning flash target = adjust_brightness(vis, 1.7). All bg
+// color pairs carry None (-1).
+// Beats:
+//   1. th_pair builds the shared fade spectrum once.
+//   2. th_glow/th_fade/th_unfade/th_flash add each named scene.
+//   3. th_char_scenes wires all four and flips visibility.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/color_ops.oo";
+
+fn th_glow(w: World, i: Int, sym: Int, sfg: Int) -> World {
+    let spec: List[Int] = gradient_new(
+        list_push(list_push(list_new(), 15684625), sfg),
+        list_push(list_new(), 7), 0);
+    let mut w2: World = w_scene(w, i, 0, 0, 0, ez(0), "glow");
+    let si: Int = find_id(list_get(w2.chars, i).sids, "glow");
+    let mut k: Int = 0;
+    while k < list_len(spec) {
+        w2 = w_frame(w2, i, si, sym, 3, list_get(spec, k), 0 - 1, 0);
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn th_fade(w: World, i: Int, sym: Int, spec: List[Int], sid: String) -> World {
+    let mut w2: World = w_scene(w, i, 0, 0, 0, ez(0), sid);
+    let si: Int = find_id(list_get(w2.chars, i).sids, sid);
+    let mut k: Int = 0;
+    while k < list_len(spec) {
+        w2 = w_frame(w2, i, si, sym, 12, list_get(spec, k), 0 - 1, 0);
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn th_unfade(w: World, i: Int, sym: Int, spec: List[Int]) -> World {
+    let mut rev: List[Int] = list_new();
+    let mut k: Int = list_len(spec) - 1;
+    while k >= 0 {
+        rev = list_push(rev, list_get(spec, k));
+        k = k - 1;
+    }
+    let _r1 = th_fade(w, i, sym, rev, "unfade");
+    return _r1;
+}
+
+fn th_flash(w: World, i: Int, sym: Int, sfg: Int, ffg: Int) -> World {
+    let spec: List[Int] = gradient_new(
+        list_push(list_push(list_new(), sfg), ffg),
+        list_push(list_new(), 7), 1);
+    let mut w2: World = w_scene(w, i, 0, 0, 0, ez(0), "flash");
+    let si: Int = find_id(list_get(w2.chars, i).sids, "flash");
+    let mut k: Int = 0;
+    while k < list_len(spec) {
+        w2 = w_frame(w2, i, si, sym, 6, list_get(spec, k), 0 - 1, 0);
+        k = k + 1;
+    }
+    return w2;
+}
+
+pub fn th_char_scenes(w: World, i: Int, vis_fg: Int) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let sfg: Int = adjust_brightness(vis_fg, 0.5);
+    let ffg: Int = adjust_brightness(vis_fg, 1.7);
+    let fspec: List[Int] = gradient_new(
+        list_push(list_push(list_new(), vis_fg), sfg),
+        list_push(list_new(), 7), 0);
+    let mut w2: World = th_glow(w, i, ch.sym, sfg);
+    w2 = th_fade(w2, i, ch.sym, fspec, "fade");
+    w2 = th_unfade(w2, i, ch.sym, fspec);
+    w2 = th_flash(w2, i, ch.sym, sfg, ffg);
+    let _r2 = w_set_vis(w2, i, 1);
+    return _r2;
+}

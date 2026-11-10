@@ -1,0 +1,125 @@
+// # scene_thunderstorm — thunderstorm phase machine + digest driver
+//
+// Logline: Bit-exact port of Thunderstorm::step_scene: PreStorm fades
+// all text chars once, Waiting idles until the reference char's fade
+// completion flips phase to Storm via CB_FADE_COMPLETE, Storm rains,
+// strikes, and glows until storm_time (120 frames) elapses with no
+// strike in flight, then Complete unfades and terminates when active
+// empties.
+// Setup: Virtual clock = frames emitted / 60, so s.sstart is the frame
+// index at fade-complete and the storm-end gate is
+// frames - sstart >= 120. th_drain replays callback triples pushed into
+// w.pend during eng_update, in push order.
+// Beats:
+//   1. th_pre/th_post activate "fade"/"unfade" on sorted text ids.
+//   2. th_step runs the phase ops then update + drain.
+//   3. thunderstorm_run loops until active empties in Complete.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/scenes/thunderstorm/th_state.oo";
+import "tests/oo/scenes/thunderstorm/th_build.oo";
+import "tests/oo/scenes/thunderstorm/th_strike.oo";
+import "tests/oo/scenes/thunderstorm/th_step.oo";
+import "tests/oo/scenes/thunderstorm/th_phase.oo";
+import "tests/digest_run.oo";
+
+fn ths(s: ThS, w: World) -> ThS {
+    let _r0 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
+        act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
+        branch: s.branch, sstart: s.sstart, frames: s.frames };
+    return _r0;
+}
+
+fn th_text_ids(w: World, info: CanvasInfo) -> List[Int] {
+    let _r1 = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
+    return _r1;
+}
+
+pub fn th_mass_act(s: ThS, ids: List[Int], sid: String) -> ThS {
+    let mut w: World = s.w;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        w = th_aset(w, id, sid);
+        w = w_active_add(w, id);
+        i = i + 1;
+    }
+    let _r2 = ths(s, w);
+    return _r2;
+}
+
+pub fn th_glow_flush(s: ThS) -> ThS {
+    let mut w: World = s.w;
+    let mut i: Int = 0;
+    while i < list_len(s.glow_p) {
+        w = w_active_add(w, list_get(s.glow_p, i));
+        i = i + 1;
+    }
+    let _r3 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
+        act_s: s.act_s, glow_p: list_new(), sgrad: s.sgrad, in_prog: s.in_prog,
+        branch: s.branch, sstart: s.sstart, frames: s.frames };
+    return _r3;
+}
+
+pub fn th_step(s: ThS, ids: List[Int], info: CanvasInfo) -> ThS {
+    let mut s2: ThS = s;
+    if s2.phase == 0 {
+        s2 = th_mass_act(s2, ids, "fade");
+        s2 = ThS { w: s2.w, phase: 1, delay: s2.delay, spdelay: s2.spdelay,
+            rain: s2.rain, spark: s2.spark, pend: s2.pend, avail_s: s2.avail_s,
+            act_s: s2.act_s, glow_p: s2.glow_p, sgrad: s2.sgrad, in_prog: s2.in_prog,
+            branch: s2.branch, sstart: s2.sstart, frames: s2.frames };
+    }
+    if s2.phase == 2 {
+        s2 = th_rain(s2, info);
+        if s2.in_prog == 0 {
+            let d: DRF = rng_random(s2.w.rng);
+            s2 = ths(s2, w_rng(s2.w, d.r));
+            if d.v < 0.008 {
+                s2 = ThS { w: s2.w, phase: s2.phase, delay: s2.delay,
+                    spdelay: s2.spdelay, rain: s2.rain, spark: s2.spark, pend: s2.pend,
+                    avail_s: s2.avail_s, act_s: s2.act_s, glow_p: s2.glow_p,
+                    sgrad: s2.sgrad, in_prog: 1, branch: s2.branch,
+                    sstart: s2.sstart, frames: s2.frames };
+                s2 = th_lightning(s2, ids, info);
+            }
+        }
+        if s2.in_prog == 1 { s2 = th_strike_step(s2, ids, info); }
+        s2 = th_glow_flush(s2);
+        if s2.frames - s2.sstart >= 120 && s2.in_prog == 0 {
+            s2 = th_mass_act(s2, ids, "unfade");
+            s2 = ThS { w: s2.w, phase: 3, delay: s2.delay, spdelay: s2.spdelay,
+                rain: s2.rain, spark: s2.spark, pend: s2.pend, avail_s: s2.avail_s,
+                act_s: s2.act_s, glow_p: s2.glow_p, sgrad: s2.sgrad,
+                in_prog: s2.in_prog, branch: s2.branch, sstart: s2.sstart,
+                frames: s2.frames };
+        }
+    }
+    s2 = ths(s2, eng_update(s2.w));
+    let _r4 = th_drain(s2);
+    return _r4;
+}
+
+pub fn thunderstorm_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut s: ThS = th_build(info, lines);
+    let ids: List[Int] = th_text_ids(s.w, info);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while !(s.phase == 3 && list_len(s.w.active) == 0) {
+        s = th_step(s, ids, info);
+        let pcs: List[PaintCell] = eng_render(s.w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+        s = ThS { w: s.w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+            rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
+            act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
+            branch: s.branch, sstart: s.sstart, frames: s.frames + 1 };
+    }
+    return run;
+}

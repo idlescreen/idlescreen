@@ -1,0 +1,116 @@
+// # us_build — unstable world construction
+//
+// Logline: Builds the Unstable world state bit-exact with
+// Unstable::build: vertical final gradient map, jumbled input coords,
+// explosion/reassembly paths, rumble+final scenes, vis on.
+// Setup: Non-dynamic probe path only (ExistingColorHandling::Ignore);
+// start == final fg = vertical cmap at input row, bg none.
+// Beats:
+//   1. us_fcm resolves the per-char final fg from the row cmap.
+//   2. us_fill installs rumble (fg->ff9200 d10) + final (ff9200->fg d3).
+//   3. us_build draws edge+idx per char, removes the coord, installs.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+
+pub type UsS = struct {
+    w: World, jum: List[Int], chars: List[Int],
+    phase: Int, hold: Int, cur: Int, rmod: Int
+};
+pub type UsR = struct { s: UsS, emit: Int, pcs: List[PaintCell] };
+
+fn us_fcm(w: World, ids: List[Int], lcmap: List[Int], tb: Int) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let ch: Char = list_get(w.chars, list_get(ids, i));
+        out = list_push(out, list_get(lcmap, ch.row0 - tb));
+        i = i + 1;
+    }
+    return out;
+}
+
+fn us_fill(w: World, id: Int, ffg: Int) -> World {
+    let mut w2: World = w;
+    let ch: Char = list_get(w.chars, id);
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    let ug: List[Int] = gradient_new(list_push(list_push(list_new(), ffg), 16749056),
+        list_push(list_new(), 12), 0);
+    w2 = w_grad(w2, id, 0, list_push(list_new(), ch.sym), 10, ug, list_new());
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    let fg2: List[Int] = gradient_new(list_push(list_push(list_new(), 16749056), ffg),
+        list_push(list_new(), 12), 0);
+    w2 = w_grad(w2, id, 1, list_push(list_new(), ch.sym), 3, fg2, list_new());
+    w2 = w_aset(w2, id, 0);
+    let _r1 = w_set_vis(w2, id, 1);
+    return _r1;
+}
+
+pub fn us_build(w0: World, info: CanvasInfo) -> UsS {
+    let fstops: List[Int] = list_push(list_push(list_push(list_new(), 9044106), 53759), 16777215);
+    let spec: List[Int] = gradient_new(fstops, list_push(list_new(), 12), 0);
+    let lcmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    let ids: List[Int] = sort_ids(w0, collect_ids(w0, 1), info.cols, info.rows, 0);
+    let fcm: List[Int] = us_fcm(w0, ids, lcmap, info.tb);
+    let mut cco: List[Int] = list_new();
+    let mut w: World = w0;
+    let mut jum: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let ch: Char = list_get(w.chars, list_get(ids, i));
+        cco = list_push(list_push(cco, ch.col0), ch.row0);
+        jum = list_push(list_push(jum, 0), 0);
+        i = i + 1;
+    }
+    i = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        let ch: Char = list_get(w.chars, id);
+        let d1: DR = rng_int(w.rng, 0, 3);
+        let mut col: Int = info.left;
+        let mut row: Int = info.bottom;
+        let mut rr: Rng = d1.r;
+        if d1.v == 0 || d1.v == 1 {
+            if d1.v == 1 { col = info.right; }
+            let d2: DR = rng_int(rr, info.bottom, info.top);
+            row = d2.v;
+            rr = d2.r;
+        } else {
+            let d4: DR = rng_int(rr, info.left, info.right);
+            col = d4.v;
+            rr = d4.r;
+            if d1.v == 3 { row = info.top; }
+        }
+        let np: Int = list_len(cco) / 2;
+        let d6: DR = rng_int(rr, 0, np - 1);
+        w = w_rng(w, d6.r);
+        let jc: Int = list_get(cco, d6.v * 2);
+        let jr: Int = list_get(cco, d6.v * 2 + 1);
+        jum = list_set(list_set(jum, id * 2, jc), id * 2 + 1, jr);
+        let mut nco: List[Int] = list_new();
+        let mut j: Int = 0;
+        while j < list_len(cco) {
+            if j != d6.v * 2 && j != d6.v * 2 + 1 { nco = list_push(nco, list_get(cco, j)); }
+            j = j + 1;
+        }
+        cco = nco;
+        w = w_pos(w, id, jc, jr);
+        w = w_path(w, id, wp_cfg(1.75, 1, ez(17), 0 - 1, 0, 0), "explosion");
+        w = w_wp(w, id, 0, col, row, list_new());
+        w = w_path(w, id, wp_cfg(1.6, 1, ez(17), 0 - 1, 0, 0), "reassembly");
+        w = w_wp(w, id, 1, ch.col0, ch.row0, list_new());
+        w = us_fill(w, id, list_get(fcm, i));
+        i = i + 1;
+    }
+    let _r2 = UsS { w: w, jum: jum, chars: ids, phase: 0, hold: 30, cur: 0, rmod: 18 };
+    return _r2;
+}

@@ -9,7 +9,9 @@
 // input filter keeps fill == 0 cells, the fill pass walks row 1..rows,
 // col 1..cols skipping input-occupied coords.
 // Beats:
-//   1. w_input pushes input chars in cell order, then fill chars.
+//   1. w_input pushes input chars in cell order, then screen_lines pad
+//      blanks at (0,0) tagged fill=4 (upstream allocates ids for them but
+//      trims them out of every collection), then fill chars.
 //   2. fill_at tags inner vs outer against the art block bounds.
 
 import "tests/oo/kernel/world_ops.oo";
@@ -30,6 +32,22 @@ pub fn w_input(info: CanvasInfo, lines: List[String], rng: Rng) -> World {
         let g: CellGeom = list_get(cells, i);
         if g.fill == 0 { chars = list_push(chars, ch_in(g.sym, g.col, g.row, 0, 1)); }
         i = i + 1;
+    }
+    let mut maxw: Int = 0;
+    let mut li: Int = 0;
+    while li < list_len(lines) {
+        let lw: Int = chars_len(list_get(lines, li));
+        if lw > maxw { maxw = lw; }
+        li = li + 1;
+    }
+    li = 0;
+    while li < list_len(lines) {
+        let mut p: Int = chars_len(list_get(lines, li));
+        while p < maxw {
+            chars = list_push(chars, ch_in(32, 0, 0, 4, 1));
+            p = p + 1;
+        }
+        li = li + 1;
     }
     let mut row: Int = 1;
     while row <= info.rows {

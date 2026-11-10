@@ -1,0 +1,161 @@
+// # th_build — thunderstorm build(): pools, strike chars, text scenes
+//
+// Logline: Bit-exact build: preallocate 50 rain + 200 spark particles
+// (each rng.choice symbol draw in order), 200 available strike chars,
+// the vertical final-gradient text map, glow/fade/unfade/flash scenes
+// on every input char, and the reference-char SceneComplete("fade")
+// registration that fires CB_FADE_COMPLETE.
+// Setup: Pool chars spawn at coord (0,0) with fill=3; strike chars at
+// (1,1) with symbol "|". sgrad caches the spark glow gradient for the
+// initializer closure replayed on each new spark.
+// Beats:
+//   1. th_init_rain/th_init_spark are the pool initializers.
+//   2. th_pool_fill runs the preallocate loop with symbol draws.
+//   3. th_build assembles the full startup world state.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/scenes/thunderstorm/th_state.oo";
+import "tests/oo/scenes/thunderstorm/th_scenes.oo";
+
+fn th_init_rain(w: World, i: Int) -> World {
+    let w2: World = w_lay(w, i, 1);
+    let ch: Char = list_get(w2.chars, i);
+    let _r1 = w_appear(w2, i, ch.sym, 11184895, 0 - 1, 0);
+    return _r1;
+}
+
+fn th_init_spark(w: World, i: Int, sgrad: List[Int]) -> World {
+    let mut w2: World = w_lay(w, i, 2);
+    w2 = w_scene(w2, i, 0, 0, 1, ez(19), "glow");
+    let si: Int = find_id(list_get(w2.chars, i).sids, "glow");
+    let ch: Char = list_get(w2.chars, i);
+    let mut k: Int = 0;
+    while k < list_len(sgrad) {
+        w2 = w_frame(w2, i, si, ch.sym, 8, list_get(sgrad, k), 0 - 1, 0);
+        k = k + 1;
+    }
+    return w2;
+}
+
+fn th_pool_fill(s: ThS, n: Int, which: Int) -> ThS {
+    let mut syms: List[Int] = list_new();
+    let mut av: List[Int] = list_new();
+    let mut mx: Int = 0;
+    let mut cnt: Int = 0;
+    if which == 0 {
+        syms = s.rain.syms;
+        av = s.rain.avail;
+        cnt = s.rain.nparts;
+        mx = s.rain.max;
+    } else {
+        syms = s.spark.syms;
+        av = s.spark.avail;
+        cnt = s.spark.nparts;
+        mx = s.spark.max;
+    }
+    let mut w2: World = s.w;
+    let mut k: Int = 0;
+    while k < n {
+        let d: DR = rng_pick(w2.rng, list_len(syms));
+        w2 = w_rng(w2, d.r);
+        w2 = w_add_char(w2, list_get(syms, d.v), 0, 0);
+        let id: Int = list_len(w2.chars) - 1;
+        if which == 0 { w2 = th_init_rain(w2, id); }
+        else { w2 = th_init_spark(w2, id, s.sgrad); }
+        av = list_push(av, id);
+        cnt = cnt + 1;
+        k = k + 1;
+    }
+    let p2: ThPool = ThPool { syms: syms, avail: av, nparts: cnt, max: mx };
+    let mut s2: ThS = ThS { w: w2, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s, act_s: s.act_s,
+        glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
+        sstart: s.sstart, frames: s.frames };
+    if which == 0 {
+        s2 = ThS { w: w2, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+            rain: p2, spark: s.spark, pend: s.pend, avail_s: s.avail_s, act_s: s.act_s,
+            glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
+            sstart: s.sstart, frames: s.frames };
+    }
+    if which == 1 {
+        s2 = ThS { w: w2, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+            rain: s.rain, spark: p2, pend: s.pend, avail_s: s.avail_s, act_s: s.act_s,
+            glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
+            sstart: s.sstart, frames: s.frames };
+    }
+    return s2;
+}
+
+pub fn th_strikes_build(s: ThS, n: Int) -> ThS {
+    let mut w: World = s.w;
+    let mut av: List[Int] = s.avail_s;
+    let mut k: Int = 0;
+    while k < n {
+        w = w_add_char(w, 124, 1, 1);
+        av = list_push(av, list_len(w.chars) - 1);
+        k = k + 1;
+    }
+    let _r3 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: av, act_s: s.act_s,
+        glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
+        sstart: s.sstart, frames: s.frames };
+    return _r3;
+}
+
+fn th_text_scenes(w: World, ids: List[Int], cmap: List[Int], tb: Int) -> World {
+    let mut w2: World = w;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        let ch: Char = list_get(w2.chars, id);
+        w2 = th_char_scenes(w2, id, list_get(cmap, ch.row0 - tb));
+        i = i + 1;
+    }
+    return w2;
+}
+
+fn th_ref_event(w: World, ref_id: Int) -> World {
+    let _r4 = w_reg(w, ref_id, 2, 0, "fade",
+        EvAct { kind: 7, sid: "", num: 0, carg: 0 });
+    return _r4;
+}
+
+pub fn th_build(info: CanvasInfo, lines: List[String]) -> ThS {
+    let sgrad: List[Int] = gradient_new(
+        list_push(list_push(list_new(), 16731392), 0),
+        list_push(list_new(), 7), 0);
+    let mut s: ThS = ThS { w: w_input(info, lines, rng_seed(42)),
+        phase: 0, delay: 0, spdelay: 0,
+        rain: pool_new(list_push(list_push(list_push(list_new(), 92), 46), 44), 0 - 1),
+        spark: pool_new(list_push(list_push(list_push(list_new(), 42), 46), 39), 2000),
+        pend: list_new(), avail_s: list_new(), act_s: list_new(), glow_p: list_new(),
+        sgrad: sgrad, in_prog: 0, branch: 0.05, sstart: 0, frames: 0 };
+    s = th_pool_fill(s, 50, 0);
+    s = th_pool_fill(s, 200, 1);
+    s = th_strikes_build(s, 200);
+    let ids: List[Int] = sort_ids(s.w, collect_ids(s.w, 1), info.cols, info.rows, 0);
+    let spec: List[Int] = gradient_new(
+        list_push(list_push(list_push(list_new(), 9044106), 53759), 16777215),
+        list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
+    s = ThS { w: th_text_scenes(s.w, ids, cmap, info.tb), phase: s.phase,
+        delay: s.delay, spdelay: s.spdelay, rain: s.rain, spark: s.spark,
+        pend: s.pend, avail_s: s.avail_s, act_s: s.act_s, glow_p: s.glow_p,
+        sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
+        sstart: s.sstart, frames: s.frames };
+    let w2: World = th_ref_event(s.w, list_get(ids, 0));
+    let _r5 = ThS { w: w2, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
+        act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
+        branch: s.branch, sstart: s.sstart, frames: s.frames };
+    return _r5;
+}

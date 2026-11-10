@@ -1,0 +1,172 @@
+// # th_step — rain/spark emission, strike progression, callback drain
+//
+// Logline: Bit-exact ports of rain() (delay gate, spawn row top+1, fall
+// path to col+top+1/bottom-1), setup_sparks_for_impact (OutQuint bezier,
+// SceneComplete("glow") reclaim), step_lightning_strike (batch pop with
+// spdelay, final-char spark burst + flash activation), and the seven
+// dispatch_callback arms replayed from w.pend after eng_update.
+// Setup: Callbacks land in w.pend as (char, cbid, arg) triples during
+// update; the drain replays them in order then clears. Pool acquire pops
+// avail back; exhausted pools create via the same initializer draws.
+// Beats:
+//   1. th_rain/th_rain_emit mirror rain_pool.emit per spawn.
+//   2. th_spark_emit/th_spark_impact mirror spark emit + on_emit.
+//   3. th_strike_step mirrors step_lightning_strike batching.
+//   4. th_drain dispatches CB_* in pend order.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/gradient_spectrum.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/scenes/thunderstorm/th_state.oo";
+
+fn ths(s: ThS, w: World) -> ThS {
+    let _r0 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
+        act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
+        branch: s.branch, sstart: s.sstart, frames: s.frames };
+    return _r0;
+}
+
+fn th_rain_emit(s: ThS, oc: Int, orow: Int, info: CanvasInfo) -> ThS {
+    let p: ThPool = s.rain;
+    let mut s2: ThS = s;
+    let mut id: Int = 0 - 1;
+    if list_len(p.avail) > 0 {
+        id = list_get(p.avail, list_len(p.avail) - 1);
+        let p2: ThPool = ThPool { syms: p.syms,
+            avail: list_slice(p.avail, 0, list_len(p.avail) - 1), nparts: p.nparts, max: p.max };
+        s2 = ThS { w: w_put(s.w, id, th_reset_p(list_get(s.w.chars, id))),
+            phase: s.phase, delay: s.delay, spdelay: s.spdelay, rain: p2,
+            spark: s.spark, pend: s.pend, avail_s: s.avail_s, act_s: s.act_s,
+            glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
+            sstart: s.sstart, frames: s.frames };
+    } else {
+        let d: DR = rng_pick(s.w.rng, list_len(p.syms));
+        let mut w: World = w_add_char(w_rng(s.w, d.r), list_get(p.syms, d.v), 0, 0);
+        id = list_len(w.chars) - 1;
+        w = w_lay(w, id, 1);
+        let ch: Char = list_get(w.chars, id);
+        w = w_appear(w, id, ch.sym, 11184895, 0 - 1, 0);
+        w = w_put(w, id, th_reset_p(list_get(w.chars, id)));
+        s2 = ths(s, w);
+        s2 = ThS { w: s2.w, phase: s2.phase, delay: s2.delay, spdelay: s2.spdelay,
+            rain: ThPool { syms: p.syms, avail: p.avail, nparts: p.nparts + 1, max: p.max },
+            spark: s2.spark, pend: s2.pend, avail_s: s2.avail_s, act_s: s2.act_s,
+            glow_p: s2.glow_p, sgrad: s2.sgrad, in_prog: s2.in_prog, branch: s2.branch,
+            sstart: s2.sstart, frames: s2.frames };
+    }
+    let mut w: World = w_pos(s2.w, id, oc, orow);
+    let du: DRF = rng_unif(w.rng, 0.5, 1.5);
+    w = w_rng(w, du.r);
+    w = w_path(w, id, wp_cfg(du.v, 0, ez(0), 0 - 1, 0, 0), "");
+    let pi: Int = list_len(list_get(w.chars, id).pids) - 1;
+    w = w_wp(w, id, pi, oc + info.top + 1, info.bottom - 1, list_new());
+    let pid: String = list_get(list_get(w.chars, id).pids, pi);
+    w = w_reg(w, id, 1, 1, pid, EvAct { kind: 7, sid: "", num: 5, carg: 0 });
+    w = eng_act_path(w, id, pi);
+    w = w_set_vis(w, id, 1);
+    let _r1 = ths(s2, w_active_add(w, id));
+    return _r1;
+}
+
+pub fn th_rain(s: ThS, info: CanvasInfo) -> ThS {
+    if s.delay != 0 {
+        let _r2 = ThS { w: s.w, phase: s.phase, delay: s.delay - 1, spdelay: s.spdelay,
+            rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
+            act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
+            branch: s.branch, sstart: s.sstart, frames: s.frames };
+        return _r2;
+    }
+    let mut s2: ThS = s;
+    let dc: DR = rng_int(s2.w.rng, 1, 6);
+    s2 = ths(s2, w_rng(s2.w, dc.r));
+    let mut k: Int = 0;
+    while k < dc.v {
+        let dsp: DR = rng_int(s2.w.rng, 1 - info.top, info.right);
+        s2 = ths(s2, w_rng(s2.w, dsp.r));
+        s2 = th_rain_emit(s2, dsp.v - 1, info.top + 1, info);
+        k = k + 1;
+    }
+    let dd: DR = rng_int(s2.w.rng, 1, 7);
+    s2 = ths(s2, w_rng(s2.w, dd.r));
+    let _r3 = ThS { w: s2.w, phase: s2.phase, delay: dd.v, spdelay: s2.spdelay,
+        rain: s2.rain, spark: s2.spark, pend: s2.pend, avail_s: s2.avail_s,
+        act_s: s2.act_s, glow_p: s2.glow_p, sgrad: s2.sgrad, in_prog: s2.in_prog,
+        branch: s2.branch, sstart: s2.sstart, frames: s2.frames };
+    return _r3;
+}
+
+fn th_spark_impact(s: ThS, id: Int, info: CanvasInfo) -> ThS {
+    let ch: Char = list_get(s.w.chars, id);
+    let oc: Int = ch.cc;
+    let mut w: World = s.w;
+    let du: DRF = rng_unif(w.rng, 0.1, 0.25);
+    w = w_rng(w, du.r);
+    w = w_path(w, id, wp_cfg(du.v, 1, ez(14), 0 - 1, 30, 0), "");
+    let pi: Int = list_len(list_get(w.chars, id).pids) - 1;
+    let do_: DR = rng_int(w.rng, 4, 20);
+    w = w_rng(w, do_.r);
+    let dp: DR = rng_pick(w.rng, 2);
+    w = w_rng(w, dp.r);
+    let sgn: Int = if dp.v == 0 { 1 } else { 0 - 1 };
+    let tc: Int = oc + do_.v * sgn;
+    let bc: Int = oc - floor_div_i(oc - tc, 2);
+    let db: DR = rng_int(w.rng, 1, info.top);
+    w = w_rng(w, db.r);
+    w = w_wp(w, id, pi, tc, info.bottom,
+        list_push(list_push(list_new(), bc), db.v));
+    w = w_reg(w, id, 2, 0, "glow", EvAct { kind: 7, sid: "", num: 6, carg: 0 });
+    w = th_aset(w, id, "glow");
+    w = eng_act_path(w, id, pi);
+    let _r4 = ths(s, w);
+    return _r4;
+}
+
+pub fn th_spark_emit(s: ThS, oid: Int, info: CanvasInfo) -> ThS {
+    let p: ThPool = s.spark;
+    let mut s2: ThS = s;
+    let mut id: Int = 0 - 1;
+    if list_len(p.avail) > 0 {
+        id = list_get(p.avail, list_len(p.avail) - 1);
+        let p2: ThPool = ThPool { syms: p.syms,
+            avail: list_slice(p.avail, 0, list_len(p.avail) - 1), nparts: p.nparts, max: p.max };
+        s2 = ThS { w: w_put(s.w, id, th_reset_p(list_get(s.w.chars, id))),
+            phase: s.phase, delay: s.delay, spdelay: s.spdelay, rain: s.rain,
+            spark: p2, pend: s.pend, avail_s: s.avail_s, act_s: s.act_s,
+            glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
+            sstart: s.sstart, frames: s.frames };
+    } else {
+        if p.max >= 0 && p.nparts >= p.max { return s; }
+        let d: DR = rng_pick(s.w.rng, list_len(p.syms));
+        let mut w: World = w_add_char(w_rng(s.w, d.r), list_get(p.syms, d.v), 0, 0);
+        id = list_len(w.chars) - 1;
+        w = w_lay(w, id, 2);
+        w = w_scene(w, id, 0, 0, 1, ez(19), "glow");
+        let si: Int = find_id(list_get(w.chars, id).sids, "glow");
+        let mut k: Int = 0;
+        while k < list_len(s.sgrad) {
+            w = w_frame(w, id, si, list_get(w.chars, id).sym, 8, list_get(s.sgrad, k), 0 - 1, 0);
+            k = k + 1;
+        }
+        w = w_put(w, id, th_reset_p(list_get(w.chars, id)));
+        s2 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+            rain: s.rain, spark: ThPool { syms: p.syms, avail: p.avail,
+                nparts: p.nparts + 1, max: p.max },
+            pend: s.pend, avail_s: s.avail_s, act_s: s.act_s, glow_p: s.glow_p,
+            sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
+            sstart: s.sstart, frames: s.frames };
+    }
+    let och: Char = list_get(s2.w.chars, oid);
+    s2 = ths(s2, w_pos(s2.w, id, och.cc, och.cr));
+    s2 = th_spark_impact(s2, id, info);
+    let mut w: World = w_set_vis(s2.w, id, 1);
+    let _r5 = ths(s2, w_active_add(w, id));
+    return _r5;
+}

@@ -1,0 +1,192 @@
+// # th_strike — lightning strike construction: setup, scenes, activation
+//
+// Logline: Bit-exact port of setup_lightning_strike (recursive branching
+// down-column walk), get_next_strike_char (pop-back with scene/event
+// clear), and lightning_strike (flash/fade scenes, per-strike bezier
+// ease, and the four SceneComplete registrations per strike char).
+// Setup: Strike symbols: "\"=92, "/"=47, "|"=124. Neighbor branches keep
+// walking from the parent char's coord; the "/" and "\\" neighbor arms
+// are unreachable (input symbol is always "|"). s.branch is the shared
+// strike_branch_chance; every setup call resets it to 0.05 at the end.
+// Beats:
+//   1. th_next_strike mirrors the available pool pop with clear.
+//   2. th_setup_strike walks rows top->bottom drawing choice+random.
+//   3. th_strike_scenes wires flash/fade scenes and registrations.
+//   4. th_lightning orchestrates one strike: setup, gradients, scenes.
+
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/anim_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/color_ops.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/scenes/thunderstorm/th_state.oo";
+import "tests/oo/scenes/thunderstorm/th_build.oo";
+
+fn ths(s: ThS, w: World) -> ThS {
+    let _r0 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
+        act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
+        branch: s.branch, sstart: s.sstart, frames: s.frames };
+    return _r0;
+}
+
+fn ths_b(s: ThS, w: World, b: Float) -> ThS {
+    let _r0 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
+        act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
+        branch: b, sstart: s.sstart, frames: s.frames };
+    return _r0;
+}
+
+fn th_next_strike(s: ThS) -> ThS {
+    let mut s2: ThS = s;
+    if list_len(s2.avail_s) == 0 { s2 = th_strikes_build(s2, 20); }
+    let id: Int = list_get(s2.avail_s, list_len(s2.avail_s) - 1);
+    let av: List[Int] = list_slice(s2.avail_s, 0, list_len(s2.avail_s) - 1);
+    s2 = ThS { w: s2.w, phase: s2.phase, delay: s2.delay, spdelay: s2.spdelay,
+        rain: s2.rain, spark: s2.spark, pend: list_push(s2.pend, id),
+        avail_s: av, act_s: s2.act_s, glow_p: s2.glow_p, sgrad: s2.sgrad,
+        in_prog: s2.in_prog, branch: s2.branch, sstart: s2.sstart, frames: s2.frames };
+    let ch: Char = list_get(s2.w.chars, id);
+    let _r1 = ths(s2, w_put(s2.w, id, th_clear_ce(ch)));
+    return _r1;
+}
+
+fn th_strike_row(s: ThS, nb: Int, col: Int, row: Int) -> ThS {
+    let mut s2: ThS = s;
+    let mut c2: Int = col;
+    let mut sym: Int = 92;
+    if nb >= 0 {
+        let d: DR = rng_pick(s2.w.rng, 2);
+        s2 = ths(s2, w_rng(s2.w, d.r));
+        let delta: Int = if d.v == 0 { 0 - 1 } else { 1 };
+        c2 = c2 + delta;
+        if delta == 1 { sym = 92; }
+        else { sym = 47; }
+    } else {
+        let d2: DR = rng_pick(s2.w.rng, 3);
+        s2 = ths(s2, w_rng(s2.w, d2.r));
+        if d2.v == 1 { sym = 47; }
+        if d2.v == 2 { sym = 124; }
+    }
+    let id: Int = list_get(s2.pend, list_len(s2.pend) - 1);
+    let mut w: World = w_pos(s2.w, id, c2, row);
+    w = w_appear(w, id, sym, 6857704, 0 - 1, 0);
+    let _r2 = ths(s2, w);
+    return _r2;
+}
+
+pub fn th_setup_strike(s: ThS, nbr: Int, info: CanvasInfo) -> ThS {
+    let mut s2: ThS = s;
+    let mut col: Int = 0;
+    let mut row: Int = 0;
+    if nbr >= 0 {
+        let ch: Char = list_get(s2.w.chars, nbr);
+        col = ch.cc;
+        row = ch.cr;
+    } else {
+        let d: DR = rng_int(s2.w.rng, 1, info.right);
+        s2 = ths(s2, w_rng(s2.w, d.r));
+        col = d.v;
+        row = info.top;
+    }
+    let mut nb: Int = nbr;
+    while row >= info.bottom {
+        if list_len(s2.avail_s) == 0 { s2 = th_strikes_build(s2, 20); }
+        s2 = th_next_strike(s2);
+        let id: Int = list_get(s2.pend, list_len(s2.pend) - 1);
+        s2 = th_strike_row(s2, nb, col, row);
+        row = row - 1;
+        let em: Char = list_get(s2.w.chars, id);
+        col = em.cc;
+        if em.v_ord == 92 { col = col + 1; }
+        else { if em.v_ord == 47 { col = col - 1; } }
+        let d3: DRF = rng_random(s2.w.rng);
+        s2 = ths(s2, w_rng(s2.w, d3.r));
+        if d3.v < s2.branch && nb < 0 {
+            s2 = ths_b(s2, s2.w, s2.branch - 0.01);
+            s2 = th_setup_strike(s2, id, info);
+        }
+        nb = 0 - 1;
+    }
+    let _r3 = ths_b(s2, s2.w, 0.05);
+    return _r3;
+}
+
+fn th_strike_scenes(w: World, id: Int, fe: Ease, sg: List[Int], fg: List[Int]) -> World {
+    let sym: Int = list_get(w.chars, id).v_ord;
+    let mut w2: World = w_scene(w, id, 0, 0, 1, fe, "flash");
+    let fsi: Int = find_id(list_get(w2.chars, id).sids, "flash");
+    let mut k: Int = 0;
+    while k < list_len(sg) {
+        w2 = w_frame(w2, id, fsi, sym, 6, list_get(sg, k), 0 - 1, 0);
+        k = k + 1;
+    }
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "fade");
+    let dsi: Int = find_id(list_get(w2.chars, id).sids, "fade");
+    k = 0;
+    while k < list_len(fg) {
+        w2 = w_frame(w2, id, dsi, sym, 2, list_get(fg, k), 0 - 1, 0);
+        k = k + 1;
+    }
+    w2 = w_lay(w2, id, 1);
+    w2 = w_reg(w2, id, 2, 0, "flash", EvAct { kind: 1, sid: "fade", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 2, 0, "fade", EvAct { kind: 7, sid: "", num: 1, carg: 0 });
+    w2 = w_reg(w2, id, 2, 0, "fade", EvAct { kind: 7, sid: "", num: 2, carg: 0 });
+    let _r4 = w_reg(w2, id, 2, 0, "fade", EvAct { kind: 7, sid: "", num: 3, carg: 0 });
+    return _r4;
+}
+
+fn th_ease_flash(w: World, ids: List[Int], fe: Ease) -> World {
+    let mut w2: World = w;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        let ch: Char = list_get(w2.chars, id);
+        let sids: List[String] = ch.sids;
+        let si: Int = find_id(sids, "flash");
+        if si >= 0 {
+            let sc: Scene = list_get(ch.scenes, si);
+            w2 = w_put(w2, id, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0,
+                fill: ch.fill, uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer,
+                cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
+                v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+                a_scene: ch.a_scene, sids: ch.sids,
+                scenes: list_set(ch.scenes, si, Scene { loop_: sc.loop_, sync: sc.sync,
+                    ease_on: 1, ease: fe, af: sc.af, fr: sc.fr, pf: sc.pf,
+                    fim: sc.fim, ecs: sc.ecs }),
+                a_path: ch.a_path, done_path: ch.done_path, pids: ch.pids,
+                paths: ch.paths, evs: ch.evs });
+        }
+        i = i + 1;
+    }
+    return w2;
+}
+
+pub fn th_lightning(s: ThS, ids: List[Int], info: CanvasInfo) -> ThS {
+    let mut s2: ThS = th_setup_strike(s, 0 - 1, info);
+    let ffl: Int = adjust_brightness(6857704, 1.7);
+    let sg: List[Int] = gradient_new(
+        list_push(list_push(list_new(), 6857704), ffl),
+        list_push(list_new(), 7), 1);
+    let fg: List[Int] = gradient_new(
+        list_push(list_push(list_new(), 6857704), 0),
+        list_push(list_new(), 6), 0);
+    let d: DRF = rng_unif(s2.w.rng, 0.0 - 0.6, 0.4);
+    s2 = ths(s2, w_rng(s2.w, d.r));
+    let fe: Ease = ez_bezier(0.0, 1.6, 1.0, d.v);
+    let mut w: World = s2.w;
+    let mut i: Int = 0;
+    while i < list_len(s2.pend) {
+        w = th_strike_scenes(w, list_get(s2.pend, i), fe, sg, fg);
+        i = i + 1;
+    }
+    w = th_ease_flash(w, ids, fe);
+    let _r5 = ths(s2, w);
+    return _r5;
+}

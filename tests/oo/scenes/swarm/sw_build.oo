@@ -1,0 +1,254 @@
+// # sw_build — swarm world construction
+//
+// Logline: Bit-exact port of Swarm::build + setup_swarm_character:
+// BTT-RTL swarms of round_half_even(30%) size, per-swarm spawn coord one
+// cell past an edge, focus-chained swarm areas with the shuffled circle
+// cache quirk, per-char area/inner/input path chains, flash + landing
+// scenes, and all event wiring including chain_paths.
+// Setup: Non-dynamic probe only (ExistingColorHandling::Ignore): final fg
+// = horizontal cmap at input col; bg none. rng draw order mirrors Rust.
+// Beats:
+//   1. sw_make pops size-chunks off the BTT-RTL list; small tail merges.
+//   2. sw_setup wires flash scene, N area paths, 2N inner paths, input
+//      path, landing scene, and the full event/chain table.
+//   3. sw_build builds the circle cache + areas then installs each swarm.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/kernel/path_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/float_conv.oo";
+import "tests/oo/scenes/swarm/sw_geom.oo";
+
+pub type SwArea = struct { kc: Int, kr: Int, cs: List[Int] };
+pub type SwCirc = struct { kc: Int, kr: Int, cs: List[Int] };
+pub type SwB = struct { w: World, sac: List[SwArea], cache: List[SwCirc], nfc: Int, nfr: Int };
+pub type SwS = struct {
+    w: World, swarms: Groups, call_next: Int, asa: String, cur: List[Int]
+};
+
+fn sw_make(w: World, size: Int, info: CanvasInfo) -> Groups {
+    let unsw: List[Int] = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 1);
+    let mut g: Groups = Groups { keys: list_new(), bounds: list_new(), members: list_new() };
+    let mut i: Int = list_len(unsw) - 1;
+    while i >= 0 {
+        let mut cnt: Int = 0;
+        while cnt < size && i >= 0 {
+            g = Groups { keys: g.keys, bounds: g.bounds,
+                members: list_push(g.members, list_get(unsw, i)) };
+            cnt = cnt + 1;
+            i = i - 1;
+        }
+        g = Groups { keys: g.keys, bounds: list_push(g.bounds, cnt), members: g.members };
+    }
+    let nb: Int = list_len(g.bounds);
+    let lastn: Int = list_get(g.bounds, nb - 1);
+    if lastn < size / 2 && nb > 1 {
+        let b2: List[Int] = list_set(list_slice(g.bounds, 0, nb - 1), nb - 2,
+            list_get(g.bounds, nb - 2) + lastn);
+        g = Groups { keys: g.keys, bounds: b2, members: g.members };
+    }
+    return g;
+}
+
+fn sw_mirror(spec: List[Int]) -> List[Int] {
+    let mut out: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(spec) {
+        out = list_push(out, list_get(spec, i));
+        i = i + 1;
+    }
+    i = 0;
+    while i < 10 {
+        out = list_push(out, 15919737);
+        i = i + 1;
+    }
+    i = list_len(spec) - 1;
+    while i >= 0 {
+        out = list_push(out, list_get(spec, i));
+        i = i - 1;
+    }
+    return out;
+}
+
+fn sw_upsert(sac: List[SwArea], kc: Int, kr: Int, cs: List[Int]) -> List[SwArea] {
+    let mut i: Int = 0;
+    while i < list_len(sac) {
+        let a: SwArea = list_get(sac, i);
+        if a.kc == kc && a.kr == kr {
+            let _r1 = list_set(sac, i, SwArea { kc: kc, kr: kr, cs: cs });
+            return _r1;
+        }
+        i = i + 1;
+    }
+    let _r2 = list_push(sac, SwArea { kc: kc, kr: kr, cs: cs });
+    return _r2;
+}
+
+fn sw_cc(cache: List[SwCirc], fc: Int, fr: Int, sh: DRL) -> List[SwCirc] {
+    let mut i: Int = 0;
+    while i < list_len(cache) {
+        let e: SwCirc = list_get(cache, i);
+        if e.kc == fc && e.kr == fr {
+            let _r3 = list_set(cache, i, SwCirc { kc: fc, kr: fr, cs: sh.v });
+            return _r3;
+        }
+        i = i + 1;
+    }
+    return cache;
+}
+
+fn sw_area(w: World, info: CanvasInfo, fc: Int, fr: Int, sac: List[SwArea],
+    cache: List[SwCirc]) -> SwB {
+    let mut hit: Int = 0 - 1;
+    let mut circ: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(cache) {
+        let e: SwCirc = list_get(cache, i);
+        if e.kc == fc && e.kr == fr {
+            hit = i;
+            circ = e.cs;
+        }
+        i = i + 1;
+    }
+    let mut cache2: List[SwCirc] = cache;
+    if hit < 0 {
+        circ = sw_on_circle(fc, fr, 12);
+        cache2 = list_push(cache2, SwCirc { kc: fc, kr: fr, cs: circ });
+    }
+    let d: DRL = sw_shuf(w.rng, circ);
+    let w2: World = w_rng(w, d.r);
+    cache2 = sw_cc(cache2, fc, fr, d);
+    let mut nfc: Int = 0 - 1;
+    let mut nfr: Int = 0 - 1;
+    let mut j: Int = 0;
+    while j < list_len(d.v) {
+        if sw_in_canvas(info, list_get(d.v, j), list_get(d.v, j + 1)) == 1 && nfc < 0 {
+            nfc = list_get(d.v, j);
+            nfr = list_get(d.v, j + 1);
+        }
+        j = j + 2;
+    }
+    let mut w3: World = w2;
+    if nfc < 0 {
+        let rc: RC2 = sw_rcoord(w3.rng, info, 0);
+        w3 = w_rng(w3, rc.st);
+        nfc = rc.c;
+        nfr = rc.r;
+    }
+    let sac2: List[SwArea] = sw_upsert(sac, fc, fr, sw_in_circle(fc, fr, 8));
+    let _r4 = SwB { w: w3, sac: sac2, cache: cache2, nfc: nfc, nfr: nfr };
+    return _r4;
+}
+
+fn sw_setup(w: World, id: Int, sc: Int, sr: Int, mir: List[Int], sac: List[SwArea],
+    ffg: Int) -> World {
+    let mut w2: World = w_pos(w, id, sc, sr);
+    let ch: Char = list_get(w2.chars, id);
+    w2 = w_scene(w2, id, 0, 2, 0, ez(0), "");
+    let mut i: Int = 0;
+    while i < list_len(mir) {
+        w2 = w_frame(w2, id, 0, ch.sym, 1, list_get(mir, i), 0 - 1, 0);
+        i = i + 1;
+    }
+    let mut pi: Int = 0;
+    let mut k: Int = 0;
+    while k < list_len(sac) {
+        let a: SwArea = list_get(sac, k);
+        let an: String = k.to_string() + "_swarm_area";
+        let d1: DR = rng_pick(w2.rng, list_len(a.cs) / 2);
+        w2 = w_rng(w2, d1.r);
+        w2 = w_path(w2, id, wp_cfg(0.7, 1, ez(2), 0 - 1, 0, 0), an);
+        w2 = w_wp(w2, id, pi, list_get(a.cs, d1.v * 2), list_get(a.cs, d1.v * 2 + 1), list_new());
+        w2 = w_reg(w2, id, 0, 1, an, EvAct { kind: 1, sid: "0", num: 0, carg: 0 });
+        w2 = w_reg(w2, id, 0, 1, an, EvAct { kind: 5, sid: "", num: 1, carg: 0 });
+        w2 = w_reg(w2, id, 1, 1, an, EvAct { kind: 3, sid: "", num: 0, carg: 0 });
+        pi = pi + 1;
+        let mut j: Int = 0;
+        while j < 2 {
+            let d2: DR = rng_pick(w2.rng, list_len(a.cs) / 2);
+            w2 = w_rng(w2, d2.r);
+            w2 = w_path(w2, id, wp_cfg(0.4, 1, ez(3), 0 - 1, 0, 0), pi.to_string());
+            w2 = w_wp(w2, id, pi, list_get(a.cs, d2.v * 2), list_get(a.cs, d2.v * 2 + 1),
+                list_new());
+            pi = pi + 1;
+            j = j + 1;
+        }
+        k = k + 1;
+    }
+    w2 = w_path(w2, id, wp_cfg(0.85, 1, ez(6), 0 - 1, 0, 0), "");
+    w2 = w_wp(w2, id, pi, ch.col0, ch.row0, list_new());
+    let ipid: String = pi.to_string();
+    pi = pi + 1;
+    w2 = w_scene(w2, id, 0, 0, 0, ez(0), "");
+    let land: List[Int] = gradient_new(list_push(list_push(list_new(), 15919737), ffg),
+        list_push(list_new(), 10), 0);
+    w2 = w_grad(w2, id, 1, list_push(list_new(), ch.sym), 3, land, list_new());
+    w2 = w_reg(w2, id, 1, 1, ipid, EvAct { kind: 1, sid: "1", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 1, 1, ipid, EvAct { kind: 5, sid: "", num: 0, carg: 0 });
+    w2 = w_reg(w2, id, 0, 1, ipid, EvAct { kind: 1, sid: "0", num: 0, carg: 0 });
+    let c2: Char = list_get(w2.chars, id);
+    let mut k2: Int = 1;
+    while k2 < list_len(c2.pids) {
+        w2 = w_reg(w2, id, 1, 1, list_get(c2.pids, k2 - 1),
+            EvAct { kind: 0, sid: list_get(c2.pids, k2), num: 0, carg: 0 });
+        k2 = k2 + 1;
+    }
+    return w2;
+}
+
+pub fn sw_build(w0: World, info: CanvasInfo) -> SwS {
+    let ids: List[Int] = sort_ids(w0, collect_ids(w0, 1), info.cols, info.rows, 0);
+    let mut size: Int = round_he(int_to_f(list_len(ids)) * 0.3);
+    if size < 1 { size = 1; }
+    let swarms: Groups = sw_make(w0, size, info);
+    let fstops: List[Int] = list_push(list_push(list_new(), 3258624), 15794021);
+    let spec: List[Int] = gradient_new(fstops, list_push(list_new(), 12), 0);
+    let lcmap: List[Int] = cmap_h(spec, info.tl, info.tr);
+    let mut w: World = w0;
+    let mut cache: List[SwCirc] = list_new();
+    let mut si: Int = 0;
+    while si < list_len(swarms.bounds) {
+        let swarm: List[Int] = grp_win(swarms, si);
+        let d0: DR = rng_pick(w.rng, 1);
+        w = w_rng(w, d0.r);
+        let spec2: List[Int] = gradient_new(list_push(list_push(list_new(), 3252436), 15919737),
+            list_push(list_new(), 7), 0);
+        let mir: List[Int] = sw_mirror(spec2);
+        let mut sac: List[SwArea] = list_new();
+        let rc: RC2 = sw_rcoord(w.rng, info, 1);
+        w = w_rng(w, rc.st);
+        let sc: Int = rc.c;
+        let sr: Int = rc.r;
+        let d1: DR = rng_int(w.rng, 2, 4);
+        w = w_rng(w, d1.r);
+        let mut fc: Int = sc;
+        let mut fr: Int = sr;
+        let mut acnt: Int = 0;
+        while acnt < d1.v {
+            let b: SwB = sw_area(w, info, fc, fr, sac, cache);
+            w = b.w;
+            sac = b.sac;
+            cache = b.cache;
+            fc = b.nfc;
+            fr = b.nfr;
+            acnt = acnt + 1;
+        }
+        let mut mi: Int = 0;
+        while mi < list_len(swarm) {
+            let id: Int = list_get(swarm, mi);
+            let ch: Char = list_get(w.chars, id);
+            w = sw_setup(w, id, sc, sr, mir, sac, list_get(lcmap, ch.col0 - info.tl));
+            mi = mi + 1;
+        }
+        si = si + 1;
+    }
+    let _r5 = SwS { w: w, swarms: swarms, call_next: 1, asa: "0_swarm_area", cur: list_new() };
+    return _r5;
+}

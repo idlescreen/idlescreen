@@ -1,0 +1,119 @@
+// # scene_swarm — swarm step + run driver
+//
+// Logline: Bit-exact port of Swarm::step_scene: pop the tail swarm when
+// call_next, activate "0_swarm_area" on its members, detect the member
+// that landed on the next area and retarget the rest at 0.80
+// coordination, then ctx.update + emit.
+// Setup: swarms ride a Groups (pop = drop last bound); cur is the popped
+// member list in pop order. rng.random() draws happen only inside the
+// coordination retarget loop, in member order.
+// Beats:
+//   1. sw_pop pops the last swarm group and activates its members.
+//   2. sw_step runs the retarget scan + update + render.
+//   3. swarm_run loops until swarms and active are both empty.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/scenes/swarm/sw_geom.oo";
+import "tests/oo/scenes/swarm/sw_build.oo";
+import "tests/digest_run.oo";
+
+fn sw_pop(s: SwS) -> SwS {
+    let nb: Int = list_len(s.swarms.bounds);
+    let cur: List[Int] = grp_win(s.swarms, nb - 1);
+    let mut w: World = s.w;
+    let mut i: Int = 0;
+    while i < list_len(cur) {
+        let id: Int = list_get(cur, i);
+        w = eng_act_path(w, id, 0);
+        w = w_set_vis(w, id, 1);
+        w = w_active_add(w, id);
+        i = i + 1;
+    }
+    let mut off: Int = 0;
+    let mut j: Int = 0;
+    while j < nb - 1 {
+        off = off + list_get(s.swarms.bounds, j);
+        j = j + 1;
+    }
+    let g2: Groups = Groups { keys: s.swarms.keys,
+        bounds: list_slice(s.swarms.bounds, 0, nb - 1),
+        members: list_slice(s.swarms.members, 0, off) };
+    let _r1 = SwS { w: w, swarms: g2, call_next: 0, asa: "0_swarm_area", cur: cur };
+    return _r1;
+}
+
+fn sw_follow(w: World, cur: List[Int], aid: Int, nap: String) -> World {
+    let mut w2: World = w;
+    let mut j: Int = 0;
+    while j < list_len(cur) {
+        let oid: Int = list_get(cur, j);
+        if oid != aid {
+            let d: DRF = rng_random(w2.rng);
+            w2 = w_rng(w2, d.r);
+            if d.v < 0.8 {
+                let oc: Char = list_get(w2.chars, oid);
+                let pi: Int = find_id(oc.pids, nap);
+                if pi >= 0 { w2 = eng_act_path(w2, oid, pi); }
+            }
+        }
+        j = j + 1;
+    }
+    return w2;
+}
+
+fn sw_step(s: SwS, info: CanvasInfo) -> SwS {
+    let mut s2: SwS = s;
+    if list_len(s2.swarms.bounds) > 0 && s2.call_next == 1 {
+        s2 = sw_pop(s2);
+    }
+    let mut w: World = s2.w;
+    let mut asa: String = s2.asa;
+    let mut call_next: Int = s2.call_next;
+    if list_len(w.active) < list_len(s2.cur) { call_next = 1; }
+    if list_len(s2.cur) > 0 {
+        let mut nai: Int = 0 - 1;
+        let mut nap: String = "";
+        let mut i: Int = 0;
+        while i < list_len(s2.cur) {
+            let id: Int = list_get(s2.cur, i);
+            let ch: Char = list_get(w.chars, id);
+            if ch.a_path != 0 - 1 {
+                let pid: String = list_get(ch.pids, ch.a_path);
+                if nai < 0 && pid != asa && has_sub(pid, "swarm_area") == 1 &&
+                    fdigit(pid) > fdigit(asa) {
+                    nai = i;
+                    nap = pid;
+                }
+            }
+            i = i + 1;
+        }
+        if nai >= 0 {
+            asa = nap;
+            let aid: Int = list_get(s2.cur, nai);
+            w = sw_follow(w, s2.cur, aid, nap);
+        }
+    }
+    w = eng_update(w);
+    let _r2 = SwS { w: w, swarms: s2.swarms, call_next: call_next, asa: asa, cur: s2.cur };
+    return _r2;
+}
+
+pub fn swarm_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut s: SwS = sw_build(w_input(info, lines, rng_seed(42)), info);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(s.swarms.bounds) > 0 || list_len(s.w.active) > 0 {
+        s = sw_step(s, info);
+        let pcs: List[PaintCell] = eng_render(s.w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

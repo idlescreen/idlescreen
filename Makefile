@@ -42,7 +42,7 @@ ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_REA
 
 all: build verify test det parity
 
-PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel mystify expand wipe sweep slide middleout binarypath burn blackhole rain scattered pour slice colorshift highlight spray overflow bouncyballs decrypt fireworks spotlights errorcorrect crumble smoke breakout life pipes tetris
+PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel mystify expand wipe sweep slide middleout binarypath burn blackhole rain scattered pour slice colorshift highlight spray overflow bouncyballs decrypt fireworks spotlights errorcorrect crumble smoke breakout life pipes tetris waves swarm unstable thunderstorm
 
 parity:
 	@mkdir -p .ooda-cache bin
@@ -86,9 +86,6 @@ $(BIN): $(SRC)
 		exit 1; \
 	fi; \
 	$(MAKE) --no-print-directory ll-declares
-	@ll=$$(ls .ooda-cache/ooda-tmp/all_*.ll | head -n 1); \
-	test -n "$$ll" || { echo "FAIL: no emitted .ll under .ooda-cache/ooda-tmp"; exit 1; }; \
-	clang --no-default-config -Os -g0 -fno-ident -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -Wno-override-module -I$(OODAR_INCDIR) .ooda-cache/ooda-tmp/oodac_host_rt.c $$ll $(OODAR_LIBS) -Wl,-u,oo_blackbox_trap_cap -frandom-seed=0 -Wl,--build-id=none -Wl,--gc-sections -Wl,-z,noseparate-code -Wl,--strip-debug -lm -ldl -lpthread -o $(BIN)
 	@chmod +x $(BIN)
 	@echo "built $(BIN)"
 
@@ -98,14 +95,19 @@ $(BIN): $(SRC)
 # ("use of undefined value '@oo_unix_accept'") at the end of a long build.
 ll-declares:
 	@mkdir -p .ooda-cache
-	@ll=$$(ls -t .ooda-cache/ooda-tmp/all_*.ll 2>/dev/null | head -n 1); \
-	test -n "$$ll" || { echo "FAIL: no emitted .ll under .ooda-cache/ooda-tmp"; exit 1; }; \
-	grep -oE 'call [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*' | grep -v '^@llvm\.' | sort -u > .ooda-cache/ll_called.txt; \
-	{ grep -oE '^declare [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*'; \
-	  grep -oE '^define [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*'; } | sort -u > .ooda-cache/ll_declared.txt; \
-	comm -23 .ooda-cache/ll_called.txt .ooda-cache/ll_declared.txt > .ooda-cache/ll_undeclared.txt; \
-	if [ -s .ooda-cache/ll_undeclared.txt ]; then \
-		echo "FAIL: emitted LLVM calls symbols it never declares:"; sed 's/^/  /' .ooda-cache/ll_undeclared.txt; \
+	@lls=$$(ls .ooda-cache/ooda-tmp/*.ll 2>/dev/null); \
+	test -n "$$lls" || { echo "FAIL: no emitted .ll under .ooda-cache/ooda-tmp"; exit 1; }; \
+	fail=0; \
+	for ll in $$lls; do \
+		grep -oE 'call [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*' | grep -v '^@llvm\.' | sort -u > .ooda-cache/ll_called.txt; \
+		{ grep -oE '^declare [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*'; \
+		  grep -oE '^define [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*'; } | sort -u > .ooda-cache/ll_declared.txt; \
+		comm -23 .ooda-cache/ll_called.txt .ooda-cache/ll_declared.txt > .ooda-cache/ll_undeclared.txt; \
+		if [ -s .ooda-cache/ll_undeclared.txt ]; then \
+			echo "FAIL: $$ll calls symbols it never declares:"; sed 's/^/  /' .ooda-cache/ll_undeclared.txt; fail=1; \
+		fi; \
+	done; \
+	if [ $$fail -ne 0 ]; then \
 		echo "      the toolchain compiler is stale — rebuild openOODA-core/oodac bin/oodac from master source"; \
 		exit 1; \
 	fi; \

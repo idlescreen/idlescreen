@@ -14,7 +14,7 @@ import "tests/oo/scenes/wave/scene_plasma.oo";
 import "tests/oo/scenes/wave/scene_ripple.oo";
 import "tests/oo/scenes/wave/scene_moire.oo";
 import "tests/oo/scenes/wave/scene_tunnel.oo";
-import "tests/oo/scenes/veil/scene_aurora.oo";
+import "ascii/scenes/veil/aurora.oo";
 import "tests/oo/scenes/veil/scene_chaos.oo";
 import "tests/oo/scenes/orbit/scene_metaballs.oo";
 import "tests/oo/scenes/deep/scene_radar.oo";
@@ -44,10 +44,19 @@ import "tests/oo/scenes/errorcorrect/scene_errorcorrect.oo";
 import "tests/oo/scenes/crumble/scene_crumble.oo";
 import "tests/oo/scenes/smoke/scene_smoke.oo";
 import "tests/oo/scenes/randomsequence/scene_randomsequence.oo";
+import "tests/oo/scenes/orbittingvolley/scene_orbittingvolley.oo";
+import "tests/oo/scenes/bubbles/scene_bubbles.oo";
+import "tests/oo/scenes/beams/scene_beams.oo";
+import "tests/oo/scenes/laseretch/scene_laseretch.oo";
+import "tests/oo/scenes/print/scene_print.oo";
 import "tests/oo/scenes/breakout/scene_breakout.oo";
 import "tests/oo/scenes/life/scene_life.oo";
 import "tests/oo/scenes/pipes/scene_pipes.oo";
 import "tests/oo/scenes/tetris/scene_tetris.oo";
+import "tests/oo/scenes/waves/scene_waves.oo";
+import "tests/oo/scenes/swarm/scene_swarm.oo";
+import "tests/oo/scenes/unstable/scene_unstable.oo";
+import "tests/oo/scenes/thunderstorm/scene_thunderstorm.oo";
 import "port_render.oo";
 import "port_compose.oo";
 
@@ -78,7 +87,9 @@ pub fn port_has(name: String) -> Bool {
     if name == "tunnel" || name == "mystify" || name == "expand" || name == "wipe" { return true; }
     if name == "sweep" || name == "slide" || name == "middleout" || name == "binarypath" { return true; }
     if name == "crumble" || name == "smoke" { return true; }
-    if name == "randomsequence" || name == "breakout" || name == "life" || name == "pipes" || name == "tetris" { return true; }
+    if name == "randomsequence" || name == "breakout" || name == "life" || name == "pipes" || name == "tetris" || name == "waves" { return true; }
+    if name == "swarm" || name == "unstable" || name == "thunderstorm" { return true; }
+    if name == "orbittingvolley" || name == "bubbles" || name == "beams" || name == "laseretch" || name == "print" { return true; }
     return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" ||
         name == "pour" || name == "slice" || name == "colorshift" || name == "highlight" ||
         name == "spray" || name == "overflow" || name == "bouncyballs" || name == "decrypt" ||
@@ -110,10 +121,19 @@ fn port_run_all(name: String, cells: List[CellGeom], info: CanvasInfo, lines: Li
     if name == "crumble" { return crumble_run(cells, info, lines); }
     if name == "smoke" { return smoke_run(cells, info, lines); }
     if name == "randomsequence" { return randomsequence_run(cells, info, lines); }
+    if name == "orbittingvolley" { return orbittingvolley_run(cells, info, lines); }
+    if name == "bubbles" { return bubbles_run(cells, info, lines); }
+    if name == "beams" { return beams_run(cells, info, lines); }
+    if name == "laseretch" { return laseretch_run(cells, info, lines); }
+    if name == "print" { return print_run(cells, info, lines); }
     if name == "breakout" { return breakout_run(cells, info); }
     if name == "life" { return life_run(cells, info); }
     if name == "pipes" { return pipes_run(cells, info); }
     if name == "tetris" { return tetris_run(cells, info); }
+    if name == "waves" { return waves_run(cells, info, lines); }
+    if name == "swarm" { return swarm_run(cells, info, lines); }
+    if name == "unstable" { return unstable_run(cells, info, lines); }
+    if name == "thunderstorm" { return thunderstorm_run(cells, info, lines); }
     return digest_run_new();
 }
 

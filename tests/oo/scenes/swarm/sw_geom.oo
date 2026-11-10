@@ -1,0 +1,135 @@
+// # sw_geom — swarm circle geometry and coord draws
+//
+// Logline: Bit-exact ports of ttfx geometry::find_coords_on_circle /
+// find_coords_in_circle (the x-doubling quirk included), Canvas::random_coord
+// in both modes, pair-list Fisher-Yates shuffle, and pid scan helpers.
+// Setup: Coords ride as flat List[Int] pairs (c,r). rng draw order mirrors
+// the Rust call sites exactly.
+// Beats:
+//   1. sw_on_circle: limit = round_half_even(2*pi*r), ellipse x += x - h.
+//   2. sw_in_circle: column-major ellipse, trunc'd y offsets.
+//   3. sw_rcoord: outside-scope (edge+1 pick) and in-scope draws.
+//   4. sw_shuf/has_sub/fdigit for cache shuffle and path-id tests.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/float_conv.oo";
+
+pub type RC2 = struct { c: Int, r: Int, st: Rng };
+
+fn sw_in_pairs(cs: List[Int], c: Int, r: Int) -> Int {
+    let mut i: Int = 0;
+    while i < list_len(cs) {
+        if list_get(cs, i) == c && list_get(cs, i + 1) == r { return 1; }
+        i = i + 2;
+    }
+    return 0;
+}
+
+pub fn sw_on_circle(h: Int, k: Int, rad: Int) -> List[Int] {
+    let pi: Float = 3.141592653589793;
+    let lim: Int = round_he(2.0 * pi * int_to_f(rad));
+    let step: Float = 2.0 * pi / int_to_f(lim);
+    let mut out: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < lim {
+        let a: Float = step * int_to_f(i);
+        let mut x: Float = int_to_f(h) + int_to_f(rad) * cos(a);
+        x = x + (x - int_to_f(h));
+        let y: Float = int_to_f(k) + int_to_f(rad) * sin(a);
+        if sw_in_pairs(out, round_he(x), round_he(y)) == 0 {
+            out = list_push(list_push(out, round_he(x)), round_he(y));
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn sw_in_circle(h: Int, k: Int, d: Int) -> List[Int] {
+    let a2: Float = int_to_f(d) * int_to_f(d);
+    let h2: Float = int_to_f(d) / 2.0;
+    let b2: Float = h2 * h2;
+    let mut out: List[Int] = list_new();
+    let mut x: Int = h - d;
+    while x <= h + d {
+        let xd: Float = int_to_f(x - h);
+        let myo: Int = trunc_i(pow(b2 * (1.0 - xd * xd / a2), 0.5));
+        let mut y: Int = k - myo;
+        while y <= k + myo {
+            out = list_push(list_push(out, x), y);
+            y = y + 1;
+        }
+        x = x + 1;
+    }
+    return out;
+}
+
+pub fn sw_shuf(r: Rng, cs: List[Int]) -> DRL {
+    let mut st: Rng = r;
+    let mut out: List[Int] = cs;
+    let mut i: Int = list_len(out) / 2 - 1;
+    while i >= 1 {
+        let d: DR = rng_below(st, i + 1);
+        st = d.r;
+        let tc: Int = list_get(out, i * 2);
+        let tr: Int = list_get(out, i * 2 + 1);
+        out = list_set(list_set(out, i * 2, list_get(out, d.v * 2)),
+            i * 2 + 1, list_get(out, d.v * 2 + 1));
+        out = list_set(list_set(out, d.v * 2, tc), d.v * 2 + 1, tr);
+        i = i - 1;
+    }
+    let _r1 = DRL { v: out, r: st };
+    return _r1;
+}
+
+pub fn sw_rcoord(r: Rng, info: CanvasInfo, os: Int) -> RC2 {
+    if os == 1 {
+        let d1: DR = rng_int(r, info.left, info.right);
+        let d2: DR = rng_int(d1.r, info.left, info.right);
+        let d3: DR = rng_int(d2.r, info.bottom, info.top);
+        let d4: DR = rng_int(d3.r, info.bottom, info.top);
+        let d5: DR = rng_pick(d4.r, 4);
+        if d5.v == 0 { let _r2 = RC2 { c: d1.v, r: info.top + 1, st: d5.r };
+        return _r2; }
+        if d5.v == 1 { let _r3 = RC2 { c: d2.v, r: info.bottom - 1, st: d5.r };
+        return _r3; }
+        if d5.v == 2 { let _r4 = RC2 { c: info.left - 1, r: d3.v, st: d5.r };
+        return _r4; }
+        let _r5 = RC2 { c: info.right + 1, r: d4.v, st: d5.r };
+        return _r5;
+    }
+    let d6: DR = rng_int(r, info.left, info.right);
+    let d7: DR = rng_int(d6.r, info.bottom, info.top);
+    let _r6 = RC2 { c: d6.v, r: d7.v, st: d7.r };
+    return _r6;
+}
+
+pub fn sw_in_canvas(info: CanvasInfo, c: Int, r: Int) -> Int {
+    if info.left <= c && c <= info.right && info.bottom <= r && r <= info.top { return 1; }
+    return 0;
+}
+
+pub fn has_sub(s: String, sub: String) -> Int {
+    let n: Int = chars_len(s);
+    let m: Int = chars_len(sub);
+    let mut i: Int = 0;
+    while i + m <= n {
+        let mut j: Int = 0;
+        let mut hit: Int = 1;
+        while j < m {
+            if char_at(s, i + j) != char_at(sub, j) { hit = 0; }
+            j = j + 1;
+        }
+        if hit == 1 { return 1; }
+        i = i + 1;
+    }
+    return 0;
+}
+
+pub fn fdigit(s: String) -> Int {
+    if chars_len(s) == 0 { return 0; }
+    let o: Int = ord(char_at(s, 0));
+    if 48 <= o && o <= 57 { return o - 48; }
+    return 0;
+}
