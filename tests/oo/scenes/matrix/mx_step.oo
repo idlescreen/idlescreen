@@ -1,0 +1,230 @@
+// # mx_step — matrix next_frame: column activation, phase machine, resolve
+// Logline: One frame of the Matrix effect — feeds pending columns in, ticks
+//   the actives, recycles empties, and walks Rain -> Fill -> Resolve.
+// Setup: RNG draws mirror matrix_build.rs order; the rain deadline is
+//   wall-clock frames/60 > rain_time (emit count > 120 at 60 fps).
+// Beats: mx_has, mx_cols_tick, mx_rainfill, mx_resolve, mx_phase_step.
+import "tests/oo/scenes/matrix/mx_tick.oo";
+import "tests/oo/scenes/matrix/mx_geom.oo";
+import "tests/oo/scenes/matrix/mx_setup.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+
+
+
+pub type MxS = struct {
+    w: World, cols: List[MxCol], pend: List[Int], act: List[Int], full: List[Int],
+    phase: Int, cd: Int, rd: Int, done: Int, shown: Int, emitted: Int
+};
+
+pub type MxF = struct {
+    w: World, cols: List[MxCol], pend: List[Int], act: List[Int], full: List[Int]
+};
+
+pub fn mx_has(xs: List[Int], v: Int) -> Int {
+    let mut i: Int = 0;
+    while i < list_len(xs) {
+        if list_get(xs, i) == v { return 1; }
+        i = i + 1;
+    }
+    return 0;
+}
+
+pub fn mx_cols_tick(w: World, cols: List[MxCol], act: List[Int], pend_in: List[Int],
+        full: List[Int], phase: Int, syms: List[Int], rc: List[Int]) -> MxF {
+    let mut w2: World = w;
+    let mut cs: List[MxCol] = cols;
+    let mut pd: List[Int] = pend_in;
+    let mut fl: List[Int] = full;
+    let mut i: Int = 0;
+    while i < list_len(act) {
+        let ci: Int = list_get(act, i);
+        let t: MxT = mx_tick_col(w2, list_get(cs, ci), syms, rc);
+        w2 = t.w;
+        let mut col: MxCol = t.c;
+        if list_len(col.pend) == 0 {
+            if col.phase == 1 && mx_has(fl, ci) == 0 {
+                fl = list_push(fl, ci);
+            } else if list_len(col.vis) == 0 {
+                let ph: Int = if phase == 0 { 0 } else { 1 };
+                let t2: MxT = mx_setup_col(w2, col, ph);
+                w2 = t2.w;
+                col = t2.c;
+                pd = list_push(pd, ci);
+            }
+        }
+        cs = list_set(cs, ci, col);
+        i = i + 1;
+    }
+    let mut nact: List[Int] = list_new();
+    let mut j: Int = 0;
+    while j < list_len(act) {
+        let ci2: Int = list_get(act, j);
+        if list_len(list_get(cs, ci2).vis) > 0 { nact = list_push(nact, ci2); }
+        j = j + 1;
+    }
+    let _r1 = MxF { w: w2, cols: cs, pend: pd, act: nact, full: fl };
+    return _r1;
+}
+
+pub fn mx_drain(s: MxS) -> MxS {
+    let mut w: World = s.w;
+    let mut pend: List[Int] = s.pend;
+    let mut act: List[Int] = s.act;
+    let mut cd: Int = s.cd;
+    if cd == 0 {
+        if s.phase == 0 {
+            let d: DR = rng_int(w.rng, 1, 3);
+            w = w_rng(w, d.r);
+            let mut k: Int = 0;
+            while k < d.v && list_len(pend) > 0 {
+                let pn: Int = list_len(pend);
+                act = list_push(act, list_get(pend, 0));
+                pend = list_slice(pend, 1, pn);
+                k = k + 1;
+            }
+            let d2: DR = rng_int(w.rng, 1, 2);
+            w = w_rng(w, d2.r);
+            cd = d2.v;
+        } else {
+            while list_len(pend) > 0 {
+                let pn2: Int = list_len(pend);
+                act = list_push(act, list_get(pend, 0));
+                pend = list_slice(pend, 1, pn2);
+            }
+            cd = 1;
+        }
+    } else {
+        cd = cd - 1;
+    }
+    let _r0 = MxS { w: w, cols: s.cols, pend: pend, act: act, full: s.full,
+        phase: s.phase, cd: cd, rd: s.rd, done: s.done, shown: s.shown, emitted: s.emitted };
+    return _r0;
+}
+
+pub fn mx_rainfill(s0: MxS, syms: List[Int], rc: List[Int]) -> MxS {
+    let sd: MxS = mx_drain(s0);
+    let mut w: World = sd.w;
+    let mut pend: List[Int] = sd.pend;
+    let mut act: List[Int] = sd.act;
+    let cd: Int = sd.cd;
+    let mut phase: Int = sd.phase;
+    let mut done: Int = sd.done;
+    let f: MxF = mx_cols_tick(w, sd.cols, act, pend, sd.full, phase, syms, rc);
+    let mut cols: List[MxCol] = f.cols;
+    let mut full: List[Int] = f.full;
+    act = f.act;
+    pend = f.pend;
+    w = f.w;
+    if phase == 1 && list_len(pend) == 0 {
+        let mut allf: Int = 1;
+        let mut i: Int = 0;
+        while i < list_len(act) {
+            let c: MxCol = list_get(cols, list_get(act, i));
+            if list_len(c.pend) > 0 || c.phase != 1 { allf = 0; }
+            i = i + 1;
+        }
+        if allf == 1 {
+            phase = 2;
+            act = list_new();
+        }
+    }
+    if phase == 0 && done == 0 && sd.emitted > 120 {
+        done = 1;
+        phase = 1;
+        let mut i2: Int = 0;
+        while i2 < list_len(act) {
+            let ci: Int = list_get(act, i2);
+            let c2: MxCol = list_get(cols, ci);
+            cols = list_set(cols, ci, MxCol { chars: c2.chars, pend: c2.pend, vis: c2.vis,
+                phase: c2.phase, drop: 1, bd: c2.bd, ad: c2.ad, len: c2.len, hold: 0 });
+            i2 = i2 + 1;
+        }
+        let mut i3: Int = 0;
+        while i3 < list_len(pend) {
+            let ci3: Int = list_get(pend, i3);
+            let t3: MxT = mx_setup_col(w, list_get(cols, ci3), 1);
+            w = t3.w;
+            cols = list_set(cols, ci3, t3.c);
+            i3 = i3 + 1;
+        }
+    }
+    let _r2 = MxS { w: w, cols: cols, pend: pend, act: act, full: full,
+        phase: phase, cd: cd, rd: sd.rd, done: done, shown: sd.shown, emitted: sd.emitted };
+    return _r2;
+}
+
+pub fn mx_evict(w0: World, c0: MxCol, n: Int) -> MxT {
+    let mut w: World = w0;
+    let mut col: MxCol = c0;
+    let mut k: Int = 0;
+    while k < n && list_len(col.vis) > 0 {
+        let d2: DR = rng_int(w.rng, 0, list_len(col.vis) - 1);
+        w = w_rng(w, d2.r);
+        let nid: Int = list_get(col.vis, d2.v);
+        let mut nv: List[Int] = list_new();
+        let mut m: Int = 0;
+        while m < list_len(col.vis) {
+            if m != d2.v { nv = list_push(nv, list_get(col.vis, m)); }
+            m = m + 1;
+        }
+        col = MxCol { chars: col.chars, pend: col.pend, vis: nv,
+            phase: col.phase, drop: col.drop, bd: col.bd, ad: col.ad,
+            len: col.len, hold: col.hold };
+        let ch: Char = list_get(w.chars, nid);
+        if ch.sym != 32 {
+            w = w_aset(w, nid, find_id(ch.sids, "resolve"));
+            w = w_active_add(w, nid);
+        } else {
+            w = w_set_vis(w, nid, 0);
+        }
+        k = k + 1;
+    }
+    let _r6 = MxT { w: w, c: col };
+    return _r6;
+}
+
+pub fn mx_resolve(s: MxS, syms: List[Int], rc: List[Int]) -> MxS {
+    let mut w: World = s.w;
+    let mut cols: List[MxCol] = s.cols;
+    let mut rd: Int = s.rd;
+    let mut i: Int = 0;
+    while i < list_len(s.full) {
+        let ci: Int = list_get(s.full, i);
+        let t: MxT = mx_tick_col(w, list_get(cols, ci), syms, rc);
+        w = t.w;
+        let mut col: MxCol = t.c;
+        if list_len(col.vis) > 0 {
+            if rd == 0 {
+                let d: DR = rng_int(w.rng, 1, 4);
+                w = w_rng(w, d.r);
+                let t2: MxT = mx_evict(w, col, d.v);
+                w = t2.w;
+                col = t2.c;
+                rd = 1;
+            } else {
+                rd = rd - 1;
+            }
+        }
+        cols = list_set(cols, ci, col);
+        i = i + 1;
+    }
+    let mut nfl: List[Int] = list_new();
+    let mut j: Int = 0;
+    while j < list_len(s.full) {
+        let ci2: Int = list_get(s.full, j);
+        if list_len(list_get(cols, ci2).vis) > 0 { nfl = list_push(nfl, ci2); }
+        j = j + 1;
+    }
+    let _r3 = MxS { w: w, cols: cols, pend: s.pend, act: s.act, full: nfl,
+        phase: s.phase, cd: s.cd, rd: rd, done: s.done, shown: s.shown, emitted: s.emitted };
+    return _r3;
+}
+
+pub fn mx_phase_step(s: MxS, syms: List[Int], rc: List[Int]) -> MxS {
+    if s.phase == 2 { let _r4 = mx_resolve(s, syms, rc);
+        return _r4; }
+    let _r5 = mx_rainfill(s, syms, rc);
+    return _r5;
+}

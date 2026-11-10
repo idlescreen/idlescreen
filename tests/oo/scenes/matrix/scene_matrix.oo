@@ -1,0 +1,84 @@
+// # scene_matrix — Matrix build_scene + the frame loop driving next_frame
+// Logline: Builds per-char resolve scenes and rain columns, shuffles the
+//   pending order, then steps Rain -> Fill -> Resolve to bit parity.
+// Setup: 80x24 probe, seed 42, art block canvas; clock = emitted frames / 60.
+// Beats: mx_scenes resolve-scene build, matrix_run emit loop.
+import "tests/oo/scenes/matrix/mx_step.oo";
+import "tests/oo/scenes/matrix/mx_setup.oo";
+import "tests/oo/scenes/matrix/mx_geom.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/digest_run.oo";
+
+
+
+pub fn mx_scenes(w: World, cmap: List[Int], info: CanvasInfo) -> World {
+    let ids: List[Int] = collect_ids(w, 1);
+    let tw: Int = info.tr - info.tl + 1;
+    let mut w2: World = w;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        let ch: Char = list_get(w2.chars, id);
+        let ffg: Int = list_get(cmap, (ch.row0 - info.tb) * tw + (ch.col0 - info.tl));
+        let rspec: List[Int] = gradient_new(
+            list_push(list_push(list_new(), 14417883), ffg), list_push(list_new(), 8), 0);
+        w2 = w_scene(w2, id, 0, 0, 0, ez(0), "resolve");
+        let si: Int = find_id(list_get(w2.chars, id).sids, "resolve");
+        let mut c: Int = 0;
+        while c < list_len(rspec) {
+            w2 = w_frame(w2, id, si, ch.sym, 1, list_get(rspec, c), 0 - 1, 0);
+            c = c + 1;
+        }
+        i = i + 1;
+    }
+    return w2;
+}
+
+pub fn matrix_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = w_input(info, lines, rng_seed(42));
+    let _ = cells;
+    let syms: List[Int] = mx_rsyms();
+    let rc: List[Int] = mx_rcol();
+    let cmap: List[Int] = mx_fmap(mx_fspec(), info);
+    w = mx_scenes(w, cmap, info);
+    let l: MxL = mx_cols(w, info);
+    w = l.w;
+    let mut pend: List[Int] = list_new();
+    let mut ci: Int = 0;
+    while ci < list_len(l.ls) {
+        pend = list_push(pend, ci);
+        ci = ci + 1;
+    }
+    let sh: DRL = rng_shuf(w.rng, pend);
+    w = w_rng(w, sh.r);
+    let mut s: MxS = MxS { w: w, cols: l.ls, pend: sh.v, act: list_new(), full: list_new(),
+        phase: 0, cd: 0, rd: 1, done: 0, shown: 0, emitted: 0 };
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        s = mx_phase_step(s, syms, rc);
+        let mut more: Int = 0;
+        if list_len(s.full) > 0 || list_len(s.act) > 0 || list_len(s.w.active) > 0 ||
+            list_len(s.pend) > 0 || s.done == 0 { more = 1; }
+        let mut shown: Int = s.shown;
+        if more == 0 {
+            if shown == 1 { break; }
+            shown = 1;
+        }
+        let w3: World = eng_update(s.w);
+        s = MxS { w: w3, cols: s.cols, pend: s.pend, act: s.act, full: s.full,
+            phase: s.phase, cd: s.cd, rd: s.rd, done: s.done, shown: shown,
+            emitted: s.emitted + 1 };
+        let pcs: List[PaintCell] = eng_render(s.w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

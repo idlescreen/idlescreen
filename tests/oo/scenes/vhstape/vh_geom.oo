@@ -1,0 +1,69 @@
+// # vh_geom — vhstape state record, palettes, and path field setters
+// Logline: VhS effect state plus the Path record surgery line ops perform
+//   before activation.
+// Setup: Lines are rows bottom-to-top over input chars; wave/glitch lists
+//   hold row indices; wave_top = -1 is upstream None.
+// Beats: VhS, vh_lcols/vh_wcols/vh_ncols/vh_snow palettes, vh_pset,
+//   vh_pspeed, vh_phold.
+import "tests/oo/kernel/world_ops.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engine/gradient_map.oo";
+
+
+
+pub type VhS = struct {
+    w: World, g: Groups, top: Int, wave: List[Int], gl: List[Int],
+    steps: Int, phase: Int, redraw: List[Int], redrawing: Int
+};
+
+pub fn vh_lcols() -> List[Int] {
+    let _r1 = list_push(list_push(list_push(list_push(list_push(list_new(),
+        16777215), 16711680), 65280), 255), 16777215);
+    return _r1;
+}
+
+pub fn vh_ncols() -> List[Int] {
+    let _r2 = list_push(list_push(list_push(list_push(list_push(list_push(list_new(),
+        1973791), 3947325), 7171184), 10658214), 13355471), 16777215);
+    return _r2;
+}
+
+pub fn vh_snch() -> List[Int] {
+    let _r3 = list_push(list_push(list_push(list_push(list_new(), 35), 42), 46), 58);
+    return _r3;
+}
+
+pub fn vh_fspec() -> List[Int] {
+    let st: List[Int] = list_push(list_push(list_push(list_new(), 11225343), 15184562), 16776893);
+    let _r4 = gradient_new(st, list_push(list_new(), 12), 0);
+    return _r4;
+}
+
+pub fn vh_path(w: World, i: Int, pi: Int, hold: Int, speed: Float, speed_on: Int) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let p: Path = list_get(ch.paths, pi);
+    let sp: Float = if speed_on == 1 { speed } else { p.speed };
+    let p2: Path = Path { speed: sp, ease_on: p.ease_on, ease: p.ease,
+        layer: p.layer, hold: hold, loop_: p.loop_, segs: p.segs, wps: p.wps,
+        total: p.total, cur: p.cur, msteps: p.msteps, hrem: p.hrem,
+        ldist: p.ldist, oc: p.oc, orow: p.orow, has_org: p.has_org };
+    let _r5 = w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr,
+        pc: ch.pc, pr: ch.pr, v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg,
+        v_bold: ch.v_bold, a_scene: ch.a_scene, sids: ch.sids, scenes: ch.scenes,
+        a_path: ch.a_path, done_path: ch.done_path, pids: ch.pids,
+        paths: list_set(ch.paths, pi, p2), evs: ch.evs });
+    return _r5;
+}
+
+pub fn vh_phold(w: World, i: Int, pi: Int, hold: Int) -> World {
+    let _r6 = vh_path(w, i, pi, hold, 0.0, 0);
+    return _r6;
+}
+
+pub fn vh_pspeed(w: World, i: Int, pi: Int, speed: Float) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let hold: Int = list_get(ch.paths, pi).hold;
+    let _r7 = vh_path(w, i, pi, hold, speed, 1);
+    return _r7;
+}

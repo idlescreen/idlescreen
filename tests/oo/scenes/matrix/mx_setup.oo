@@ -1,0 +1,77 @@
+// # mx_setup — RainColumn.setup_column: refill pending, roll pace and length
+// Logline: Resets a column's pending queue, rolls its fall delay and rain
+//   length, and hides every member.
+// Setup: Called from RainColumn::new (phase Rain) and when an emptied column
+//   is recycled; Fill divides the fall delay range by three.
+// Beats: mx_setup_col reimplements setup_column in upstream draw order.
+import "tests/oo/scenes/matrix/mx_geom.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+
+
+
+pub fn mx_setup_col(w: World, c: MxCol, phase: Int) -> MxT {
+    let mut w2: World = w;
+    let mut pend: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(c.chars) {
+        let id: Int = list_get(c.chars, i);
+        w2 = w_set_vis(w2, id, 0);
+        pend = list_push(pend, id);
+        let ch: Char = list_get(w2.chars, id);
+        w2 = w_pos(w2, id, ch.col0, ch.row0);
+        i = i + 1;
+    }
+    let n: Int = list_len(c.chars);
+    let mut lo: Int = 1;
+    let mut hi: Int = 3;
+    if phase == 1 {
+        lo = 1 / 3;
+        hi = 3 / 3;
+        if lo < 1 { lo = 1; }
+        if hi < 1 { hi = 1; }
+    }
+    let d1: DR = rng_int(w2.rng, lo, hi);
+    w2 = w_rng(w2, d1.r);
+    let mut len: Int = n;
+    if phase == 0 {
+        let mut llo: Int = n / 10;
+        if llo < 1 { llo = 1; }
+        let d2: DR = rng_int(d1.r, llo, n);
+        w2 = w_rng(w2, d2.r);
+        len = d2.v;
+    }
+    let mut hold: Int = 0;
+    if len == n {
+        let d3: DR = rng_int(w2.rng, 20, 45);
+        w2 = w_rng(w2, d3.r);
+        hold = d3.v;
+    }
+    let _r1 = MxT { w: w2, c: MxCol { chars: c.chars, pend: pend, vis: list_new(),
+        phase: phase, drop: c.drop, bd: d1.v, ad: 0, len: len, hold: hold } };
+    return _r1;
+}
+
+pub fn mx_cols(w: World, info: CanvasInfo) -> MxL {
+    let g: Groups = groups_of(w, collect_ids(w, 7), 0, 0, 0, 0);
+    let mut w2: World = w;
+    let mut cols: List[MxCol] = list_new();
+    let mut gi: Int = 0;
+    while gi < list_len(g.keys) {
+        let mem: List[Int] = grp_win(g, gi);
+        let mut rev: List[Int] = list_new();
+        let mut i: Int = list_len(mem) - 1;
+        while i >= 0 {
+            rev = list_push(rev, list_get(mem, i));
+            i = i - 1;
+        }
+        let t: MxT = mx_setup_col(w2, mx_col_new(rev), 0);
+        w2 = t.w;
+        cols = list_push(cols, t.c);
+        gi = gi + 1;
+    }
+    let _r2 = MxL { w: w2, ls: cols };
+    return _r2;
+}

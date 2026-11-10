@@ -58,6 +58,8 @@ import "tests/oo/scenes/swarm/scene_swarm.oo";
 import "tests/oo/scenes/unstable/scene_unstable.oo";
 import "tests/oo/scenes/thunderstorm/scene_thunderstorm.oo";
 import "tests/oo/scenes/synthgrid/scene_synthgrid.oo";
+import "tests/oo/scenes/matrix/scene_matrix.oo";
+import "tests/oo/scenes/vhstape/scene_vhstape.oo";
 pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> Result[DigestRun, String] {
     if name == "plasma" { return Ok(plasma_run(cells, info)); }
     if name == "ripple" { return Ok(ripple_run(cells, info)); }
@@ -100,6 +102,8 @@ pub fn dispatch_scene(name: String, cells: List[CellGeom], info: CanvasInfo, lin
     if name == "print" { return Ok(print_run(cells, info, lines)); }
     if name == "rings" { return Ok(rings_run(cells, info, lines)); }
     if name == "synthgrid" { return Ok(synthgrid_run(cells, info, lines)); }
+    if name == "matrix" { return Ok(matrix_run(cells, info, lines)); }
+    if name == "vhstape" { return Ok(vhstape_run(cells, info, lines)); }
     if name == "breakout" { return Ok(breakout_run(cells, info)); }
     if name == "life" { return Ok(life_run(cells, info)); }
     if name == "pipes" { return Ok(pipes_run(cells, info)); }

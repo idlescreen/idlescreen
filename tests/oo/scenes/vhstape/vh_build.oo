@@ -1,0 +1,114 @@
+// # vh_build — Line.build_line_effects: paths, glitch scenes, snow, events
+// Logline: Per char, lays the four named paths, six scenes (base, rgb fwd/
+//   bwd, snow, final_snow, final_redraw), and the six event hooks.
+// Setup: Per-line draws (offset, direction, hold) precede per-char snow
+//   draws (25x2 then 30x2) exactly as upstream.
+// Beats: vh_paths, vh_rgb, vh_frames, vh_evts, vh_char, vh_line.
+import "tests/oo/scenes/vhstape/vh_geom.oo";
+import "tests/oo/kernel/engine_ops.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engine/easing_fns.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/canvas_cells.oo";
+
+
+
+pub fn vh_paths(w: World, i: Int, off: Int, dir: Int, hold: Int) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let mut w2: World = w_path(w, i, wp_cfg(2.0, 0, ez(0), 0 - 1, hold, 0), "glitch");
+    w2 = w_wp(w2, i, find_id(list_get(w2.chars, i).pids, "glitch"),
+        ch.col0 + off * dir, ch.row0, list_new());
+    w2 = w_path(w2, i, wp_cfg(2.0, 0, ez(0), 0 - 1, 0, 0), "restore");
+    w2 = w_wp(w2, i, find_id(list_get(w2.chars, i).pids, "restore"), ch.col0, ch.row0, list_new());
+    w2 = w_path(w2, i, wp_cfg(2.0, 0, ez(0), 0 - 1, 0, 0), "glitch_wave_mid");
+    w2 = w_wp(w2, i, find_id(list_get(w2.chars, i).pids, "glitch_wave_mid"),
+        ch.col0 + 8, ch.row0, list_new());
+    w2 = w_path(w2, i, wp_cfg(2.0, 0, ez(0), 0 - 1, 0, 0), "glitch_wave_end");
+    w2 = w_wp(w2, i, find_id(list_get(w2.chars, i).pids, "glitch_wave_end"),
+        ch.col0 + 14, ch.row0, list_new());
+    return w2;
+}
+
+pub fn vh_rgb(w: World, i: Int, fg: Int, cols: List[Int]) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let mut w2: World = w_scene(w, i, 0, 0, 0, ez(0), "base");
+    w2 = w_frame(w2, i, find_id(list_get(w2.chars, i).sids, "base"), ch.sym, 1, fg, 0 - 1, 0);
+    w2 = w_scene(w2, i, 0, 1, 0, ez(0), "rgb_glitch_fwd");
+    let fi: Int = find_id(list_get(w2.chars, i).sids, "rgb_glitch_fwd");
+    let mut k: Int = 0;
+    while k < 5 {
+        w2 = w_frame(w2, i, fi, ch.sym, 1, list_get(cols, k), 0 - 1, 0);
+        k = k + 1;
+    }
+    w2 = w_scene(w2, i, 0, 1, 0, ez(0), "rgb_glitch_bwd");
+    let bi: Int = find_id(list_get(w2.chars, i).sids, "rgb_glitch_bwd");
+    let mut k2: Int = 4;
+    while k2 >= 0 {
+        w2 = w_frame(w2, i, bi, ch.sym, 1, list_get(cols, k2), 0 - 1, 0);
+        k2 = k2 - 1;
+    }
+    return w2;
+}
+
+pub fn vh_frames(w: World, i: Int, fg: Int, fg2: Int, sn: List[Int], nc: List[Int]) -> World {
+    let ch: Char = list_get(w.chars, i);
+    let mut w2: World = w_scene(w, i, 0, 0, 0, ez(0), "snow");
+    let si: Int = find_id(list_get(w2.chars, i).sids, "snow");
+    let mut st: Rng = w2.rng;
+    let mut k: Int = 0;
+    while k < 25 {
+        let d1: DR = rng_pick(st, 4);
+        let d2: DR = rng_pick(d1.r, 6);
+        st = d2.r;
+        w2 = w_frame(w2, i, si, list_get(sn, d1.v), 2, list_get(nc, d2.v), 0 - 1, 0);
+        k = k + 1;
+    }
+    w2 = w_frame(w2, i, si, ch.sym, 1, fg, 0 - 1, 0);
+    w2 = w_scene(w2, i, 0, 0, 0, ez(0), "final_snow");
+    w2 = w_scene(w2, i, 0, 0, 0, ez(0), "final_redraw");
+    let ri: Int = find_id(list_get(w2.chars, i).sids, "final_redraw");
+    w2 = w_frame(w2, i, ri, 9608, 6, 16777215, 0 - 1, 0);
+    w2 = w_frame(w2, i, ri, ch.sym, 1, fg2, 0 - 1, 0);
+    let fi: Int = find_id(list_get(w2.chars, i).sids, "final_snow");
+    let mut k2: Int = 0;
+    while k2 < 30 {
+        let d3: DR = rng_pick(st, 4);
+        let d4: DR = rng_pick(d3.r, 6);
+        st = d4.r;
+        w2 = w_frame(w2, i, fi, list_get(sn, d3.v), 2, list_get(nc, d4.v), 0 - 1, 0);
+        k2 = k2 + 1;
+    }
+    let _r1 = w_rng(w2, st);
+    return _r1;
+}
+
+pub fn vh_evts(w: World, i: Int) -> World {
+    let mut w2: World = w_reg(w, i, 1, 1, "glitch", EvAct { kind: 0, sid: "restore", num: 0, carg: 0 });
+    w2 = w_reg(w2, i, 0, 1, "glitch", EvAct { kind: 1, sid: "rgb_glitch_fwd", num: 0, carg: 0 });
+    w2 = w_reg(w2, i, 0, 1, "restore", EvAct { kind: 1, sid: "rgb_glitch_bwd", num: 0, carg: 0 });
+    w2 = w_reg(w2, i, 0, 1, "glitch_wave_mid", EvAct { kind: 1, sid: "rgb_glitch_fwd", num: 0, carg: 0 });
+    w2 = w_reg(w2, i, 0, 1, "glitch_wave_end", EvAct { kind: 1, sid: "rgb_glitch_fwd", num: 0, carg: 0 });
+    let _r2 = w_reg(w2, i, 2, 0, "rgb_glitch_bwd", EvAct { kind: 1, sid: "base", num: 0, carg: 0 });
+    return _r2;
+}
+
+pub fn vh_line(w: World, ids: List[Int], cmap: List[Int], info: CanvasInfo) -> World {
+    let d1: DR = rng_int(w.rng, 4, 25);
+    let d2: DR = rng_pick(d1.r, 2);
+    let dir: Int = if d2.v == 0 { 0 - 1 } else { 1 };
+    let d3: DR = rng_int(d2.r, 1, 50);
+    let mut w2: World = w_rng(w, d3.r);
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        let ch: Char = list_get(w2.chars, id);
+        let fg: Int = list_get(cmap, ch.row0 - info.tb);
+        w2 = vh_paths(w2, id, d1.v, dir, d3.v);
+        w2 = vh_rgb(w2, id, fg, vh_lcols());
+        w2 = vh_frames(w2, id, fg, fg, vh_snch(), vh_ncols());
+        w2 = vh_evts(w2, id);
+        i = i + 1;
+    }
+    return w2;
+}

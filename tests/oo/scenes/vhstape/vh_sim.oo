@@ -1,0 +1,112 @@
+// # vh_sim — Line ops: snow, hold, glitch, restore, movement checks, wave
+// Logline: Line-level helpers plus the glitch_wave state machine that slides
+//   a three-row band across the canvas.
+// Setup: Draw order mirrors vhstape_sim.rs — speed rolls happen per char
+//   before the path activates; the wave's two floats only roll when a wave
+//   is live.
+// Beats: vh_line_act, vh_snow, vh_hold, vh_glitch, vh_restore, vh_mdone,
+//   vh_insert, vh_wave.
+import "tests/oo/scenes/vhstape/vh_geom.oo";
+import "tests/oo/kernel/engine_core.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+
+
+
+pub fn vh_line_act(w: World, ids: List[Int], pid: String) -> World {
+    let mut w2: World = w;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        w2 = eng_act_path(w2, id, find_id(list_get(w2.chars, id).pids, pid));
+        i = i + 1;
+    }
+    return w2;
+}
+
+pub fn vh_snow(w: World, ids: List[Int]) -> World {
+    let mut w2: World = w;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        w2 = w_aset(w2, id, find_id(list_get(w2.chars, id).sids, "snow"));
+        i = i + 1;
+    }
+    return w2;
+}
+
+pub fn vh_hold(w: World, ids: List[Int], hold: Int) -> World {
+    let mut w2: World = w;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        let pi: Int = find_id(list_get(w2.chars, id).pids, "glitch");
+        if pi >= 0 { w2 = vh_phold(w2, id, pi, hold); }
+        i = i + 1;
+    }
+    return w2;
+}
+
+pub fn vh_glitch(w: World, ids: List[Int], fin: Int) -> World {
+    let mut w2: World = w;
+    let mut st: Rng = w.rng;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        let ch: Char = list_get(w2.chars, id);
+        if fin == 1 {
+            let gp: Int = find_id(ch.pids, "glitch");
+            if gp >= 0 { w2 = vh_phold(w2, id, gp, 0); }
+            let rp: Int = find_id(ch.pids, "restore");
+            if rp >= 0 { w2 = vh_phold(w2, id, rp, 0); }
+        }
+        let d1: DR = rng_int(st, 20, 40);
+        let d2: DR = rng_int(d1.r, 20, 40);
+        st = d2.r;
+        let gp2: Int = find_id(ch.pids, "glitch");
+        if gp2 >= 0 { w2 = vh_pspeed(w2, id, gp2, 40.0 / int_to_f(d1.v)); }
+        let rp2: Int = find_id(ch.pids, "restore");
+        if rp2 >= 0 { w2 = vh_pspeed(w2, id, rp2, 40.0 / int_to_f(d2.v)); }
+        w2 = eng_act_path(w2, id, find_id(list_get(w2.chars, id).pids, "glitch"));
+        i = i + 1;
+    }
+    let _r1 = w_rng(w2, st);
+    return _r1;
+}
+
+pub fn vh_restore(w: World, ids: List[Int]) -> World {
+    let mut w2: World = w;
+    let mut st: Rng = w.rng;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        let d: DR = rng_int(st, 20, 40);
+        st = d.r;
+        let rp: Int = find_id(list_get(w2.chars, id).pids, "restore");
+        if rp >= 0 { w2 = vh_pspeed(w2, id, rp, 40.0 / int_to_f(d.v)); }
+        w2 = eng_act_path(w2, id, find_id(list_get(w2.chars, id).pids, "restore"));
+        i = i + 1;
+    }
+    let _r2 = w_rng(w2, st);
+    return _r2;
+}
+
+pub fn vh_mdone(w: World, ids: List[Int]) -> Int {
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        if list_get(w.chars, list_get(ids, i)).a_path != 0 - 1 { return 0; }
+        i = i + 1;
+    }
+    return 1;
+}
+
+pub fn vh_insert(w: World, ids: List[Int]) -> World {
+    let mut w2: World = w;
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        w2 = w_active_add(w2, list_get(ids, i));
+        i = i + 1;
+    }
+    return w2;
+}

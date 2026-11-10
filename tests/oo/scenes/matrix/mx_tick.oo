@@ -1,0 +1,153 @@
+// # mx_tick — RainColumn.tick: spawn, hold, drop, trim, and symbol swap
+// Logline: One column step: pop a pending char with the highlight, age the
+//   head off, drop or trim the tail, then roll per-char symbol/color swaps.
+// Setup: RNG draws follow matrix_step.rs exactly — every visible char draws
+//   two floats per tick whether or not they swap.
+// Beats: mx_fade, mx_trim, mx_drop, mx_swap, mx_tick_col.
+import "tests/oo/scenes/matrix/mx_geom.oo";
+import "tests/oo/engapi/char_ops.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/engine/rng_helpers.oo";
+import "tests/oo/engine/color_ops.oo";
+
+
+
+pub fn mx_fade(w: World, c: MxCol, rc: List[Int]) -> MxT {
+    let d: DR = rng_pick(w.rng, 3);
+    let tail0: Int = list_get(rc, list_len(rc) - 3 + d.v);
+    let darker: Int = adjust_brightness(tail0, 0.65);
+    let target: Int = list_get(c.vis, 0);
+    let cur: Int = list_get(w.chars, target).v_ord;
+    let w2: World = w_appear(w_rng(w, d.r), target, cur, darker, 0 - 1, 0);
+    let _r1 = MxT { w: w2, c: c };
+    return _r1;
+}
+
+pub fn mx_trim(w: World, c: MxCol, rc: List[Int]) -> MxT {
+    if list_len(c.vis) == 0 {
+        let _r2 = MxT { w: w, c: c };
+        return _r2;
+    }
+    let popped: Int = list_get(c.vis, 0);
+    let w2: World = w_set_vis(w, popped, 0);
+    let nv: List[Int] = list_slice(c.vis, 1, list_len(c.vis));
+    let c2: MxCol = MxCol { chars: c.chars, pend: c.pend, vis: nv,
+        phase: c.phase, drop: c.drop, bd: c.bd, ad: c.ad, len: c.len, hold: c.hold };
+    if list_len(nv) > 1 {
+        let _r3 = mx_fade(w2, c2, rc);
+        return _r3;
+    }
+    let _r4 = MxT { w: w2, c: c2 };
+    return _r4;
+}
+
+pub fn mx_drop(w: World, c: MxCol) -> MxT {
+    let mut w2: World = w;
+    let mut keep: List[Int] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(c.vis) {
+        let id: Int = list_get(c.vis, i);
+        let ch: Char = list_get(w2.chars, id);
+        w2 = w_pos(w2, id, ch.cc, ch.cr - 1);
+        if ch.cr - 1 < 1 {
+            w2 = w_set_vis(w2, id, 0);
+        } else {
+            keep = list_push(keep, id);
+        }
+        i = i + 1;
+    }
+    let _r5 = MxT { w: w2, c: MxCol { chars: c.chars, pend: c.pend, vis: keep,
+        phase: c.phase, drop: c.drop, bd: c.bd, ad: c.ad, len: c.len, hold: c.hold } };
+    return _r5;
+}
+
+pub fn mx_swap(w: World, id: Int, syms: List[Int], rc: List[Int]) -> World {
+    let mut st: Rng = w.rng;
+    let f1: DRF = rng_random(st);
+    st = f1.r;
+    let mut ns: Int = 0 - 1;
+    if f1.v < 0.02 {
+        let d: DR = rng_pick(st, 50);
+        st = d.r;
+        ns = list_get(syms, d.v);
+    }
+    let f2: DRF = rng_random(st);
+    st = f2.r;
+    let mut nc: Int = 0 - 1;
+    if f2.v < 0.008 {
+        let d: DR = rng_pick(st, list_len(rc));
+        st = d.r;
+        nc = list_get(rc, d.v);
+    }
+    let w2: World = w_rng(w, st);
+    if ns == 0 - 1 && nc == 0 - 1 { return w2; }
+    let ch: Char = list_get(w2.chars, id);
+    if (ns == 0 - 1 || ns == ch.v_ord) && (nc == 0 - 1 || nc == ch.v_fg) { return w2; }
+    let fg: Int = if nc == 0 - 1 { ch.v_fg } else { nc };
+    let ord: Int = if ns == 0 - 1 { ch.v_ord } else { ns };
+    let _r6 = w_appear(w2, id, ord, fg, 0 - 1, 0);
+    return _r6;
+}
+
+pub fn mx_tick_col(w: World, c: MxCol, syms: List[Int], rc: List[Int]) -> MxT {
+    let mut w2: World = w;
+    let mut c2: MxCol = c;
+    if c.ad == 0 {
+        if list_len(c.pend) > 0 {
+            let next: Int = list_get(c.pend, 0);
+            let pnn: Int = list_len(c.pend);
+            c2 = MxCol { chars: c.chars, pend: list_slice(c.pend, 1, pnn),
+                vis: c.vis, phase: c.phase, drop: c.drop, bd: c.bd, ad: c.ad, len: c.len, hold: c.hold };
+            let d: DR = rng_pick(w2.rng, 50);
+            w2 = w_appear(w_rng(w2, d.r), next, list_get(syms, d.v), 14417883, 0 - 1, 0);
+            if list_len(c2.vis) > 0 {
+                let prev: Int = list_get(c2.vis, list_len(c2.vis) - 1);
+                let d2: DR = rng_pick(w2.rng, list_len(rc));
+                w2 = w_appear(w_rng(w2, d2.r), prev, list_get(w2.chars, prev).v_ord,
+                    list_get(rc, d2.v), 0 - 1, 0);
+            }
+            w2 = w_set_vis(w2, next, 1);
+            c2 = MxCol { chars: c2.chars, pend: c2.pend, vis: list_push(c2.vis, next),
+                phase: c2.phase, drop: c2.drop, bd: c2.bd, ad: c2.ad, len: c2.len, hold: c2.hold };
+        } else if list_len(c.vis) > 0 {
+            let last: Int = list_get(c.vis, list_len(c.vis) - 1);
+            if list_get(w2.chars, last).v_fg == 14417883 {
+                let d3: DR = rng_pick(w2.rng, list_len(rc));
+                w2 = w_appear(w_rng(w2, d3.r), last, list_get(w2.chars, last).v_ord,
+                    list_get(rc, d3.v), 0 - 1, 0);
+            }
+            if c.hold != 0 {
+                c2 = MxCol { chars: c.chars, pend: c.pend, vis: c.vis,
+                    phase: c.phase, drop: c.drop, bd: c.bd, ad: c.ad, len: c.len, hold: c.hold - 1 };
+            } else if c.phase == 0 {
+                let f: DRF = rng_random(w2.rng);
+                w2 = w_rng(w2, f.r);
+                if f.v < 0.08 && c.drop == 0 || c.drop == 1 {
+                    let t: MxT = mx_drop(w2, c);
+                    w2 = t.w;
+                    c2 = t.c;
+                }
+                let t2: MxT = mx_trim(w2, c2, rc);
+                w2 = t2.w;
+                c2 = t2.c;
+            }
+        }
+        if list_len(c2.vis) > c2.len {
+            let t3: MxT = mx_trim(w2, c2, rc);
+            w2 = t3.w;
+            c2 = t3.c;
+        }
+        c2 = MxCol { chars: c2.chars, pend: c2.pend, vis: c2.vis,
+            phase: c2.phase, drop: c2.drop, bd: c2.bd, ad: c2.bd, len: c2.len, hold: c2.hold };
+    } else {
+        c2 = MxCol { chars: c.chars, pend: c.pend, vis: c.vis,
+            phase: c.phase, drop: c.drop, bd: c.bd, ad: c.ad - 1, len: c.len, hold: c.hold };
+    }
+    let mut i: Int = 0;
+    while i < list_len(c2.vis) {
+        w2 = mx_swap(w2, list_get(c2.vis, i), syms, rc);
+        i = i + 1;
+    }
+    let _r7 = MxT { w: w2, c: c2 };
+    return _r7;
+}

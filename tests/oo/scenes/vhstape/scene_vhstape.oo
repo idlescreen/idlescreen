@@ -1,0 +1,99 @@
+// # scene_vhstape — VHS tape build + the frame loop driving next_frame
+// Logline: Groups input chars into rows, builds all line effects, shows the
+//   base scene, then steps Glitching -> Noise -> Redraw -> Complete.
+// Setup: 80x24 probe, seed 42; the loop ends when Complete drains actives.
+// Beats: vh_late phases 1-3, vhstape_run emit loop.
+
+import "tests/oo/scenes/vhstape/vh_step.oo";
+import "tests/oo/scenes/vhstape/vh_build.oo";
+import "tests/oo/scenes/vhstape/vh_geom.oo";
+import "tests/oo/kernel/engine_tick.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/char_groups.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engine/gradient_map.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/canvas_cells.oo";
+import "tests/digest_run.oo";
+
+pub fn vh_late(s: VhS, ids: List[Int]) -> VhS {
+    let mut w2: World = s.w;
+    let mut phase: Int = s.phase;
+    let mut redrawing: Int = s.redrawing;
+    let mut redraw2: List[Int] = s.redraw;
+    if s.phase == 1 {
+        if list_len(w2.active) == 0 {
+            let mut j: Int = 0;
+            while j < list_len(ids) {
+                let id2: Int = list_get(ids, j);
+                w2 = w_aset(w2, id2, find_id(list_get(w2.chars, id2).sids, "final_snow"));
+                w2 = w_active_add(w2, id2);
+                j = j + 1;
+            }
+            phase = 2;
+        }
+    } else if s.phase == 2 {
+        if redrawing == 1 || list_len(w2.active) == 0 {
+            redrawing = 1;
+            if list_len(redraw2) > 0 {
+                let nl: Int = list_get(redraw2, list_len(redraw2) - 1);
+                redraw2 = list_slice(redraw2, 0, list_len(redraw2) - 1);
+                let cs: List[Int] = grp_win(s.g, nl);
+                let mut k: Int = 0;
+                while k < list_len(cs) {
+                    let id3: Int = list_get(cs, k);
+                    w2 = w_aset(w2, id3, find_id(list_get(w2.chars, id3).sids, "final_redraw"));
+                    w2 = w_active_add(w2, id3);
+                    k = k + 1;
+                }
+            } else {
+                phase = 3;
+            }
+        }
+    }
+    let _r1 = VhS { w: w2, g: s.g, top: s.top, wave: s.wave, gl: s.gl,
+        steps: s.steps, phase: phase, redraw: redraw2, redrawing: redrawing };
+    return _r1;
+}
+
+pub fn vhstape_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut w: World = w_input(info, lines, rng_seed(42));
+    let _ = cells;
+    let cmap: List[Int] = cmap_v(vh_fspec(), info.tb, info.tt);
+    let g: Groups = groups_of(w, collect_ids(w, 1), 1, 0, 0, 0);
+    let mut gi: Int = 0;
+    while gi < list_len(g.keys) {
+        w = vh_line(w, grp_win(g, gi), cmap, info);
+        gi = gi + 1;
+    }
+    let ids: List[Int] = collect_ids(w, 1);
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        w = w_set_vis(w, id, 1);
+        w = w_aset(w, id, find_id(list_get(w.chars, id).sids, "base"));
+        i = i + 1;
+    }
+    let mut redraw: List[Int] = list_new();
+    let mut r: Int = 0;
+    while r < list_len(g.keys) {
+        redraw = list_push(redraw, r);
+        r = r + 1;
+    }
+    let mut s: VhS = VhS { w: w, g: g, top: 0 - 1, wave: list_new(), gl: list_new(),
+        steps: 0, phase: 0, redraw: redraw, redrawing: 0 };
+    let mut run: DigestRun = digest_run_new();
+    while true {
+        if s.phase == 3 && list_len(s.w.active) == 0 { break; }
+        if s.phase == 0 {
+            s = vh_glitching(s, info);
+        } else {
+            s = vh_late(s, ids);
+        }
+        s = VhS { w: eng_update(s.w), g: s.g, top: s.top, wave: s.wave, gl: s.gl,
+            steps: s.steps, phase: s.phase, redraw: s.redraw, redrawing: s.redrawing };
+        let pcs: List[PaintCell] = eng_render(s.w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}
