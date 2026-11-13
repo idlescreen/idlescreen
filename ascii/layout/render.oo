@@ -11,23 +11,25 @@ import "core/cell.oo";
 import "core/grid.oo";
 import "fonts.oo";
 import "wordmark.oo";
+import "ascii/text.oo";
 import "oostd/core/text/utf8_grp/utf8_codepoint_length_law.oo";
 import "oostd/core/text/utf8_grp/utf8_stream.oo";
 
 pub fn wm_measure(name: String) -> Int {
     let t: String = wm_text(name);
     if t == "" { return 0; }
-    return chars_len(t) * 6 - 1;
+    return t_width(t) * 6 - 1;
 }
 
 fn wm_build_3x3(word: String) -> List[String] {
     let mut r0: String = "";
     let mut r1: String = "";
     let mut r2: String = "";
-    let n: Int = chars_len(word);
+    let cs: List[String] = t_chars(word);
+    let n: Int = list_len(cs);
     let mut i: Int = 0;
     while i < n {
-        let pat: List[String] = font3_rows(char_at(word, i));
+        let pat: List[String] = font3_rows(list_get(cs, i));
         let sep: String = if i + 1 < n { " " } else { "" };
         r0 = r0 + list_get(pat, 0) + sep;
         r1 = r1 + list_get(pat, 1) + sep;
@@ -39,14 +41,15 @@ fn wm_build_3x3(word: String) -> List[String] {
 
 fn wm_build_5x5_scaled(word: String, scale: Int) -> List[String] {
     let sp: String = if scale >= 4 { "   " } else if scale >= 2 { "  " } else { " " };
-    let n: Int = chars_len(word);
+    let cs: List[String] = t_chars(word);
+    let n: Int = list_len(cs);
     let mut out: List[String] = list_new();
     let mut r: Int = 0;
     while r < 5 {
         let mut line: String = "";
         let mut ci: Int = 0;
         while ci < n {
-            let pat: List[String] = font5_rows(char_at(word, ci));
+            let pat: List[String] = font5_rows(list_get(cs, ci));
             let base: String = list_get(pat, r);
             let blen: Int = bytes_len(base);
             let mut k: Int = 0;
@@ -77,7 +80,7 @@ fn wm_build_5x5_scaled(word: String, scale: Int) -> List[String] {
 
 pub fn wm_banner_lines(name: String, cols: Int, rows: Int) -> List[String] {
     let t: String = wm_text(name);
-    let n: Int = chars_len(t);
+    let n: Int = t_width(t);
     if n == 0 || cols < 1 || rows < 1 { return list_new(); }
     if t == "SUPERFEDORA" {
         if cols >= 90 && rows >= 22 { return font_sf_art(); }
@@ -97,21 +100,22 @@ pub fn wm_banner_lines(name: String, cols: Int, rows: Int) -> List[String] {
         if rows >= 24 && n * 10 + (n - 1) * 2 + 4 <= cols { return wm_build_5x5_scaled(t, 2); }
         let mut max_c: Int = (cols - 4) / 6;
         if max_c < 1 { max_c = 1; }
-        let sub: String = if n > max_c { str_slice(t, 0, max_c) } else { t };
+        let sub: String = if n > max_c { t_slice(t, 0, max_c) } else { t };
         return wm_build_5x5_scaled(sub, 1);
     }
     if cols >= 25 && rows >= 3 {
         let mut b3: Int = (cols - 2) / 4;
         if b3 < 1 { b3 = 1; }
-        let sub3: String = if n > b3 { (if b3 > 1 { str_slice(t, 0, b3 - 1) + "." } else { str_slice(t, 0, 1) }) } else { t };
+        let sub3: String = if n > b3 { (if b3 > 1 { t_slice(t, 0, b3 - 1) + "." } else { t_slice(t, 0, 1) }) } else { t };
         return wm_build_3x3(sub3);
     }
     let max_v: Int = if rows > 4 { rows - 4 } else { 1 };
     let v_str: String = if t == "SUPERFEDORA" { "SUPER FEDORA" } else { t };
+    let v_cs: List[String] = t_chars(v_str);
     let mut v_out: List[String] = list_new();
     let mut vi: Int = 0;
-    while vi < chars_len(v_str) && vi < max_v {
-        let vc: String = char_at(v_str, vi);
+    while vi < list_len(v_cs) && vi < max_v {
+        let vc: String = list_get(v_cs, vi);
         v_out = list_push(v_out, if vc == " " { " " } else { "█" });
         vi = vi + 1;
     }

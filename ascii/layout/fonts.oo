@@ -7,6 +7,8 @@
 //   2. Provide the 22-row SuperFedora website banner art.
 //   3. Retain the 7x7 font helpers for backward compatibility.
 
+import "ascii/text.oo";
+
 pub fn font5_rows(ch: String) -> List[String] {
     let c: String = to_uppercase(ch);
     let mut raw: String = " ███ |█   █|█   █|█   █| ███ ";
@@ -114,9 +116,13 @@ pub fn font7_raw(ch: String) -> String {
         1
     )+ "  |" + list_get(r5, 1)+ "  |" + list_get(r5, 2)+ "  |" + list_get(r5, 3)+ "  |" + list_get(r5, 3)+ "  |" + list_get(r5, 4)+ "  ";
     let mut out: String = "";
+    // The atlas rows are full of U+2588, so the walk has to be in codepoints:
+    // a byte walk never matches the block glyph and would flatten the whole
+    // 7-row font to dots.
+    let cs: List[String] = t_chars(raw);
     let mut i: Int = 0;
-    while i < chars_len(raw) {
-        let c: String = char_at(raw, i);
+    while i < list_len(cs) {
+        let c: String = list_get(cs, i);
         out = out + (if c == "█" { "#" } else if c == "|" { "|" } else { "." });
         i = i + 1;
     }

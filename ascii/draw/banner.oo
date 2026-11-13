@@ -9,19 +9,20 @@
 
 import "core/grid.oo";
 import "ascii/canvas.oo";
+import "ascii/text.oo";
 
 pub fn banner_marquee(g: CellGrid, y: Int, text: String, tick: Int, fg: Int, bg: Int) -> CellGrid {
     if y < 0 || y >= g.rows { return g; }
     let w: Int = g.cols;
-    let span: Int = chars_len(text) + w;
+    let cs: List[String] = t_chars(text);
+    let span: Int = list_len(cs) + w;
     let off: Int = tick % if span > 0 { span } else { 1 };
     let mut out: CellGrid = g;
     let mut i: Int = 0;
-    while i < chars_len(text) {
+    while i < list_len(cs) {
         let pos: Int = i + w - off;
         if pos >= 0 && pos < w {
-            let ch: String = char_at(text, i);
-            out = cv_put(out, pos, y, ch, fg, bg);
+            out = cv_put(out, pos, y, list_get(cs, i), fg, bg);
         }
         i = i + 1;
     }
@@ -34,19 +35,20 @@ pub fn banner_title(g: CellGrid, title: String, fg: Int, bg: Int) -> CellGrid {
     let mut t: String = " " + up;
     t = t + " ";
     let mut line: String = "";
-    let pad_l: Int = if (g.cols - chars_len(t)) / 2 > 0 { (g.cols - chars_len(t)) / 2 } else { 0 };
+    let tw: Int = t_width(t);
+    let pad_l: Int = if (g.cols - tw) / 2 > 0 { (g.cols - tw) / 2 } else { 0 };
     let mut i: Int = 0;
     while i < pad_l {
         line = line + "─";
         i = i + 1;
     }
     line = line + t;
-    while chars_len(line) < g.cols { line = line + "─"; }
+    while t_width(line) < g.cols { line = line + "─"; }
     let mut out: CellGrid = g;
+    let cs: List[String] = t_chars(line);
     i = 0;
-    while i < g.cols && i < chars_len(line) {
-        let ch: String = char_at(line, i);
-        out = cv_put_b(out, i, 0, ch, fg, bg, true);
+    while i < g.cols && i < list_len(cs) {
+        out = cv_put_b(out, i, 0, list_get(cs, i), fg, bg, true);
         i = i + 1;
     }
     return out;

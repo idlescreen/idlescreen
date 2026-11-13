@@ -15,6 +15,7 @@ import "tests/oo/canvas_cells.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
 import "tests/oo/engine/rng_helpers.oo";
 import "tests/oo/engine/float_conv.oo";
+import "oostd/core/text/utf8_grp/utf8_iterator.oo";
 
 pub type RC2 = struct { c: Int, r: Int, st: Rng };
 
@@ -111,14 +112,21 @@ pub fn sw_in_canvas(info: CanvasInfo, c: Int, r: Int) -> Int {
 }
 
 pub fn has_sub(s: String, sub: String) -> Int {
-    let n: Int = chars_len(s);
-    let m: Int = chars_len(sub);
+    // The search is a codepoint search. `chars_len` and `char_at` are runtime
+    // primitives whose meaning changed upstream (they counted and returned
+    // codepoints in the C runtime and count and return bytes in the current
+    // one), so the walk uses the std's UTF-8 page and is identical under
+    // every runtime vintage.
+    let cs: List[String] = utf8_chars(s);
+    let cc: List[String] = utf8_chars(sub);
+    let n: Int = list_len(cs);
+    let m: Int = list_len(cc);
     let mut i: Int = 0;
     while i + m <= n {
         let mut j: Int = 0;
         let mut hit: Int = 1;
         while j < m {
-            if char_at(s, i + j) != char_at(sub, j) { hit = 0; }
+            if list_get(cs, i + j) != list_get(cc, j) { hit = 0; }
             j = j + 1;
         }
         if hit == 1 { return 1; }
@@ -128,8 +136,9 @@ pub fn has_sub(s: String, sub: String) -> Int {
 }
 
 pub fn fdigit(s: String) -> Int {
-    if chars_len(s) == 0 { return 0; }
-    let o: Int = ord(char_at(s, 0));
+    let cs: List[String] = utf8_chars(s);
+    if list_len(cs) == 0 { return 0; }
+    let o: Int = ord(list_get(cs, 0));
     if 48 <= o && o <= 57 { return o - 48; }
     return 0;
 }

@@ -1,0 +1,51 @@
+// # Text Metrics - Codepoint Width, Split and Slice for Display Strings
+//
+// Logline: Measures, splits and slices display text in codepoints so every glyph lands in one cell under any runtime vintage.
+// Setup: Pure. Wraps the std UTF-8 page; no caps, no IO, no state.
+// Beats:
+//   1. t_width returns the display width of a string in codepoints.
+//   2. t_chars splits a string into its codepoint strings.
+//   3. t_at returns the codepoint string at an index.
+//   4. t_slice returns the codepoints of an index range.
+
+import "oostd/core/text/utf8_grp/utf8_codepoint_length_law.oo";
+import "oostd/core/text/utf8_grp/utf8_iterator.oo";
+
+// Display width in codepoints. A string that is not valid UTF-8 has no
+// codepoint count, so it falls back to its byte length.
+pub fn t_width(s: String) -> Int {
+    let n: Int = utf8_codepoint_count(s);
+    if n < 0 { return bytes_len(s); }
+    return n;
+}
+
+// Split a string into its codepoints, one string per codepoint.
+pub fn t_chars(s: String) -> List[String] {
+    return utf8_chars(s);
+}
+
+// The codepoint string at an index, or a space past the end.
+pub fn t_at(s: String, i: Int) -> String {
+    if i < 0 { return " "; }
+    let cs: List[String] = utf8_chars(s);
+    if i >= list_len(cs) { return " "; }
+    return list_get(cs, i);
+}
+
+// The codepoints of an index range, joined back into one string.
+pub fn t_slice(s: String, start: Int, end: Int) -> String {
+    let cs: List[String] = utf8_chars(s);
+    let n: Int = list_len(cs);
+    let mut a: Int = start;
+    if a < 0 { a = 0; }
+    let mut b: Int = end;
+    if b > n { b = n; }
+    if b < a { b = a; }
+    let mut out: String = "";
+    let mut i: Int = a;
+    while i < b {
+        out = out + list_get(cs, i);
+        i = i + 1;
+    }
+    return out;
+}

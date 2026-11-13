@@ -10,6 +10,7 @@
 import "core/cell.oo";
 import "core/grid.oo";
 import "ascii/canvas.oo";
+import "ascii/text.oo";
 
 fn decrypt_noise(h: Int) -> String {
     let k: Int = h % 10;
@@ -34,12 +35,14 @@ pub fn scene_decrypt(g: CellGrid, tick: Int) -> CellGrid {
     while li < list_len(parts) {
         let s: String = list_get(parts, li);
         let y: Int = g.rows / 2 - 2 + li * 2;
-        let ox: Int = if (g.cols - chars_len(s)) / 2 > 0 { (g.cols - chars_len(s)) / 2 } else { 0 };
+        let cs: List[String] = t_chars(s);
+        let sw: Int = list_len(cs);
+        let ox: Int = if (g.cols - sw) / 2 > 0 { (g.cols - sw) / 2 } else { 0 };
         let mut i: Int = 0;
-        while i < chars_len(s) && ox + i < g.cols {
+        while i < sw && ox + i < g.cols {
             let solved: Bool = (ox + i) < (front - 20);
             if solved {
-                out = cv_put(out, ox + i, y, char_at(s, i), rgb(200, 255, 180), rgb(6, 8, 6));
+                out = cv_put(out, ox + i, y, list_get(cs, i), rgb(200, 255, 180), rgb(6, 8, 6));
             } else {
                 let ch: String = decrypt_noise(cv_hash(i, li, tick));
                 let c: Int = if ox + i < front { rgb(255, 210, 90) } else { rgb(60, 120, 70) };

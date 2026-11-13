@@ -9,6 +9,7 @@
 
 import "tests/oo/grid_cells.oo";
 import "ascii/layout/render.oo";
+import "ascii/text.oo";
 
 pub fn port_glyph(ord_v: Int) -> String {
     let mut b: List[Int] = bytes_new();
@@ -34,10 +35,10 @@ fn port_esc(suffix: String) -> String {
 
 fn port_ascii_line(line: String) -> String {
     let mut out: String = "";
-    let n: Int = chars_len(line);
+    let cs: List[String] = t_chars(line);
     let mut i: Int = 0;
-    while i < n {
-        let ch: String = char_at(line, i);
+    while i < list_len(cs) {
+        let ch: String = list_get(cs, i);
         let mut chs: String = "X";
         if ch == " " { chs = " "; }
         out = out + chs;

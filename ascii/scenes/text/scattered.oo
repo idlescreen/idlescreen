@@ -10,13 +10,15 @@
 import "core/cell.oo";
 import "core/grid.oo";
 import "ascii/canvas.oo";
+import "ascii/text.oo";
 
 pub fn scene_scattered(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = cv_fill(g, " ", rgb(40, 40, 60), rgb(5, 5, 12));
     let word: String = "OPENOODA";
     let phase: Int = tick % 80;
     let gather: Int = if phase > 40 { 100 - (phase - 40) * 2 } else { phase * 2 };
-    let n: Int = chars_len(word);
+    let cs: List[String] = t_chars(word);
+    let n: Int = list_len(cs);
     let home_x0: Int = (g.cols - n * 3) / 2;
     let mut i: Int = 0;
     while i < n {
@@ -27,7 +29,7 @@ pub fn scene_scattered(g: CellGrid, tick: Int) -> CellGrid {
         let x: Int = sx + (hx - sx) * gather / 100;
         let y: Int = sy + (hy - sy) * gather / 100;
         let c: Int = cv_mix(rgb(80, 80, 120), rgb(255, 220, 120), gather * 2);
-        out = cv_put_b(out, x, y, char_at(word, i), c, rgb(5, 5, 12), gather > 60);
+        out = cv_put_b(out, x, y, list_get(cs, i), c, rgb(5, 5, 12), gather > 60);
         i = i + 1;
     }
     return out;

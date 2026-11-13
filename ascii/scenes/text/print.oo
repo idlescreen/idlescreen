@@ -10,6 +10,7 @@
 import "core/cell.oo";
 import "core/grid.oo";
 import "ascii/canvas.oo";
+import "ascii/text.oo";
 
 pub fn scene_print(g: CellGrid, tick: Int) -> CellGrid {
     let corpus: String = "boot ooda kernel|mount /dev/idle|spawn rasterd --hdr|vsync locked at 60hz|palette: 16-bit arcade|scene graph: 51 effects|render loop: pure cells|idle is a state of mind|";
@@ -22,9 +23,10 @@ pub fn scene_print(g: CellGrid, tick: Int) -> CellGrid {
     while li < list_len(all) && y < g.rows - 1 {
         let s: String = list_get(all, (li + head / 24) % list_len(all));
         let shown: Int = if head - li * 24 > 0 { head - li * 24 } else { 0 };
+        let cs: List[String] = t_chars(s);
         let mut i: Int = 0;
-        while i < shown && i < chars_len(s) && i < g.cols - 2 {
-            out = cv_put(out, 1 + i, y, char_at(s, i), rgb(190, 230, 190), rgb(8, 10, 8));
+        while i < shown && i < list_len(cs) && i < g.cols - 2 {
+            out = cv_put(out, 1 + i, y, list_get(cs, i), rgb(190, 230, 190), rgb(8, 10, 8));
             i = i + 1;
         }
         if li == head / 24 && i < g.cols - 2 {

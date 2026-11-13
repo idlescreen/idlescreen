@@ -9,6 +9,7 @@
 
 import "core/cell.oo";
 import "core/grid.oo";
+import "ascii/text.oo";
 
 pub fn cv_put_b(g: CellGrid, x: Int, y: Int, ch: String, fg: Int, bg: Int, bold: Bool) -> CellGrid {
     let is_blk: Bool = ch == " " || ch == "█" || ch == "▀" || ch == "▄" ||
@@ -47,9 +48,10 @@ pub fn cv_put(g: CellGrid, x: Int, y: Int, ch: String, fg: Int, bg: Int) -> Cell
 
 pub fn cv_text(g: CellGrid, x: Int, y: Int, s: String, fg: Int, bg: Int) -> CellGrid {
     let mut out: CellGrid = g;
+    let cs: List[String] = t_chars(s);
     let mut i: Int = 0;
-    while i < chars_len(s) {
-        out = grid_put(out, x + i, y, char_at(s, i), fg, bg, true);
+    while i < list_len(cs) {
+        out = grid_put(out, x + i, y, list_get(cs, i), fg, bg, true);
         i = i + 1;
     }
     return out;
