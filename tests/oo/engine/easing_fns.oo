@@ -25,10 +25,14 @@ pub fn ez_bezier(x1: Float, y1: Float, x2: Float, y2: Float) -> Ease {
 fn out_bounce(p: Float) -> Float {
     let n1: Float = 7.5625;
     let d1: Float = 2.75;
-    if p < 1.0 / d1 { return n1 * p * p; }
-    if p < 2.0 / d1 { return n1 * (p - 1.5 / d1) * (p - 1.5 / d1) + 0.75; }
-    if p < 2.5 / d1 { return n1 * (p - 2.25 / d1) * (p - 2.25 / d1) + 0.9375; }
-    return n1 * (p - 2.625 / d1) * (p - 2.625 / d1) + 0.984375;
+    if p < 1.0 / d1 { let _q1: Float = pow(p, 2.0);
+    return n1 * _q1; }
+    if p < 2.0 / d1 { let _q2: Float = pow(p - 1.5 / d1, 2.0);
+    return n1 * _q2 + 0.75; }
+    if p < 2.5 / d1 { let _q3: Float = pow(p - 2.25 / d1, 2.0);
+    return n1 * _q3 + 0.9375; }
+    let _q4: Float = pow(p - 2.625 / d1, 2.0);
+    return n1 * _q4 + 0.984375;
 }
 
 fn ease_lo(t: Int, p: Float) -> Float {
@@ -95,7 +99,8 @@ fn ease_mid(t: Int, p: Float) -> Float {
 
 fn ease_hi(t: Int, p: Float) -> Float {
     let c1: Float = 1.70158;
-    if t == 22 { return (c1 + 1.0) * pow(p, 3.0) - c1 * p * p; }
+    if t == 22 { let _q9: Float = pow(p, 2.0);
+    return (c1 + 1.0) * pow(p, 3.0) - c1 * _q9; }
     if t == 23 { return 1.0 + (c1 + 1.0) * pow(p - 1.0, 3.0) + c1 * pow(p - 1.0, 2.0); }
     if t == 24 {
         let c2: Float = c1 * 1.525;
@@ -138,17 +143,17 @@ fn bezier_ease(x1: Float, y1: Float, x2: Float, y2: Float, progress: Float) -> F
     let mut t: Float = progress;
     let mut i: Int = 0;
     while i < 20 {
-        let x_est: Float = 3.0 * x1 * pow(1.0 - t, 2.0) * t + 3.0 * x2 * (1.0 - t) * t * t + pow(t, 3.0);
+        let x_est: Float = 3.0 * x1 * pow(1.0 - t, 2.0) * t + 3.0 * x2 * (1.0 - t) * pow(t, 2.0) + pow(t, 3.0);
         let dx: Float = x_est - progress;
         if abs_f(dx) < 0.00001 { i = 20; }
         else {
-            let d: Float = 3.0 * pow(1.0 - t, 2.0) * x1 + 6.0 * (1.0 - t) * t * (x2 - x1) + 3.0 * t * t * (1.0 - x2);
+            let d: Float = 3.0 * pow(1.0 - t, 2.0) * x1 + 6.0 * (1.0 - t) * t * (x2 - x1) + 3.0 * pow(t, 2.0) * (1.0 - x2);
             if abs_f(d) < 0.000001 { i = 20; }
             else { t = t - dx / d; }
         }
         i = i + 1;
     }
-    return 3.0 * y1 * pow(1.0 - t, 2.0) * t + 3.0 * y2 * (1.0 - t) * t * t + pow(t, 3.0);
+    return 3.0 * y1 * pow(1.0 - t, 2.0) * t + 3.0 * y2 * (1.0 - t) * pow(t, 2.0) + pow(t, 3.0);
 }
 
 pub fn ease_val(e: Ease, p: Float) -> Float {
