@@ -11,13 +11,6 @@ import "core/cell.oo";
 import "core/grid.oo";
 import "ascii/canvas.oo";
 
-fn pipe_step(x: Int, y: Int, dir: Int) -> Int {
-    if dir == 0 { return x + 1; }
-    if dir == 1 { return y + 1; }
-    if dir == 2 { return x - 1; }
-    return y - 1;
-}
-
 pub fn scene_pipes(g: CellGrid, tick: Int) -> CellGrid {
     let mut out: CellGrid = cv_fill(g, " ", rgb(20, 20, 30), rgb(6, 6, 10));
     let mut p: Int = 0;

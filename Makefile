@@ -4,8 +4,12 @@
 # The std repo must additionally be checked out as `oostd` in an ancestor of
 # this project — see the std-check target below.
 OODA_HOME ?= $(shell if [ -d /Projects/openOODA-core/oodac ]; then echo /Projects/openOODA-core; elif [ -d "$$HOME/Projects/openOODA-core/oodac" ]; then echo "$$HOME/Projects/openOODA-core"; elif [ -x "$$HOME/.openooda/bin/oodac" ]; then echo "$$HOME/.openooda"; else echo "$(abspath $(CURDIR)/../../openOODA-core)"; fi)
-OODA_COMPILER ?= /Projects/openOODA-core/oodac/bin/oodac
-OODA_OODAR_ROOT ?= /Projects/openOODA-core/oodar/core
+# The compiler and the oodar runtime follow OODA_HOME, so a CI runner that
+# stages the toolchain under /tmp/ooda-toolchain resolves the same paths the
+# developer checkout does. A hardcoded /Projects path only ever worked on the
+# author's machine.
+OODA_COMPILER ?= $(OODA_HOME)/oodac/bin/oodac
+OODA_OODAR_ROOT ?= $(OODA_HOME)/oodar
 export OODA_OODAR_ROOT
 # The compiler resolves oostd/... imports by walking up from the source tree
 # (ast/load_import_parse.oo: probe_parent_walk). The std repo must therefore
@@ -36,7 +40,7 @@ TESTBIN := bin/test_idlescreen
 REPO_NAME := idlescreen
 VER := 5.0.3
 SRC := main.oo anchor.oo $(wildcard core/*.oo raster/*.oo ascii/*.oo ascii/*/*.oo ascii/*/*/*.oo wayland/*.oo daemon/*.oo tui/*.oo cli/*.oo)
-ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER) OODA_OODAR_ROOT=$(OODA_OODAR_ROOT)
+ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER) OODA_OODAR_ROOT=$(OODA_OODAR_ROOT) OODA_STD_DIR=$(OODA_STD_DIR)
 
 .PHONY: all build verify test det check line-cap file-law academy density vocab shape clean parity std-check portable ll-declares
 
@@ -146,7 +150,7 @@ file-law:
 			echo "VIOLATION: .$$ext forbidden:"; echo "$$found"; violations=$$((violations+1)); \
 		fi; \
 	done; \
-	yaml=$$(find . \( -name "*.yml" -o -name "*.yaml" \) -not -path "./.git/*" -not -path "./.github/workflows/*" 2>/dev/null | head -3); \
+	yaml=$$(find . \( -name "*.yml" -o -name "*.yaml" \) -not -path "./.git/*" -not -path "./.github/workflows/*" -not -path "./.github/dependabot.yml" 2>/dev/null | head -3); \
 	if [ -n "$$yaml" ]; then echo "VIOLATION: yaml outside .github/workflows"; echo "$$yaml"; violations=$$((violations+1)); fi; \
 	for f in $$(find . -name "*.sh" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" 2>/dev/null); do \
 		b=$$(basename "$$f"); \

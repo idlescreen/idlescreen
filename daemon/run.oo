@@ -7,7 +7,7 @@
 //   2. Run the blocking reactor for daemon/run verbs, or serve one-shot queries over the Unix control socket.
 //   3. Exit 0 on clean shutdown, 69 on bind failure.
 
-import "oostd/net/unix_socket.oo";
+import "oostd/net/unix_grp/unix_socket.oo";
 import "core/environ.oo";
 import "reactor.oo";
 
@@ -26,7 +26,7 @@ pub fn ctl_roundtrip(
     let conn: UnixConnection = match c { Ok(v) => v, Err(_) => UnixConnection { slot: -1, path: path, is_open: false } };
     let _w: Int = unix_socket_write(fs, conn, frame + "\n");
     let rd: Result[String, String] = unix_socket_read_timeout(fs, conn, 2000, 4096);
-    let _x: Int = unix_socket_close_connection(fs, fw, conn);
+    let _x: Int = unix_socket_close_connection(fs, conn);
     if rd.is_err() { return Err("no reply"); }
     return Ok(match rd { Ok(s) => s, Err(_) => "" });
 }

@@ -7,8 +7,8 @@
 //   2. Return the value of the first entry matching the requested key.
 //   3. Fall back to the OO_-mirrored key, then the parent environ block.
 
-import "oostd/fs/os/fs.oo";
 import "shell.oo";
+import "oostd/fs/os/fs/fs.oo";
 
 // Value of key in this process's own environment block, or "" when absent.
 // /proc/self/environ holds the environment the binary was launched with,

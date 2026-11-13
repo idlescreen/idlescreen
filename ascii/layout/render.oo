@@ -11,8 +11,8 @@ import "core/cell.oo";
 import "core/grid.oo";
 import "fonts.oo";
 import "wordmark.oo";
-import "oostd/core/text/utf8_codepoint_length_law.oo";
-import "oostd/core/text/utf8_stream.oo";
+import "oostd/core/text/utf8_grp/utf8_codepoint_length_law.oo";
+import "oostd/core/text/utf8_grp/utf8_stream.oo";
 
 pub fn wm_measure(name: String) -> Int {
     let t: String = wm_text(name);
@@ -129,7 +129,17 @@ fn wm_stamp_line(g: CellGrid, line: String, ox: Int, y: Int, min_y: Int, max_y: 
         let b0: Int = byte_at(line, i);
         let bl: Int = utf8_lead_byte_len(b0);
         let step: Int = if bl > 0 { bl } else { 1 };
-        let ch: String = str_slice(line, i, i + step);
+        // str_slice indexes by codepoint, not by byte, so slicing the line
+        // at a byte offset returns the wrong character (or nothing at all
+        // past the codepoint count). Rebuild the character from its own
+        // bytes instead: the byte walk already found the exact range.
+        let mut cb: List[Int] = list_new();
+        let mut k: Int = 0;
+        while k < step {
+            cb = list_push(cb, byte_at(line, i + k));
+            k = k + 1;
+        }
+        let ch: String = bytes_to_str(cb);
         let x: Int = ox + ci;
         if x >= 0 && x < out.cols {
             let cur: TerminalCell = grid_get(out, x, y);

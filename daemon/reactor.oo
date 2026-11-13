@@ -7,8 +7,7 @@
 //   2. Arm ext-idle-notify-v1 and spawn the tick process that wakes accept so idle events fold in.
 //   3. On idled (enabled, uninhibited) raise the saver and present; on resumed/stop/quit tear it down.
 
-import "oostd/fs/os/fs.oo";
-import "oostd/net/unix_socket.oo";
+import "oostd/net/unix_grp/unix_socket.oo";
 import "core/environ.oo";
 import "core/shell.oo";
 import "state.oo";
@@ -16,6 +15,7 @@ import "control.oo";
 import "config.oo";
 import "config_file.oo";
 import "wayland/idle_notify.oo";
+import "oostd/core/primitives/str_extra.oo";
 
 pub fn daemon_serve_conn(fs:&FsCap, fw:&FsWriteCap, d: DaemonState, inh: List[String], listener: UnixSocketHandle,
     prog: String)-> CtlReply {
@@ -28,8 +28,24 @@ pub fn daemon_serve_conn(fs:&FsCap, fw:&FsWriteCap, d: DaemonState, inh: List[St
     let frame: String = match rd { Ok(s) => s, Err(_) => "" };
     let reply: CtlReply = ctl_dispatch(d, inh, frame, prog);
     let _w: Int = unix_socket_write(fs, conn, reply.text + "\n");
-    let _c: Int = unix_socket_close_connection(fs, fw, conn);
+    let _c: Int = unix_socket_close_connection(fs, conn);
     return reply;
+}
+
+// The self-exec name for the presenter and ticker children.
+//
+// argv0 comes from /proc/self/cmdline, which sits outside the jail's read
+// scope on hosts without an NVIDIA device, so it resolves to "" there. The
+// children need the preview-capable binary: `preview` and `__tick` are
+// idlescreen-persona verbs, and the product installs exactly one binary,
+// `idlescreen`. A persona name is not an executable name — the `ooidle`
+// persona is a selector with no binary of its own — so the fallback is the
+// installed name, never the persona. Falling back to the persona would
+// spawn a command that does not exist and report it as a live presenter.
+fn self_exec_name(proc: &ProcessCap) -> String {
+    let argv0: String = sys_argv0(proc);
+    if argv0 != "" && argv0 != "ooidle" { return argv0; }
+    return "idlescreen";
 }
 
 fn presenter_start(fs_r: &FsReadCap, proc: &ProcessCap, prog: String, scene: String) -> Int {
@@ -39,8 +55,7 @@ fn presenter_start(fs_r: &FsReadCap, proc: &ProcessCap, prog: String, scene: Str
     let xd: String = host_env_fs(fs_r, proc, "DISPLAY");
     if wl == "" && xd == "" { return -1; }
     let dbus: String = host_env_fs(fs_r, proc, "DBUS_SESSION_BUS_ADDRESS");
-    let self_path: String = sys_argv0(proc);
-    if self_path == "" { return -1; }
+    let self_path: String = self_exec_name(proc);
     let inner: String = shell_quote(self_path) + " preview " + shell_quote(scene);
     let pre: String = "export XDG_RUNTIME_DIR=" + shell_quote(rtd) + " WAYLAND_DISPLAY=" + shell_quote(wl) + " DISPLAY=" + shell_quote(xd) + " DBUS_SESSION_BUS_ADDRESS=" + shell_quote(dbus) + "; ";
     let shc: String = "sh" + " -c ";
@@ -91,10 +106,8 @@ pub fn daemon_reactor(fs_r:&FsReadCap, proc:&ProcessCap, bind:&BindCap, fs:&FsCa
         wire = wl_idle_arm(fs_r, fs, fw, proc, d.timeout_s);
         if wire.armed {
             println(prog + ": ext-idle-notify-v1 armed timeout=" + d.timeout_s.to_string() + "s");
-            let self_path: String = sys_argv0(proc);
-            if self_path != "" {
-                let _t: String = shell_out(proc, "setsid -f " + shell_quote(self_path) + " __tick </dev/null >/dev/null 2>&1; echo ok");
-            }
+            let self_path: String = self_exec_name(proc);
+            let _t: String = shell_out(proc, "setsid -f " + shell_quote(self_path) + " __tick </dev/null >/dev/null 2>&1; echo ok");
         } else {
             println(prog + ": idle-notify unavailable (no compositor support), control-only mode");
         }

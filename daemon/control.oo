@@ -7,10 +7,10 @@
 //   2. Fold start/stop/toggle/set/timeout/inhibit/uninhibit/status into state and reply.
 //   3. Fail closed on unknown verbs with an ERR reply.
 
-import "oostd/core/primitives/str.oo";
 import "state.oo";
 import "inhibit.oo";
 import "ascii/effects.oo";
+import "oostd/core/primitives/str_extra.oo";
 
 pub type CtlReply = struct {
     text: String,

@@ -51,11 +51,3 @@ pub fn banner_title(g: CellGrid, title: String, fg: Int, bg: Int) -> CellGrid {
     }
     return out;
 }
-
-pub fn banner_frame_tag(frame: Int) -> String {
-    let s: String = frame.to_string();
-    let res: String = "frame " + s;
-    return res;
-}
-
-pub fn banner_probe() -> Int { return 0; }

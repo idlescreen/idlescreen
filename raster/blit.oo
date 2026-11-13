@@ -35,17 +35,6 @@ pub fn convert_argb8888_to_2101010(px: Int) -> Int {
     return pack_argb2101010((px >> 24) & 255, (px >> 16) & 255, (px >> 8) & 255, px & 255);
 }
 
-fn blit_glyph_row(px: List[Int], off: Int, mask: Int, fg: Int, bg: Int) -> List[Int] {
-    let mut out: List[Int] = px;
-    let mut i: Int = 0;
-    while i < 8 {
-        let bit: Int = (mask >> (7 - i)) & 1;
-        out = list_set(out, off + i, bg + ((fg - bg) * bit));
-        i = i + 1;
-    }
-    return out;
-}
-
 pub fn pixel_dims(g: CellGrid) -> List[Int] {
     let mut out: List[Int] = list_new();
     out = list_push(out, g.cols * glyph_width());
@@ -73,7 +62,19 @@ pub fn blit_cells(g: CellGrid, fmt: String, style: String) -> List[Int] {
             let mut gr: Int = 0;
             while gr < glyph_height() && gr < list_len(rows) {
                 let base: Int = ((y * glyph_height() + gr) * pw) + (x * glyph_width());
-                px = blit_glyph_row(px, base, list_get(rows, gr), fg, bg);
+                let mask: Int = list_get(rows, gr);
+                // Stamp the glyph row straight into the pixel list. The
+                // write must not go through a helper that copies the list
+                // into a local: that copy retains the payload, so every
+                // list_set copy-on-writes the whole frame buffer and the
+                // blit turns quadratic (32 s per 640x384 frame). Mutating
+                // the one holder keeps the write in place.
+                let mut b: Int = 0;
+                while b < glyph_width() {
+                    let bit: Int = (mask >> (glyph_width() - 1 - b)) & 1;
+                    px = list_set(px, base + b, bg + ((fg - bg) * bit));
+                    b = b + 1;
+                }
                 gr = gr + 1;
             }
             x = x + 1;

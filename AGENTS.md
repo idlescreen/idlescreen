@@ -71,7 +71,7 @@ Rather than polluting source files with inline annotations, every invariant is m
 - **Resource cleanup is deterministic**: Socket files are unlinked on clean shutdown so a crashed predecessor never wedges startup (stale paths are also unlinked before bind).
 
 ### Pure openOODA Dependencies
-- Rely strictly on the `std` capability libraries (`std/fs`, `std/net`) plus the `oodar` host runtime. No shell-out for logic the language can express; shells are for host probing only, with every argument passed through `shell_quote`.
+- Rely strictly on the `oostd` capability libraries (`oostd/fs`, `oostd/net`) plus the `oodar` host runtime. The std library is the openOODA-core repo checked out under the directory name `oostd`, so imports use the `oostd/...` prefix — never `std/...`. No shell-out for logic the language can express; shells are for host probing only, with every argument passed through `shell_quote`.
 
 ---
 

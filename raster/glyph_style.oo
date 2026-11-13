@@ -29,7 +29,3 @@ pub fn glyph_style_is_round(style: String) -> Bool {
 pub fn glyph_style_default() -> String {
     return "arcade-block";
 }
-
-pub fn glyph_style_probe() -> Int {
-    return 0;
-}

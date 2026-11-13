@@ -7,7 +7,7 @@
 //   2. idlescreen_theme_pick applies flag > OOTHEME > current file > OODA_THEME > legacy file precedence.
 //   3. idlescreen_ootheme_suppressed reports NO_COLOR, OO_NO_COLOR, or OODA_NO_COLOR.
 
-import "oostd/fs/os/fs.oo";
+import "oostd/fs/os/fs/fs.oo";
 import "core/environ.oo";
 
 type OothemeLink = struct {

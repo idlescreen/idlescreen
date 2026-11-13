@@ -15,6 +15,7 @@ import "ascii/draw/ansi.oo";
 import "core/shell.oo";
 import "daemon/config_file.oo";
 import "daemon/config.oo";
+import "oostd/core/primitives/str_extra.oo";
 
 fn arg_num(args: List[String], flag: String, dflt: Int) -> Int {
     let mut i: Int = 0;

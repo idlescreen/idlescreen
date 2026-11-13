@@ -7,10 +7,10 @@
 //   2. Serialize ConfigData to canonical TOML string representation.
 //   3. Resolve the config dir (XDG_CONFIG_HOME, then HOME, then /etc) and read or atomically write config.toml.
 
-import "oostd/core/primitives/str.oo";
-import "oostd/fs/os/fs.oo";
+import "oostd/fs/os/fs/fs.oo";
 import "core/shell.oo";
 import "core/environ.oo";
+import "oostd/core/primitives/str_extra.oo";
 
 pub type ConfigData = struct {
     idle_enabled: Bool,

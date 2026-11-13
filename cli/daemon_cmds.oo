@@ -14,6 +14,7 @@ import "daemon/config.oo";
 import "daemon/config_file.oo";
 import "daemon/reactor.oo";
 import "ascii/effects.oo";
+import "oostd/core/primitives/str_extra.oo";
 
 fn saver_canonical(name: String) -> String {
     if name == "ascii" || name == "superfedora" { return name; }
