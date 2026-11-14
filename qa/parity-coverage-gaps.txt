@@ -1,0 +1,92 @@
+# Parity coverage gaps — paths the Rust goldens never exercise.
+#
+# `make parity` renders every scene in PARITY_SCENES through the fixed probe
+# configuration and compares the digest stream against qa/golden/<scene>.txt.
+# The probe configuration is pinned in tests/oo/scene_emit.oo:
+#
+#     canvas   80x24
+#     seed     42
+#     rate     60fps
+#     art      "IDLESCREEN\nSCREENSAVER"   (2 lines, 21 characters)
+#
+# Two scene paths are unreachable under that configuration. They are LIVE in
+# the shipped product — the daemon renders the real wordmark banner, which is
+# 5 lines tall at 80x24 — so a regression in either path passes `make parity`
+# silently. This file records the gaps, the evidence for each, and what it
+# would take to close them.
+#
+# Nothing here is a defect in the goldens. The goldens are the Rust reference's
+# own output for the probe configuration, and they are NOT re-baselined.
+#
+# ---------------------------------------------------------------------------
+# GAP 1 — vhstape's glitch-wave band is never compared.
+#
+# Pages:     tests/oo/scenes/vhstape/vh_step.oo
+#
+# The wave band is gated on the height of the text block:
+#
+#     th = info.tt - info.tb + 1
+#     if th >= 3 { ...place the band... } else { return unchanged }
+#
+# The probe art is 2 lines, so the block is tb=12, tt=13 and th = 2 < 3. The
+# gate always takes the early return, `vh_wave_move` never runs, and the wave
+# band itself — roughly 55 lines of vh_step.oo, together with the vh_restore
+# and vh_line_act calls it drives — is never compared against the Rust
+# reference.
+#
+# Evidence: an instrumented parity run records zero hits on the wave-placement
+# branch; replacing only the probe art with a 3-line wordmark makes the branch
+# fire immediately.
+#
+# What is NOT claimed: the Rust reference's exact wave-band arithmetic is not
+# verified here. The Rust source was removed from this repo (commit 96c64f3),
+# so the golden cannot confirm it, and this path never executes under the
+# probe.
+#
+# ---------------------------------------------------------------------------
+# GAP 2 — rings' external-character path is never compared.
+#
+# Pages:     tests/oo/scenes/rings/rg_loom.oo (rg_extern)
+#            tests/oo/scenes/rings/rg_geom.oo   (rg_rcoord)
+#
+# rg_loom deals the art characters into the rings. Any character that no ring
+# claims is left over and handed to rg_extern, which gives it an "external"
+# path outside the ring geometry and registers a hide callback.
+#
+# The probe art has 21 characters and the rings consume every one of them. An
+# instrumented run records:
+#
+#     RG_LOOM rings=10 ringchars=21 total_ids=21 externals=0
+#
+# so rg_extern is never reached, and neither is the five-draw RNG order inside
+# rg_rcoord (2 columns, 2 rows, 1 pick) nor the cb-0 hide callback. In
+# production the wordmark banner is far larger than 21 characters, so leftover
+# characters — and therefore the external path — are the normal case.
+#
+# ---------------------------------------------------------------------------
+# Why the gaps are not closed here.
+#
+# Closing either gap means rendering the SAME scene at a SECOND probe
+# configuration and comparing that against a Rust render of the same
+# configuration. The Rust reference implementation is not in this repo, and
+# the goldens are fixed digests of the pinned configuration only. The org
+# cannot regenerate goldens in CI, so a taller/wider probe cannot be given a
+# trustworthy expected value: inventing one would assert a parity that nothing
+# checks.
+#
+# Re-baselining the existing goldens is not an option either — the Rust
+# reference still reproduces all 51 of them bit-exactly, and re-baselining
+# would drop the guarantee the gate advertises.
+#
+# The work that would close the gaps:
+#
+#   1. Restore the Rust reference (or its scene_digest example) to a repo CI
+#      can build, so goldens can be regenerated for any probe configuration.
+#   2. Add a second probe configuration — 3+ lines of art for vhstape, and
+#      enough art to overflow the rings for rings — with its own goldens.
+#   3. Extend the parity gate to run both configurations per scene.
+#
+# Until then these two paths are unguarded by CI. They are recorded here so
+# the gap is visible rather than implied, and so the parity claim in
+# README.md is read as "51 scenes bit-exact under the pinned probe", not as
+# "every code path is bit-exact".
