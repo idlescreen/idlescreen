@@ -1,8 +1,11 @@
 // # le_build — laseretch backtracker + laser/pool construction
+//
 // Logline: span the text rect with a RecursiveBacktracker order, then mint
 // the 2000-spark pool and the 25-cell diagonal laser beam.
-// Setup: le_grid cells are (row-1)*80+(col-1) over the 1-based canvas; linked
-// is a per-char visited bitmask standing in for ttfx's bidirectional links.
+// Setup: le_grid cells are (row-1)*right+(col-1) over the 1-based canvas;
+// linked is a per-char visited bitmask standing in for ttfx's bidirectional
+// links. An empty start cell fails closed with an empty order (the Rust
+// raises "Unable to find a starting character.").
 // Beats: le_scenes -> le_pending -> le_pool -> le_beam.
 
 import "tests/oo/kernel/engine_ops.oo";
@@ -29,10 +32,10 @@ pub type LeOrder = struct {
     r: Rng
 };
 
-pub fn le_grid(w: World) -> List[Int] {
+pub fn le_grid(w: World, info: CanvasInfo) -> List[Int] {
     let mut grid: List[Int] = list_new();
     let mut i: Int = 0;
-    while i < 1920 {
+    while i < info.right * info.top {
         grid = list_push(grid, 0 - 1);
         i = i + 1;
     }
@@ -40,8 +43,8 @@ pub fn le_grid(w: World) -> List[Int] {
     i = 0;
     while i < n {
         let ch: Char = list_get(w.chars, i);
-        if ch.col0 >= 1 && ch.col0 <= 80 && ch.row0 >= 1 && ch.row0 <= 24 {
-            grid = list_set(grid, (ch.row0 - 1) * 80 + ch.col0 - 1, i);
+        if ch.col0 >= 1 && ch.col0 <= info.right && ch.row0 >= 1 && ch.row0 <= info.top {
+            grid = list_set(grid, (ch.row0 - 1) * info.right + ch.col0 - 1, i);
         }
         i = i + 1;
     }
@@ -58,8 +61,8 @@ fn le_nbr(w: World, grid: List[Int], cur: Int, linked: List[Int],
     while i < 4 {
         let c: Int = list_get(cs, i);
         let r: Int = list_get(rs, i);
-        if c >= 1 && c <= 80 && r >= 1 && r <= 24 {
-            let nid: Int = list_get(grid, (r - 1) * 80 + c - 1);
+        if c >= 1 && c <= info.right && r >= 1 && r <= info.top {
+            let nid: Int = list_get(grid, (r - 1) * info.right + c - 1);
             if nid >= 0 && list_get(linked, nid) == 0 {
                 if c >= info.tl && c <= info.tr && r >= info.tb && r <= info.tt {
                     out = list_push(out, nid);
@@ -104,7 +107,8 @@ pub fn le_pending(w: World, grid: List[Int], info: CanvasInfo) -> LeOrder {
     r = dc.r;
     let dr: DR = rng_int(r, info.tb, info.tt);
     r = dr.r;
-    let start: Int = list_get(grid, (dr.v - 1) * 80 + dc.v - 1);
+    let start: Int = list_get(grid, (dr.v - 1) * info.right + dc.v - 1);
+    if start < 0 { return LeOrder { order: list_new(), r: r }; }
     let mut linked: List[Int] = list_new();
     let n: Int = list_len(w.chars);
     let mut i: Int = 0;

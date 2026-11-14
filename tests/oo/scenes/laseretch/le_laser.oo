@@ -1,4 +1,5 @@
 // # le_laser — laseretch spark pool + diagonal laser beam
+//
 // Logline: Bit-exact port of Laser._make_sparks_pool and the beam-char
 // diagonal: 2000 pooled sparks with a 12-frame fade, a rotating 13-color
 // beam scene, reposition-to-target emit, and SceneComplete reclaim.
@@ -64,12 +65,12 @@ fn le_rot(lg: List[Int]) -> List[Int] {
     return out;
 }
 
-pub fn le_beam(p: LeP) -> LeB {
+pub fn le_beam(p: LeP, top: Int) -> LeB {
     let mut w2: World = p.w;
     let mut beam: List[Int] = list_new();
     let mut lg: List[Int] = gradient_new([16777215, 3632383], [6], 1);
     let mut row: Int = 0;
-    while row <= 24 {
+    while row <= top {
         let mut sym: Int = 47;
         if row == 0 { sym = 42; }
         w2 = w_add_char(w2, sym, row, row);

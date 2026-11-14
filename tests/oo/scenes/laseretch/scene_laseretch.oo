@@ -1,10 +1,13 @@
 // # scene_laseretch — laseretch digest driver
+//
 // Logline: Bit-exact port of LaserEtchIterator.next_frame: release up to
 // six pending backtracker chars per tick, skip uncolored spaces, chase the
 // diagonal beam to each release, then tick, drain spark reclaims, emit.
 // Setup: pending chars pop from the front; etch_delay is zero so every
 // frame releases; beam chars stay active while pending remains and are
-// hidden (laser_disable) once it drains.
+// hidden (laser_disable) once it drains. Coloured spaces are skipped like
+// uncoloured ones: Char carries no input_fg/input_bg, so the upstream
+// has_input_colors guard has no port here.
 // Beats:
 //   1. Build: input, spawn scenes, backtracker order, pool, beam.
 //   2. le_release pops and activates up to etch_speed pending chars.
@@ -54,6 +57,8 @@ fn le_release(w: World, pd: List[Int], beam: &List[Int],
         let mut ch: Char = list_get(w2.chars, nxt);
         let mut skip: Int = 1;
         while skip == 1 {
+            // NOTE: upstream types coloured spaces via has_input_colors; Char
+            // has no input colours to port it, so every space is skipped.
             if ch.sym != 32 { skip = 0; }
             if skip == 1 {
                 if list_len(p2) == 0 { skip = 0; }
@@ -125,12 +130,13 @@ pub fn laseretch_run(cells: List[CellGeom], info: CanvasInfo,
                      lines: List[String]) -> DigestRun {
     let mut w: World = w_input(info, lines, rng_seed(42));
     w = le_scenes(w, info);
-    let grid: List[Int] = le_grid(w);
+    let grid: List[Int] = le_grid(w, info);
     let lo: LeOrder = le_pending(w, grid, info);
+    if list_len(lo.order) == 0 { return digest_run_new(); }
     w = w_rng(w, lo.r);
     let mut pend: List[Int] = lo.order;
     let lp: LeP = le_pool(w);
-    let lb: LeB = le_beam(lp);
+    let lb: LeB = le_beam(lp, info.top);
     w = lb.w;
     let mut av0: List[Int] = lb.avail;
     let beam: List[Int] = lb.beam;

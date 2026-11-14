@@ -117,9 +117,12 @@ fn sw_area(w: World, info: CanvasInfo, fc: Int, fr: Int, sac: List[SwArea],
         }
         i = i + 1;
     }
+    let mut m: Int = info.right; if info.top < m { m = info.top; }
+    let mut rad: Int = m / 2; if rad < 1 { rad = 1; }
+    let mut dia: Int = m / 6; if dia < 1 { dia = 1; } dia = dia * 2;
     let mut cache2: List[SwCirc] = cache;
     if hit < 0 {
-        circ = sw_on_circle(fc, fr, 12);
+        circ = sw_on_circle(fc, fr, rad);
         cache2 = list_push(cache2, SwCirc { kc: fc, kr: fr, cs: circ });
     }
     let d: DRL = sw_shuf(w.rng, circ);
@@ -142,11 +145,10 @@ fn sw_area(w: World, info: CanvasInfo, fc: Int, fr: Int, sac: List[SwArea],
         nfc = rc.c;
         nfr = rc.r;
     }
-    let sac2: List[SwArea] = sw_upsert(sac, fc, fr, sw_in_circle(fc, fr, 8));
+    let sac2: List[SwArea] = sw_upsert(sac, fc, fr, sw_in_circle(fc, fr, dia));
     let _r4 = SwB { w: w3, sac: sac2, cache: cache2, nfc: nfc, nfr: nfr };
     return _r4;
 }
-
 fn sw_setup(w: World, id: Int, sc: Int, sr: Int, mir: List[Int], sac: List[SwArea],
     ffg: Int) -> World {
     let mut w2: World = w_pos(w, id, sc, sr);
