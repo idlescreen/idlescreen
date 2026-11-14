@@ -42,7 +42,7 @@ BIN := bin/idlescreen
 TESTBIN := bin/test_idlescreen
 REPO_NAME := idlescreen
 VER := 5.0.3
-SRC := main.oo anchor.oo $(wildcard core/*.oo raster/*.oo ascii/*.oo ascii/*/*.oo ascii/*/*/*.oo wayland/*.oo daemon/*.oo tui/*.oo cli/*.oo)
+SRC := main.oo anchor.oo $(wildcard core/*.oo raster/*.oo ascii/*.oo ascii/*/*.oo ascii/*/*/*.oo wayland/*.oo daemon/*.oo tui/*.oo cli/*.oo cli/*/*.oo)
 ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_FS_READDIR=$(OODA_READDIR) OODA_FS_WRITEDIR=$(OODA_WRITEDIR) OODA_COMPILER=$(OODA_COMPILER) OODAC_BIN=$(OODA_COMPILER) OODA_OODAR_ROOT=$(OODA_OODAR_ROOT) OODA_STD_DIR=$(OODA_STD_DIR)
 
 .PHONY: all build verify test det check line-cap file-law academy density vocab shape clean parity std-check portable ll-declares
@@ -267,10 +267,13 @@ shape:
 	if [ $$violations -gt 0 ]; then echo "FAIL: shape law violations"; exit 1; fi; \
 	echo "PASS: function count (<= 8 per page) and length (<= 64 lines) hold"
 
+# Typechecks EVERY .oo page in the tree, tests/oo/ included. The test pages
+# used to be excluded here, which left 123 pages — half the repo — unverified
+# by CI while still shipping in the source tree.
 check:
 	@$(MAKE) --no-print-directory std-check
 	@mkdir -p .ooda-cache
-	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./tests/oo/*" -not -path "./tests/scene_dispatch.oo" -not -path "./oostd/*"); do \
+	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./oostd/*"); do \
 		$(ENV) $(OODA_COMPILER) check "$$f" > .ooda-cache/check_out.txt 2>&1 || { echo "VIOLATION: oodac check fails on $$f"; echo "--- compiler output ---"; cat .ooda-cache/check_out.txt; exit 1; } \
 	done; \
 	echo "PASS: oodac check holds on all .oo files"
