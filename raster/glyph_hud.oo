@@ -9,6 +9,7 @@
 
 import "core/cell.oo";
 import "core/grid.oo";
+import "ascii/text.oo";
 
 fn hud_bits_nz(ch: String) -> String {
     if ch == "N" { return "0110011001110110011111100111111001101110011001100110011000000000"; }
@@ -115,22 +116,18 @@ pub fn draw_preview_hud(g: CellGrid, scene_name: String, idx: Int, total: Int, t
     line = line + ": ";
     line = line + up;
     line = line + " ";
-    if cols >= chars_len(line) + 34 { line = line + " [</>: STEP | Q/ESC: EXIT] "; }
-    if chars_len(line) + 2 > cols { return g; }
-    let start_x: Int = (cols - chars_len(line) - 2) / 2;
+    let lw: Int = t_width(line);
+    if cols >= lw + 34 { line = line + " [</>: STEP | Q/ESC: EXIT] "; }
+    if t_width(line) + 2 > cols { return g; }
+    let start_x: Int = (cols - t_width(line) - 2) / 2;
     let pill: Int = hud_pill_bg();
     let mut out: CellGrid = g;
     let mut cx: Int = start_x + 1;
+    let cs: List[String] = t_chars(line);
     let mut i: Int = 0;
-    while i < chars_len(line) {
-        let fg: Int = if i < chars_len(tag) {
-            rgb(110, 210, 255)
-        } else if i < chars_len(tag)+ 8 {
-            rgb(255, 225, 85)
-        } else {
-            rgb(175, 195, 225)
-        };
-        let ch: String = char_at(line, i);
+    while i < list_len(cs) {
+        let fg: Int = if i < t_width(tag) { rgb(110, 210, 255) } else if i < t_width(tag) + 8 { rgb(255, 225, 85) } else { rgb(175, 195, 225) };
+        let ch: String = list_get(cs, i);
         out = grid_put(out, cx, rows - 1, ch, fg, pill, true);
         cx = cx + 1;
         i = i + 1;

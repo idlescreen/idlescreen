@@ -8,6 +8,7 @@
 //   3. Adjust slider and selector values with bounds clamping.
 
 import "ascii/effects.oo";
+import "ascii/text.oo";
 import "daemon/config_file.oo";
 
 pub type TuiModel = struct {
@@ -57,7 +58,7 @@ pub fn tui_model_init(c: ConfigData, os_name: String, cols: Int, rows: Int) -> T
         selected_saver: s_idx,
         use_os_brand: c.use_os_brand,
         custom_text: c.custom_text,
-        cursor_pos: chars_len(c.custom_text),
+        cursor_pos: t_width(c.custom_text),
         editing_text: false,
         idle_timeout_s: c.idle_timeout_secs,
         dwell_s: c.dwell_secs,
@@ -146,9 +147,9 @@ pub fn tui_apply_text(m: TuiModel, b: Int, act: String) -> TuiModel {
     if act == "enter" || (b == 27 && act == "quit") {
         cur.editing_text = false;
     } else if act == "backspace" {
-        let l: Int = chars_len(cur.custom_text);
-        if l > 0 {
-            cur.custom_text = str_slice(cur.custom_text, 0, l - 1);
+        let w: Int = t_width(cur.custom_text);
+        if w > 0 {
+            cur.custom_text = t_slice(cur.custom_text, 0, w - 1);
             cur.dirty = true;
         }
     } else if b >= 32 && b <= 126 {

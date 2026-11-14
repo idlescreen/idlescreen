@@ -8,15 +8,13 @@
 //   3. t_at returns the codepoint string at an index.
 //   4. t_slice returns the codepoints of an index range.
 
-import "oostd/core/text/utf8_grp/utf8_codepoint_length_law.oo";
 import "oostd/core/text/utf8_grp/utf8_iterator.oo";
 
-// Display width in codepoints. A string that is not valid UTF-8 has no
-// codepoint count, so it falls back to its byte length.
+// Display width in codepoints, measured as the number of elements `t_chars`
+// produces, so the measured width always agrees with the drawing walk even
+// when the string is not valid UTF-8.
 pub fn t_width(s: String) -> Int {
-    let n: Int = utf8_codepoint_count(s);
-    if n < 0 { return bytes_len(s); }
-    return n;
+    return list_len(t_chars(s));
 }
 
 // Split a string into its codepoints, one string per codepoint.
