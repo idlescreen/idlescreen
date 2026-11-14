@@ -18,7 +18,8 @@
 # upstream fix is to have the compiler lower the math builtins to LLVM
 # intrinsics (llvm.pow.f64 and friends) so clang emits libm calls. When that
 # lands, every entry below must match its golden again and the gate returns
-# to 51/51.
+# to 51/51. The full write-up, with the measurements, is in
+# qa/upstream-runtime-math.md.
 #
 # `make parity` still FAILS on any divergence that is not listed here, and it
 # prints "RECOVERED" for a listed scene that starts matching again.
