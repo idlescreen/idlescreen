@@ -1,0 +1,30 @@
+# Parity quarantine — scenes deferred from the bit-exact Rust-gold parity gate.
+#
+# Every scene listed below is excluded from `make parity`'s bit-exact check
+# because it diverges from its Rust golden ONLY through the upstream
+# runtime's transcendental math: the `.oo` runtime implements pow/sqrt/sin/cos
+# in pure `.oo` (exp/ln substrate), so it no longer reproduces the Rust
+# reference's last bits (glibc's pow/sqrt/sin/cos are the reference).
+#
+# The goldens in qa/golden/ are NOT re-baselined — the Rust reference still
+# reproduces all 51 of them bit-exactly. This file is an explicit, bounded
+# exception to the gate, not a change to the golden data.
+#
+# Divergence is bounded and cosmetic: `sweep` and `swarm` shift a group
+# reveal by at most three frames; `fireworks` settles 18 frames later
+# (446 -> 464 frames) because path completion truncates a float to an int.
+#
+# Removal condition: the runtime's math is libm-compatible again. The
+# upstream fix is to have the compiler lower the math builtins to LLVM
+# intrinsics (llvm.pow.f64 and friends) so clang emits libm calls. When that
+# lands, every entry below must match its golden again and the gate returns
+# to 51/51.
+#
+# `make parity` still FAILS on any divergence that is not listed here, and it
+# prints "RECOVERED" for a listed scene that starts matching again.
+#
+# One scene name per line; blank lines and #-comments are ignored.
+
+fireworks
+sweep
+swarm

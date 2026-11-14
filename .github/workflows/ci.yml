@@ -22,37 +22,29 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - name: Fetch openOODA toolchain (oodac, oodar, std)
+      - name: Install the openOODA toolchain
         env:
           # The toolchain repos are private in the openOODA-core org, so the
-          # default GITHUB_TOKEN cannot read them. A PAT with repo scope
-          # across that org is required to clone them here.
-          TOOLCHAIN_TOKEN: ${{ secrets.IDLESCREEN_PACKAGES_DISPATCH_TOKEN }}
+          # default GITHUB_TOKEN cannot read them. The installer pulls the
+          # std tree with the gh CLI, so a PAT with repo scope across that
+          # org is required here.
+          GH_TOKEN: ${{ secrets.IDLESCREEN_PACKAGES_DISPATCH_TOKEN }}
         run: |
-          if [ -z "$TOOLCHAIN_TOKEN" ]; then
-            echo "::error::IDLESCREEN_PACKAGES_DISPATCH_TOKEN is not set — cannot clone the private openOODA-core toolchain"
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::IDLESCREEN_PACKAGES_DISPATCH_TOKEN is not set — cannot install the openOODA toolchain"
             exit 1
           fi
-          mkdir -p /tmp/ooda-toolchain
-          for r in oodac oodar; do
-            git clone --depth 1 \
-              "https://x-access-token:${TOOLCHAIN_TOKEN}@github.com/openOODA-core/${r}.git" \
-              "/tmp/ooda-toolchain/$r"
-            # Drop the credential from the remote URL so it never lands in
-            # .git/config of the checkout.
-            git -C "/tmp/ooda-toolchain/$r" remote set-url origin "https://github.com/openOODA-core/${r}.git"
-          done
-          # The std repo is cloned under the name `oostd`: the compiler
-          # resolves oostd/... imports by walking up from the build
-          # directory, so the tree has to be a directory named `oostd` in an
-          # ancestor of the project — it is checked out under that name
-          # directly, never linked into the tree.
-          git clone --depth 1 \
-            "https://x-access-token:${TOOLCHAIN_TOKEN}@github.com/openOODA-core/std.git" \
-            "/tmp/ooda-toolchain/oostd"
-          git -C "/tmp/ooda-toolchain/oostd" remote set-url origin "https://github.com/openOODA-core/std.git"
+          # The toolchain is a compiler plus a runtime archive, and the
+          # compiler needs that archive to link anything — the runtime
+          # cannot be rebuilt from source without one. The installer is the
+          # supported way to get both: it verifies every asset against the
+          # hub's SHA256SUMS before installing it.
+          curl -fsSL https://openooda.org/install.sh | bash -s -- --yes
+          test -x "$HOME/.openooda/bin/oodac"
+          test -f "$HOME/.openooda/bin/liboodar.a"
+          echo "OODA_HOME=$HOME/.openooda" >> "$GITHUB_ENV"
 
-      - name: Stage the build tree under /tmp
+      - name: Stage the std tree and the build tree under /tmp
         run: |
           # oodar's oo_child_filter_env() scrubs a child process's environment
           # and replaces the inherited OODA_FS_READDIR/OODA_FS_WRITEDIR with a
@@ -60,15 +52,17 @@ jobs:
           # spawns `oodac check` as a child, so that child cannot read a
           # workspace outside those roots. /tmp is the one portable root in
           # that list — oodar's fs layer treats it as always-allowed — so the
-          # whole build tree is staged there. The sandbox stays on, no
-          # toolchain revision is pinned, and upstream master keeps flowing.
+          # std tree and the whole build tree are staged there. The sandbox
+          # stays on and no toolchain revision is pinned.
           #
-          # The workspace is staged inside the toolchain root so that `oostd`
-          # (the std repo) is a sibling of the project: the compiler walks up
-          # from the build directory to find it.
+          # The std tree is staged under the name `oostd`, as a sibling of the
+          # project: the compiler resolves oostd/... imports through
+          # OODA_STD_DIR, and the Makefile points it at that sibling.
+          mkdir -p /tmp/ooda-toolchain
+          cp -a "$HOME/.openooda/oostd" /tmp/ooda-toolchain/oostd
           mkdir -p /tmp/ooda-toolchain/idlescreen
           rsync -a --exclude .git "$GITHUB_WORKSPACE/" /tmp/ooda-toolchain/idlescreen/
-          echo "OODA_HOME=/tmp/ooda-toolchain" >> "$GITHUB_ENV"
+          echo "OODA_STD_DIR=/tmp/ooda-toolchain/oostd" >> "$GITHUB_ENV"
           echo "WORKDIR=/tmp/ooda-toolchain/idlescreen" >> "$GITHUB_ENV"
 
       - name: Verify (portable, page rule, file law, academy, density, vocab, shape, oodac check)

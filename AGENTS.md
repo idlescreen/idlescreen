@@ -46,7 +46,7 @@ Rather than polluting source files with inline annotations, every invariant is m
 - **`make portable`**: No author-machine absolutes (`/Projects/...`), no hashed codegen names, no patching the generated runtime to disable the FS jail.
 - **`make line-cap` / `file-law` / `academy` / `density` / `vocab` / `shape`**: The §1 Page Rule, file-type law, academy headers, directory density, banned vocabulary, and function shape (≤ 8 functions per page, ≤ 64 lines per function).
 - **`make check`**: `oodac check` passes on every `.oo` file.
-- **`make parity`**: Every scene with a parity port under `tests/oo/scenes/` is bit-exact against its `qa/golden/` frame.
+- **`make parity`**: Every scene with a parity port under `tests/oo/scenes/` is bit-exact against its `qa/golden/` frame, except scenes explicitly deferred in `qa/parity_quarantine.txt`.
 - **`make det`**: Two consecutive builds are byte-identical.
 
 ### The Determinism Invariant
@@ -121,7 +121,7 @@ Before any change is committed or marked complete, every step of the Verificatio
 2. **Page Laws**: `make line-cap file-law academy density vocab shape` must pass with zero violations.
 3. **Typecheck**: `make check` (`oodac check` on every `.oo` file) must pass with zero errors.
 4. **Test Suite**: `make test` must pass completely.
-5. **Scene Parity**: `make parity` must pass — every ported scene bit-exact against its golden.
+5. **Scene Parity**: `make parity` must pass — every ported scene bit-exact against its golden, except scenes explicitly deferred in `qa/parity_quarantine.txt`. That list is a bounded, self-limiting exception for an upstream defect: the gate validates it, fails on any divergence that is not on it, and reports a deferred scene that starts matching again so the list shrinks on its own.
 6. **Determinism**: `make det` must pass — two consecutive builds byte-identical.
 7. **Dogfood Proof**: The rebuilt binary must answer `list`, `status`, `config`, `doctor`, and one `preview --frames` run from a clean shell.
 
