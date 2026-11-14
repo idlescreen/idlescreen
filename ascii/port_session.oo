@@ -86,24 +86,6 @@ pub type PortSession = struct {
     mystify: Mystify
 };
 
-pub fn port_has(name: String) -> Bool {
-    if name == "plasma" || name == "ripple" || name == "aurora" || name == "chaos" { return true; }
-    if name == "metaballs" || name == "moire" || name == "cosmos" || name == "radar" { return true; }
-    if name == "tunnel" || name == "mystify" || name == "expand" || name == "wipe" { return true; }
-    if name == "sweep" || name == "slide" || name == "middleout" || name == "binarypath" { return true; }
-    if name == "crumble" || name == "smoke" { return true; }
-    if name == "randomsequence" || name == "breakout" || name == "life" || name == "pipes" ||
-        name == "tetris" || name == "waves" { return true; }
-    if name == "swarm" || name == "unstable" || name == "thunderstorm" { return true; }
-    if name == "orbittingvolley" || name == "bubbles" || name == "beams" ||
-        name == "laseretch" || name == "print" || name == "rings" ||
-        name == "synthgrid" || name == "matrix" || name == "vhstape" { return true; }
-    return name == "burn" || name == "blackhole" || name == "rain" || name == "scattered" ||
-        name == "pour" || name == "slice" || name == "colorshift" || name == "highlight" ||
-        name == "spray" || name == "overflow" || name == "bouncyballs" || name == "decrypt" ||
-        name == "fireworks" || name == "spotlights" || name == "errorcorrect";
-}
-
 fn port_run_all(name: String, cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
     if name == "expand" { return expand_run(cells, info, lines); }
     if name == "wipe" { return wipe_run(cells, info, lines); }
