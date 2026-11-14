@@ -17,14 +17,15 @@ Re-verified on 2026-11-13 against the newest published runtime (hub asset
 40ac871e..., upstream ab5ae7bc): both defects are still present, and the
 parity sweep still stands at 48/51 with the same three scenes.
 
-FILED UPSTREAM on 2026-11-13:
+FILED UPSTREAM on 2026-11-13 (the upstream org is private, so these are
+identifiers rather than links):
 
   Defect A - codepoint -> byte primitives
-      https://github.com/openOODA-core/oodar/issues/1
+      openOODA-core/oodar#1
   Defect B - math is no longer libm-compatible
-      https://github.com/openOODA-core/oodar/issues/2
+      openOODA-core/oodar#2
   Defect B - preferred fix: compiler lowers math builtins to LLVM intrinsics
-      https://github.com/openOODA-core/oodac/issues/3
+      openOODA-core/oodac#3
 
 
 --------------------------------------------------------------------------------
@@ -212,8 +213,7 @@ itself be compiled against libm and inherit the same exactness.
 This restores bit-exact parity for every libm-based consumer and keeps the
 runtime free of a C dependency for its own internals.
 
-The compiler-side change is filed separately in openOODA-core/oodac:
-  https://github.com/openOODA-core/oodac/issues/3
+The compiler-side change is filed separately as openOODA-core/oodac#3.
 
 SUGGESTED FIX (FALLBACK)
 

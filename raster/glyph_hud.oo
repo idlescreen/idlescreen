@@ -124,9 +124,10 @@ pub fn draw_preview_hud(g: CellGrid, scene_name: String, idx: Int, total: Int, t
     let mut out: CellGrid = g;
     let mut cx: Int = start_x + 1;
     let cs: List[String] = t_chars(line);
+    let tag_w: Int = t_width(tag);
     let mut i: Int = 0;
     while i < list_len(cs) {
-        let fg: Int = if i < t_width(tag) { rgb(110, 210, 255) } else if i < t_width(tag) + 8 { rgb(255, 225, 85) } else { rgb(175, 195, 225) };
+        let fg: Int = if i < tag_w { rgb(110, 210, 255) } else if i < tag_w + 8 { rgb(255, 225, 85) } else { rgb(175, 195, 225) };
         let ch: String = list_get(cs, i);
         out = grid_put(out, cx, rows - 1, ch, fg, pill, true);
         cx = cx + 1;

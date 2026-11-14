@@ -121,7 +121,7 @@ Before any change is committed or marked complete, every step of the Verificatio
 2. **Page Laws**: `make line-cap file-law academy density vocab shape` must pass with zero violations.
 3. **Typecheck**: `make check` (`oodac check` on every `.oo` file) must pass with zero errors.
 4. **Test Suite**: `make test` must pass completely.
-5. **Scene Parity**: `make parity` must pass — every ported scene bit-exact against its golden, except scenes explicitly deferred in `qa/parity_quarantine.txt`. That list is a bounded, self-limiting exception for an upstream defect: every entry records the measured ceiling of the divergence it defers (differing entries and frame count), the gate validates the list, fails on any divergence that is not on it, fails when a deferred scene diverges beyond its recorded ceiling, and fails when a deferred scene matches its golden again — so the list can never outlive the defect it covers.
+5. **Scene Parity**: `make parity` must pass — every ported scene bit-exact against its golden, except scenes explicitly deferred in `qa/parity_quarantine.txt`. That list is a bounded, self-limiting exception for an upstream defect: every entry records the measured ceiling of the divergence it defers (differing entries and frame count), the gate validates the list, fails on any divergence that is not on it, fails when a deferred scene diverges beyond its recorded ceiling or stops before its golden does, and fails when a deferred scene matches its golden again — so the list can never outlive the defect it covers.
 6. **Determinism**: `make det` must pass — two consecutive builds byte-identical.
 7. **Dogfood Proof**: The rebuilt binary must answer `list`, `status`, `config`, `doctor`, and one `preview --frames` run from a clean shell.
 

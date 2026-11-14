@@ -20,11 +20,19 @@
 #                 digest counts as one entry when it differs.
 #   max_frames    ceiling on the number of frames the scene may render.
 #
-# The gate re-derives both numbers from the actual render and FAILS if either
-# exceeds the recorded ceiling. The deferral therefore covers exactly the
-# divergence that was measured and justified here — any NEW divergence in a
-# deferred scene (a crashed scene, a changed frame count, extra frames
-# differing) fails the build instead of hiding behind the deferral.
+# The gate re-derives both numbers from the actual render and FAILS when the
+# divergence falls outside the envelope that was measured here:
+#
+#   - more entries differ than max_mismatch  -> the divergence grew
+#   - more frames than max_frames             -> the scene runs longer
+#   - fewer frames than the golden has        -> the scene stopped early
+#
+# A divergence strictly inside the envelope (fewer entries differing, or a
+# shorter run that is still as long as the golden) passes, with a note that
+# the bound can be tightened. So the deferral covers exactly the divergence
+# that was measured and justified here: a new one -- a scene that stops
+# early, a frame count outside the envelope, extra frames differing -- fails
+# the build instead of hiding behind the deferral.
 #
 # Measured against the runtime published 2026-11-14 (hub asset 40ac871e...,
 # upstream ab5ae7bc), compiler 04adc274..., std 72c26be1:

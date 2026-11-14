@@ -60,10 +60,13 @@ PARITY_QUARANTINE := qa/parity_quarantine.txt
 parity:
 	@mkdir -p .ooda-cache bin
 	@$(MAKE) --no-print-directory std-check
-	@awk -v QF="$(PARITY_QUARANTINE)" -v scenes=" $(PARITY_SCENES) " '$$1 ~ /^[[:space:]]*#/ { next } $$1 ~ /^[[:space:]]*$$/ { next } { if (NF != 3) { print "FAIL: " QF " entry " NR ": expected \"<scene> <max_mismatch> <max_frames>\""; bad=1; next } if (index(scenes, " " $$1 " ") == 0) { print "FAIL: " QF " lists unknown scene \"" $$1 "\""; bad=1; next } if ($$2 !~ /^[0-9]+$$/ || $$3 !~ /^[0-9]+$$/) { print "FAIL: " QF " entry " NR ": bounds must be non-negative integers"; bad=1; next } } END { if (bad) exit 1 }' $(PARITY_QUARANTINE)
+	@awk -v QF="$(PARITY_QUARANTINE)" -v scenes=" $(PARITY_SCENES) " '$$1 ~ /^[[:space:]]*#/ { next } $$1 ~ /^[[:space:]]*$$/ { next } { if (NF != 3) { print "FAIL: " QF " entry " NR ": expected \"<scene> <max_mismatch> <max_frames>\""; bad=1; next } if (index(scenes, " " $$1 " ") == 0) { print "FAIL: " QF " lists unknown scene \"" $$1 "\""; bad=1; next } if ($$2 !~ /^[0-9]+$$/ || $$3 !~ /^[0-9]+$$/) { print "FAIL: " QF " entry " NR ": bounds must be non-negative integers"; bad=1; next } if ($$1 in seen) { print "FAIL: " QF " lists " $$1 " twice - one bound per scene"; bad=1; next } seen[$$1] = 1 } END { if (bad) exit 1 }' $(PARITY_QUARANTINE)
 	$(ENV) $(OODA_COMPILER) build tests/oo/scene_emit.oo -o bin/scene_emit > /dev/null
 	@fail=0; deferred=0; \
 	for s in $(PARITY_SCENES); do \
+		if [ ! -r qa/golden/$$s.txt ]; then \
+			echo "FAIL: qa/golden/$$s.txt is missing or unreadable"; fail=$$((fail + 1)); continue; \
+		fi; \
 		$(ENV) ./bin/scene_emit $$s > .ooda-cache/parity_$$s.txt; \
 		entry=$$(grep -E "^$$s[[:space:]]" $(PARITY_QUARANTINE) | head -1); \
 		if cmp -s qa/golden/$$s.txt .ooda-cache/parity_$$s.txt; then \
@@ -79,9 +82,15 @@ parity:
 			echo "FAIL: $$s diverges from qa/golden/$$s.txt"; fail=$$((fail + 1)); continue; \
 		fi; \
 		set -- $$entry; maxm=$$2; maxf=$$3; \
-		verdict=$$(awk -F'\t' -v maxm="$$maxm" -v maxf="$$maxf" 'FNR==NR { if ($$1=="frame") { g[$$2]=$$3 } else { gd=$$3 }; next } { if ($$1=="frame") { c[$$2]=$$3 } else { cd=$$3 } } END { m=0; nf=0; for (k in g) { if (!(k in c)) { m++ } else if (g[k]!=c[k]) { m++ } } for (k in c) { nf++; if (!(k in g)) { m++ } } if (gd!=cd) { m++ } if (m==0) { print "RECOVERED 0 0"; exit } if (m>maxm || nf>maxf) { print "EXCEEDED " m " " nf; exit } print "DEFERRED " m " " nf }' qa/golden/$$s.txt .ooda-cache/parity_$$s.txt); \
+		verdict=$$(awk -F'\t' -v maxm="$$maxm" -v maxf="$$maxf" 'FNR==NR { if ($$1=="frame") { g[$$2]=$$3 } else { gd=$$3 }; next } { if ($$1=="frame") { c[$$2]=$$3 } else { cd=$$3 } } END { m=0; nf=0; ng=0; for (k in g) { ng++; if (!(k in c)) { m++ } else if (g[k]!=c[k]) { m++ } } for (k in c) { nf++; if (!(k in g)) { m++ } } if (gd!=cd) { m++ } if (m==0) { print "RECOVERED 0 " nf; exit } if (nf<ng) { print "EXCEEDED " m " " nf; exit } if (m>maxm || nf>maxf) { print "EXCEEDED " m " " nf; exit } print "DEFERRED " m " " nf }' qa/golden/$$s.txt .ooda-cache/parity_$$s.txt); \
 		set -- $$verdict; \
 		case "$$1" in \
+			DEFERRED) \
+				echo "DEFERRED: $$s - upstream runtime math deviation ($$2 mismatches / $$3 frames, bound $$maxm / $$maxf)"; \
+				deferred=$$((deferred + 1)); \
+				if [ "$$2" -lt "$$maxm" ] || [ "$$3" -lt "$$maxf" ]; then \
+					echo "      note: the divergence shrank - the bound in $(PARITY_QUARANTINE) can be tightened"; \
+				fi;; \
 			RECOVERED) \
 				echo "FAIL: $$s matches its golden again - remove it from $(PARITY_QUARANTINE)"; \
 				fail=$$((fail + 1));; \
@@ -90,11 +99,8 @@ parity:
 				echo "      the deferral covers only the divergence recorded in $(PARITY_QUARANTINE) - re-check it and update the bound"; \
 				fail=$$((fail + 1));; \
 			*) \
-				echo "DEFERRED: $$s - upstream runtime math deviation ($$2 mismatches / $$3 frames, bound $$maxm / $$maxf)"; \
-				deferred=$$((deferred + 1)); \
-				if [ "$$2" -lt "$$maxm" ] || [ "$$3" -lt "$$maxf" ]; then \
-					echo "      note: the divergence shrank - the bound in $(PARITY_QUARANTINE) can be tightened"; \
-				fi;; \
+				echo "FAIL: $$s produced no verdict from the parity check"; \
+				fail=$$((fail + 1));; \
 		esac; \
 	done; \
 	if [ $$fail -ne 0 ]; then exit 1; fi; \
