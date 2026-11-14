@@ -5,7 +5,8 @@
 // Beats:
 //   1. Build canvas geometry for the terminal size and construct every ported scene state.
 //   2. Continuous ports step their World each call; run ports replay their bit-exact frame tape frame-by-frame.
-//   3. Render the latest frame through the arcade composite pipeline (starfield, gleam, settled banner).
+//   3. A scene that has played out holds its settled frame, the way the Rust reference reports a finished scene and leaves the settled frame standing until the next scene is chosen.
+//   4. Render the latest frame through the arcade composite pipeline (starfield, gleam, settled banner).
 
 import "tests/oo/canvas_cells.oo";
 import "tests/oo/grid_cells.oo";

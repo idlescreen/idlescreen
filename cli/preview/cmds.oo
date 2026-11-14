@@ -15,36 +15,8 @@ import "ascii/draw/ansi.oo";
 import "daemon/config_file.oo";
 import "daemon/config.oo";
 import "oostd/core/primitives/str_extra.oo";
+import "cli/preview/flags.oo";
 
-// Digits-only parse; -1 on other bytes, saturating before wraparound.
-fn preview_parse_uint(raw: String) -> Int {
-    if raw == "" { return -1; }
-    let mut acc: Int = 0;
-    let mut i: Int = 0;
-    while i < chars_len(raw) {
-        let b: Int = byte_at(raw, i);
-        if b < 48 || b > 57 { return -1; }
-        if acc > 1000000000 { return 1000000001; }
-        acc = acc * 10 + b - 48;
-        i = i + 1;
-    }
-    return acc;
-}
-
-// Validate one numeric flag, printing the ERR line; 0 keeps the default.
-fn preview_need_num(raw: String, flag: String, max: Int, dflt: Int) -> Int {
-    let v: Int = preview_parse_uint(raw);
-    if v < 0 {
-        println("ERR preview: " + flag + " must be digits only, got: " + raw);
-        return -1;
-    }
-    if v == 0 { return dflt; }
-    if v > max {
-        println("ERR preview: " + flag + " exceeds maximum " + max.to_string() + ", got: " + raw);
-        return -2;
-    }
-    return v;
-}
 fn preview_batch(ffi: &FfiCap, ar: &ArenaCap, time: &TimeCap, name: String,
     wm: String, frames: Int, dims: PvDims, tour: Bool) -> Int {
     let cols: Int = dims.cols;
@@ -56,23 +28,34 @@ fn preview_batch(ffi: &FfiCap, ar: &ArenaCap, time: &TimeCap, name: String,
     }
     let fs_str: String = frames.to_string();
     let aid: Int = frame_arena_open(ar);
-    let use_port: Bool = !is_wm && port_has(name);
-    let mut ps: PortSession = port_session_new(name, cols, rows, wm);
+    // Canonicalise the scene name. An alias (shower, scramble, led, wave)
+    // must resolve to the same roster entry as its canonical name, or the
+    // same scene renders through two different pipelines.
+    let cidx: Int = effects_index(name);
+    let mut sc: Int = if cidx >= 0 { cidx } else { 0 };
+    let use_port: Bool = !is_wm;
+    let sc0: String = if is_wm { name } else { effects_name(sc) };
+    let mut ps_key: String = sc0 + ":" + cols.to_string() + "x" + rows.to_string();
+    let mut ps: PortSession = port_session_new(sc0, cols, rows, wm);
     let mut i: Int = 0;
     while i < frames {
         let ft0: Int = now_ms(time);
+        let sc_name: String = if is_wm { name } else { effects_name(sc) };
         let mut port_frame_str: String = "";
         if use_port {
+            let key: String = sc_name + ":" + cols.to_string() + "x" + rows.to_string();
+            if key != ps_key {
+                ps = port_session_new(sc_name, cols, rows, wm);
+                ps_key = key;
+            }
             ps = port_session_next(ps);
             port_frame_str = port_session_frame(ps);
         }
         let _e: Int = frame_arena_enter(ar, aid);
         let frame: String = if is_wm {
             engine_wordmark_frame(cols, rows, name, i)
-        } else if use_port {
-            port_frame_str
         } else {
-            engine_preview_wordmark(cols, rows, name, i, tour, wm)
+            port_frame_str
         };
         let w: Result[String, String] = oo_tui_write(ffi, frame);
         if w.is_err() { print(frame); }
@@ -80,6 +63,12 @@ fn preview_batch(ffi: &FfiCap, ar: &ArenaCap, time: &TimeCap, name: String,
         let _l: Int = frame_arena_leave(ar, aid);
         let el: Int = now_ms(time) - ft0;
         if el < 33 && el >= 0 { sleep_ms(time, 33 - el); }
+        // Rotate the tour when the scene finishes, the way the Rust
+        // reference ends a scene's slot: the slot closes when the scene
+        // itself has played out. A fixed frame timer cut long scenes short
+        // and left short ones resting on a static banner. The tick bound is
+        // a backstop, so a scene that never settles cannot stall the tour.
+        if tour && use_port && (ps.settled || ps.tick > 1800) { sc = (sc + 1) % 51; }
         i = i + 1;
     }
     let _c: Int = frame_arena_close(ar, aid);
@@ -146,7 +135,7 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, w
             last_pack = pack;
         }
         let sc_name: String = if is_wm { name } else { effects_name(sc) };
-        let use_port: Bool = !is_wm && port_has(sc_name);
+        let use_port: Bool = !is_wm;
         if use_port {
             let key: String = sc_name + ":" + cols.to_string() + "x" + (rows - 1).to_string();
             if key != ps_key {
@@ -155,14 +144,11 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, w
             }
             ps = port_session_next(ps);
         }
-        let port_frame_str: String = if use_port { port_session_frame(ps) } else { "" };
         let _e: Int = frame_arena_enter(ar, aid);
         let frame: String = if is_wm {
             engine_wordmark_frame(cols, rows - 1, name, tick)
-        } else if use_port {
-            port_frame_str
         } else {
-            engine_preview_wordmark(cols, rows - 1, sc_name, tick, tour, wm)
+            port_session_frame(ps)
         };
         let sfx: String = " (" + (sc + 1).to_string() + "/51) │ Banner: " + wm;
         let tit: String = if is_wm { "Preset: " + sc_name } else { "Scene: " + sc_name + sfx };
@@ -173,7 +159,9 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, w
         let nsc: Int = preview_poll_key(ffi, sc);
         if nsc == -1 { running = false; }
         else if nsc >= 0 { sc = nsc; }
-        if tour && (tick % 180 == 179) { sc = (sc + 1) % 51; }
+        // The tour advances when the scene settles, not on a frame count:
+        // the Rust reference closes a scene's slot when the scene finishes.
+        if tour && use_port && (ps.settled || ps.tick > 1800) { sc = (sc + 1) % 51; }
         let el: Int = now_ms(time) - ft0;
         if el < 33 && el >= 0 { sleep_ms(time, 33 - el); }
         tick = tick + 1;

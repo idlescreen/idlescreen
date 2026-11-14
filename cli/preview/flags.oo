@@ -1,0 +1,36 @@
+// # Preview Flags - Digits-Only Numeric Argument Parsing
+//
+// Logline: Parse a numeric preview flag as digits only, against a bound, with a default.
+// Setup: Pure byte scan over the argument text. Zero ambient authority.
+// Beats:
+//   1. preview_parse_uint accepts digits only and rejects any other byte.
+//   2. preview_need_num applies the bound and prints the ERR line for a bad value.
+
+pub fn preview_parse_uint(raw: String) -> Int {
+    if raw == "" { return -1; }
+    let mut acc: Int = 0;
+    let mut i: Int = 0;
+    while i < chars_len(raw) {
+        let b: Int = byte_at(raw, i);
+        if b < 48 || b > 57 { return -1; }
+        if acc > 1000000000 { return 1000000001; }
+        acc = acc * 10 + b - 48;
+        i = i + 1;
+    }
+    return acc;
+}
+
+// Validate one numeric flag, printing the ERR line; 0 keeps the default.
+pub fn preview_need_num(raw: String, flag: String, max: Int, dflt: Int) -> Int {
+    let v: Int = preview_parse_uint(raw);
+    if v < 0 {
+        println("ERR preview: " + flag + " must be digits only, got: " + raw);
+        return -1;
+    }
+    if v == 0 { return dflt; }
+    if v > max {
+        println("ERR preview: " + flag + " exceeds maximum " + max.to_string() + ", got: " + raw);
+        return -2;
+    }
+    return v;
+}
