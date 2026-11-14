@@ -53,33 +53,49 @@ PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel 
 
 # Scenes deferred from the bit-exact check because the upstream runtime's
 # transcendental math no longer reproduces the Rust reference's last bits.
-# See qa/parity_quarantine.txt for the removal condition.
+# See qa/parity_quarantine.txt for the removal condition, and
+# qa/upstream-runtime-math.txt for the upstream defect report.
 PARITY_QUARANTINE := qa/parity_quarantine.txt
 
 parity:
 	@mkdir -p .ooda-cache bin
 	@$(MAKE) --no-print-directory std-check
-	@for q in $$(grep -v '^#' $(PARITY_QUARANTINE) | grep -v '^$$' | tr -d ' \r'); do \
-		case " $(PARITY_SCENES) " in \
-			*" $$q "*) ;; \
-			*) echo "FAIL: $(PARITY_QUARANTINE) lists unknown scene '$$q'"; exit 1;; \
-		esac; \
-	done
+	@awk -v QF="$(PARITY_QUARANTINE)" -v scenes=" $(PARITY_SCENES) " '$$1 ~ /^[[:space:]]*#/ { next } $$1 ~ /^[[:space:]]*$$/ { next } { if (NF != 3) { print "FAIL: " QF " entry " NR ": expected \"<scene> <max_mismatch> <max_frames>\""; bad=1; next } if (index(scenes, " " $$1 " ") == 0) { print "FAIL: " QF " lists unknown scene \"" $$1 "\""; bad=1; next } if ($$2 !~ /^[0-9]+$$/ || $$3 !~ /^[0-9]+$$/) { print "FAIL: " QF " entry " NR ": bounds must be non-negative integers"; bad=1; next } } END { if (bad) exit 1 }' $(PARITY_QUARANTINE)
 	$(ENV) $(OODA_COMPILER) build tests/oo/scene_emit.oo -o bin/scene_emit > /dev/null
 	@fail=0; deferred=0; \
 	for s in $(PARITY_SCENES); do \
 		$(ENV) ./bin/scene_emit $$s > .ooda-cache/parity_$$s.txt; \
+		entry=$$(grep -E "^$$s[[:space:]]" $(PARITY_QUARANTINE) | head -1); \
 		if cmp -s qa/golden/$$s.txt .ooda-cache/parity_$$s.txt; then \
-			if grep -qx "$$s" $(PARITY_QUARANTINE); then \
-				echo "RECOVERED: $$s matches its golden again - drop it from $(PARITY_QUARANTINE)"; \
+			if [ -n "$$entry" ]; then \
+				echo "FAIL: $$s matches its golden again - remove it from $(PARITY_QUARANTINE)"; \
+				fail=$$((fail + 1)); \
+			else \
+				echo "PASS: $$s bit-exact parity"; \
 			fi; \
-			echo "PASS: $$s bit-exact parity"; \
-		elif grep -qx "$$s" $(PARITY_QUARANTINE); then \
-			echo "DEFERRED: $$s - upstream runtime math deviation (see $(PARITY_QUARANTINE))"; \
-			deferred=$$((deferred + 1)); \
-		else \
-			echo "FAIL: $$s diverges from qa/golden/$$s.txt"; fail=1; \
+			continue; \
 		fi; \
+		if [ -z "$$entry" ]; then \
+			echo "FAIL: $$s diverges from qa/golden/$$s.txt"; fail=$$((fail + 1)); continue; \
+		fi; \
+		set -- $$entry; maxm=$$2; maxf=$$3; \
+		verdict=$$(awk -F'\t' -v maxm="$$maxm" -v maxf="$$maxf" 'FNR==NR { if ($$1=="frame") { g[$$2]=$$3 } else { gd=$$3 }; next } { if ($$1=="frame") { c[$$2]=$$3 } else { cd=$$3 } } END { m=0; nf=0; for (k in g) { if (!(k in c)) { m++ } else if (g[k]!=c[k]) { m++ } } for (k in c) { nf++; if (!(k in g)) { m++ } } if (gd!=cd) { m++ } if (m==0) { print "RECOVERED 0 0"; exit } if (m>maxm || nf>maxf) { print "EXCEEDED " m " " nf; exit } print "DEFERRED " m " " nf }' qa/golden/$$s.txt .ooda-cache/parity_$$s.txt); \
+		set -- $$verdict; \
+		case "$$1" in \
+			RECOVERED) \
+				echo "FAIL: $$s matches its golden again - remove it from $(PARITY_QUARANTINE)"; \
+				fail=$$((fail + 1));; \
+			EXCEEDED) \
+				echo "FAIL: $$s diverges beyond its recorded bound ($$2 mismatches / $$3 frames, bound $$maxm / $$maxf)"; \
+				echo "      the deferral covers only the divergence recorded in $(PARITY_QUARANTINE) - re-check it and update the bound"; \
+				fail=$$((fail + 1));; \
+			*) \
+				echo "DEFERRED: $$s - upstream runtime math deviation ($$2 mismatches / $$3 frames, bound $$maxm / $$maxf)"; \
+				deferred=$$((deferred + 1)); \
+				if [ "$$2" -lt "$$maxm" ] || [ "$$3" -lt "$$maxf" ]; then \
+					echo "      note: the divergence shrank - the bound in $(PARITY_QUARANTINE) can be tightened"; \
+				fi;; \
+		esac; \
 	done; \
 	if [ $$fail -ne 0 ]; then exit 1; fi; \
 	echo "PASS: scene parity ($(words $(PARITY_SCENES)) scenes checked, $$deferred deferred upstream)"

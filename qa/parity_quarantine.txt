@@ -10,22 +10,51 @@
 # reproduces all 51 of them bit-exactly. This file is an explicit, bounded
 # exception to the gate, not a change to the golden data.
 #
-# Divergence is bounded and cosmetic: `sweep` and `swarm` shift a group
-# reveal by at most three frames; `fireworks` settles 18 frames later
-# (446 -> 464 frames) because path completion truncates a float to an int.
+# FORMAT — one entry per line:
+#
+#     <scene> <max_mismatch> <max_frames>
+#
+#   max_mismatch  ceiling on the number of entries that may differ from the
+#                 golden. An entry is a frame line whose content differs, or
+#                 a frame index present on only one side; the trailing "done"
+#                 digest counts as one entry when it differs.
+#   max_frames    ceiling on the number of frames the scene may render.
+#
+# The gate re-derives both numbers from the actual render and FAILS if either
+# exceeds the recorded ceiling. The deferral therefore covers exactly the
+# divergence that was measured and justified here — any NEW divergence in a
+# deferred scene (a crashed scene, a changed frame count, extra frames
+# differing) fails the build instead of hiding behind the deferral.
+#
+# Measured against the runtime published 2026-11-14 (hub asset 40ac871e...,
+# upstream ab5ae7bc), compiler 04adc274..., std 72c26be1:
+#
+#   scene       frames (golden -> current)  entries differing
+#   ---------   -------------------------  ------------------
+#   sweep       220 -> 220                  11  (10 frames + the done digest)
+#   swarm      1030 -> 1030                  3  (2 frames + the done digest)
+#   fireworks   446 -> 464                 401  (382 frames + 18 extra frames
+#                                                + the done digest)
+#
+# Reading the fireworks row: the scene's reveal timing drifts slightly
+# because path completion truncates a float to an int, so 382 of the 446
+# shared frames render with a different content hash and the scene settles 18
+# frames later than the golden.
 #
 # Removal condition: the runtime's math is libm-compatible again. The
 # upstream fix is to have the compiler lower the math builtins to LLVM
 # intrinsics (llvm.pow.f64 and friends) so clang emits libm calls. When that
-# lands, every entry below must match its golden again and the gate returns
-# to 51/51. The full write-up, with the measurements, is in
-# qa/upstream-runtime-math.md.
+# lands, every entry below must match its golden again — the gate then fails
+# with "matches its golden again - remove it" until the entry is deleted here.
+# The full write-up, with the measurements, is in
+# qa/upstream-runtime-math.txt.
 #
-# `make parity` still FAILS on any divergence that is not listed here, and it
-# prints "RECOVERED" for a listed scene that starts matching again.
+# `make parity` still FAILS on any divergence that is not listed here, and on
+# any listed scene whose divergence exceeds its recorded ceiling.
 #
-# One scene name per line; blank lines and #-comments are ignored.
+# The upstream defects are filed as openOODA-core/oodar#1 and
+# openOODA-core/oodar#2, with the compiler-side fix in openOODA-core/oodac#3.
 
-fireworks
-sweep
-swarm
+fireworks 401 464
+sweep 11 220
+swarm 3 1030
