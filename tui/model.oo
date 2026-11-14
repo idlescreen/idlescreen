@@ -1,7 +1,7 @@
 // # TUI Model - Settings Director State Model
 //
 // Logline: State model and adjustment logic for the 7-field Settings Director.
-// Setup: Pure record over the 56-saver roster and configuration fields with zero ambient authority.
+// Setup: Pure record over the 54-saver roster (ascii, tour, superfedora, then the 51 arcade scenes) and configuration fields with zero ambient authority.
 // Beats:
 //   1. Hold focus, saver index, mode choice, custom text, and timing sliders.
 //   2. Navigate fields with wraparound.
@@ -36,7 +36,7 @@ pub fn tui_saver_name(idx: Int) -> String {
     if idx == 0 { return "ascii"; }
     if idx == 1 { return "tour"; }
     if idx == 2 { return "superfedora"; }
-    if idx >= 3 && idx < 56 { return effects_name(idx - 3); }
+    if idx >= 3 && idx < 54 { return effects_name(idx - 3); }
     return "ascii";
 }
 
@@ -103,7 +103,7 @@ pub fn tui_adjust_field(m: TuiModel, dir: Int, fast: Bool) -> TuiModel {
     mut_m.dirty = true;
     if m.focused == 0 {
         let step: Int = if fast { dir * 5 } else { dir };
-        mut_m.selected_saver = (m.selected_saver + step + 5600) % 56;
+        mut_m.selected_saver = (m.selected_saver + step + 5400) % 54;
     } else if m.focused == 1 {
         mut_m.use_os_brand = true;
     } else if m.focused == 2 {
