@@ -3,7 +3,7 @@
 // Logline: Resolves the active ootheme (--theme, OOTHEME, ootheme/current, OODA_THEME) and NO_COLOR.
 // Setup: Requires FsReadCap for the theme file and the environ block, ProcessCap for the parent-environ probe.
 // Beats:
-//   1. idlescreen_ootheme_extract strips --theme/--theme= from argv before verb parsing.
+//   1. idlescreen_ootheme_extract strips --theme/--theme= from argv before verb parsing, leaving a valueless --theme in place so parsing fails closed.
 //   2. idlescreen_theme_pick applies flag > OOTHEME > current file > OODA_THEME > legacy file precedence.
 //   3. idlescreen_ootheme_suppressed reports NO_COLOR, OO_NO_COLOR, or OODA_NO_COLOR.
 
@@ -77,11 +77,24 @@ pub fn idlescreen_ootheme_extract(args: List[String]) -> OothemeLink {
             out = list_push(out, a);
         } else if a == "--theme" {
             if i + 1 < list_len(args) {
-                theme = list_get(args, i + 1);
-                i = i + 1;
+                let v: String = list_get(args, i + 1);
+                if v != "" && !str_starts_with(v, "-") {
+                    theme = v;
+                    i = i + 1;
+                } else {
+                    out = list_push(out, a);
+                    if v == "" { i = i + 1; }
+                }
+            } else {
+                out = list_push(out, a);
             }
         } else if str_starts_with(a, "--theme=") {
-            theme = str_slice(a, 8, chars_len(a));
+            let ev: String = str_slice(a, 8, chars_len(a));
+            if ev != "" {
+                theme = ev;
+            } else {
+                out = list_push(out, a);
+            }
         } else {
             out = list_push(out, a);
         }

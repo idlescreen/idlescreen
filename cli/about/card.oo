@@ -6,26 +6,65 @@
 //   1. Resolve name, version, summary, subcommands, capabilities, and theme.
 //   2. Honour NO_COLOR/OO_NO_COLOR/OODA_NO_COLOR suppression and emit the deterministic card or JSON.
 //   3. Refuse unknown flags with exit code 2.
+//   4. Escape JSON controls and strip card newlines so hostile theme text cannot forge output.
 
 import "cli/about/theme.oo";
 import "cli/help.oo";
 
+// Hex pair for one C0 control byte in \u00XX escapes.
+fn about_json_hex(b: Int) -> String {
+    let digits: String = "0123456789abcdef";
+    return char_at(digits, b / 16) + char_at(digits, b % 16);
+}
+
+// Escape a value for JSON string context: quote, backslash, and every
+// C0 control (CR/LF included), so hostile config text stays one string.
+fn about_json_escape(s: String) -> String {
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < chars_len(s) {
+        let c: String = char_at(s, i);
+        let b: Int = byte_at(c, 0);
+        if b == 34 { out = out + "\\\""; }
+        else if b == 92 { out = out + "\\\\"; }
+        else if b == 10 { out = out + "\\n"; }
+        else if b == 13 { out = out + "\\r"; }
+        else if b == 9 { out = out + "\\t"; }
+        else if b < 32 { out = out + "\\u00" + about_json_hex(b); }
+        else { out = out + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
+// Strip CR/LF so a hostile value cannot forge a second card line.
+fn about_line_safe(s: String) -> String {
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < chars_len(s) {
+        let c: String = char_at(s, i);
+        if c != "\n" && c != "\r" { out = out + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
 fn idlescreen_about_card(ver: String, summary: String, subs: String, caps: String, theme: String) -> String {
-    return "Binary       : idlescreen (v" + ver + ")\n"
+    return "Binary       : idlescreen (v" + about_line_safe(ver) + ")\n"
         + "Organization : idlescreen (https://github.com/idlescreen/idlescreen)\n"
-        + "Summary      : " + summary + "\n"
-        + "Subcommands  : " + subs + "\n"
-        + "Capabilities : " + caps + "\n"
-        + "Theme        : " + theme + "\n";
+        + "Summary      : " + about_line_safe(summary) + "\n"
+        + "Subcommands  : " + about_line_safe(subs) + "\n"
+        + "Capabilities : " + about_line_safe(caps) + "\n"
+        + "Theme        : " + about_line_safe(theme) + "\n";
 }
 
 fn idlescreen_about_json(ver: String, summary: String, subs: String, caps: String, theme: String) -> String {
-    return "{\"component\":\"idlescreen\",\"version\":\"" + ver
+    return "{\"component\":\"idlescreen\",\"version\":\"" + about_json_escape(ver)
         + "\",\"layer\":\"L5-apps\",\"organization\":\"idlescreen\""
-        + ",\"summary\":\"" + summary + "\""
-        + ",\"subcommands\":\"" + subs + "\""
-        + ",\"capabilities\":\"" + caps + "\""
-        + ",\"theme\":\"" + theme + "\"}\n";
+        + ",\"summary\":\"" + about_json_escape(summary) + "\""
+        + ",\"subcommands\":\"" + about_json_escape(subs) + "\""
+        + ",\"capabilities\":\"" + about_json_escape(caps) + "\""
+        + ",\"theme\":\"" + about_json_escape(theme) + "\"}\n";
 }
 
 pub fn idlescreen_about(fs_r: &FsReadCap, proc: &ProcessCap, flag_theme: String, rest: List[String]) -> Int {
@@ -37,6 +76,10 @@ pub fn idlescreen_about(fs_r: &FsReadCap, proc: &ProcessCap, flag_theme: String,
             json = true;
             i = i + 1;
             continue;
+        }
+        if a == "--theme" || str_starts_with(a, "--theme=") {
+            println("idlescreen: about: --theme requires a value");
+            return 2;
         }
         if str_starts_with(a, "-") {
             println("idlescreen: about: unknown flag: " + a);

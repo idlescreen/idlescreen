@@ -1,10 +1,10 @@
 // # Preview Commands - batch and interactive scene rendering
 //
 // Logline: Render scene frames in batch mode or drive the live interactive preview with keyboard scene switching.
-// Setup: Requires FsReadCap/ProcessCap/EnvCap for config, FfiCap for terminal I/O, TimeCap for pacing, and ArenaCap for frame buffers.
+// Setup: Requires FsReadCap/ProcessCap for config, FfiCap for terminal I/O, TimeCap for pacing, and ArenaCap for frame buffers.
 // Beats:
-//   1. Parse preview arguments and resolve the active scene, wordmark, and tour mode.
-//   2. Batch mode emits N deterministic frames; interactive mode polls the terminal and steps scenes live.
+//   1. Parse preview arguments fail-closed: unknown flags, missing values, and non-digit numerics are ERR replies.
+//   2. Bound numerics (frames <= 10000, cols/rows <= 500, timeout <= 3600) and validate scene names against the roster.
 //   3. Restore terminal state and return the command exit code.
 
 import "ascii/effects.oo";
@@ -12,41 +12,39 @@ import "ascii/engine.oo";
 import "ascii/port_session.oo";
 import "ascii/layout/wordmark.oo";
 import "ascii/draw/ansi.oo";
-import "core/shell.oo";
 import "daemon/config_file.oo";
 import "daemon/config.oo";
 import "oostd/core/primitives/str_extra.oo";
 
-fn arg_num(args: List[String], flag: String, dflt: Int) -> Int {
+// Digits-only parse; -1 on other bytes, saturating before wraparound.
+fn preview_parse_uint(raw: String) -> Int {
+    if raw == "" { return -1; }
+    let mut acc: Int = 0;
     let mut i: Int = 0;
-    while i < list_len(args) - 1 {
-        if list_get(args, i) == flag {
-            let v: String = list_get(args, i + 1);
-            let mut acc: Int = 0;
-            let mut j: Int = 0;
-            while j < chars_len(v) {
-                let b: Int = byte_at(v, j);
-                if b >= 48 && b <= 57 {
-                    acc = acc * 10 + b - 48;
-                }
-                j = j + 1;
-            }
-            if acc > 0 { return acc; }
-        }
+    while i < chars_len(raw) {
+        let b: Int = byte_at(raw, i);
+        if b < 48 || b > 57 { return -1; }
+        if acc > 1000000000 { return 1000000001; }
+        acc = acc * 10 + b - 48;
         i = i + 1;
     }
-    return dflt;
+    return acc;
 }
 
-fn arg_str(args: List[String], flag: String, dflt: String) -> String {
-    let mut i: Int = 0;
-    while i < list_len(args) - 1 {
-        if list_get(args, i) == flag { return list_get(args, i + 1); }
-        i = i + 1;
+// Validate one numeric flag, printing the ERR line; 0 keeps the default.
+fn preview_need_num(raw: String, flag: String, max: Int, dflt: Int) -> Int {
+    let v: Int = preview_parse_uint(raw);
+    if v < 0 {
+        println("ERR preview: " + flag + " must be digits only, got: " + raw);
+        return -1;
     }
-    return dflt;
+    if v == 0 { return dflt; }
+    if v > max {
+        println("ERR preview: " + flag + " exceeds maximum " + max.to_string() + ", got: " + raw);
+        return -2;
+    }
+    return v;
 }
-
 fn preview_batch(ffi: &FfiCap, ar: &ArenaCap, time: &TimeCap, name: String,
     wm: String, frames: Int, dims: PvDims, tour: Bool) -> Int {
     let cols: Int = dims.cols;
@@ -88,22 +86,26 @@ fn preview_batch(ffi: &FfiCap, ar: &ArenaCap, time: &TimeCap, name: String,
     return 0;
 }
 
+// Poll one key: step keys return an index, -1 exits (q/Esc/Space), -2 ignores the byte.
 fn preview_poll_key(ffi: &FfiCap, sc: Int) -> Int {
     let s: String = match oo_tui_read_byte_timeout(ffi, "", 16) { Ok(s) => s, Err(_) => "" };
     if s == "" { return sc; }
     let b: Int = byte_at(s, 0);
     if b == 27 {
         let s2: String = match oo_tui_read_byte_timeout(ffi, "", 10) { Ok(s) => s, Err(_) => "" };
-        let s3: String = if s2 == "[" { match oo_tui_read_byte_timeout(ffi, "", 10) { Ok(s) => s, Err(_) => "" } } else { "" };
-        if s3 == "C" || s3 == "B" { return (sc + 1) % 51; }
-        if s3 == "D" || s3 == "A" { return (sc + 50) % 51; }
-        return -1;
+        if s2 == "" { return -1; }
+        if s2 == "[" {
+            let s3: String = match oo_tui_read_byte_timeout(ffi, "", 10) { Ok(s) => s, Err(_) => "" };
+            if s3 == "C" || s3 == "B" { return (sc + 1) % 51; }
+            if s3 == "D" || s3 == "A" { return (sc + 50) % 51; }
+        }
+        return -2;
     }
+    if b == 113 || b == 32 { return -1; }
     if b == 110 || b == 78 || b == 93 || b == 9 || b == 62 || b == 46 { return (sc + 1) % 51; }
     if b == 112 || b == 80 || b == 91 || b == 60 || b == 44 { return (sc + 50) % 51; }
-    return -1;
+    return -2;
 }
-
 type PvDims = struct {
     rows: Int,
     cols: Int
@@ -169,8 +171,8 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, w
         let _ = oo_tui_write(ffi, out_line);
         let _l: Int = frame_arena_leave(ar, aid);
         let nsc: Int = preview_poll_key(ffi, sc);
-        sc = if nsc >= 0 { nsc } else { sc };
-        if nsc < 0 { running = false; }
+        if nsc == -1 { running = false; }
+        else if nsc >= 0 { sc = nsc; }
         if tour && (tick % 180 == 179) { sc = (sc + 1) % 51; }
         let el: Int = now_ms(time) - ft0;
         if el < 33 && el >= 0 { sleep_ms(time, 33 - el); }
@@ -190,37 +192,59 @@ pub fn cmd_preview(fs_r:&FsReadCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap
     let mut tour: Bool = false;
     let mut has_frames: Bool = false;
     let mut name_set: Bool = false;
+    let mut frames: Int = 2;
+    let mut cols: Int = 72;
+    let mut rows: Int = 12;
+    let mut timeout_n: Int = 0;
+    let mut text_s: String = "";
     let mut i: Int = 0;
     while i < list_len(args) {
         let a: String = list_get(args, i);
         if a == "--tour" || a == "--new" { tour = true; }
-        else if a == "--frames" {
-            has_frames = true;
+        else if a == "--frames" || a == "--cols" || a == "--rows" || a == "--timeout" || a == "-t" || a == "--text" {
+            if i + 1 >= list_len(args) {
+                println("ERR preview: " + a + " requires a value");
+                return 2;
+            }
+            let v: String = list_get(args, i + 1);
+            if a == "--frames" { frames = preview_need_num(v, "--frames", 10000, 2); }
+            else if a == "--cols" { cols = preview_need_num(v, "--cols", 500, 72); }
+            else if a == "--rows" { rows = preview_need_num(v, "--rows", 500, 12); }
+            else if a == "--text" { text_s = v; }
+            else { timeout_n = preview_need_num(v, a, 3600, 0); }
+            if frames < 0 || cols < 0 || rows < 0 || timeout_n < 0 { return 2; }
+            if a == "--frames" { has_frames = true; }
             i = i + 1;
         }
-        else if a == "--cols" || a == "--rows" || a == "--timeout" || a == "-t" { i = i + 1; }
-        else if a == "--text" || a == "--mode" || a == "-m" || a == "--dwell" || a == "-d" { i = i + 1; }
-        else if !str_starts_with(a, "-") && !name_set {
+        else if str_starts_with(a, "-") {
+            println("ERR preview: unknown flag: " + a);
+            return 2;
+        }
+        else if !name_set {
             name = to_lowercase(a);
             name_set = true;
         }
+        else {
+            println("ERR preview: unexpected argument: " + a);
+            return 2;
+        }
         i = i + 1;
     }
+    let low: String = to_lowercase(name);
+    if low != "tour" && low != "ascii" && low != "superfedora" && low != "new" && !wm_known(low) && effects_index(low) < 0 {
+        println("ERR preview: unknown scene: " + name);
+        return 2;
+    }
     if name == "tour" || name == "ascii" || name == "superfedora" || name == "new" { tour = true; }
-    let txt_flag: String = arg_str(args, "--text", "");
-    let wm: String = if txt_flag != "" {
-        to_uppercase(txt_flag)
+    let wm: String = if text_s != "" {
+        to_uppercase(text_s)
     } else if name == "superfedora" {
         "SUPERFEDORA"
     } else {
         daemon_banner_text(fs_r, proc)
     };
     if has_frames {
-        let frames: Int = arg_num(args, "--frames", 2);
-        let cols: Int = arg_num(args, "--cols", 72);
-        let rows: Int = arg_num(args, "--rows", 12);
         return preview_batch(ffi, ar, time, name, wm, frames, PvDims { rows: rows, cols: cols }, tour);
     }
-    let timeout_s: Int = arg_num(args, "--timeout", arg_num(args, "-t", 0));
-    return preview_interactive(ffi, time, ar, name, wm, timeout_s, tour);
+    return preview_interactive(ffi, time, ar, name, wm, timeout_n, tour);
 }
