@@ -110,6 +110,60 @@ jobs:
           cp /tmp/ooda-toolchain/idlescreen/bin/idlescreen "$GITHUB_WORKSPACE/bin/idlescreen"
           chmod +x "$GITHUB_WORKSPACE/bin/idlescreen"
 
+      - name: Package .rpm artifact
+        if: steps.gate.outputs.build == 'yes'
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y rpm
+          v="${RELEASE_TAG#v}"
+          spec_dir="$(mktemp -d)"
+          cat > "$spec_dir/idlescreen.spec" <<EOF
+          Name:           idlescreen
+          Version:        ${v}
+          Release:        1
+          Summary:        IdleScreen screensaver daemon and idle screensaver suite
+          License:        MIT
+          BuildArch:      x86_64
+          AutoReqProv:    no
+          AutoReq:        none
+          # The runner has no elfutils and the package ships a prebuilt
+          # binary, so the debug-info split has nothing to extract.
+          %global debug_package %{nil}
+          %define __find_debuginfo /bin/true
+
+          %description
+          IdleScreen: a capability-secured ASCII idle screensaver and idle daemon suite.
+
+          %build
+
+          %install
+          mkdir -p %{buildroot}%{_bindir} %{buildroot}/usr/lib/systemd/user
+          install -m 0755 %{_sourcedir}/idlescreen %{buildroot}%{_bindir}/idlescreen
+          ln -s idlescreen %{buildroot}%{_bindir}/ooidle
+          install -m 0644 %{_sourcedir}/idlescreen.service %{buildroot}/usr/lib/systemd/user/idlescreen.service
+
+          %files
+          %{_bindir}/idlescreen
+          %{_bindir}/ooidle
+          /usr/lib/systemd/user/idlescreen.service
+
+          %changelog
+          * Fri Nov 13 2026 IdleScreen <maintainers@idlescreen.github.io> - ${v}-1
+          - Native openOODA (.oo) build.
+          EOF
+          topdir="$spec_dir/rpmbuild"
+          mkdir -p "$topdir/SOURCES"
+          cp bin/idlescreen "$topdir/SOURCES/idlescreen"
+          cp assets/idlescreen.service "$topdir/SOURCES/idlescreen.service"
+          rpmbuild --build-in-place \
+            --define "_topdir $topdir" \
+            --define "_rpmdir $spec_dir" \
+            -bb "$spec_dir/idlescreen.spec"
+          mkdir -p dist
+          mv "$spec_dir"/x86_64/*.rpm dist/
+          ls -la dist/
+
       - name: Install Cosign
         if: steps.gate.outputs.build == 'yes'
         run: |
@@ -117,11 +171,15 @@ jobs:
           chmod +x cosign
           sudo mv cosign /usr/local/bin/
 
-      - name: Sign release binary with Cosign
+      - name: Sign release artifacts with Cosign
         if: steps.gate.outputs.build == 'yes'
         run: |
           sha256sum bin/idlescreen > bin/idlescreen.sha256
           cosign sign-blob --yes --output-signature bin/idlescreen.sig --output-certificate bin/idlescreen.pem bin/idlescreen
+          shopt -s nullglob
+          for file in dist/*.rpm; do
+            cosign sign-blob --yes --output-signature "${file}.sig" --output-certificate "${file}.pem" "$file"
+          done
 
       - name: Create Release
         if: steps.gate.outputs.build == 'yes'
@@ -137,7 +195,8 @@ jobs:
           gh release create "$RELEASE_TAG" \
             --title "$RELEASE_TAG" \
             --notes "Release $RELEASE_TAG" \
-            bin/idlescreen bin/idlescreen.sha256 bin/idlescreen.sig bin/idlescreen.pem
+            bin/idlescreen bin/idlescreen.sha256 bin/idlescreen.sig bin/idlescreen.pem \
+            dist/*.rpm dist/*.rpm.sig dist/*.rpm.pem
 
       - name: Trigger Packages Repository Update
         if: steps.gate.outputs.build == 'yes'
