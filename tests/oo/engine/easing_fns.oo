@@ -1,12 +1,20 @@
 // # easing_fns — ttfx Easing port for the parity engine
 //
-// Logline: Bit-exact easing functions: all 31 named variants plus the
-// CSS cubic-bezier (Newton-Raphson on x, upstream constants). Tags follow
-// the Rust enum order 0..30; tag 31 = CubicBezier with x1,y1,x2,y2.
-// Setup: Pure. pow maps to libm pow like Rust powf.
+// Logline: Port of the 31 ttfx easing variants plus the CSS cubic-bezier
+// (Newton-Raphson on x, upstream constants). Tags follow the Rust enum order
+// 0..30; tag 31 = CubicBezier with x1,y1,x2,y2.
+// Setup: Pure. pow is the runtime's own approximation, not glibc's.
 // Beats:
 //   1. ease_val dispatches on tag like Easing::ease.
 //   2. out_bounce + bezier_ease are the shared bodies.
+//
+// The Rust reference computes pow with glibc, so this port is bit-exact
+// against it only on a libm-backed runtime. The current .oo runtime lowers
+// pow to its own exp/ln approximation, which differs from glibc in the last
+// bits; the upstream fix is for the compiler to emit llvm.pow.f64 so clang
+// calls libm (openOODA-core/oodac#3). Exponentiation is spelled
+// `pow(p, 2.0)` and not `p * p` because that is what Rust does — and glibc's
+// pow is not correctly rounded, so the two disagree on some inputs.
 
 import "tests/shade_float.oo";
 
