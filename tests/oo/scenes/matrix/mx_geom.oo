@@ -1,10 +1,10 @@
-// # mx_geom — matrix rain-column state, constants, and column grouping
-// Logline: RainColumn records, spectra, and the left-to-right column layout
-//   the rain falls through.
-// Setup: groups_of buckets chars by input column; members arrive ascending
-//   row0 and are reversed to upstream's top-to-bottom order.
-// Beats: MxCol column record, MxT tick result, mx_cols build, mx_rsyms
-//   rain alphabet, mx_rcol rain spectrum, mx_fmap final gradient map.
+// # mx_geom — matrix rain-column state, spectra, and column constructor
+// Logline: RainColumn records, the rain glyph alphabet, the rain and final
+//   colour spectra, and the final gradient map over the canvas.
+// Setup: Pure constructors and gradient maps; per-column layout (groups_of
+//   bucketing and mx_cols) lives in mx_setup.oo.
+// Beats: MxCol/MxT/MxL records, mx_rsyms alphabet, mx_rcol spectrum,
+//   mx_fspec/mx_fmap final gradient, mx_col_new constructor.
 import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/engine/gradient_map.oo";
 import "tests/oo/canvas_cells.oo";

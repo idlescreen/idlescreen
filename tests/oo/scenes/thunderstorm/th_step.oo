@@ -1,18 +1,15 @@
-// # th_step — rain/spark emission, strike progression, callback drain
+// # th_step — rain/spark emission, impact paths, and pool acquire
 //
-// Logline: Bit-exact ports of rain() (delay gate, spawn row top+1, fall
-// path to col+top+1/bottom-1), setup_sparks_for_impact (OutQuint bezier,
-// SceneComplete("glow") reclaim), step_lightning_strike (batch pop with
-// spdelay, final-char spark burst + flash activation), and the seven
-// dispatch_callback arms replayed from w.pend after eng_update.
-// Setup: Callbacks land in w.pend as (char, cbid, arg) triples during
-// update; the drain replays them in order then clears. Pool acquire pops
-// avail back; exhausted pools create via the same initializer draws.
+// Logline: Bit-exact ports of rain_pool.emit (delay gate, spawn row top+1,
+// fall path to col+top+1/bottom-1) and setup_sparks_for_impact (OutQuint
+// bezier glide, SceneComplete("glow") reclaim on finish).
+// Setup: Pool acquire pops avail back; exhausted pools create via the same
+// initializer draws replayed in spawn order. Empty symbol lists return
+// the state unchanged instead of drawing from nothing.
 // Beats:
 //   1. th_rain/th_rain_emit mirror rain_pool.emit per spawn.
 //   2. th_spark_emit/th_spark_impact mirror spark emit + on_emit.
-//   3. th_strike_step mirrors step_lightning_strike batching.
-//   4. th_drain dispatches CB_* in pend order.
+//   3. Exhausted pools create through the initializer draws in order.
 
 import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/kernel/engine_ops.oo";
@@ -25,14 +22,6 @@ import "tests/oo/engine/rng_helpers.oo";
 import "tests/oo/gradient_spectrum.oo";
 import "tests/oo/canvas_cells.oo";
 import "tests/oo/scenes/thunderstorm/th_state.oo";
-
-fn ths(s: ThS, w: World) -> ThS {
-    let _r0 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
-        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
-        act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
-        branch: s.branch, sstart: s.sstart, frames: s.frames };
-    return _r0;
-}
 
 fn th_rain_emit(s: ThS, oc: Int, orow: Int, info: CanvasInfo) -> ThS {
     let p: ThPool = s.rain;
@@ -47,6 +36,8 @@ fn th_rain_emit(s: ThS, oc: Int, orow: Int, info: CanvasInfo) -> ThS {
             spark: s.spark, pend: s.pend, avail_s: s.avail_s, act_s: s.act_s,
             glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
             sstart: s.sstart, frames: s.frames };
+    } else if list_len(p.syms) == 0 {
+        return s;
     } else {
         let d: DR = rng_pick(s.w.rng, list_len(p.syms));
         let mut w: World = w_add_char(w_rng(s.w, d.r), list_get(p.syms, d.v), 0, 0);
@@ -144,6 +135,7 @@ pub fn th_spark_emit(s: ThS, oid: Int, info: CanvasInfo) -> ThS {
             sstart: s.sstart, frames: s.frames };
     } else {
         if p.max >= 0 && p.nparts >= p.max { return s; }
+        if list_len(p.syms) == 0 { return s; }
         let d: DR = rng_pick(s.w.rng, list_len(p.syms));
         let mut w: World = w_add_char(w_rng(s.w, d.r), list_get(p.syms, d.v), 0, 0);
         id = list_len(w.chars) - 1;

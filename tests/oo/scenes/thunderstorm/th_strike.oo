@@ -27,14 +27,6 @@ import "tests/oo/canvas_cells.oo";
 import "tests/oo/scenes/thunderstorm/th_state.oo";
 import "tests/oo/scenes/thunderstorm/th_build.oo";
 
-fn ths(s: ThS, w: World) -> ThS {
-    let _r0 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
-        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
-        act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
-        branch: s.branch, sstart: s.sstart, frames: s.frames };
-    return _r0;
-}
-
 fn ths_b(s: ThS, w: World, b: Float) -> ThS {
     let _r0 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
         rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,

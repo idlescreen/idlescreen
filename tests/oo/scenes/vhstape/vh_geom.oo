@@ -3,8 +3,8 @@
 //   before activation.
 // Setup: Lines are rows bottom-to-top over input chars; wave/glitch lists
 //   hold row indices; wave_top = -1 is upstream None.
-// Beats: VhS, vh_lcols/vh_wcols/vh_ncols/vh_snow palettes, vh_pset,
-//   vh_pspeed, vh_phold.
+// Beats: VhS, vh_lcols/vh_ncols/vh_snch palettes, vh_fspec gradient,
+//   vh_path, vh_pspeed, vh_phold setters.
 import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/engapi/char_groups.oo";
 import "tests/oo/engine/gradient_map.oo";

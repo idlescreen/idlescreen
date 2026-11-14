@@ -1,13 +1,13 @@
-// # rg_step — rings phase machine and digest driver
+// # rg_step — rings phase machine and per-ring transitions
 //
 // Logline: Ports next_frame: Start hold, initial disperse, spin/disperse
-// cycles, Final home-path release, then Complete; the driver emits one digest
-// per tick including the Complete transition frame.
+// cycles, Final home-path release, then Complete.
 // Setup: Flat RgS state; helpers rebuild RgS with a new World.
 // Beats:
-//   1. rg_idisperse runs the one-shot initial disperse for all ring chars.
+//   1. rg_idisp runs the one-shot initial disperse for all ring chars.
 //   2. rg_spin_all / rg_disp_all run the per-ring cycle transitions.
-//   3. rings_run ticks until phase Complete, digesting each rendered frame.
+//   3. rg_step/rg_step_hi/rg_step_top tick Start/Disperse/Spin/Final;
+//      rg_final releases the home paths.
 
 import "tests/oo/kernel/world_ops.oo";
 import "tests/oo/kernel/path_ops.oo";

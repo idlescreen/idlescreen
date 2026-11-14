@@ -28,14 +28,6 @@ import "tests/oo/scenes/thunderstorm/th_step.oo";
 import "tests/oo/scenes/thunderstorm/th_phase.oo";
 import "tests/digest_run.oo";
 
-fn ths(s: ThS, w: World) -> ThS {
-    let _r0 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
-        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
-        act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
-        branch: s.branch, sstart: s.sstart, frames: s.frames };
-    return _r0;
-}
-
 fn th_text_ids(w: World, info: CanvasInfo) -> List[Int] {
     let _r1 = sort_ids(w, collect_ids(w, 1), info.cols, info.rows, 0);
     return _r1;

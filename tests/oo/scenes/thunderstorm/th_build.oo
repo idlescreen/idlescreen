@@ -152,7 +152,10 @@ pub fn th_build(info: CanvasInfo, lines: List[String]) -> ThS {
         pend: s.pend, avail_s: s.avail_s, act_s: s.act_s, glow_p: s.glow_p,
         sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
         sstart: s.sstart, frames: s.frames };
-    let w2: World = th_ref_event(s.w, list_get(ids, 0));
+    let mut w2: World = s.w;
+    if list_len(ids) > 0 {
+        w2 = th_ref_event(s.w, list_get(ids, 0));
+    }
     let _r5 = ThS { w: w2, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
         rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
         act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,

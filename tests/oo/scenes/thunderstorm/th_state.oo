@@ -79,15 +79,6 @@ pub fn th_clear_ce(ch: Char) -> Char {
     return _r4;
 }
 
-fn th_deact(ch: Char) -> Char {
-    let _r5 = Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
-        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
-        v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
-        a_scene: 0 - 1, sids: ch.sids, scenes: ch.scenes,
-        a_path: 0 - 1, done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs };
-    return _r5;
-}
-
 pub fn th_reset_p(ch: Char) -> Char {
     let ep: List[String] = list_new();
     let epa: List[Path] = list_new();
@@ -102,7 +93,12 @@ pub fn th_reset_p(ch: Char) -> Char {
 
 pub fn th_reclaim(s: ThS, i: Int, which: Int) -> ThS {
     let mut w: World = w_set_vis(s.w, i, 0);
-    w = w_put(w, i, th_deact(list_get(w.chars, i)));
+    let ch: Char = list_get(w.chars, i);
+    w = w_put(w, i, Char { sym: ch.sym, col0: ch.col0, row0: ch.row0, fill: ch.fill,
+        uses_pre: ch.uses_pre, vis: ch.vis, layer: ch.layer, cc: ch.cc, cr: ch.cr, pc: ch.pc, pr: ch.pr,
+        v_ord: ch.v_ord, v_fg: ch.v_fg, v_bg: ch.v_bg, v_bold: ch.v_bold,
+        a_scene: 0 - 1, sids: ch.sids, scenes: ch.scenes,
+        a_path: 0 - 1, done_path: ch.done_path, pids: ch.pids, paths: ch.paths, evs: ch.evs });
     w = th_adel(w, i);
     let mut syms: List[Int] = list_new();
     let mut av: List[Int] = list_new();
@@ -140,4 +136,12 @@ pub fn th_reclaim(s: ThS, i: Int, which: Int) -> ThS {
         glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog, branch: s.branch,
         sstart: s.sstart, frames: s.frames };
     return _r7;
+}
+
+pub fn ths(s: ThS, w: World) -> ThS {
+    let _r0 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
+        rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
+        act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,
+        branch: s.branch, sstart: s.sstart, frames: s.frames };
+    return _r0;
 }

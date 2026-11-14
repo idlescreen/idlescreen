@@ -1,9 +1,9 @@
-// # vh_step — vhstape next_frame: glitch wave, glitch lines, noise, redraw
+// # vh_step — vhstape next_frame: glitch wave, stray lines, noise, wind-down
 // Logline: One frame of the VHS tape effect — wave band slides, stray lines
-//   glitch, noise snows the canvas, then lines redraw to stable colors.
+//   glitch, noise snows the canvas, then the 90-step wind-down restores all.
 // Setup: Draw order mirrors vhstape_build.rs; the wave only rolls its two
 //   floats while populated; steps >= 90 restores everything.
-// Beats: vh_wave, vh_glitching, vh_noise, vh_redraw, vh_frame.
+// Beats: vh_has, vh_wave, vh_wave_move, vh_glitching, vh_wind.
 import "tests/oo/scenes/vhstape/vh_sim.oo";
 import "tests/oo/engine/float_conv.oo";
 import "tests/oo/engine/rng_xoshiro.oo";
@@ -136,7 +136,7 @@ pub fn vh_glitching(s: VhS, info: CanvasInfo) -> VhS {
     let mut w: World = t.w;
     let f1: DRF = rng_random(w.rng);
     w = w_rng(w, f1.r);
-    if f1.v < 0.22 && list_len(gl) < 3 {
+    if f1.v < 0.22 && list_len(gl) < 3 && list_len(t.g.keys) > 0 {
         let d1: DR = rng_pick(w.rng, list_len(t.g.keys));
         w = w_rng(w, d1.r);
         if vh_has(t.wave, d1.v) == 0 && vh_has(gl, d1.v) == 0 {

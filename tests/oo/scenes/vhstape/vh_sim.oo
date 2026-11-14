@@ -1,11 +1,10 @@
-// # vh_sim — Line ops: snow, hold, glitch, restore, movement checks, wave
-// Logline: Line-level helpers plus the glitch_wave state machine that slides
-//   a three-row band across the canvas.
+// # vh_sim — Line ops: snow, hold, glitch, restore, movement checks, insert
+// Logline: Line-level helpers — scene and speed surgery per char, plus the
+//   movement-done check and the active-set insert the wave driver uses.
 // Setup: Draw order mirrors vhstape_sim.rs — speed rolls happen per char
-//   before the path activates; the wave's two floats only roll when a wave
-//   is live.
+//   before the path activates; the glitch_wave band driver lives in vh_step.oo.
 // Beats: vh_line_act, vh_snow, vh_hold, vh_glitch, vh_restore, vh_mdone,
-//   vh_insert, vh_wave.
+//   vh_insert.
 import "tests/oo/scenes/vhstape/vh_geom.oo";
 import "tests/oo/kernel/engine_core.oo";
 import "tests/oo/engapi/char_ops.oo";
